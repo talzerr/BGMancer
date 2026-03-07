@@ -149,6 +149,9 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
   // Only found tracks are playable; map their position in the full list
   const foundTracks = tracks.filter((t) => t.status === "found");
 
+  // Which game is currently playing (for sidebar visual mapping)
+  const activeGameId = currentTrackIndex !== null ? foundTracks[currentTrackIndex]?.game_id ?? null : null;
+
 
   return (
     <>
@@ -223,6 +226,7 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
                 <GameCard
                   key={game.id}
                   game={game}
+                  isActive={game.id === activeGameId}
                   onToggleFullOST={handleToggleFullOST}
                   onDelete={handleDeleteGame}
                 />
@@ -305,28 +309,40 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
 
         {/* Stats row */}
         {tracks.length > 0 && (
-          <div className="flex items-center gap-3 text-xs">
-            <span className="text-zinc-500">
-              <span className="font-semibold text-zinc-300">{tracks.length}</span> tracks
-            </span>
-            <span className="text-zinc-700">·</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-white tabular-nums">{tracks.length}</span>
+            <span className="text-xs text-zinc-500">tracks</span>
             {foundCount > 0 && (
-              <span className="flex items-center gap-1 text-zinc-500">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
-                <span className="font-semibold text-emerald-400">{foundCount}</span> found
-              </span>
+              <>
+                <span className="text-zinc-700 text-xs">·</span>
+                <span className="flex items-center gap-1.5 text-xs">
+                  <svg className="w-3 h-3 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  <span className="font-semibold text-emerald-400 tabular-nums">{foundCount}</span>
+                  <span className="text-zinc-500">ready to play</span>
+                </span>
+              </>
             )}
             {pendingCount > 0 && (
-              <span className="flex items-center gap-1 text-zinc-500">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
-                <span className="font-semibold text-amber-400">{pendingCount}</span> pending
-              </span>
+              <>
+                <span className="text-zinc-700 text-xs">·</span>
+                <span className="flex items-center gap-1 text-xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                  <span className="font-semibold text-amber-400 tabular-nums">{pendingCount}</span>
+                  <span className="text-zinc-500">pending</span>
+                </span>
+              </>
             )}
             {errorCount > 0 && (
-              <span className="flex items-center gap-1 text-zinc-500">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" />
-                <span className="font-semibold text-red-400">{errorCount}</span> error{errorCount !== 1 ? "s" : ""}
-              </span>
+              <>
+                <span className="text-zinc-700 text-xs">·</span>
+                <span className="flex items-center gap-1 text-xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+                  <span className="font-semibold text-red-400 tabular-nums">{errorCount}</span>
+                  <span className="text-zinc-500">error{errorCount !== 1 ? "s" : ""}</span>
+                </span>
+              </>
             )}
           </div>
         )}

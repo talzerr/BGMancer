@@ -6,6 +6,7 @@ import { VIBE_LABELS } from "@/types";
 
 interface GameCardProps {
   game: Game;
+  isActive?: boolean;
   onToggleFullOST: (gameId: string, value: boolean) => void;
   onDelete: (gameId: string) => void;
 }
@@ -30,41 +31,61 @@ const DEFAULT_VIBE_STYLE = {
   dot: "bg-zinc-500",
 };
 
-export function GameCard({ game, onToggleFullOST, onDelete }: GameCardProps) {
+export function GameCard({ game, isActive = false, onToggleFullOST, onDelete }: GameCardProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const vibeStyle = VIBE_STYLES[game.vibe_preference] ?? DEFAULT_VIBE_STYLE;
 
   return (
-    <div className="group flex items-center gap-3 rounded-xl bg-zinc-900/60 border border-white/[0.05] px-3.5 py-3 hover:border-white/[0.10] transition-all duration-150">
-      {/* Vibe indicator dot */}
-      <div className={`shrink-0 w-1.5 h-1.5 rounded-full mt-0.5 ${vibeStyle.dot}`} />
+    <div
+      className={`group flex items-center gap-3 rounded-xl border px-3.5 py-2.5 transition-all duration-300 ${
+        isActive
+          ? "bg-violet-950/40 border-violet-600/50 shadow-sm shadow-violet-900/20"
+          : "bg-zinc-900/60 border-white/[0.05] hover:border-white/[0.10]"
+      }`}
+    >
+      {/* Vibe dot — pulses when this game's track is playing */}
+      <div className="relative shrink-0 flex items-center justify-center w-3 h-3">
+        <div className={`w-1.5 h-1.5 rounded-full ${vibeStyle.dot}`} />
+        {isActive && (
+          <div className={`absolute inset-0 rounded-full ${vibeStyle.dot} opacity-40 animate-ping`} />
+        )}
+      </div>
 
       {/* Game info */}
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-zinc-100 truncate text-sm leading-tight">{game.title}</p>
-        <span className={`inline-block mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border leading-none ${vibeStyle.badge}`}>
-          {VIBE_LABELS[game.vibe_preference] ?? game.vibe_preference}
-        </span>
+        <p className={`font-medium truncate text-sm leading-tight transition-colors ${isActive ? "text-white" : "text-zinc-100"}`}>
+          {game.title}
+        </p>
+        <div className="flex items-center gap-1.5 mt-1">
+          <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full border leading-none ${vibeStyle.badge}`}>
+            {VIBE_LABELS[game.vibe_preference] ?? game.vibe_preference}
+          </span>
+          {game.allow_full_ost && (
+            <span className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full border leading-none bg-zinc-700/50 text-zinc-400 border-zinc-600/30">
+              Full OST
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Full OST toggle */}
-      <div className="flex items-center gap-2 shrink-0">
-        <span className="text-[11px] text-zinc-600 hidden sm:inline">Full OST</span>
-        <button
-          role="switch"
-          aria-checked={game.allow_full_ost}
-          onClick={() => onToggleFullOST(game.id, !game.allow_full_ost)}
-          className={`relative inline-flex h-5 w-9 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
-            game.allow_full_ost ? "bg-violet-600" : "bg-zinc-700"
-          }`}
-        >
-          <span
-            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-              game.allow_full_ost ? "translate-x-4" : "translate-x-0"
-            }`}
-          />
-        </button>
-      </div>
+      {/* Full OST icon toggle — compact, labelled on hover */}
+      <button
+        role="switch"
+        aria-checked={game.allow_full_ost}
+        onClick={() => onToggleFullOST(game.id, !game.allow_full_ost)}
+        title={game.allow_full_ost ? "Full OST: on (find one compilation)" : "Full OST: off (individual tracks)"}
+        className={`shrink-0 p-1.5 rounded-lg transition-all cursor-pointer ${
+          game.allow_full_ost
+            ? "text-violet-400 bg-violet-500/15 border border-violet-500/20"
+            : "text-zinc-600 hover:text-zinc-400 bg-transparent border border-transparent hover:border-white/[0.06]"
+        }`}
+      >
+        {/* "Film / compilation" icon */}
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+        </svg>
+      </button>
 
       {/* Delete */}
       {confirmDelete ? (

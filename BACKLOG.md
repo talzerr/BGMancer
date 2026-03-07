@@ -16,6 +16,10 @@
 - **Vibe balancing** — automatically alternate between high-energy and chill tracks
 - **Stale video detection** — skip deleted or unavailable videos before syncing
 
+## Smart Empty State
+
+- **Vibe preset one-click seeds** — when no playlist exists, show 3–4 curated preset buttons ("Soulsborne Boss Rush", "JRPG Ambience", "Cosy Exploration") that auto-populate the game library and trigger Generate in one click. The fastest path to the "magic moment" for first-time users.
+
 ## Seeds (Shareable Playlists)
 
 A **seed** is a compact, versioned string that encodes a full game library config (titles + vibe + Full OST flags). Anyone with a seed can paste it in and instantly recreate the same setup and hit Generate.
@@ -31,6 +35,7 @@ Seed format: `BGM1-<base64url(json)>` — versioned prefix so the schema can evo
 ```
 
 Sub-features:
+
 - **Export seed** — copy seed string to clipboard from current library (single button in Game Library panel)
 - **Import seed** — paste a seed string to replace or merge into the current library, then hit Generate
 - **Share URL** — `?seed=...` query param that auto-imports on load (no sign-in needed, fully shareable link)
