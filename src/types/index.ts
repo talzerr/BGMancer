@@ -9,19 +9,13 @@ export const VIBE_LABELS: Record<VibePreference, string> = {
   ambient_exploration: "Ambient & Exploration",
 };
 
-export type GameStatus = "pending" | "searching" | "found" | "synced" | "error";
+// ─── Game library ─────────────────────────────────────────────────────────────
 
 export interface Game {
   id: string;
   title: string;
   vibe_preference: VibePreference;
-  current_video_id: string | null;
-  video_title: string | null;
-  channel_title: string | null;
-  video_thumbnail: string | null;
-  search_queries: string[] | null;
-  status: GameStatus;
-  error_message: string | null;
+  allow_full_ost: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -29,16 +23,37 @@ export interface Game {
 export interface AddGamePayload {
   title: string;
   vibe_preference: VibePreference;
+  allow_full_ost?: boolean;
 }
 
-export interface CuratorResult {
+// ─── Playlist ─────────────────────────────────────────────────────────────────
+
+export type TrackStatus = "pending" | "searching" | "found" | "error";
+
+export interface PlaylistTrack {
+  id: string;
   game_id: string;
-  search_queries: string[];
-  video_id: string;
-  video_title: string;
-  channel_title: string;
-  video_thumbnail: string;
+  game_title?: string;        // populated via JOIN in API responses
+  track_name: string | null;  // null for full-OST compilation slots
+  video_id: string | null;
+  video_title: string | null;
+  channel_title: string | null;
+  thumbnail: string | null;
+  search_queries: string[] | null;
+  position: number;
+  status: TrackStatus;
+  error_message: string | null;
+  created_at: string;
 }
+
+// ─── Config ───────────────────────────────────────────────────────────────────
+
+export interface AppConfig {
+  target_track_count: number;
+  youtube_playlist_id: string;
+}
+
+// ─── YouTube ──────────────────────────────────────────────────────────────────
 
 export interface YouTubeSearchResult {
   videoId: string;

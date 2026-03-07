@@ -140,6 +140,106 @@ export async function findBestVideo(
   return null;
 }
 
+// ─── OST playlist discovery (read-only, uses API key) ────────────────────────
+
+export interface OSTTrack {
+  videoId: string;
+  title: string;
+  channelTitle: string;
+  thumbnail: string;
+}
+
+/**
+ * Search YouTube for a game's official OST playlist.
+ * Tries progressively broader queries and returns the best playlist ID found.
+ */
+export async function searchOSTPlaylist(
+  gameTitle: string
+): Promise<string | null> {
+  const apiKey = process.env.YOUTUBE_API_KEY!;
+  const queries = [
+    `${gameTitle} original soundtrack official playlist`,
+    `${gameTitle} OST full playlist`,
+    `${gameTitle} complete soundtrack playlist`,
+  ];
+
+  const gameTitleWords = gameTitle
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length > 2);
+
+  for (const query of queries) {
+    const url = new URL(`${YOUTUBE_API_BASE}/search`);
+    url.searchParams.set("key", apiKey);
+    url.searchParams.set("q", query);
+    url.searchParams.set("part", "snippet");
+    url.searchParams.set("type", "playlist");
+    url.searchParams.set("maxResults", "10");
+
+    const res = await fetch(url.toString());
+    if (!res.ok) continue;
+
+    const data = await res.json();
+    const items: Array<{
+      id: { playlistId: string };
+      snippet: { title: string; channelTitle: string };
+    }> = data.items ?? [];
+
+    if (items.length === 0) continue;
+
+    // Prefer playlists whose title contains at least one game title word
+    const match = items.find((item) => {
+      const haystack = item.snippet.title.toLowerCase();
+      return gameTitleWords.some((w) => haystack.includes(w));
+    });
+
+    const chosen = match ?? items[0];
+    if (chosen?.id?.playlistId) return chosen.id.playlistId;
+  }
+
+  return null;
+}
+
+/**
+ * Fetch up to 50 tracks from a YouTube playlist.
+ * Uses playlistItems.list (1 quota unit).
+ */
+export async function fetchPlaylistItems(
+  playlistId: string
+): Promise<OSTTrack[]> {
+  const apiKey = process.env.YOUTUBE_API_KEY!;
+  const url = new URL(`${YOUTUBE_API_BASE}/playlistItems`);
+  url.searchParams.set("key", apiKey);
+  url.searchParams.set("playlistId", playlistId);
+  url.searchParams.set("part", "snippet");
+  url.searchParams.set("maxResults", "50");
+
+  const res = await fetch(url.toString());
+  if (!res.ok) return [];
+
+  const data = await res.json();
+  return (data.items ?? [])
+    .map(
+      (item: {
+        snippet: {
+          resourceId?: { videoId?: string };
+          title: string;
+          videoOwnerChannelTitle?: string;
+          thumbnails?: { medium?: { url: string }; default?: { url: string } };
+        };
+      }) => ({
+        videoId: item.snippet.resourceId?.videoId ?? "",
+        title: item.snippet.title,
+        channelTitle: item.snippet.videoOwnerChannelTitle ?? "",
+        thumbnail:
+          item.snippet.thumbnails?.medium?.url ??
+          item.snippet.thumbnails?.default?.url ??
+          "",
+      })
+    )
+    .filter((t: OSTTrack) => t.videoId && t.title !== "Deleted video" && t.title !== "Private video");
+}
+
 // ─── Playlist helpers (require user OAuth token) ──────────────────────────────
 
 interface PlaylistItem {

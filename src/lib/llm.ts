@@ -1,49 +1,46 @@
 import type { VibePreference } from "@/types";
+import type { OSTTrack } from "@/lib/youtube";
 
 const OLLAMA_HOST = process.env.OLLAMA_HOST ?? "http://localhost:11434";
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "llama3.2";
 
-const SYSTEM_INSTRUCTION = `You are a Video Game Music Archivist — a deep expert in video game OSTs across every era and genre.
+const VIBE_CONTEXT: Record<VibePreference, string> = {
+  official_soundtrack: "the most iconic and memorable tracks overall",
+  boss_themes: "intense boss battle and combat themes",
+  ambient_exploration: "calm, atmospheric exploration and world music",
+};
 
-You understand nuance: the orchestral grandeur of FromSoftware titles, the acid jazz sophistication of the Persona series, the chiptune minimalism of indie darlings, the sweeping cinematic scores of AAA JRPGs, and the pulse-pounding electronic energy of fast-action games.
-
-Your job is to generate YouTube search queries that will surface the highest-quality, most complete, official OST compilation videos available on YouTube.
-
-Rules you must follow:
-1. Always target OFFICIAL soundtracks from the game's developer or publisher when possible.
-2. Prefer long-form compilations (full OST, complete soundtrack) over single tracks — unless the vibe is "boss_themes" or "ambient_exploration" which may warrant focused playlists.
-3. Never suggest queries that would surface: covers, remixes, fan-made arrangements, piano/jazz arrangements, reactions, or reviews.
-4. Think about the typical naming conventions used by official YouTube channels (e.g., "Full OST", "Complete Soundtrack", "Official Soundtrack").
-5. When generating queries for "boss_themes", focus on terms like "boss battle music", "boss themes compilation", "combat OST".
-6. When generating queries for "ambient_exploration", focus on terms like "exploration music", "ambient OST", "world themes", "field music compilation".
-
-Output format: Return ONLY a valid JSON array of exactly 3 strings. No explanation, no markdown, no code blocks. Example:
-["query one", "query two", "query three"]`;
-
-export interface LLMQueryResult {
-  queries: string[];
-  allowShortVideo: boolean;
-}
-
-export async function generateSearchQueries(
+/**
+ * Given a real list of tracks fetched from YouTube, ask the LLM to pick
+ * the N best ones matching the vibe. Returns 0-based indices into the list.
+ *
+ * Because the track list is grounded in real YouTube data, the LLM cannot
+ * hallucinate — it can only select from what exists.
+ */
+export async function selectTracksFromList(
   gameTitle: string,
-  vibe: VibePreference
-): Promise<LLMQueryResult> {
-  const vibeContext: Record<VibePreference, string> = {
-    official_soundtrack:
-      "the complete, official game soundtrack — full OST compilation, all tracks",
-    boss_themes:
-      "boss battle music and combat themes — intense, memorable boss fight tracks",
-    ambient_exploration:
-      "ambient and exploration music — calm, atmospheric world-building tracks",
-  };
+  vibe: VibePreference,
+  tracks: OSTTrack[],
+  count: number
+): Promise<number[]> {
+  const numbered = tracks
+    .map((t, i) => `${i + 1}. ${t.title}`)
+    .join("\n");
+
+  const systemPrompt = `You are a Video Game Music Archivist with deep knowledge of game OSTs.
+Your only job is to select the best tracks from a provided list — you must NOT invent or suggest tracks outside the list.
+Output format: Return ONLY a valid JSON array of integers (1-indexed track numbers). No explanation, no markdown.
+Example: [3, 7, 12]`;
 
   const userPrompt = `Game: "${gameTitle}"
-Vibe: ${vibeContext[vibe]}
+Vibe: ${VIBE_CONTEXT[vibe]}
 
-Generate 3 distinct YouTube search queries to find the best video for this game and vibe. Make them progressively more specific — start broad (full OST), then add year/platform hints, then try the developer's official channel style.
+Here are the actual tracks available from the "${gameTitle}" soundtrack on YouTube:
+${numbered}
 
-Return ONLY a JSON array of 3 strings, nothing else.`;
+Select the ${count} tracks that best represent "${VIBE_CONTEXT[vibe]}".
+Only use numbers from the list above (1 to ${tracks.length}).
+Return ONLY a JSON array of ${count} integers.`;
 
   const res = await fetch(`${OLLAMA_HOST}/api/chat`, {
     method: "POST",
@@ -52,10 +49,10 @@ Return ONLY a JSON array of 3 strings, nothing else.`;
       model: OLLAMA_MODEL,
       stream: false,
       messages: [
-        { role: "system", content: SYSTEM_INSTRUCTION },
+        { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      options: { temperature: 0.4 },
+      options: { temperature: 0.3 },
     }),
   });
 
@@ -67,23 +64,67 @@ Return ONLY a JSON array of 3 strings, nothing else.`;
   const data = await res.json();
   const raw: string = data?.message?.content?.trim() ?? "[]";
 
-  let queries: string[];
   try {
     const cleaned = raw.replace(/^```json?\n?/, "").replace(/\n?```$/, "");
-    queries = JSON.parse(cleaned);
-    if (!Array.isArray(queries) || queries.length === 0) {
-      throw new Error("Invalid response shape");
+    const parsed: unknown[] = JSON.parse(cleaned);
+    if (!Array.isArray(parsed)) throw new Error("Not an array");
+
+    // Convert 1-indexed to 0-indexed, clamp to valid range, deduplicate
+    const seen = new Set<number>();
+    const indices: number[] = [];
+    for (const v of parsed) {
+      const idx = Number(v) - 1;
+      if (Number.isInteger(idx) && idx >= 0 && idx < tracks.length && !seen.has(idx)) {
+        seen.add(idx);
+        indices.push(idx);
+        if (indices.length >= count) break;
+      }
     }
-    queries = queries.slice(0, 3).map(String);
+
+    // If LLM didn't give enough, fill from the beginning
+    if (indices.length < count) {
+      for (let i = 0; i < tracks.length && indices.length < count; i++) {
+        if (!seen.has(i)) {
+          seen.add(i);
+          indices.push(i);
+        }
+      }
+    }
+
+    return indices.slice(0, count);
   } catch {
-    // Fallback: craft basic queries from the title
-    queries = [
+    // Fallback: evenly spaced picks across the list
+    const step = Math.max(1, Math.floor(tracks.length / count));
+    return Array.from({ length: count }, (_, i) =>
+      Math.min(i * step, tracks.length - 1)
+    );
+  }
+}
+
+/**
+ * Generate compilation search queries for a full-OST game slot.
+ * No LLM call — purely deterministic based on title + vibe.
+ */
+export function compilationQueries(
+  gameTitle: string,
+  vibe: VibePreference
+): string[] {
+  const vibeQueries: Record<VibePreference, string[]> = {
+    official_soundtrack: [
       `${gameTitle} full OST official soundtrack`,
       `${gameTitle} complete official soundtrack`,
       `${gameTitle} original game soundtrack`,
-    ];
-  }
-
-  const allowShortVideo = vibe === "boss_themes";
-  return { queries, allowShortVideo };
+    ],
+    boss_themes: [
+      `${gameTitle} boss battle music compilation`,
+      `${gameTitle} boss themes full collection`,
+      `${gameTitle} combat OST complete`,
+    ],
+    ambient_exploration: [
+      `${gameTitle} ambient exploration music compilation`,
+      `${gameTitle} exploration OST full collection`,
+      `${gameTitle} world themes ambient soundtrack`,
+    ],
+  };
+  return vibeQueries[vibe];
 }

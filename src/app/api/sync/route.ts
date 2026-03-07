@@ -21,14 +21,17 @@ export async function POST() {
     const accessToken = session.access_token;
     const db = getPool();
 
-    // Fetch all games that have a video (found or already synced)
-    const [rows] = await db.query<RowDataPacket[]>(
-      "SELECT id, title, current_video_id, status FROM games WHERE status IN ('found', 'synced') AND current_video_id IS NOT NULL"
-    );
+    // Load all found tracks ordered by position
+    const [trackRows] = await db.query<RowDataPacket[]>(`
+      SELECT id, video_id, position
+      FROM playlist_tracks
+      WHERE status = 'found' AND video_id IS NOT NULL
+      ORDER BY position ASC
+    `);
 
-    if (!rows.length) {
+    if (trackRows.length === 0) {
       return NextResponse.json({
-        message: "No games with videos ready to sync.",
+        message: "No tracks with videos ready to sync. Run 'Find Videos' first.",
         synced: 0,
         playlist_id: null,
       });
@@ -40,34 +43,29 @@ export async function POST() {
       playlistId = await createBGMancerPlaylist(accessToken);
     }
 
-    // Only push games not yet synced
-    const toSync = rows.filter((g) => g.status === "found");
-    const syncedIds: string[] = [];
-    const errors: Array<{ game_id: string; error: string }> = [];
+    // Save playlist ID to config for future reference
+    await db.query<ResultSetHeader>(
+      "INSERT INTO config (`key`, value) VALUES ('youtube_playlist_id', ?) ON DUPLICATE KEY UPDATE value = ?",
+      [playlistId, playlistId]
+    );
 
-    for (const game of toSync) {
+    const syncedIds: string[] = [];
+    const errors: Array<{ track_id: string; error: string }> = [];
+
+    for (const track of trackRows) {
       try {
-        await addVideoToPlaylist(accessToken, playlistId, game.current_video_id as string);
-        syncedIds.push(game.id as string);
+        await addVideoToPlaylist(accessToken, playlistId, track.video_id as string);
+        syncedIds.push(track.id as string);
       } catch (err) {
         errors.push({
-          game_id: game.id as string,
+          track_id: track.id as string,
           error: err instanceof Error ? err.message : String(err),
         });
       }
     }
 
-    // Mark synced games in DB
-    if (syncedIds.length > 0) {
-      const placeholders = syncedIds.map(() => "?").join(", ");
-      await db.query<ResultSetHeader>(
-        `UPDATE games SET status = 'synced' WHERE id IN (${placeholders})`,
-        syncedIds
-      );
-    }
-
     return NextResponse.json({
-      message: `Synced ${syncedIds.length} game(s) to "BGMancer Journey".`,
+      message: `Synced ${syncedIds.length} track(s) to "BGMancer Journey".`,
       synced: syncedIds.length,
       errors: errors.length > 0 ? errors : undefined,
       playlist_id: playlistId,
