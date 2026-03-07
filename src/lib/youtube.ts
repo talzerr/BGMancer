@@ -2,6 +2,33 @@ import type { YouTubeSearchResult } from "@/types";
 
 const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
 
+if (!process.env.YOUTUBE_API_KEY) {
+  console.warn("[YouTube] WARNING: YOUTUBE_API_KEY is not set — all API calls will return 403 Forbidden");
+}
+
+/** Thrown when the YouTube Data API quota is exceeded — callers should abort immediately */
+export class YouTubeQuotaError extends Error {
+  constructor() {
+    super("YouTube API quota exceeded. The free quota resets at midnight Pacific Time (PT). Try again tomorrow or create a new API key at console.cloud.google.com.");
+    this.name = "YouTubeQuotaError";
+  }
+}
+
+/** Parse a YouTube error response body and throw YouTubeQuotaError if applicable */
+async function throwIfQuotaError(res: Response): Promise<void> {
+  const body = await res.text().catch(() => "");
+  console.error(`[YouTube] ${res.url.split("?")[0]} failed — ${res.status} ${res.statusText}`);
+  try {
+    const parsed = JSON.parse(body);
+    const reason = parsed?.error?.errors?.[0]?.reason;
+    console.error(`[YouTube] reason: ${reason ?? "unknown"}`);
+    if (reason === "quotaExceeded") throw new YouTubeQuotaError();
+  } catch (e) {
+    if (e instanceof YouTubeQuotaError) throw e;
+  }
+  console.error(`[YouTube] response body: ${body}`);
+}
+
 const REJECT_KEYWORDS = [
   "cover",
   "covers",
@@ -62,9 +89,9 @@ export async function searchYouTube(
 
   const searchRes = await fetch(searchUrl.toString());
   if (!searchRes.ok) {
-    throw new Error(
-      `YouTube search failed: ${searchRes.status} ${searchRes.statusText}`
-    );
+    console.error(`[YouTube] search.list — query: "${query}"`);
+    await throwIfQuotaError(searchRes);
+    throw new Error(`YouTube search failed: ${searchRes.status} ${searchRes.statusText}`);
   }
 
   const searchData = await searchRes.json();
@@ -89,9 +116,8 @@ export async function searchYouTube(
 
   const videosRes = await fetch(videosUrl.toString());
   if (!videosRes.ok) {
-    throw new Error(
-      `YouTube videos.list failed: ${videosRes.status} ${videosRes.statusText}`
-    );
+    await throwIfQuotaError(videosRes);
+    throw new Error(`YouTube videos.list failed: ${videosRes.status} ${videosRes.statusText}`);
   }
 
   const videosData = await videosRes.json();
@@ -177,7 +203,11 @@ export async function searchOSTPlaylist(
     url.searchParams.set("maxResults", "10");
 
     const res = await fetch(url.toString());
-    if (!res.ok) continue;
+    if (!res.ok) {
+      console.error(`[YouTube] searchOSTPlaylist — query: "${query}"`);
+      await throwIfQuotaError(res); // throws YouTubeQuotaError — propagates up immediately
+      continue; // non-quota error: try next query
+    }
 
     const data = await res.json();
     const items: Array<{
@@ -215,7 +245,11 @@ export async function fetchPlaylistItems(
   url.searchParams.set("maxResults", "50");
 
   const res = await fetch(url.toString());
-  if (!res.ok) return [];
+  if (!res.ok) {
+    console.error(`[YouTube] fetchPlaylistItems — playlistId: ${playlistId}`);
+    await throwIfQuotaError(res); // throws YouTubeQuotaError — propagates up immediately
+    return [];
+  }
 
   const data = await res.json();
   return (data.items ?? [])

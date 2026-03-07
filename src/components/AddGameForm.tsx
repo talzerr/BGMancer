@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { SyntheticEvent } from "react";
 import type { VibePreference, Game } from "@/types";
 import { VIBE_LABELS } from "@/types";
 
@@ -17,7 +18,7 @@ export function AddGameForm({ onGameAdded }: AddGameFormProps) {
 
   const vibeOptions = Object.entries(VIBE_LABELS) as [VibePreference, string][];
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!title.trim()) return;
 

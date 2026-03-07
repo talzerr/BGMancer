@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { getDB } from "@/lib/db";
+import { YT_IMPORT_GAME_ID } from "@/app/api/playlist/import/route";
 import type { AddGamePayload, Game } from "@/types";
 
 export async function GET() {
   try {
     const rows = getDB()
-      .prepare("SELECT * FROM games ORDER BY created_at ASC")
-      .all() as Game[];
+      .prepare("SELECT * FROM games WHERE id != ? ORDER BY created_at ASC")
+      .all(YT_IMPORT_GAME_ID) as Game[];
     return NextResponse.json(rows);
   } catch (err) {
     console.error("[GET /api/games]", err);

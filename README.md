@@ -7,9 +7,12 @@ An AI-powered video game music curator. Add the games you love, pick a vibe, and
 ## How it works
 
 1. **Add games** to your library and choose a vibe for each — *Official Soundtrack*, *Boss Themes*, or *Ambient & Exploration*
-2. **Generate Playlist** — BGMancer finds the official OST playlist for each game on YouTube, then uses a local AI model to pick the best tracks for your vibe
-3. **Play in the app** — a built-in player lets you listen without leaving the page; click a playing track to pause, animated waves show what's playing
-4. **Sync to YouTube** *(optional)* — sign in with Google to push the playlist to your YouTube account
+2. **Pick a size** — choose how many tracks to generate (25 / 50 / 100, or any custom number)
+3. **Generate Playlist** — a live progress panel shows BGMancer finding each game's OST on YouTube, then using a local AI model to pick the best tracks for your vibe
+4. **Play in the app** — sticky player with elapsed/duration, shuffle, volume slider, dim toggle, and Up Next preview
+5. **Sync to YouTube** *(optional)* — sign in with Google to push the playlist to your YouTube account
+
+> **Quota tip:** If your YouTube API quota is exhausted, paste any YouTube playlist URL directly into the import form in the empty state to load tracks with a single low-cost API call.
 
 ---
 
@@ -43,7 +46,38 @@ Google OAuth credentials are optional — only needed for the Sync to YouTube fe
 
 ---
 
-## Project files
+## Project structure
+
+```
+src/
+  app/
+    feed-client.tsx       # Root client component — thin coordinator
+    api/                  # Next.js route handlers (games, playlist, config, sync)
+  components/
+    PlayerBar.tsx         # Sticky bottom player (YouTube IFrame API)
+    GameCard.tsx          # Library game row with Full OST toggle
+    PlaylistTrackCard.tsx # Playlist row with vibe accent + equalizer waves
+    AddGameForm.tsx       # Add game form
+    GenerateSection.tsx   # Live SSE progress panel + track count picker
+    PlaylistEmptyState.tsx# Empty playlist with YouTube import form
+    SyncButton.tsx        # Optional YouTube sync button
+  hooks/
+    useGameLibrary.ts     # Games state + CRUD
+    usePlaylist.ts        # Tracks state + generate / clear / import
+    usePlayerState.ts     # Playback index + shuffle + effectiveTracks
+    useConfig.ts          # Target track count (persisted to DB)
+    useYouTubePlayer.ts   # YouTube IFrame API wiring + volume/time
+  lib/
+    db.ts                 # SQLite client (better-sqlite3, auto-schema)
+    youtube.ts            # YouTube Data API helpers + quota error handling
+    llm.ts                # Ollama helpers for track selection
+  types/
+    index.ts              # Shared TypeScript types
+```
+
+---
+
+## Project docs
 
 | File | Purpose |
 |---|---|
