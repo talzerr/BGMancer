@@ -1,0 +1,228 @@
+import type { YouTubeSearchResult } from "@/types";
+
+const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
+
+const REJECT_KEYWORDS = [
+  "cover",
+  "covers",
+  "reaction",
+  "reactions",
+  "review",
+  "reviews",
+  "piano",
+  "jazz",
+  "remix",
+  "remixes",
+  "fan-made",
+  "fan made",
+  "arrangement",
+  "arranged",
+  "lofi",
+  "lo-fi",
+  "orchestral remix",
+];
+
+const MIN_DURATION_SECONDS = 15 * 60; // 15 minutes
+
+/** Parse ISO 8601 duration string (PT1H23M45S) to seconds */
+function parseDuration(iso: string): number {
+  const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!match) return 0;
+  const hours = parseInt(match[1] ?? "0");
+  const minutes = parseInt(match[2] ?? "0");
+  const seconds = parseInt(match[3] ?? "0");
+  return hours * 3600 + minutes * 60 + seconds;
+}
+
+/** Check if a video should be rejected based on title/description */
+function isRejected(title: string, description: string): boolean {
+  const haystack = `${title} ${description}`.toLowerCase();
+  return REJECT_KEYWORDS.some((kw) => haystack.includes(kw));
+}
+
+/**
+ * Search YouTube and return validated results.
+ * Uses search.list (100 units) + videos.list for duration (1 unit per video, max 10).
+ */
+export async function searchYouTube(
+  query: string,
+  allowShortVideo = false
+): Promise<YouTubeSearchResult[]> {
+  const apiKey = process.env.YOUTUBE_API_KEY!;
+
+  // Step 1: search.list — returns up to 10 results
+  const searchUrl = new URL(`${YOUTUBE_API_BASE}/search`);
+  searchUrl.searchParams.set("key", apiKey);
+  searchUrl.searchParams.set("q", query);
+  searchUrl.searchParams.set("part", "snippet");
+  searchUrl.searchParams.set("type", "video");
+  searchUrl.searchParams.set("maxResults", "10");
+  searchUrl.searchParams.set("videoCategoryId", "10"); // Music category
+  searchUrl.searchParams.set("order", "relevance");
+
+  const searchRes = await fetch(searchUrl.toString());
+  if (!searchRes.ok) {
+    throw new Error(
+      `YouTube search failed: ${searchRes.status} ${searchRes.statusText}`
+    );
+  }
+
+  const searchData = await searchRes.json();
+  const items: Array<{
+    id: { videoId: string };
+    snippet: {
+      title: string;
+      channelTitle: string;
+      description: string;
+      thumbnails: { high?: { url: string }; default?: { url: string } };
+    };
+  }> = searchData.items ?? [];
+
+  if (items.length === 0) return [];
+
+  // Step 2: videos.list — get duration for each result
+  const videoIds = items.map((i) => i.id.videoId).join(",");
+  const videosUrl = new URL(`${YOUTUBE_API_BASE}/videos`);
+  videosUrl.searchParams.set("key", apiKey);
+  videosUrl.searchParams.set("id", videoIds);
+  videosUrl.searchParams.set("part", "contentDetails");
+
+  const videosRes = await fetch(videosUrl.toString());
+  if (!videosRes.ok) {
+    throw new Error(
+      `YouTube videos.list failed: ${videosRes.status} ${videosRes.statusText}`
+    );
+  }
+
+  const videosData = await videosRes.json();
+  const durationMap = new Map<string, number>();
+  for (const v of videosData.items ?? []) {
+    durationMap.set(v.id, parseDuration(v.contentDetails?.duration ?? "PT0S"));
+  }
+
+  // Step 3: Filter and build results
+  const results: YouTubeSearchResult[] = [];
+
+  for (const item of items) {
+    const videoId = item.id.videoId;
+    const title = item.snippet.title;
+    const description = item.snippet.description;
+    const channelTitle = item.snippet.channelTitle;
+    const thumbnail =
+      item.snippet.thumbnails.high?.url ??
+      item.snippet.thumbnails.default?.url ??
+      `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+    const durationSeconds = durationMap.get(videoId) ?? 0;
+
+    if (isRejected(title, description)) continue;
+    if (!allowShortVideo && durationSeconds < MIN_DURATION_SECONDS) continue;
+
+    results.push({ videoId, title, channelTitle, thumbnail, durationSeconds, description });
+  }
+
+  return results;
+}
+
+/**
+ * Given multiple search queries (tried in order), return the best result.
+ * Returns the first accepted video from the first query that produces results.
+ */
+export async function findBestVideo(
+  queries: string[],
+  allowShortVideo = false
+): Promise<YouTubeSearchResult | null> {
+  for (const query of queries) {
+    const results = await searchYouTube(query, allowShortVideo);
+    if (results.length > 0) {
+      return results[0];
+    }
+  }
+  return null;
+}
+
+// ─── Playlist helpers (require user OAuth token) ──────────────────────────────
+
+interface PlaylistItem {
+  id: string;
+  snippet: { title: string };
+}
+
+/** Find the "BGMancer Journey" playlist, or return null if not found */
+export async function findBGMancerPlaylist(
+  accessToken: string
+): Promise<string | null> {
+  const url = new URL(`${YOUTUBE_API_BASE}/playlists`);
+  url.searchParams.set("part", "snippet");
+  url.searchParams.set("mine", "true");
+  url.searchParams.set("maxResults", "50");
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error(`Failed to list playlists: ${res.status}`);
+
+  const data = await res.json();
+  const playlists: PlaylistItem[] = data.items ?? [];
+  const match = playlists.find(
+    (p) => p.snippet.title === "BGMancer Journey"
+  );
+  return match?.id ?? null;
+}
+
+/** Create the "BGMancer Journey" playlist and return its ID */
+export async function createBGMancerPlaylist(
+  accessToken: string
+): Promise<string> {
+  const res = await fetch(`${YOUTUBE_API_BASE}/playlists?part=snippet,status`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      snippet: {
+        title: "BGMancer Journey",
+        description:
+          "AI-curated video game OST playlist, powered by BGMancer. Each entry is the best long-form official soundtrack found for that game.",
+      },
+      status: { privacyStatus: "public" },
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Failed to create playlist: ${res.status} — ${err}`);
+  }
+
+  const data = await res.json();
+  return data.id as string;
+}
+
+/** Add a video to a playlist. Returns the playlistItem ID. */
+export async function addVideoToPlaylist(
+  accessToken: string,
+  playlistId: string,
+  videoId: string
+): Promise<string> {
+  const res = await fetch(`${YOUTUBE_API_BASE}/playlistItems?part=snippet`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      snippet: {
+        playlistId,
+        resourceId: { kind: "youtube#video", videoId },
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Failed to add video to playlist: ${res.status} — ${err}`);
+  }
+
+  const data = await res.json();
+  return data.id as string;
+}

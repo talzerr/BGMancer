@@ -1,0 +1,26 @@
+{
+  "name": "bgmancer",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack --port 6959",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@tailwindcss/postcss": "4.2.1",
+    "mysql2": "^3.19.0",
+    "next": "16.1.6",
+    "next-auth": "5.0.0-beta.30",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "tailwindcss": "4.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "5.9.3"
+  }
+}
