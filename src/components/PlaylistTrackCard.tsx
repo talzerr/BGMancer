@@ -1,11 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import type { PlaylistTrack } from "@/types";
+import type { PlaylistTrack, VibePreference } from "@/types";
 
 interface PlaylistTrackCardProps {
   track: PlaylistTrack;
   index: number;
+  vibe?: VibePreference;
   /** true when this is the currently selected track (highlights the card) */
   isPlaying?: boolean;
   /** true when this track is actively playing (not paused) — drives waves + overlay icon */
@@ -14,15 +15,23 @@ interface PlaylistTrackCardProps {
 }
 
 const STATUS_CONFIG: Record<string, { dot: string }> = {
-  pending:   { dot: "bg-zinc-600" },
+  pending:   { dot: "bg-zinc-500" },
   searching: { dot: "bg-amber-400 animate-pulse" },
   found:     { dot: "bg-emerald-400" },
   error:     { dot: "bg-red-400" },
 };
 
+// Left accent border color per vibe — subtle scan-cue for the playlist
+const VIBE_ACCENT: Record<VibePreference, string> = {
+  official_soundtrack: "border-l-violet-500/50",
+  boss_themes:         "border-l-red-500/50",
+  ambient_exploration: "border-l-sky-500/50",
+};
+
 export function PlaylistTrackCard({
   track,
   index,
+  vibe,
   isPlaying = false,
   isActivelyPlaying = false,
   onPlay,
@@ -30,10 +39,11 @@ export function PlaylistTrackCard({
   const hasVideo = !!track.video_id;
   const isFullOST = track.track_name === null;
   const statusCfg = STATUS_CONFIG[track.status] ?? STATUS_CONFIG.pending;
+  const vibeAccent = vibe ? VIBE_ACCENT[vibe] : "border-l-transparent";
 
   return (
     <div
-      className={`group flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-all duration-150 ${
+      className={`group flex items-center gap-3 rounded-xl border border-l-2 px-3 py-2.5 transition-all duration-150 ${vibeAccent} ${
         isPlaying
           ? "bg-violet-950/50 border-violet-600/40 shadow-sm shadow-violet-900/20"
           : track.status === "error"
@@ -50,7 +60,7 @@ export function PlaylistTrackCard({
             <span className={`eq-bar${!isActivelyPlaying ? " eq-bar-paused" : ""}`} />
           </div>
         ) : (
-          <span className="text-xs font-mono text-zinc-600 select-none">{index + 1}</span>
+          <span className="text-xs font-mono text-zinc-500 select-none">{index + 1}</span>
         )}
       </div>
 
@@ -92,7 +102,7 @@ export function PlaylistTrackCard({
           </button>
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <svg className="w-5 h-5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                 d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
             </svg>
@@ -103,7 +113,7 @@ export function PlaylistTrackCard({
       {/* Track info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 mb-0.5">
-          <span className="text-[11px] text-zinc-500 truncate leading-none">{track.game_title}</span>
+          <span className="text-[11px] text-zinc-400 truncate leading-none">{track.game_title}</span>
           {isFullOST && (
             <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/20 leading-none">
               Full OST
@@ -123,12 +133,12 @@ export function PlaylistTrackCard({
         ) : track.status === "error" ? (
           <p className="text-xs text-red-400/80 line-clamp-1 leading-tight">{track.error_message ?? "Search failed"}</p>
         ) : (
-          <p className="text-sm text-zinc-500 line-clamp-1 leading-tight">
+          <p className="text-sm text-zinc-400 line-clamp-1 leading-tight">
             {track.track_name ?? (isFullOST ? "Finding compilation…" : "Pending search")}
           </p>
         )}
         {hasVideo && track.channel_title && (
-          <p className="text-[11px] text-zinc-600 mt-0.5 truncate leading-none">{track.channel_title}</p>
+          <p className="text-[11px] text-zinc-500 mt-0.5 truncate leading-none">{track.channel_title}</p>
         )}
       </div>
 

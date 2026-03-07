@@ -64,7 +64,7 @@ export function AddGameForm({ onGameAdded }: AddGameFormProps) {
           onChange={(e) => setTitle(e.target.value)}
           placeholder="e.g. Elden Ring, Persona 5…"
           disabled={loading}
-          className="w-full rounded-lg bg-zinc-800/80 border border-white/[0.07] px-3.5 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 disabled:opacity-50"
+          className="w-full rounded-lg bg-zinc-800/80 border border-white/[0.07] px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 disabled:opacity-50"
         />
       </div>
 
@@ -119,7 +119,7 @@ export function AddGameForm({ onGameAdded }: AddGameFormProps) {
         </button>
         <div>
           <span className="text-sm font-medium text-zinc-300 group-hover:text-white transition-colors">Full OST</span>
-          <p className="text-xs text-zinc-600 mt-0.5">
+          <p className="text-xs text-zinc-400 mt-0.5">
             {allowFullOST
               ? "Will find one long compilation video for this game"
               : "Will find individual tracks (counts toward playlist total)"}

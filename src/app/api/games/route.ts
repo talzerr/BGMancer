@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
-import type { RowDataPacket, ResultSetHeader } from "mysql2";
-import { getPool } from "@/lib/db";
+import { getDB } from "@/lib/db";
 import type { AddGamePayload, Game } from "@/types";
 
 export async function GET() {
   try {
-    const db = getPool();
-    const [rows] = await db.query<RowDataPacket[]>(
-      "SELECT * FROM games ORDER BY created_at ASC"
-    );
-    return NextResponse.json(rows as Game[]);
+    const rows = getDB()
+      .prepare("SELECT * FROM games ORDER BY created_at ASC")
+      .all() as Game[];
+    return NextResponse.json(rows);
   } catch (err) {
     console.error("[GET /api/games]", err);
     return NextResponse.json({ error: "Failed to fetch games" }, { status: 500 });
@@ -29,20 +27,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid vibe preference" }, { status: 400 });
     }
 
-    const db = getPool();
+    const db = getDB();
     const id = crypto.randomUUID();
-    const allowFullOST = body.allow_full_ost ?? false;
+    const allowFullOST = body.allow_full_ost ? 1 : 0;
 
-    await db.query<ResultSetHeader>(
-      "INSERT INTO games (id, title, vibe_preference, allow_full_ost) VALUES (?, ?, ?, ?)",
-      [id, body.title.trim(), body.vibe_preference, allowFullOST]
-    );
+    db.prepare(
+      "INSERT INTO games (id, title, vibe_preference, allow_full_ost) VALUES (?, ?, ?, ?)"
+    ).run(id, body.title.trim(), body.vibe_preference, allowFullOST);
 
-    const [rows] = await db.query<RowDataPacket[]>(
-      "SELECT * FROM games WHERE id = ?",
-      [id]
-    );
-    return NextResponse.json(rows[0] as Game, { status: 201 });
+    const row = db.prepare("SELECT * FROM games WHERE id = ?").get(id) as Game;
+    return NextResponse.json(row, { status: 201 });
   } catch (err) {
     console.error("[POST /api/games]", err);
     return NextResponse.json({ error: "Failed to add game" }, { status: 500 });
@@ -59,36 +53,30 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const db = getPool();
-
-    // Only allow patching safe fields
-    const updates: string[] = [];
+    const db = getDB();
+    const setClauses: string[] = [];
     const values: unknown[] = [];
 
     if (typeof body.allow_full_ost === "boolean") {
-      updates.push("allow_full_ost = ?");
-      values.push(body.allow_full_ost);
+      setClauses.push("allow_full_ost = ?");
+      values.push(body.allow_full_ost ? 1 : 0);
     }
     if (typeof body.vibe_preference === "string") {
-      updates.push("vibe_preference = ?");
+      setClauses.push("vibe_preference = ?");
       values.push(body.vibe_preference);
     }
 
-    if (updates.length === 0) {
+    if (setClauses.length === 0) {
       return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
     }
 
+    setClauses.push("updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')");
     values.push(id);
-    await db.query<ResultSetHeader>(
-      `UPDATE games SET ${updates.join(", ")} WHERE id = ?`,
-      values
-    );
 
-    const [rows] = await db.query<RowDataPacket[]>(
-      "SELECT * FROM games WHERE id = ?",
-      [id]
-    );
-    return NextResponse.json(rows[0] as Game);
+    db.prepare(`UPDATE games SET ${setClauses.join(", ")} WHERE id = ?`).run(...values);
+
+    const row = db.prepare("SELECT * FROM games WHERE id = ?").get(id) as Game;
+    return NextResponse.json(row);
   } catch (err) {
     console.error("[PATCH /api/games]", err);
     return NextResponse.json({ error: "Failed to update game" }, { status: 500 });
@@ -104,8 +92,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Game ID is required" }, { status: 400 });
     }
 
-    const db = getPool();
-    await db.query<ResultSetHeader>("DELETE FROM games WHERE id = ?", [id]);
+    getDB().prepare("DELETE FROM games WHERE id = ?").run(id);
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[DELETE /api/games]", err);

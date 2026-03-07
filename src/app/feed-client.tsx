@@ -152,6 +152,9 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
   // Which game is currently playing (for sidebar visual mapping)
   const activeGameId = currentTrackIndex !== null ? foundTracks[currentTrackIndex]?.game_id ?? null : null;
 
+  // Vibe lookup map for color-coding playlist track rows
+  const gameVibeMap = Object.fromEntries(games.map(g => [g.id, g.vibe_preference]));
+
 
   return (
     <>
@@ -159,7 +162,7 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
 
       {/* ── Left panel: Game Library ─────────────────────────────────────── */}
       <aside className="flex flex-col gap-4">
-        <section className="rounded-2xl bg-zinc-900/50 border border-white/[0.06] p-5 backdrop-blur-sm">
+        <section className="rounded-2xl bg-zinc-900/70 border border-white/[0.07] p-5 backdrop-blur-sm shadow-lg shadow-black/40">
           <h2 className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-4">Add a Game</h2>
           <AddGameForm onGameAdded={handleGameAdded} />
         </section>
@@ -169,7 +172,7 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
           <button
             onClick={handleGenerate}
             disabled={generating || games.length === 0}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:bg-zinc-800/80 disabled:text-zinc-600 disabled:border disabled:border-white/[0.05] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-900/30 cursor-pointer disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-500 disabled:bg-zinc-800/80 disabled:text-zinc-500 disabled:border disabled:border-white/[0.05] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-teal-900/40 cursor-pointer disabled:cursor-not-allowed"
           >
             {generating ? (
               <>
@@ -198,13 +201,13 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
           )}
         </div>
 
-        <section className="rounded-2xl bg-zinc-900/50 border border-white/[0.06] p-5 backdrop-blur-sm">
+        <section className="rounded-2xl bg-zinc-900/70 border border-white/[0.07] p-5 backdrop-blur-sm shadow-lg shadow-black/40">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">
               Game Library
             </h2>
             {games.length > 0 && (
-              <span className="text-[11px] font-medium text-zinc-600 tabular-nums">
+              <span className="text-[11px] font-medium text-zinc-400 tabular-nums">
                 {games.length} game{games.length !== 1 ? "s" : ""}
               </span>
             )}
@@ -217,7 +220,7 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
               ))}
             </div>
           ) : games.length === 0 ? (
-            <p className="text-sm text-zinc-600 py-6 text-center">
+            <p className="text-sm text-zinc-500 py-6 text-center">
               No games yet.
             </p>
           ) : (
@@ -297,7 +300,7 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
               ) : (
                 <button
                   onClick={() => setConfirmClear(true)}
-                  className="text-xs text-zinc-600 hover:text-red-400 cursor-pointer"
+                  className="text-xs text-zinc-500 hover:text-red-400 cursor-pointer"
                 >
                   Clear playlist
                 </button>
@@ -357,13 +360,13 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
         ) : tracks.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center rounded-2xl bg-zinc-900/30 border border-white/[0.04]">
             <div className="w-14 h-14 rounded-2xl bg-zinc-800/60 border border-white/[0.06] flex items-center justify-center mb-4">
-              <svg className="w-7 h-7 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-7 h-7 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                   d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
               </svg>
             </div>
             <h3 className="text-sm font-semibold text-zinc-400 mb-1.5">No playlist yet</h3>
-            <p className="text-sm text-zinc-600 max-w-xs leading-relaxed">
+            <p className="text-sm text-zinc-400 max-w-xs leading-relaxed">
               {games.length === 0
                 ? "Add some games to your library, then generate a playlist."
                 : "Click Generate Playlist to create your AI-curated soundtrack."}
@@ -379,6 +382,7 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
                   key={track.id}
                   track={track}
                   index={i}
+                  vibe={gameVibeMap[track.game_id]}
                   isPlaying={isCurrentTrack}
                   isActivelyPlaying={isCurrentTrack && isPlayerPlaying}
                   onPlay={foundIdx !== -1 ? () => {

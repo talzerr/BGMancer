@@ -19,7 +19,7 @@ An AI-powered video game music curator. Add the games you love, pick a vibe, and
 |---|---|
 | Framework | Next.js 16 (App Router, Turbopack) |
 | Styling | Tailwind CSS 4 |
-| Database | MySQL (Docker) |
+| Database | SQLite (file-based, zero setup) |
 | AI | Ollama (`llama3.2`) — runs locally |
 | Music source | YouTube Data API v3 |
 | Auth / sync | NextAuth v5 + Google OAuth |
@@ -29,18 +29,17 @@ An AI-powered video game music curator. Add the games you love, pick a vibe, and
 ## Running locally
 
 ```bash
-# 1. Start MySQL
-docker compose up -d
-
-# 2. Start Ollama
+# 1. Start Ollama
 ollama serve
 
-# 3. Install dependencies and run
+# 2. Install dependencies and run
 npm install
 npm run dev        # → http://localhost:6959
 ```
 
-Copy `.env.local.example` to `.env.local` and fill in your YouTube API key. Google OAuth credentials are optional — only needed for the Sync to YouTube feature.
+Copy `.env.local.example` to `.env.local` and fill in your YouTube API key. The SQLite database (`bgmancer.db`) is created automatically in the project root on first run — no Docker, no database setup required.
+
+Google OAuth credentials are optional — only needed for the Sync to YouTube feature.
 
 ---
 

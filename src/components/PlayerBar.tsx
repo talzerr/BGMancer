@@ -166,7 +166,7 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
   const canNext = currentIndex < tracks.length - 1;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/[0.07] bg-zinc-950/95 backdrop-blur-xl">
+    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-violet-500/20 bg-zinc-950/97 backdrop-blur-xl shadow-[0_-4px_24px_rgba(0,0,0,0.6)]">
       {/* Subtle top glow line */}
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/30 to-transparent" />
 
@@ -200,7 +200,7 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
             </div>
           ) : (
             <div className="w-14 h-10 shrink-0 rounded-md bg-zinc-800 ring-1 ring-white/10 flex items-center justify-center">
-              <svg className="w-5 h-5 text-zinc-600" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-zinc-500" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
               </svg>
             </div>
@@ -264,7 +264,7 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
 
         {/* ── Track counter + links ──────────────────────────────────────── */}
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-xs text-zinc-600 tabular-nums">
+          <span className="text-xs text-zinc-400 tabular-nums">
             {currentIndex + 1} / {tracks.length}
           </span>
 
@@ -285,7 +285,7 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
           <button
             onClick={onClose}
             title="Close player"
-            className="p-1.5 rounded-md text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800/80 cursor-pointer"
+            className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/80 cursor-pointer"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

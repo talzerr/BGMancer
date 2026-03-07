@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import type { RowDataPacket, ResultSetHeader } from "mysql2";
-import { getPool } from "@/lib/db";
+import { getDB } from "@/lib/db";
 import { selectTracksFromList, compilationQueries } from "@/lib/llm";
 import { searchOSTPlaylist, fetchPlaylistItems, findBestVideo } from "@/lib/youtube";
 import type { Game, PlaylistTrack } from "@/types";
@@ -8,7 +7,7 @@ import type { Game, PlaylistTrack } from "@/types";
 /**
  * POST /api/playlist/generate
  *
- * New pipeline for individual-track games:
+ * Pipeline for individual-track games:
  *   1. Search YouTube for the game's official OST *playlist*
  *   2. Fetch real track titles + video IDs from that playlist
  *   3. Ask the LLM to *select* N tracks from the real list (no hallucination possible)
@@ -16,18 +15,14 @@ import type { Game, PlaylistTrack } from "@/types";
  *
  * Full-OST games still use the old search path (find a long compilation video)
  * and are inserted as status='pending' for the /search step.
- *
- * Result: individual tracks are immediately playable after generation;
- * only full-OST slots need a separate YouTube search.
  */
 export async function POST() {
   try {
-    const db = getPool();
+    const db = getDB();
 
-    const [gameRows] = await db.query<RowDataPacket[]>(
-      "SELECT * FROM games ORDER BY created_at ASC"
-    );
-    const games = gameRows as Game[];
+    const games = db
+      .prepare("SELECT * FROM games ORDER BY created_at ASC")
+      .all() as Game[];
 
     if (games.length === 0) {
       return NextResponse.json(
@@ -36,12 +31,11 @@ export async function POST() {
       );
     }
 
-    const [configRows] = await db.query<RowDataPacket[]>(
-      "SELECT `key`, value FROM config"
-    );
-    const configMap = Object.fromEntries(
-      configRows.map((r) => [r.key as string, r.value as string])
-    );
+    const configRows = db.prepare("SELECT key, value FROM config").all() as Array<{
+      key: string;
+      value: string;
+    }>;
+    const configMap = Object.fromEntries(configRows.map((r) => [r.key, r.value]));
     const targetCount = parseInt(configMap.target_track_count ?? "50", 10);
 
     const fullOSTGames = games.filter((g) => g.allow_full_ost);
@@ -68,7 +62,6 @@ export async function POST() {
       const game = games[gi];
 
       if (game.allow_full_ost) {
-        // Full-OST slot — search for long compilation, inserted as pending
         const queries = compilationQueries(game.title, game.vibe_preference);
         perGame.push({
           game,
@@ -91,16 +84,13 @@ export async function POST() {
         continue;
       }
 
-      // Individual-track mode
       const individualIdx = individualGames.indexOf(game);
       const count = tracksPerGame + (individualIdx < remainder ? 1 : 0);
 
       try {
-        // Step 1: find the OST playlist on YouTube
         const playlistId = await searchOSTPlaylist(game.title);
 
         if (!playlistId) {
-          // No playlist found — fall back to pending (will be searched individually)
           const queries = compilationQueries(game.title, game.vibe_preference);
           perGame.push({
             game,
@@ -121,15 +111,12 @@ export async function POST() {
           continue;
         }
 
-        // Step 2: fetch real tracks from the playlist
         const playlistTracks = await fetchPlaylistItems(playlistId);
-
         if (playlistTracks.length === 0) {
           perGame.push({ game, tracks: [] });
           continue;
         }
 
-        // Step 3: LLM selects indices from the real list
         const selectedIndices = await selectTracksFromList(
           game.title,
           game.vibe_preference,
@@ -137,7 +124,6 @@ export async function POST() {
           Math.min(count, playlistTracks.length)
         );
 
-        // Step 4: map to full track objects — status='found', video IDs already known
         perGame.push({
           game,
           tracks: selectedIndices.map((idx) => {
@@ -161,19 +147,21 @@ export async function POST() {
         console.error(`[generate] failed for game "${game.title}":`, err);
         perGame.push({
           game,
-          tracks: [{
-            id: crypto.randomUUID(),
-            game_id: game.id,
-            game_title: game.title,
-            track_name: null,
-            video_id: null,
-            video_title: null,
-            channel_title: null,
-            thumbnail: null,
-            search_queries: null,
-            status: "error" as const,
-            error_message: err instanceof Error ? err.message : "Generation failed",
-          }],
+          tracks: [
+            {
+              id: crypto.randomUUID(),
+              game_id: game.id,
+              game_title: game.title,
+              track_name: null,
+              video_id: null,
+              video_title: null,
+              channel_title: null,
+              thumbnail: null,
+              search_queries: null,
+              status: "error" as const,
+              error_message: err instanceof Error ? err.message : "Generation failed",
+            },
+          ],
         });
       }
     }
@@ -190,50 +178,60 @@ export async function POST() {
       }
     }
 
-    // ── Persist ──────────────────────────────────────────────────────────────
+    // ── Persist — wrapped in a transaction for speed ─────────────────────────
 
-    await db.query<ResultSetHeader>("DELETE FROM playlist_tracks");
+    const insertStmt = db.prepare(`
+      INSERT INTO playlist_tracks
+        (id, game_id, track_name, video_id, video_title, channel_title, thumbnail,
+         search_queries, position, status, error_message)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
 
-    const inserted: PlaylistTrack[] = [];
-
-    for (let position = 0; position < interleaved.length; position++) {
-      const track = interleaved[position];
-      await db.query<ResultSetHeader>(
-        `INSERT INTO playlist_tracks
-          (id, game_id, track_name, video_id, video_title, channel_title, thumbnail,
-           search_queries, position, status, error_message)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          track.id,
-          track.game_id,
-          track.track_name,
-          track.video_id,
-          track.video_title,
-          track.channel_title,
-          track.thumbnail,
-          track.search_queries ? JSON.stringify(track.search_queries) : null,
+    const persistAll = db.transaction(() => {
+      db.prepare("DELETE FROM playlist_tracks").run();
+      for (let position = 0; position < interleaved.length; position++) {
+        const t = interleaved[position];
+        insertStmt.run(
+          t.id,
+          t.game_id,
+          t.track_name,
+          t.video_id,
+          t.video_title,
+          t.channel_title,
+          t.thumbnail,
+          t.search_queries ? JSON.stringify(t.search_queries) : null,
           position,
-          track.status,
-          track.error_message,
-        ]
-      );
-      inserted.push({ ...track, position, created_at: new Date().toISOString() });
-    }
+          t.status,
+          t.error_message
+        );
+      }
+    });
+
+    persistAll();
+
+    const inserted: PlaylistTrack[] = interleaved.map((t, position) => ({
+      ...t,
+      position,
+      created_at: new Date().toISOString(),
+    }));
 
     // ── Immediately resolve full-OST pending slots ────────────────────────────
-    // Run these in the background after responding so the UI isn't blocked.
-    // For now, do them synchronously but we'll make this async in the future.
+
+    const updateFound = db.prepare(`
+      UPDATE playlist_tracks
+      SET status='found', video_id=?, video_title=?, channel_title=?, thumbnail=?, error_message=NULL
+      WHERE id=?
+    `);
+    const updateError = db.prepare(
+      "UPDATE playlist_tracks SET status='error', error_message=? WHERE id=?"
+    );
+
     const pendingTracks = inserted.filter((t) => t.status === "pending" && t.search_queries);
     for (const track of pendingTracks) {
       try {
         const video = await findBestVideo(track.search_queries!, false);
         if (video) {
-          await db.query<ResultSetHeader>(
-            `UPDATE playlist_tracks
-             SET status='found', video_id=?, video_title=?, channel_title=?, thumbnail=?, error_message=NULL
-             WHERE id=?`,
-            [video.videoId, video.title, video.channelTitle, video.thumbnail, track.id]
-          );
+          updateFound.run(video.videoId, video.title, video.channelTitle, video.thumbnail, track.id);
           const idx = inserted.findIndex((t) => t.id === track.id);
           if (idx !== -1) {
             inserted[idx] = {
@@ -246,10 +244,7 @@ export async function POST() {
             };
           }
         } else {
-          await db.query<ResultSetHeader>(
-            "UPDATE playlist_tracks SET status='error', error_message=? WHERE id=?",
-            ["No suitable compilation video found.", track.id]
-          );
+          updateError.run("No suitable compilation video found.", track.id);
         }
       } catch {
         // Leave as pending — user can retry via /search

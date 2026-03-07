@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import type { RowDataPacket, ResultSetHeader } from "mysql2";
 import { auth } from "@/lib/auth";
-import { getPool } from "@/lib/db";
+import { getDB } from "@/lib/db";
 import {
   findBGMancerPlaylist,
   createBGMancerPlaylist,
@@ -19,15 +18,14 @@ export async function POST() {
     }
 
     const accessToken = session.access_token;
-    const db = getPool();
+    const db = getDB();
 
-    // Load all found tracks ordered by position
-    const [trackRows] = await db.query<RowDataPacket[]>(`
+    const trackRows = db.prepare(`
       SELECT id, video_id, position
       FROM playlist_tracks
       WHERE status = 'found' AND video_id IS NOT NULL
       ORDER BY position ASC
-    `);
+    `).all() as Array<{ id: string; video_id: string; position: number }>;
 
     if (trackRows.length === 0) {
       return NextResponse.json({
@@ -37,28 +35,29 @@ export async function POST() {
       });
     }
 
-    // Get or create the BGMancer Journey playlist
     let playlistId = await findBGMancerPlaylist(accessToken);
     if (!playlistId) {
       playlistId = await createBGMancerPlaylist(accessToken);
     }
 
-    // Save playlist ID to config for future reference
-    await db.query<ResultSetHeader>(
-      "INSERT INTO config (`key`, value) VALUES ('youtube_playlist_id', ?) ON DUPLICATE KEY UPDATE value = ?",
-      [playlistId, playlistId]
-    );
+    // Persist playlist ID for future reference
+    db.prepare(`
+      INSERT INTO config (key, value) VALUES ('youtube_playlist_id', ?)
+      ON CONFLICT(key) DO UPDATE SET
+        value = excluded.value,
+        updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+    `).run(playlistId);
 
     const syncedIds: string[] = [];
     const errors: Array<{ track_id: string; error: string }> = [];
 
     for (const track of trackRows) {
       try {
-        await addVideoToPlaylist(accessToken, playlistId, track.video_id as string);
-        syncedIds.push(track.id as string);
+        await addVideoToPlaylist(accessToken, playlistId, track.video_id);
+        syncedIds.push(track.id);
       } catch (err) {
         errors.push({
-          track_id: track.id as string,
+          track_id: track.id,
           error: err instanceof Error ? err.message : String(err),
         });
       }

@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
-import type { RowDataPacket, ResultSetHeader } from "mysql2";
-import { getPool } from "@/lib/db";
+import { getDB } from "@/lib/db";
 import type { AppConfig } from "@/types";
 
-async function loadConfig(): Promise<AppConfig> {
-  const db = getPool();
-  const [rows] = await db.query<RowDataPacket[]>("SELECT `key`, value FROM config");
-  const map = Object.fromEntries(rows.map((r) => [r.key as string, r.value as string]));
-
+function loadConfig(): AppConfig {
+  const rows = getDB().prepare("SELECT key, value FROM config").all() as Array<{ key: string; value: string }>;
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
   return {
     target_track_count: parseInt(map.target_track_count ?? "50", 10),
     youtube_playlist_id: map.youtube_playlist_id ?? "",
@@ -16,8 +13,7 @@ async function loadConfig(): Promise<AppConfig> {
 
 export async function GET() {
   try {
-    const config = await loadConfig();
-    return NextResponse.json(config);
+    return NextResponse.json(loadConfig());
   } catch (err) {
     console.error("[GET /api/config]", err);
     return NextResponse.json({ error: "Failed to load config" }, { status: 500 });
@@ -27,8 +23,13 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const body: Partial<AppConfig> = await request.json();
-    const db = getPool();
-    const updates: Array<[string, string]> = [];
+    const db = getDB();
+    const upsert = db.prepare(`
+      INSERT INTO config (key, value) VALUES (?, ?)
+      ON CONFLICT(key) DO UPDATE SET
+        value = excluded.value,
+        updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+    `);
 
     if (body.target_track_count !== undefined) {
       const n = Number(body.target_track_count);
@@ -38,22 +39,14 @@ export async function PUT(request: Request) {
           { status: 400 }
         );
       }
-      updates.push(["target_track_count", String(n)]);
+      upsert.run("target_track_count", String(n));
     }
 
     if (body.youtube_playlist_id !== undefined) {
-      updates.push(["youtube_playlist_id", body.youtube_playlist_id]);
+      upsert.run("youtube_playlist_id", body.youtube_playlist_id);
     }
 
-    for (const [key, value] of updates) {
-      await db.query<ResultSetHeader>(
-        "INSERT INTO config (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = ?",
-        [key, value, value]
-      );
-    }
-
-    const config = await loadConfig();
-    return NextResponse.json(config);
+    return NextResponse.json(loadConfig());
   } catch (err) {
     console.error("[PUT /api/config]", err);
     return NextResponse.json({ error: "Failed to update config" }, { status: 500 });

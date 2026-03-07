@@ -60,7 +60,7 @@ export function GameCard({ game, isActive = false, onToggleFullOST, onDelete }: 
           <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full border leading-none ${vibeStyle.badge}`}>
             {VIBE_LABELS[game.vibe_preference] ?? game.vibe_preference}
           </span>
-          {game.allow_full_ost && (
+          {!!game.allow_full_ost && (
             <span className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full border leading-none bg-zinc-700/50 text-zinc-400 border-zinc-600/30">
               Full OST
             </span>
@@ -71,13 +71,13 @@ export function GameCard({ game, isActive = false, onToggleFullOST, onDelete }: 
       {/* Full OST icon toggle — compact, labelled on hover */}
       <button
         role="switch"
-        aria-checked={game.allow_full_ost}
+        aria-checked={!!game.allow_full_ost}
         onClick={() => onToggleFullOST(game.id, !game.allow_full_ost)}
-        title={game.allow_full_ost ? "Full OST: on (find one compilation)" : "Full OST: off (individual tracks)"}
+        title={!!game.allow_full_ost ? "Full OST: on (find one compilation)" : "Full OST: off (individual tracks)"}
         className={`shrink-0 p-1.5 rounded-lg transition-all cursor-pointer ${
-          game.allow_full_ost
+          !!game.allow_full_ost
             ? "text-violet-400 bg-violet-500/15 border border-violet-500/20"
-            : "text-zinc-600 hover:text-zinc-400 bg-transparent border border-transparent hover:border-white/[0.06]"
+            : "text-zinc-500 hover:text-zinc-300 bg-transparent border border-transparent hover:border-white/[0.06]"
         }`}
       >
         {/* "Film / compilation" icon */}
@@ -106,7 +106,7 @@ export function GameCard({ game, isActive = false, onToggleFullOST, onDelete }: 
       ) : (
         <button
           onClick={() => setConfirmDelete(true)}
-          className="shrink-0 rounded-lg p-1.5 text-zinc-700 hover:text-red-400 hover:bg-red-500/10 cursor-pointer opacity-0 group-hover:opacity-100 transition-all"
+          className="shrink-0 rounded-lg p-1.5 text-zinc-600 hover:text-red-400 hover:bg-red-500/10 cursor-pointer opacity-0 group-hover:opacity-100 transition-all"
           title="Remove game"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

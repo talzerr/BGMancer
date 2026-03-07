@@ -1,27 +1,20 @@
 import { NextResponse } from "next/server";
-import type { RowDataPacket, ResultSetHeader } from "mysql2";
-import { getPool } from "@/lib/db";
+import { getDB } from "@/lib/db";
 import type { PlaylistTrack } from "@/types";
 
 export async function GET() {
   try {
-    const db = getPool();
-    // JOIN with games to include game_title in each track
-    const [rows] = await db.query<RowDataPacket[]>(`
-      SELECT
-        pt.*,
-        g.title AS game_title
+    const rows = getDB().prepare(`
+      SELECT pt.*, g.title AS game_title
       FROM playlist_tracks pt
       JOIN games g ON g.id = pt.game_id
       ORDER BY pt.position ASC
-    `);
+    `).all() as Record<string, unknown>[];
 
     const tracks = rows.map((row) => ({
       ...row,
       search_queries: row.search_queries
-        ? typeof row.search_queries === "string"
-          ? JSON.parse(row.search_queries)
-          : row.search_queries
+        ? JSON.parse(row.search_queries as string)
         : null,
     })) as PlaylistTrack[];
 
@@ -34,8 +27,7 @@ export async function GET() {
 
 export async function DELETE() {
   try {
-    const db = getPool();
-    await db.query<ResultSetHeader>("DELETE FROM playlist_tracks");
+    getDB().prepare("DELETE FROM playlist_tracks").run();
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[DELETE /api/playlist]", err);

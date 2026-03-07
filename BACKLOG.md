@@ -2,8 +2,14 @@
 
 ## Player
 
-- **Seekbar** — click or drag to jump anywhere in the current track, with elapsed/total time shown
-- **Volume control** — slider or mute toggle
+- **Elapsed / duration display** — show `0:42 / 3:58` next to the player controls so you always know where you are in a track
+- **Seekbar** — click or drag to jump anywhere in the current track (builds on the elapsed/duration display above)
+- **Volume slider** — independent of system volume (essential for web apps used as background music during gaming or work); pairs with a **Dim / Focus toggle** that instantly drops volume to ~20% — one click to silence BGMancer for a Discord call or conversation without touching the system slider
+- **Up Next preview** — show a small "Up Next: [Song Title]" hint on the right side of the player bar so users know whether to stick through the current track or skip; reduces skip anxiety
+- **Track rating** — Thumbs Up / Thumbs Down (or ♥ / 🗑) directly in the player bar while a track plays:
+  - *Thumbs Up* → marks the track as a keeper; can influence future generation weighting for that game
+  - *Thumbs Down* → removes the track from the current playlist and feeds back to the AI: "avoid this vibe for this game next time" (stored as a per-game preference signal alongside `vibe_preference`)
+- **Full-OST chapter markers** — when a long compilation video is playing (Full OST mode), parse the YouTube video description for timestamps and render them as small vertical notches on the seekbar; hovering a notch shows the chapter name (e.g. `05:22 – Tristram Village`), clicking jumps directly to it
 - **Shuffle** — randomise the play order
 - **Repeat modes** — off / repeat all / repeat one
 - **Mini video view** — expand the player to show the actual YouTube video
