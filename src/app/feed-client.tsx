@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Game, PlaylistTrack } from "@/types";
 import { AddGameForm } from "@/components/AddGameForm";
 import { GameCard } from "@/components/GameCard";
 import { PlaylistTrackCard } from "@/components/PlaylistTrackCard";
-import { PlayerBar } from "@/components/PlayerBar";
+import { PlayerBar, type PlayerBarHandle } from "@/components/PlayerBar";
 import { SyncButton } from "@/components/SyncButton";
 
 interface FeedClientProps {
@@ -22,6 +22,9 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
   const [searching, setSearching] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [currentTrackIndex, setCurrentTrackIndex] = useState<number | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [isPlayerPlaying, setIsPlayerPlaying] = useState(false);
+  const playerBarRef = useRef<PlayerBarHandle | null>(null);
 
   const fetchGames = useCallback(async () => {
     try {
@@ -130,8 +133,11 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
     try {
       await fetch("/api/playlist", { method: "DELETE" });
       setTracks([]);
+      setCurrentTrackIndex(null);
     } catch (err) {
       console.error("Failed to clear playlist:", err);
+    } finally {
+      setConfirmClear(false);
     }
   }
 
@@ -146,39 +152,73 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
 
   return (
     <>
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-6 items-start">
+    <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5 items-start">
 
       {/* ── Left panel: Game Library ─────────────────────────────────────── */}
       <aside className="flex flex-col gap-4">
-        <section className="rounded-xl bg-zinc-900 border border-zinc-800 p-5">
-          <h2 className="text-sm font-semibold text-zinc-300 mb-4">Add a Game</h2>
+        <section className="rounded-2xl bg-zinc-900/50 border border-white/[0.06] p-5 backdrop-blur-sm">
+          <h2 className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-4">Add a Game</h2>
           <AddGameForm onGameAdded={handleGameAdded} />
         </section>
 
-        <section className="rounded-xl bg-zinc-900 border border-zinc-800 p-5">
+        {/* ── Generate button — between Add a Game and the library ── */}
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={handleGenerate}
+            disabled={generating || games.length === 0}
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:bg-zinc-800/80 disabled:text-zinc-600 disabled:border disabled:border-white/[0.05] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-900/30 cursor-pointer disabled:cursor-not-allowed"
+          >
+            {generating ? (
+              <>
+                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z" />
+                </svg>
+                Generating…
+              </>
+            ) : (
+              <>
+                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                </svg>
+                Generate Playlist
+              </>
+            )}
+          </button>
+          {genError && (
+            <div className="flex items-start gap-2 rounded-xl bg-red-950/40 border border-red-500/20 px-3 py-2.5 text-xs text-red-400">
+              <svg className="w-3.5 h-3.5 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              {genError}
+            </div>
+          )}
+        </div>
+
+        <section className="rounded-2xl bg-zinc-900/50 border border-white/[0.06] p-5 backdrop-blur-sm">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-zinc-300">
+            <h2 className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">
               Game Library
-              {games.length > 0 && (
-                <span className="ml-2 text-xs font-normal text-zinc-500">
-                  {games.length} game{games.length !== 1 ? "s" : ""}
-                </span>
-              )}
             </h2>
+            {games.length > 0 && (
+              <span className="text-[11px] font-medium text-zinc-600 tabular-nums">
+                {games.length} game{games.length !== 1 ? "s" : ""}
+              </span>
+            )}
           </div>
 
           {gamesLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-14 rounded-xl bg-zinc-800/40 animate-pulse" />
+                <div key={i} className="h-[52px] rounded-xl bg-zinc-800/40 animate-pulse" />
               ))}
             </div>
           ) : games.length === 0 ? (
-            <p className="text-sm text-zinc-500 py-4 text-center">
-              No games yet — add one above.
+            <p className="text-sm text-zinc-600 py-6 text-center">
+              No games yet.
             </p>
           ) : (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1.5">
               {games.map((game) => (
                 <GameCard
                   key={game.id}
@@ -190,117 +230,148 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
             </div>
           )}
         </section>
+
       </aside>
 
       {/* ── Right panel: Playlist ─────────────────────────────────────────── */}
       <main className="flex flex-col gap-4">
         {/* Action bar */}
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={handleGenerate}
-            disabled={generating || games.length === 0}
-            className="rounded-lg bg-violet-600 hover:bg-violet-500 disabled:bg-zinc-700 disabled:text-zinc-400 px-5 py-2.5 text-sm font-semibold text-white transition cursor-pointer disabled:cursor-not-allowed"
-          >
-            {generating ? (
-              <span className="flex items-center gap-2">
-                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z" />
-                </svg>
-                Generating…
-              </span>
-            ) : (
-              "Generate Playlist"
-            )}
-          </button>
-
+        <div className="flex flex-wrap items-center gap-2">
           {pendingCount > 0 && (
             <button
               onClick={handleFindVideos}
               disabled={searching}
               title="Search YouTube for full-OST compilation videos"
-              className="rounded-lg bg-emerald-700 hover:bg-emerald-600 disabled:bg-zinc-700 disabled:text-zinc-400 px-5 py-2.5 text-sm font-semibold text-white transition cursor-pointer disabled:cursor-not-allowed"
+              className="flex items-center gap-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700/80 border border-white/[0.06] disabled:opacity-50 px-4 py-2.5 text-sm font-semibold text-zinc-300 cursor-pointer disabled:cursor-not-allowed"
             >
               {searching ? (
-                <span className="flex items-center gap-2">
-                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <>
+                  <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z" />
                   </svg>
                   Searching…
-                </span>
+                </>
               ) : (
-                `Find Missing Videos (${pendingCount})`
+                <>
+                  <svg className="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                  </svg>
+                  Find Missing ({pendingCount})
+                </>
               )}
             </button>
           )}
 
-          <SyncButton
-            isSignedIn={isSignedIn}
-            authConfigured={authConfigured}
-            hasFoundGames={hasFoundTracks}
-            onSyncComplete={() => {}}
-          />
+          {authConfigured && (
+            <SyncButton
+              isSignedIn={isSignedIn}
+              authConfigured={authConfigured}
+              hasFoundGames={hasFoundTracks}
+              onSyncComplete={() => {}}
+            />
+          )}
 
           {tracks.length > 0 && (
-            <button
-              onClick={handleClearPlaylist}
-              className="ml-auto text-xs text-zinc-500 hover:text-red-400 transition cursor-pointer"
-            >
-              Clear playlist
-            </button>
+            <div className="ml-auto flex items-center gap-2">
+              {confirmClear ? (
+                <>
+                  <span className="text-xs text-zinc-500">Clear all tracks?</span>
+                  <button
+                    onClick={handleClearPlaylist}
+                    className="rounded-lg bg-red-600/90 hover:bg-red-500 px-2.5 py-1 text-xs font-medium text-white cursor-pointer"
+                  >
+                    Yes, clear
+                  </button>
+                  <button
+                    onClick={() => setConfirmClear(false)}
+                    className="rounded-lg bg-zinc-800 hover:bg-zinc-700 px-2.5 py-1 text-xs font-medium text-zinc-400 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setConfirmClear(true)}
+                  className="text-xs text-zinc-600 hover:text-red-400 cursor-pointer"
+                >
+                  Clear playlist
+                </button>
+              )}
+            </div>
           )}
         </div>
 
-        {genError && (
-          <div className="rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
-            {genError}
-          </div>
-        )}
 
         {/* Stats row */}
         {tracks.length > 0 && (
-          <div className="flex items-center gap-4 text-xs text-zinc-400">
-            <span><span className="font-semibold text-white">{tracks.length}</span> tracks</span>
-            {foundCount > 0 && <span><span className="font-semibold text-emerald-400">{foundCount}</span> found</span>}
-            {pendingCount > 0 && <span><span className="font-semibold text-amber-400">{pendingCount}</span> pending</span>}
-            {errorCount > 0 && <span><span className="font-semibold text-red-400">{errorCount}</span> error{errorCount !== 1 ? "s" : ""}</span>}
+          <div className="flex items-center gap-3 text-xs">
+            <span className="text-zinc-500">
+              <span className="font-semibold text-zinc-300">{tracks.length}</span> tracks
+            </span>
+            <span className="text-zinc-700">·</span>
+            {foundCount > 0 && (
+              <span className="flex items-center gap-1 text-zinc-500">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                <span className="font-semibold text-emerald-400">{foundCount}</span> found
+              </span>
+            )}
+            {pendingCount > 0 && (
+              <span className="flex items-center gap-1 text-zinc-500">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
+                <span className="font-semibold text-amber-400">{pendingCount}</span> pending
+              </span>
+            )}
+            {errorCount > 0 && (
+              <span className="flex items-center gap-1 text-zinc-500">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" />
+                <span className="font-semibold text-red-400">{errorCount}</span> error{errorCount !== 1 ? "s" : ""}
+              </span>
+            )}
           </div>
         )}
 
         {/* Track list */}
         {tracksLoading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-16 rounded-xl bg-zinc-800/40 animate-pulse" />
+          <div className="space-y-1.5">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-[52px] rounded-xl bg-zinc-900/50 animate-pulse" style={{ opacity: 1 - i * 0.12 }} />
             ))}
           </div>
         ) : tracks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center rounded-xl bg-zinc-900/50 border border-zinc-800">
-            <div className="w-16 h-16 rounded-2xl bg-zinc-800 flex items-center justify-center mb-4">
-              <svg className="w-8 h-8 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex flex-col items-center justify-center py-20 text-center rounded-2xl bg-zinc-900/30 border border-white/[0.04]">
+            <div className="w-14 h-14 rounded-2xl bg-zinc-800/60 border border-white/[0.06] flex items-center justify-center mb-4">
+              <svg className="w-7 h-7 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                   d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
               </svg>
             </div>
-            <h3 className="text-base font-semibold text-zinc-300 mb-1">No playlist yet</h3>
-            <p className="text-sm text-zinc-500 max-w-xs">
+            <h3 className="text-sm font-semibold text-zinc-400 mb-1.5">No playlist yet</h3>
+            <p className="text-sm text-zinc-600 max-w-xs leading-relaxed">
               {games.length === 0
-                ? "Add some games in the library, then click Generate Playlist."
-                : "Click Generate Playlist to create your AI-curated track list."}
+                ? "Add some games to your library, then generate a playlist."
+                : "Click Generate Playlist to create your AI-curated soundtrack."}
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-2 pb-24">
+          <div className="flex flex-col gap-1.5 pb-24">
             {tracks.map((track, i) => {
               const foundIdx = foundTracks.findIndex((ft) => ft.id === track.id);
+              const isCurrentTrack = currentTrackIndex === foundIdx && foundIdx !== -1;
               return (
                 <PlaylistTrackCard
                   key={track.id}
                   track={track}
                   index={i}
-                  isPlaying={currentTrackIndex !== null && foundTracks[currentTrackIndex]?.id === track.id}
-                  onPlay={foundIdx !== -1 ? () => setCurrentTrackIndex(foundIdx) : undefined}
+                  isPlaying={isCurrentTrack}
+                  isActivelyPlaying={isCurrentTrack && isPlayerPlaying}
+                  onPlay={foundIdx !== -1 ? () => {
+                    if (isCurrentTrack) {
+                      playerBarRef.current?.togglePlayPause();
+                    } else {
+                      setCurrentTrackIndex(foundIdx);
+                    }
+                  } : undefined}
                 />
               );
             })}
@@ -312,10 +383,12 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
     {/* ── Sticky player bar ─────────────────────────────────────────────── */}
     {currentTrackIndex !== null && foundTracks.length > 0 && (
       <PlayerBar
+        ref={playerBarRef}
         tracks={foundTracks}
         currentIndex={currentTrackIndex}
         onIndexChange={(i) => setCurrentTrackIndex(i)}
         onClose={() => setCurrentTrackIndex(null)}
+        onPlayingChange={setIsPlayerPlaying}
       />
     )}
     </>
