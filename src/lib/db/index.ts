@@ -8,9 +8,7 @@ export function getDB(): Database.Database {
     const dbPath =
       process.env.SQLITE_PATH ?? path.join(process.cwd(), "bgmancer.db");
     _db = new Database(dbPath);
-    // WAL mode: better concurrent read performance
     _db.pragma("journal_mode = WAL");
-    // Enforce FK constraints (off by default in SQLite)
     _db.pragma("foreign_keys = ON");
     initSchema(_db);
   }
@@ -43,6 +41,7 @@ function initSchema(db: Database.Database): void {
       status        TEXT    NOT NULL DEFAULT 'pending',
       error_message TEXT,
       created_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      synced_at     TEXT,
       FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
     );
 

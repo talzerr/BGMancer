@@ -1,5 +1,5 @@
 import type { VibePreference } from "@/types";
-import type { OSTTrack } from "@/lib/youtube";
+import type { OSTTrack } from "@/lib/services/youtube";
 
 const OLLAMA_HOST = process.env.OLLAMA_HOST ?? "http://localhost:11434";
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "llama3.2";
@@ -69,7 +69,6 @@ Return ONLY a JSON array of ${count} integers.`;
     const parsed: unknown[] = JSON.parse(cleaned);
     if (!Array.isArray(parsed)) throw new Error("Not an array");
 
-    // Convert 1-indexed to 0-indexed, clamp to valid range, deduplicate
     const seen = new Set<number>();
     const indices: number[] = [];
     for (const v of parsed) {
@@ -81,7 +80,6 @@ Return ONLY a JSON array of ${count} integers.`;
       }
     }
 
-    // If LLM didn't give enough, fill from the beginning
     if (indices.length < count) {
       for (let i = 0; i < tracks.length && indices.length < count; i++) {
         if (!seen.has(i)) {
@@ -93,7 +91,6 @@ Return ONLY a JSON array of ${count} integers.`;
 
     return indices.slice(0, count);
   } catch {
-    // Fallback: evenly spaced picks across the list
     const step = Math.max(1, Math.floor(tracks.length / count));
     return Array.from({ length: count }, (_, i) =>
       Math.min(i * step, tracks.length - 1)

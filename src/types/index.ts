@@ -44,6 +44,7 @@ export interface PlaylistTrack {
   status: TrackStatus;
   error_message: string | null;
   created_at: string;
+  synced_at: string | null;
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────

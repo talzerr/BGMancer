@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { auth, signIn, signOut, AUTH_CONFIGURED } from "@/lib/auth";
+import { auth, signIn, signOut, AUTH_CONFIGURED } from "@/lib/services/auth";
 import { FeedClient } from "./feed-client";
 
 export default async function HomePage() {

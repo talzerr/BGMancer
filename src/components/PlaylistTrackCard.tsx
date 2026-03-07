@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import type { PlaylistTrack, VibePreference } from "@/types";
+import { YouTubeLogo, MusicNoteOutline, PlayIcon, PauseIcon } from "@/components/Icons";
 
 interface PlaylistTrackCardProps {
   track: PlaylistTrack;
@@ -21,7 +22,6 @@ const STATUS_CONFIG: Record<string, { dot: string }> = {
   error:     { dot: "bg-red-400" },
 };
 
-// Left accent border color per vibe — subtle scan-cue for the playlist
 const VIBE_ACCENT: Record<VibePreference, string> = {
   official_soundtrack: "border-l-violet-500/50",
   boss_themes:         "border-l-red-500/50",
@@ -51,7 +51,7 @@ export function PlaylistTrackCard({
           : "bg-zinc-900/60 border-white/[0.05] hover:border-white/[0.10] hover:bg-zinc-900/80"
       }`}
     >
-      {/* Position number → waves when actively playing */}
+      {/* Position number -> waves when actively playing */}
       <div className="shrink-0 w-6 flex items-center justify-center">
         {isPlaying ? (
           <div className="flex items-end gap-px h-[14px]">
@@ -83,29 +83,20 @@ export function PlaylistTrackCard({
             {/* Play/pause/resume overlay */}
             <div className={`absolute inset-0 flex items-center justify-center bg-black/50 transition-opacity ${isPlaying ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
               {isActivelyPlaying ? (
-                <svg className="w-4 h-4 text-white drop-shadow" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                </svg>
+                <PauseIcon className="w-4 h-4 text-white drop-shadow" />
               ) : (
-                <svg className="w-4 h-4 text-white drop-shadow" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
+                <PlayIcon className="w-4 h-4 text-white drop-shadow" />
               )}
             </div>
             {/* YouTube attribution */}
             <div className="absolute bottom-0 right-0 flex items-center gap-0.5 bg-black/70 px-1 py-0.5 rounded-tl opacity-0 group-hover:opacity-100 transition-opacity">
-              <svg className="w-2 h-2 text-[#FF0000] fill-current shrink-0" viewBox="0 0 24 24">
-                <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-              </svg>
+              <YouTubeLogo className="w-2 h-2 text-[#FF0000] fill-current shrink-0" />
               <span className="text-[8px] font-medium text-white leading-none">YouTube</span>
             </div>
           </button>
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <svg className="w-5 h-5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-            </svg>
+            <MusicNoteOutline className="w-5 h-5 text-zinc-500" />
           </div>
         )}
       </div>

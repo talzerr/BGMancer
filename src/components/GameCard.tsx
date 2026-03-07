@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Game } from "@/types";
 import { VIBE_LABELS } from "@/types";
+import { FilmIcon, TrashIcon } from "@/components/Icons";
 
 interface GameCardProps {
   game: Game;
@@ -60,7 +61,7 @@ export function GameCard({ game, isActive = false, onToggleFullOST, onDelete }: 
           <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full border leading-none ${vibeStyle.badge}`}>
             {VIBE_LABELS[game.vibe_preference] ?? game.vibe_preference}
           </span>
-          {!!game.allow_full_ost && (
+          {game.allow_full_ost && (
             <span className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full border leading-none bg-zinc-700/50 text-zinc-400 border-zinc-600/30">
               Full OST
             </span>
@@ -68,23 +69,19 @@ export function GameCard({ game, isActive = false, onToggleFullOST, onDelete }: 
         </div>
       </div>
 
-      {/* Full OST icon toggle — compact, labelled on hover */}
+      {/* Full OST icon toggle */}
       <button
         role="switch"
-        aria-checked={!!game.allow_full_ost}
+        aria-checked={game.allow_full_ost}
         onClick={() => onToggleFullOST(game.id, !game.allow_full_ost)}
-        title={!!game.allow_full_ost ? "Full OST: on (find one compilation)" : "Full OST: off (individual tracks)"}
+        title={game.allow_full_ost ? "Full OST: on (find one compilation)" : "Full OST: off (individual tracks)"}
         className={`shrink-0 p-1.5 rounded-lg transition-all cursor-pointer ${
-          !!game.allow_full_ost
+          game.allow_full_ost
             ? "text-violet-400 bg-violet-500/15 border border-violet-500/20"
             : "text-zinc-500 hover:text-zinc-300 bg-transparent border border-transparent hover:border-white/[0.06]"
         }`}
       >
-        {/* "Film / compilation" icon */}
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
-        </svg>
+        <FilmIcon />
       </button>
 
       {/* Delete */}
@@ -109,10 +106,7 @@ export function GameCard({ game, isActive = false, onToggleFullOST, onDelete }: 
           className="shrink-0 rounded-lg p-1.5 text-zinc-600 hover:text-red-400 hover:bg-red-500/10 cursor-pointer opacity-0 group-hover:opacity-100 transition-all"
           title="Remove game"
         >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
+          <TrashIcon />
         </button>
       )}
     </div>

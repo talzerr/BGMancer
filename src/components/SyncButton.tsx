@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Spinner, YouTubeLogo } from "@/components/Icons";
 
 interface SyncResult {
   message: string;
@@ -12,14 +13,14 @@ interface SyncResult {
 interface SyncButtonProps {
   isSignedIn: boolean;
   authConfigured: boolean;
-  hasFoundGames: boolean;
+  hasFoundTracks: boolean;
   onSyncComplete: () => void;
 }
 
 export function SyncButton({
   isSignedIn,
   authConfigured,
-  hasFoundGames,
+  hasFoundTracks,
   onSyncComplete,
 }: SyncButtonProps) {
   const [loading, setLoading] = useState(false);
@@ -28,7 +29,7 @@ export function SyncButton({
 
   if (!authConfigured) return null;
 
-  const disabled = !isSignedIn || !hasFoundGames || loading;
+  const disabled = !isSignedIn || !hasFoundTracks || loading;
 
   async function handleSync() {
     setLoading(true);
@@ -58,21 +59,16 @@ export function SyncButton({
         title={
           !isSignedIn
             ? "Sign in with Google to sync"
-            : !hasFoundGames
+            : !hasFoundTracks
             ? "Find OSTs first before syncing"
             : "Sync to YouTube"
         }
         className="flex items-center gap-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700/80 border border-white/[0.06] disabled:opacity-40 px-4 py-2.5 text-sm font-semibold text-zinc-300 focus:outline-none cursor-pointer disabled:cursor-not-allowed"
       >
         {loading ? (
-          <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z" />
-          </svg>
+          <Spinner className="w-3.5 h-3.5" />
         ) : (
-          <svg className="w-3.5 h-3.5 text-[#FF0000]" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-          </svg>
+          <YouTubeLogo className="w-3.5 h-3.5 text-[#FF0000]" />
         )}
         {loading ? "Syncing…" : "Sync to YouTube"}
       </button>

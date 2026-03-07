@@ -55,6 +55,10 @@ Sub-features:
 - **Better sync** — preserve track order when pushing; skip unavailable videos automatically
 - **Multiple playlists** — create separate named playlists (e.g. "Boss Rush", "Chill Gaming")
 
+## Generation UX
+
+- **Advanced settings panel** — collapse playlist size, Full OST toggle, vibe selection, and future generation options (weighted distribution, vibe balancing) behind an "Advanced" disclosure section so the primary UI stays clean. Power users expand it; newcomers never see it.
+
 ## Quality of Life
 
 - **Drag to reorder** — manually adjust the track order before syncing

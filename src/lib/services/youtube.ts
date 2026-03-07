@@ -77,14 +77,13 @@ export async function searchYouTube(
 ): Promise<YouTubeSearchResult[]> {
   const apiKey = process.env.YOUTUBE_API_KEY!;
 
-  // Step 1: search.list — returns up to 10 results
   const searchUrl = new URL(`${YOUTUBE_API_BASE}/search`);
   searchUrl.searchParams.set("key", apiKey);
   searchUrl.searchParams.set("q", query);
   searchUrl.searchParams.set("part", "snippet");
   searchUrl.searchParams.set("type", "video");
   searchUrl.searchParams.set("maxResults", "10");
-  searchUrl.searchParams.set("videoCategoryId", "10"); // Music category
+  searchUrl.searchParams.set("videoCategoryId", "10");
   searchUrl.searchParams.set("order", "relevance");
 
   const searchRes = await fetch(searchUrl.toString());
@@ -107,7 +106,6 @@ export async function searchYouTube(
 
   if (items.length === 0) return [];
 
-  // Step 2: videos.list — get duration for each result
   const videoIds = items.map((i) => i.id.videoId).join(",");
   const videosUrl = new URL(`${YOUTUBE_API_BASE}/videos`);
   videosUrl.searchParams.set("key", apiKey);
@@ -126,7 +124,6 @@ export async function searchYouTube(
     durationMap.set(v.id, parseDuration(v.contentDetails?.duration ?? "PT0S"));
   }
 
-  // Step 3: Filter and build results
   const results: YouTubeSearchResult[] = [];
 
   for (const item of items) {
@@ -205,8 +202,8 @@ export async function searchOSTPlaylist(
     const res = await fetch(url.toString());
     if (!res.ok) {
       console.error(`[YouTube] searchOSTPlaylist — query: "${query}"`);
-      await throwIfQuotaError(res); // throws YouTubeQuotaError — propagates up immediately
-      continue; // non-quota error: try next query
+      await throwIfQuotaError(res);
+      continue;
     }
 
     const data = await res.json();
@@ -217,7 +214,6 @@ export async function searchOSTPlaylist(
 
     if (items.length === 0) continue;
 
-    // Prefer playlists whose title contains at least one game title word
     const match = items.find((item) => {
       const haystack = item.snippet.title.toLowerCase();
       return gameTitleWords.some((w) => haystack.includes(w));
@@ -247,7 +243,7 @@ export async function fetchPlaylistItems(
   const res = await fetch(url.toString());
   if (!res.ok) {
     console.error(`[YouTube] fetchPlaylistItems — playlistId: ${playlistId}`);
-    await throwIfQuotaError(res); // throws YouTubeQuotaError — propagates up immediately
+    await throwIfQuotaError(res);
     return [];
   }
 

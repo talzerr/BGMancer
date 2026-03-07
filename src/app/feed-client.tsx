@@ -14,6 +14,7 @@ import { PlaylistTrackCard } from "@/components/PlaylistTrackCard";
 import { PlaylistEmptyState } from "@/components/PlaylistEmptyState";
 import { PlayerBar } from "@/components/PlayerBar";
 import { SyncButton } from "@/components/SyncButton";
+import { Spinner, SearchIcon, CheckIcon } from "@/components/Icons";
 
 interface FeedClientProps {
   isSignedIn: boolean;
@@ -135,17 +136,12 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
               >
                 {playlist.searching ? (
                   <>
-                    <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z" />
-                    </svg>
+                    <Spinner className="w-3.5 h-3.5" />
                     Searching…
                   </>
                 ) : (
                   <>
-                    <svg className="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-                    </svg>
+                    <SearchIcon className="w-3.5 h-3.5 text-amber-400" />
                     Find Missing ({pendingCount})
                   </>
                 )}
@@ -156,7 +152,7 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
               <SyncButton
                 isSignedIn={isSignedIn}
                 authConfigured={authConfigured}
-                hasFoundGames={hasFoundTracks}
+                hasFoundTracks={hasFoundTracks}
                 onSyncComplete={() => {}}
               />
             )}
@@ -191,9 +187,7 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
                 <>
                   <span className="text-zinc-700 text-xs">·</span>
                   <span className="flex items-center gap-1.5 text-xs">
-                    <svg className="w-3 h-3 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
+                    <CheckIcon className="w-3 h-3 text-emerald-400" />
                     <span className="font-semibold text-emerald-400 tabular-nums">{foundCount}</span>
                     <span className="text-zinc-500">ready to play</span>
                   </span>

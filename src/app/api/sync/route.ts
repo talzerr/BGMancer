@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { getDB } from "@/lib/db";
+import { auth } from "@/lib/services/auth";
+import { Playlist, Config } from "@/lib/db/repo";
 import {
   findBGMancerPlaylist,
   createBGMancerPlaylist,
   addVideoToPlaylist,
-} from "@/lib/youtube";
+} from "@/lib/services/youtube";
 
 export async function POST() {
   try {
@@ -18,18 +18,14 @@ export async function POST() {
     }
 
     const accessToken = session.access_token;
-    const db = getDB();
-
-    const trackRows = db.prepare(`
-      SELECT id, video_id, position
-      FROM playlist_tracks
-      WHERE status = 'found' AND video_id IS NOT NULL
-      ORDER BY position ASC
-    `).all() as Array<{ id: string; video_id: string; position: number }>;
+    const trackRows = Playlist.listUnsyncedFound();
 
     if (trackRows.length === 0) {
+      const alreadySynced = Playlist.countSynced() > 0;
       return NextResponse.json({
-        message: "No tracks with videos ready to sync. Run 'Find Videos' first.",
+        message: alreadySynced
+          ? "All tracks are already synced."
+          : "No tracks with videos ready to sync. Run 'Find Videos' first.",
         synced: 0,
         playlist_id: null,
       });
@@ -40,13 +36,7 @@ export async function POST() {
       playlistId = await createBGMancerPlaylist(accessToken);
     }
 
-    // Persist playlist ID for future reference
-    db.prepare(`
-      INSERT INTO config (key, value) VALUES ('youtube_playlist_id', ?)
-      ON CONFLICT(key) DO UPDATE SET
-        value = excluded.value,
-        updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-    `).run(playlistId);
+    Config.upsert("youtube_playlist_id", playlistId);
 
     const syncedIds: string[] = [];
     const errors: Array<{ track_id: string; error: string }> = [];
@@ -54,6 +44,7 @@ export async function POST() {
     for (const track of trackRows) {
       try {
         await addVideoToPlaylist(accessToken, playlistId, track.video_id);
+        Playlist.markSynced(track.id);
         syncedIds.push(track.id);
       } catch (err) {
         errors.push({

@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
-import { getDB } from "@/lib/db";
-import { fetchPlaylistItems, YouTubeQuotaError } from "@/lib/youtube";
-import type { PlaylistTrack } from "@/types";
-
-// Hidden placeholder game used for all imported tracks.
-// Filtered out of the normal games list so it doesn't clutter the sidebar.
-export const YT_IMPORT_GAME_ID = "__yt_import__";
+import { Games, Playlist } from "@/lib/db/repo";
+import { YT_IMPORT_GAME_ID } from "@/lib/constants";
+import { fetchPlaylistItems, YouTubeQuotaError } from "@/lib/services/youtube";
 
 function extractPlaylistId(input: string): string | null {
   const trimmed = input.trim();
@@ -14,7 +10,6 @@ function extractPlaylistId(input: string): string | null {
     const list = url.searchParams.get("list");
     if (list) return list;
   } catch {
-    // Not a URL — treat as raw playlist ID
     if (/^[A-Za-z0-9_-]{10,}$/.test(trimmed)) return trimmed;
   }
   return null;
@@ -24,10 +19,7 @@ function extractPlaylistId(input: string): string | null {
  * POST /api/playlist/import
  *
  * Imports all tracks from a YouTube playlist by URL or ID.
- * Uses playlistItems.list (1 quota unit) — safe even when search quota is exhausted.
- *
- * Replaces the existing playlist. Tracks are imported as status='found' so they
- * are immediately playable.
+ * Replaces the existing playlist. Tracks are imported as status='found'.
  */
 export async function POST(request: Request) {
   try {
@@ -50,54 +42,24 @@ export async function POST(request: Request) {
       );
     }
 
-    const db = getDB();
+    Games.ensureExists(YT_IMPORT_GAME_ID, "YouTube Import", "official_soundtrack");
 
-    // Ensure the hidden import game exists
-    const gameExists = db.prepare("SELECT id FROM games WHERE id = ?").get(YT_IMPORT_GAME_ID);
-    if (!gameExists) {
-      db.prepare(
-        "INSERT INTO games (id, title, vibe_preference, allow_full_ost) VALUES (?, ?, ?, ?)"
-      ).run(YT_IMPORT_GAME_ID, "YouTube Import", "official_soundtrack", 0);
-    }
+    Playlist.replaceAll(
+      tracks.map((t, i) => ({
+        id: crypto.randomUUID(),
+        game_id: YT_IMPORT_GAME_ID,
+        track_name: t.title,
+        video_id: t.videoId,
+        video_title: t.title,
+        channel_title: t.channelTitle,
+        thumbnail: t.thumbnail,
+        search_queries: null,
+        status: "found" as const,
+        error_message: null,
+      })),
+    );
 
-    // Replace playlist with imported tracks
-    const insertStmt = db.prepare(`
-      INSERT INTO playlist_tracks
-        (id, game_id, track_name, video_id, video_title, channel_title, thumbnail,
-         search_queries, position, status, error_message)
-      VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, 'found', NULL)
-    `);
-
-    const importAll = db.transaction(() => {
-      db.prepare("DELETE FROM playlist_tracks").run();
-      for (let i = 0; i < tracks.length; i++) {
-        const t = tracks[i];
-        insertStmt.run(
-          crypto.randomUUID(),
-          YT_IMPORT_GAME_ID,
-          t.title,
-          t.videoId,
-          t.title,
-          t.channelTitle,
-          t.thumbnail,
-          i
-        );
-      }
-    });
-
-    importAll();
-
-    const rows = db.prepare(`
-      SELECT pt.*, g.title AS game_title
-      FROM playlist_tracks pt
-      JOIN games g ON g.id = pt.game_id
-      ORDER BY pt.position ASC
-    `).all() as Record<string, unknown>[];
-
-    const result = rows.map((row) => ({
-      ...row,
-      search_queries: null,
-    })) as PlaylistTrack[];
+    const result = Playlist.listAllWithGameTitle();
 
     return NextResponse.json({
       tracks: result,
