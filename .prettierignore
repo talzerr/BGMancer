@@ -1,0 +1,7 @@
+.next/
+node_modules/
+*.db
+*.db-shm
+*.db-wal
+backups/
+snapshots/

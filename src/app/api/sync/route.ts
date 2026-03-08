@@ -6,6 +6,9 @@ import {
   createBGMancerPlaylist,
   addVideoToPlaylist,
 } from "@/lib/services/youtube";
+import { runConcurrent } from "@/lib/concurrency";
+
+const SYNC_CONCURRENCY = 4;
 
 export async function POST() {
   try {
@@ -13,7 +16,7 @@ export async function POST() {
     if (!session?.access_token) {
       return NextResponse.json(
         { error: "You must be signed in with Google to sync your playlist." },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -41,7 +44,7 @@ export async function POST() {
     const syncedIds: string[] = [];
     const errors: Array<{ track_id: string; error: string }> = [];
 
-    for (const track of trackRows) {
+    await runConcurrent(trackRows, SYNC_CONCURRENCY, async (track) => {
       try {
         await addVideoToPlaylist(accessToken, playlistId, track.video_id);
         Playlist.markSynced(track.id);
@@ -52,7 +55,7 @@ export async function POST() {
           error: err instanceof Error ? err.message : String(err),
         });
       }
-    }
+    });
 
     return NextResponse.json({
       message: `Synced ${syncedIds.length} track(s) to "BGMancer Journey".`,
@@ -65,7 +68,7 @@ export async function POST() {
     console.error("[POST /api/sync]", err);
     return NextResponse.json(
       { error: "Sync failed", detail: err instanceof Error ? err.message : String(err) },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

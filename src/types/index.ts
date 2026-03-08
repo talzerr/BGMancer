@@ -1,13 +1,15 @@
 export const VIBE_LABELS = {
   official_soundtrack: "Official Soundtrack",
-  boss_themes:         "Boss Themes",
+  boss_themes: "Boss Themes",
   ambient_exploration: "Ambient & Exploration",
-  study_focus:         "Study / Deep Work",
-  workout_hype:        "Workout / Hype",
-  emotional_story:     "Emotional / Story",
+  study_focus: "Study / Deep Work",
+  workout_hype: "Workout / Hype",
+  emotional_story: "Emotional / Story",
 } as const;
 
 export type VibePreference = keyof typeof VIBE_LABELS;
+
+export const VALID_VIBES = new Set<string>(Object.keys(VIBE_LABELS));
 
 // ─── Game library ─────────────────────────────────────────────────────────────
 
@@ -34,8 +36,8 @@ export type TrackStatus = "pending" | "searching" | "found" | "error";
 export interface PlaylistTrack {
   id: string;
   game_id: string;
-  game_title?: string;        // populated via JOIN in API responses
-  track_name: string | null;  // null for full-OST compilation slots
+  game_title?: string; // populated via JOIN in API responses
+  track_name: string | null; // null for full-OST compilation slots
   video_id: string | null;
   video_title: string | null;
   channel_title: string | null;

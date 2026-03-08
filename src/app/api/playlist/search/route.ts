@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { Playlist } from "@/lib/db/repo";
 import { findBestVideo, YouTubeInvalidKeyError } from "@/lib/services/youtube";
+import { runConcurrent } from "@/lib/concurrency";
+
+const SEARCH_CONCURRENCY = 5;
 
 /**
  * POST /api/playlist/search
@@ -14,8 +17,11 @@ import { findBestVideo, YouTubeInvalidKeyError } from "@/lib/services/youtube";
 export async function POST() {
   if (!process.env.YOUTUBE_API_KEY) {
     return NextResponse.json(
-      { error: "YouTube API key is not configured. Add YOUTUBE_API_KEY to .env.local and restart the server." },
-      { status: 503 }
+      {
+        error:
+          "YouTube API key is not configured. Add YOUTUBE_API_KEY to .env.local and restart the server.",
+      },
+      { status: 503 },
     );
   }
 
@@ -29,7 +35,7 @@ export async function POST() {
     let updated = 0;
     let failed = 0;
 
-    for (const row of pendingRows) {
+    await runConcurrent(pendingRows, SEARCH_CONCURRENCY, async (row) => {
       const queries = row.search_queries ?? [];
       const allowShortVideo = !row.allow_full_ost;
 
@@ -39,7 +45,14 @@ export async function POST() {
         const video = await findBestVideo(queries, allowShortVideo);
 
         if (video) {
-          Playlist.setFound(row.id, video.videoId, video.title, video.channelTitle, video.thumbnail, video.durationSeconds);
+          Playlist.setFound(
+            row.id,
+            video.videoId,
+            video.title,
+            video.channelTitle,
+            video.thumbnail,
+            video.durationSeconds,
+          );
           updated++;
         } else {
           Playlist.setError(row.id, "No suitable video found after trying all queries.");
@@ -50,7 +63,7 @@ export async function POST() {
         Playlist.setError(row.id, err instanceof Error ? err.message : "YouTube search failed");
         failed++;
       }
-    }
+    });
 
     return NextResponse.json({ updated, failed, tracks: Playlist.listAllWithGameTitle() });
   } catch (err) {
@@ -58,7 +71,7 @@ export async function POST() {
     const status = err instanceof YouTubeInvalidKeyError ? 503 : 500;
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Search step failed" },
-      { status }
+      { status },
     );
   }
 }

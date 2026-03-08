@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Games, Playlist } from "@/lib/db/repo";
 import { YT_IMPORT_GAME_ID } from "@/lib/constants";
 import { fetchPlaylistItems, YouTubeQuotaError } from "@/lib/services/youtube";
+import type { PlaylistTrack } from "@/types";
 
 function extractPlaylistId(input: string): string | null {
   const trimmed = input.trim();
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
     if (!playlistId) {
       return NextResponse.json(
         { error: "Invalid input — paste a YouTube playlist URL or a playlist ID." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -38,28 +39,37 @@ export async function POST(request: Request) {
     if (tracks.length === 0) {
       return NextResponse.json(
         { error: "No tracks found. The playlist may be private, empty, or the ID is incorrect." },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
-    Games.ensureExists(YT_IMPORT_GAME_ID, "YouTube Import", "official_soundtrack");
+    Games.ensureExists(YT_IMPORT_GAME_ID, "YouTube Import");
 
-    Playlist.replaceAll(
-      tracks.map((t, i) => ({
-        id: crypto.randomUUID(),
-        game_id: YT_IMPORT_GAME_ID,
-        track_name: t.title,
-        video_id: t.videoId,
-        video_title: t.title,
-        channel_title: t.channelTitle,
-        thumbnail: t.thumbnail,
-        search_queries: null,
-        status: "found" as const,
-        error_message: null,
-      })),
-    );
+    const now = new Date().toISOString();
+    const tracksToInsert = tracks.map((t) => ({
+      id: crypto.randomUUID(),
+      game_id: YT_IMPORT_GAME_ID,
+      track_name: t.title,
+      video_id: t.videoId,
+      video_title: t.title,
+      channel_title: t.channelTitle,
+      thumbnail: t.thumbnail,
+      search_queries: null,
+      duration_seconds: null,
+      status: "found" as const,
+      error_message: null,
+    }));
 
-    const result = Playlist.listAllWithGameTitle();
+    Playlist.replaceAll(tracksToInsert);
+
+    // Construct the response in-memory — avoids a round-trip JOIN query.
+    const result: PlaylistTrack[] = tracksToInsert.map((t, i) => ({
+      ...t,
+      game_title: "YouTube Import",
+      position: i,
+      created_at: now,
+      synced_at: null,
+    }));
 
     return NextResponse.json({
       tracks: result,
@@ -73,7 +83,7 @@ export async function POST(request: Request) {
     console.error("[POST /api/playlist/import]", err);
     return NextResponse.json(
       { error: "Import failed", detail: err instanceof Error ? err.message : String(err) },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

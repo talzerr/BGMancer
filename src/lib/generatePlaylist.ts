@@ -10,7 +10,13 @@ import {
 import type { Game, PlaylistTrack, VibePreference } from "@/types";
 
 export type GenerateEvent =
-  | { type: "progress"; gameId?: string; title?: string; status?: "active" | "done" | "error"; message: string }
+  | {
+      type: "progress";
+      gameId?: string;
+      title?: string;
+      status?: "active" | "done" | "error";
+      message: string;
+    }
   | { type: "done"; tracks: PlaylistTrack[]; count: number; found: number; pending: number }
   | { type: "error"; message: string; detail?: string };
 
@@ -48,9 +54,21 @@ async function generateTracksForFullOST(
   vibe: VibePreference,
   send: (e: GenerateEvent) => void,
 ): Promise<GameTracks> {
-  send({ type: "progress", gameId: game.id, title: game.title, status: "active", message: "Finding full OST compilation…" });
+  send({
+    type: "progress",
+    gameId: game.id,
+    title: game.title,
+    status: "active",
+    message: "Finding full OST compilation…",
+  });
   const queries = compilationQueries(game.title, vibe);
-  send({ type: "progress", gameId: game.id, title: game.title, status: "done", message: "Queued for YouTube search" });
+  send({
+    type: "progress",
+    gameId: game.id,
+    title: game.title,
+    status: "done",
+    message: "Queued for YouTube search",
+  });
   return {
     game,
     tracks: [makePendingTrack(game.id, game.title, { search_queries: queries })],
@@ -66,16 +84,34 @@ async function generateTracksForIndividual(
   let playlistId = YtPlaylists.get(game.id);
 
   if (playlistId) {
-    send({ type: "progress", gameId: game.id, title: game.title, status: "active", message: "Using cached OST playlist…" });
+    send({
+      type: "progress",
+      gameId: game.id,
+      title: game.title,
+      status: "active",
+      message: "Using cached OST playlist…",
+    });
   } else {
-    send({ type: "progress", gameId: game.id, title: game.title, status: "active", message: "Searching YouTube for OST playlist…" });
+    send({
+      type: "progress",
+      gameId: game.id,
+      title: game.title,
+      status: "active",
+      message: "Searching YouTube for OST playlist…",
+    });
     playlistId = await searchOSTPlaylist(game.title);
     if (playlistId) YtPlaylists.upsert(game.id, playlistId);
   }
 
   if (!playlistId) {
     const queries = compilationQueries(game.title, vibe);
-    send({ type: "progress", gameId: game.id, title: game.title, status: "done", message: "No playlist found — queued for search" });
+    send({
+      type: "progress",
+      gameId: game.id,
+      title: game.title,
+      status: "done",
+      message: "No playlist found — queued for search",
+    });
     return {
       game,
       tracks: Array.from({ length: count }, () =>
@@ -87,15 +123,33 @@ async function generateTracksForIndividual(
     };
   }
 
-  send({ type: "progress", gameId: game.id, title: game.title, status: "active", message: "Fetching track list…" });
+  send({
+    type: "progress",
+    gameId: game.id,
+    title: game.title,
+    status: "active",
+    message: "Fetching track list…",
+  });
   const playlistTracks = await fetchPlaylistItems(playlistId);
 
   if (playlistTracks.length === 0) {
-    send({ type: "progress", gameId: game.id, title: game.title, status: "done", message: "No tracks found" });
+    send({
+      type: "progress",
+      gameId: game.id,
+      title: game.title,
+      status: "done",
+      message: "No tracks found",
+    });
     return { game, tracks: [] };
   }
 
-  send({ type: "progress", gameId: game.id, title: game.title, status: "active", message: `AI selecting ${count} from ${playlistTracks.length} tracks…` });
+  send({
+    type: "progress",
+    gameId: game.id,
+    title: game.title,
+    status: "active",
+    message: `AI selecting ${count} from ${playlistTracks.length} tracks…`,
+  });
   const selectedIndices = await selectTracksFromList(
     game.title,
     vibe,
@@ -103,23 +157,31 @@ async function generateTracksForIndividual(
     Math.min(count, playlistTracks.length),
   );
 
-  send({ type: "progress", gameId: game.id, title: game.title, status: "done", message: `${selectedIndices.length} tracks selected` });
+  send({
+    type: "progress",
+    gameId: game.id,
+    title: game.title,
+    status: "done",
+    message: `${selectedIndices.length} tracks selected`,
+  });
 
   const selectedTracks = selectedIndices.map((idx) => playlistTracks[idx]);
   const durations = await fetchVideoDurations(selectedTracks.map((t) => t.videoId));
 
   return {
     game,
-    tracks: selectedTracks.map((t) => makePendingTrack(game.id, game.title, {
-      track_name: t.title,
-      video_id: t.videoId,
-      video_title: t.title,
-      channel_title: t.channelTitle,
-      thumbnail: t.thumbnail,
-      duration_seconds: durations.get(t.videoId) ?? null,
-      search_queries: null,
-      status: "found",
-    })),
+    tracks: selectedTracks.map((t) =>
+      makePendingTrack(game.id, game.title, {
+        track_name: t.title,
+        video_id: t.videoId,
+        video_title: t.title,
+        channel_title: t.channelTitle,
+        thumbnail: t.thumbnail,
+        duration_seconds: durations.get(t.videoId) ?? null,
+        search_queries: null,
+        status: "found",
+      }),
+    ),
   };
 }
 
@@ -156,9 +218,7 @@ function toInsertable(tracks: PendingTrack[]): InsertableTrack[] {
  * Core playlist generation pipeline, decoupled from HTTP/SSE transport.
  * Calls `send` with progress events; returns the final track list.
  */
-export async function generatePlaylist(
-  send: (event: GenerateEvent) => void,
-): Promise<void> {
+export async function generatePlaylist(send: (event: GenerateEvent) => void): Promise<void> {
   const games = Games.listAll();
 
   if (games.length === 0) {
@@ -178,8 +238,10 @@ export async function generatePlaylist(
     individualGames.length > 0
       ? Math.max(1, Math.floor(remainingSlots / individualGames.length))
       : 0;
-  const remainder =
-    individualGames.length > 0 ? remainingSlots % individualGames.length : 0;
+  const remainder = individualGames.length > 0 ? remainingSlots % individualGames.length : 0;
+
+  // Pre-build index map to avoid O(n²) indexOf inside the loop.
+  const individualGameIndex = new Map(individualGames.map((g, i) => [g.id, i]));
 
   const perGame: GameTracks[] = [];
 
@@ -189,7 +251,7 @@ export async function generatePlaylist(
       continue;
     }
 
-    const individualIdx = individualGames.indexOf(game);
+    const individualIdx = individualGameIndex.get(game.id) ?? 0;
     const count = tracksPerGame + (individualIdx < remainder ? 1 : 0);
 
     try {
@@ -200,12 +262,20 @@ export async function generatePlaylist(
       console.error(`[generate] failed for game "${game.title}":`, err);
       perGame.push({
         game,
-        tracks: [makePendingTrack(game.id, game.title, {
-          status: "error",
-          error_message: err instanceof Error ? err.message : "Generation failed",
-        })],
+        tracks: [
+          makePendingTrack(game.id, game.title, {
+            status: "error",
+            error_message: err instanceof Error ? err.message : "Generation failed",
+          }),
+        ],
       });
-      send({ type: "progress", gameId: game.id, title: game.title, status: "error", message: err instanceof Error ? err.message : "Failed" });
+      send({
+        type: "progress",
+        gameId: game.id,
+        title: game.title,
+        status: "error",
+        message: err instanceof Error ? err.message : "Failed",
+      });
     }
   }
 
@@ -226,15 +296,33 @@ export async function generatePlaylist(
 
   // ── Resolve full-OST pending slots ────────────────────────────────────
 
+  // Pre-build id→index map to avoid O(n²) findIndex inside the loop.
+  const insertedIndexById = new Map(inserted.map((t, i) => [t.id, i]));
+
   const pendingTracks = inserted.filter((t) => t.status === "pending" && t.search_queries);
   for (const track of pendingTracks) {
     try {
-      const video = await findBestVideo(track.search_queries!, false);
+      const video = await findBestVideo(track.search_queries ?? [], false);
       if (video) {
-        Playlist.setFound(track.id, video.videoId, video.title, video.channelTitle, video.thumbnail, video.durationSeconds);
-        const idx = inserted.findIndex((t) => t.id === track.id);
-        if (idx !== -1) {
-          inserted[idx] = { ...inserted[idx], status: "found", video_id: video.videoId, video_title: video.title, channel_title: video.channelTitle, thumbnail: video.thumbnail, duration_seconds: video.durationSeconds };
+        Playlist.setFound(
+          track.id,
+          video.videoId,
+          video.title,
+          video.channelTitle,
+          video.thumbnail,
+          video.durationSeconds,
+        );
+        const idx = insertedIndexById.get(track.id);
+        if (idx !== undefined) {
+          inserted[idx] = {
+            ...inserted[idx],
+            status: "found",
+            video_id: video.videoId,
+            video_title: video.title,
+            channel_title: video.channelTitle,
+            thumbnail: video.thumbnail,
+            duration_seconds: video.durationSeconds,
+          };
         }
       } else {
         Playlist.setError(track.id, "No suitable compilation video found.");
@@ -247,5 +335,11 @@ export async function generatePlaylist(
   const foundCount = inserted.filter((t) => t.status === "found").length;
   const pendingCount = inserted.filter((t) => t.status === "pending").length;
 
-  send({ type: "done", tracks: inserted, count: inserted.length, found: foundCount, pending: pendingCount });
+  send({
+    type: "done",
+    tracks: inserted,
+    count: inserted.length,
+    found: foundCount,
+    pending: pendingCount,
+  });
 }

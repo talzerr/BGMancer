@@ -1,9 +1,19 @@
+import type Database from "better-sqlite3";
 import { getDB, getSeedPlaylistId } from "@/lib/db";
-import { toGame, toGames, toPlaylistTrack, toPlaylistTracks, parseSearchQueries } from "@/lib/db/mappers";
+import { toGame, toGames, toPlaylistTracks, parseSearchQueries } from "@/lib/db/mappers";
 import type { Game, PlaylistTrack, AppConfig, VibePreference, TrackStatus } from "@/types";
-import { VIBE_LABELS } from "@/types";
+import { VALID_VIBES } from "@/types";
 
-const VALID_VIBES = new Set<string>(Object.keys(VIBE_LABELS));
+// Prepared statements cached by SQL string — avoids recompiling on every call.
+const _stmts = new Map<string, Database.Statement<unknown[]>>();
+function stmt(sql: string): Database.Statement<unknown[]> {
+  let s = _stmts.get(sql);
+  if (!s) {
+    s = getDB().prepare(sql);
+    _stmts.set(sql, s);
+  }
+  return s;
+}
 
 // ─── Games ────────────────────────────────────────────────────────────────────
 
@@ -20,28 +30,25 @@ export interface SteamGameInput {
 export const Games = {
   /** Returns only enabled games — used for playlist generation. */
   listAll(excludeId?: string): Game[] {
-    const db = getDB();
     if (excludeId) {
       return toGames(
-        db.prepare("SELECT * FROM games WHERE enabled = 1 AND id != ? ORDER BY created_at ASC").all(excludeId),
+        stmt("SELECT * FROM games WHERE enabled = 1 AND id != ? ORDER BY created_at ASC").all(
+          excludeId,
+        ),
       );
     }
-    return toGames(
-      db.prepare("SELECT * FROM games WHERE enabled = 1 ORDER BY created_at ASC").all(),
-    );
+    return toGames(stmt("SELECT * FROM games WHERE enabled = 1 ORDER BY created_at ASC").all());
   },
 
   /** Returns all games regardless of enabled state — used by the library page. */
   listAllIncludingDisabled(): Game[] {
-    return toGames(
-      getDB().prepare("SELECT * FROM games ORDER BY created_at ASC").all(),
-    );
+    return toGames(stmt("SELECT * FROM games ORDER BY created_at ASC").all());
   },
 
   getById(id: string): Game | null {
-    const row = getDB()
-      .prepare("SELECT * FROM games WHERE id = ?")
-      .get(id) as Record<string, unknown> | undefined;
+    const row = stmt("SELECT * FROM games WHERE id = ?").get(id) as
+      | Record<string, unknown>
+      | undefined;
     return row ? toGame(row) : null;
   },
 
@@ -52,38 +59,38 @@ export const Games = {
     steamAppid: number | null = null,
     playtimeMinutes: number | null = null,
   ): Game {
-    const db = getDB();
-    db.prepare(
+    stmt(
       "INSERT INTO games (id, title, vibe_preference, allow_full_ost, enabled, steam_appid, playtime_minutes) VALUES (?, ?, 'official_soundtrack', 0, ?, ?, ?)",
     ).run(id, title, enabled ? 1 : 0, steamAppid, playtimeMinutes);
 
     const seededPlaylistId = getSeedPlaylistId(title);
     if (seededPlaylistId) {
-      db.prepare("INSERT OR IGNORE INTO game_yt_playlists (game_id, playlist_id) VALUES (?, ?)")
-        .run(id, seededPlaylistId);
+      stmt("INSERT OR IGNORE INTO game_yt_playlists (game_id, playlist_id) VALUES (?, ?)").run(
+        id,
+        seededPlaylistId,
+      );
     }
 
-    return this.getById(id)!;
+    const created = this.getById(id);
+    if (!created) throw new Error(`[Games.create] game ${id} not found after INSERT`);
+    return created;
   },
 
   update(id: string, fields: GameUpdateFields): Game | null {
-    const db = getDB();
-    const now = "strftime('%Y-%m-%dT%H:%M:%SZ', 'now')";
-
     if (fields.enabled !== undefined) {
-      db.prepare(`UPDATE games SET enabled = ?, updated_at = ${now} WHERE id = ?`)
-        .run(fields.enabled ? 1 : 0, id);
+      stmt(
+        `UPDATE games SET enabled = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`,
+      ).run(fields.enabled ? 1 : 0, id);
     }
-
     return this.getById(id);
   },
 
   remove(id: string): void {
-    getDB().prepare("DELETE FROM games WHERE id = ?").run(id);
+    stmt("DELETE FROM games WHERE id = ?").run(id);
   },
 
   ensureExists(id: string, title: string): void {
-    const exists = getDB().prepare("SELECT id FROM games WHERE id = ?").get(id);
+    const exists = stmt("SELECT id FROM games WHERE id = ?").get(id);
     if (!exists) {
       this.create(id, title, false);
     }
@@ -96,14 +103,12 @@ export const Games = {
    */
   bulkImportSteam(games: SteamGameInput[]): { imported: number; skipped: number } {
     const db = getDB();
-    const insert = db.prepare(`
+    const insertSQL = `
       INSERT OR IGNORE INTO games
         (id, title, vibe_preference, allow_full_ost, enabled, steam_appid, playtime_minutes)
       VALUES (?, ?, 'official_soundtrack', 0, 0, ?, ?)
-    `);
-    const seedInsert = db.prepare(
-      "INSERT OR IGNORE INTO game_yt_playlists (game_id, playlist_id) VALUES (?, ?)",
-    );
+    `;
+    const seedSQL = "INSERT OR IGNORE INTO game_yt_playlists (game_id, playlist_id) VALUES (?, ?)";
 
     let imported = 0;
     let skipped = 0;
@@ -111,11 +116,11 @@ export const Games = {
     db.transaction(() => {
       for (const g of games) {
         const id = crypto.randomUUID();
-        const result = insert.run(id, g.name, g.appid, Math.round(g.playtime_forever));
+        const result = stmt(insertSQL).run(id, g.name, g.appid, Math.round(g.playtime_forever));
         if (result.changes > 0) {
           imported++;
           const seededPlaylistId = getSeedPlaylistId(g.name);
-          if (seededPlaylistId) seedInsert.run(id, seededPlaylistId);
+          if (seededPlaylistId) stmt(seedSQL).run(id, seededPlaylistId);
         } else {
           skipped++;
         }
@@ -157,7 +162,7 @@ export interface SyncableTrackRow {
 export const Playlist = {
   listAllWithGameTitle(): PlaylistTrack[] {
     return toPlaylistTracks(
-      getDB().prepare(`
+      stmt(`
         SELECT pt.*, g.title AS game_title
         FROM playlist_tracks pt
         JOIN games g ON g.id = pt.game_id
@@ -167,7 +172,7 @@ export const Playlist = {
   },
 
   listPending(): PendingTrackRow[] {
-    const rows = getDB().prepare(`
+    const rows = stmt(`
       SELECT pt.id, pt.search_queries, g.allow_full_ost
       FROM playlist_tracks pt
       JOIN games g ON g.id = pt.game_id
@@ -178,12 +183,12 @@ export const Playlist = {
     return rows.map((r) => ({
       id: String(r.id),
       search_queries: parseSearchQueries(r.search_queries),
-      allow_full_ost: !!(r.allow_full_ost),
+      allow_full_ost: !!r.allow_full_ost,
     }));
   },
 
   listUnsyncedFound(): SyncableTrackRow[] {
-    return getDB().prepare(`
+    return stmt(`
       SELECT id, video_id, position
       FROM playlist_tracks
       WHERE status = 'found' AND video_id IS NOT NULL AND synced_at IS NULL
@@ -192,46 +197,61 @@ export const Playlist = {
   },
 
   countSynced(): number {
-    const row = getDB()
-      .prepare("SELECT COUNT(*) AS cnt FROM playlist_tracks WHERE synced_at IS NOT NULL")
-      .get() as { cnt: number };
+    const row = stmt(
+      "SELECT COUNT(*) AS cnt FROM playlist_tracks WHERE synced_at IS NOT NULL",
+    ).get() as { cnt: number };
     return row.cnt;
   },
 
   replaceAll(tracks: InsertableTrack[]): void {
     const db = getDB();
-    const insert = db.prepare(`
+    const insertSQL = `
       INSERT INTO playlist_tracks
         (id, game_id, track_name, video_id, video_title, channel_title, thumbnail,
          search_queries, duration_seconds, position, status, error_message)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    `;
 
     db.transaction(() => {
-      db.prepare("DELETE FROM playlist_tracks").run();
+      stmt("DELETE FROM playlist_tracks").run();
+      const insertStmt = stmt(insertSQL);
       for (let position = 0; position < tracks.length; position++) {
         const t = tracks[position];
-        insert.run(
-          t.id, t.game_id, t.track_name, t.video_id, t.video_title,
-          t.channel_title, t.thumbnail,
+        insertStmt.run(
+          t.id,
+          t.game_id,
+          t.track_name,
+          t.video_id,
+          t.video_title,
+          t.channel_title,
+          t.thumbnail,
           t.search_queries ? JSON.stringify(t.search_queries) : null,
           t.duration_seconds ?? null,
-          position, t.status, t.error_message,
+          position,
+          t.status,
+          t.error_message,
         );
       }
     })();
   },
 
   clearAll(): void {
-    getDB().prepare("DELETE FROM playlist_tracks").run();
+    stmt("DELETE FROM playlist_tracks").run();
   },
 
   setSearching(id: string): void {
-    getDB().prepare("UPDATE playlist_tracks SET status = 'searching' WHERE id = ?").run(id);
+    stmt("UPDATE playlist_tracks SET status = 'searching' WHERE id = ?").run(id);
   },
 
-  setFound(id: string, videoId: string, title: string, channel: string, thumbnail: string, durationSeconds: number | null = null): void {
-    getDB().prepare(`
+  setFound(
+    id: string,
+    videoId: string,
+    title: string,
+    channel: string,
+    thumbnail: string,
+    durationSeconds: number | null = null,
+  ): void {
+    stmt(`
       UPDATE playlist_tracks SET
         status = 'found', video_id = ?, video_title = ?,
         channel_title = ?, thumbnail = ?, duration_seconds = ?, error_message = NULL
@@ -240,15 +260,16 @@ export const Playlist = {
   },
 
   setError(id: string, message: string): void {
-    getDB()
-      .prepare("UPDATE playlist_tracks SET status = 'error', error_message = ? WHERE id = ?")
-      .run(message, id);
+    stmt("UPDATE playlist_tracks SET status = 'error', error_message = ? WHERE id = ?").run(
+      message,
+      id,
+    );
   },
 
   markSynced(id: string): void {
-    getDB()
-      .prepare("UPDATE playlist_tracks SET synced_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?")
-      .run(id);
+    stmt(
+      "UPDATE playlist_tracks SET synced_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?",
+    ).run(id);
   },
 };
 
@@ -257,15 +278,16 @@ export const Playlist = {
 export const YtPlaylists = {
   /** Returns a map of game_id → playlist_id for all cached entries. */
   listAllAsMap(): Record<string, string> {
-    const rows = getDB()
-      .prepare("SELECT game_id, playlist_id FROM game_yt_playlists")
-      .all() as Array<{ game_id: string; playlist_id: string }>;
+    const rows = stmt("SELECT game_id, playlist_id FROM game_yt_playlists").all() as Array<{
+      game_id: string;
+      playlist_id: string;
+    }>;
     return Object.fromEntries(rows.map((r) => [r.game_id, r.playlist_id]));
   },
 
   /** Returns all cached entries joined with game title — used for seed export. */
   listAll(): Array<{ game_title: string; playlist_id: string }> {
-    return getDB().prepare(`
+    return stmt(`
       SELECT g.title AS game_title, yp.playlist_id
       FROM game_yt_playlists yp
       JOIN games g ON g.id = yp.game_id
@@ -275,15 +297,15 @@ export const YtPlaylists = {
 
   /** Returns the cached YouTube playlist ID for a game, or null if not cached. */
   get(gameId: string): string | null {
-    const row = getDB()
-      .prepare("SELECT playlist_id FROM game_yt_playlists WHERE game_id = ?")
-      .get(gameId) as { playlist_id: string } | undefined;
+    const row = stmt("SELECT playlist_id FROM game_yt_playlists WHERE game_id = ?").get(gameId) as
+      | { playlist_id: string }
+      | undefined;
     return row?.playlist_id ?? null;
   },
 
   /** Inserts or updates the cached playlist ID for a game. */
   upsert(gameId: string, playlistId: string): void {
-    getDB().prepare(`
+    stmt(`
       INSERT INTO game_yt_playlists (game_id, playlist_id)
       VALUES (?, ?)
       ON CONFLICT(game_id) DO UPDATE SET
@@ -294,19 +316,27 @@ export const YtPlaylists = {
 
   /** Removes the cached entry for a game, forcing re-discovery on next generation. */
   clearForGame(gameId: string): void {
-    getDB()
-      .prepare("DELETE FROM game_yt_playlists WHERE game_id = ?")
-      .run(gameId);
+    stmt("DELETE FROM game_yt_playlists WHERE game_id = ?").run(gameId);
   },
 
   /** Returns all cached entries joined with game title — used by dev panel. */
-  loadRaw(): Array<{ game_id: string; game_title: string; playlist_id: string; discovered_at: string }> {
-    return getDB().prepare(`
+  loadRaw(): Array<{
+    game_id: string;
+    game_title: string;
+    playlist_id: string;
+    discovered_at: string;
+  }> {
+    return stmt(`
       SELECT yp.game_id, g.title AS game_title, yp.playlist_id, yp.discovered_at
       FROM game_yt_playlists yp
       JOIN games g ON g.id = yp.game_id
       ORDER BY yp.discovered_at DESC
-    `).all() as Array<{ game_id: string; game_title: string; playlist_id: string; discovered_at: string }>;
+    `).all() as Array<{
+      game_id: string;
+      game_title: string;
+      playlist_id: string;
+      discovered_at: string;
+    }>;
   },
 };
 
@@ -314,7 +344,7 @@ export const YtPlaylists = {
 
 export const Config = {
   load(): AppConfig {
-    const rows = getDB().prepare("SELECT key, value FROM config").all() as Array<{
+    const rows = stmt("SELECT key, value FROM config").all() as Array<{
       key: string;
       value: string;
     }>;
@@ -329,7 +359,7 @@ export const Config = {
   },
 
   upsert(key: string, value: string): void {
-    getDB().prepare(`
+    stmt(`
       INSERT INTO config (key, value) VALUES (?, ?)
       ON CONFLICT(key) DO UPDATE SET
         value = excluded.value,
@@ -337,14 +367,32 @@ export const Config = {
     `).run(key, value);
   },
 
+  /** Writes multiple key/value pairs in a single transaction. */
+  upsertBatch(entries: Array<[key: string, value: string]>): void {
+    if (entries.length === 0) return;
+    const db = getDB();
+    const upsertSQL = `
+      INSERT INTO config (key, value) VALUES (?, ?)
+      ON CONFLICT(key) DO UPDATE SET
+        value = excluded.value,
+        updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+    `;
+    db.transaction(() => {
+      for (const [key, value] of entries) {
+        stmt(upsertSQL).run(key, value);
+      }
+    })();
+  },
+
   loadRaw(): Array<{ key: string; value: string; updated_at: string }> {
-    return getDB()
-      .prepare("SELECT key, value, updated_at FROM config ORDER BY key ASC")
-      .all() as Array<{ key: string; value: string; updated_at: string }>;
+    return stmt("SELECT key, value, updated_at FROM config ORDER BY key ASC").all() as Array<{
+      key: string;
+      value: string;
+      updated_at: string;
+    }>;
   },
 
   getTargetTrackCount(): number {
     return this.load().target_track_count;
   },
 };
-

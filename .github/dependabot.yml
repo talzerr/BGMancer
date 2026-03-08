@@ -1,11 +1,33 @@
-# To get started with Dependabot version updates, you'll need to specify which
-# package ecosystems to update and where the package manifests are located.
-# Please see the documentation for all configuration options:
-# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
-
 version: 2
 updates:
-  - package-ecosystem: "npm" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  - package-ecosystem: "npm"
+    directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    labels:
+      - "dependencies"
+    open-pull-requests-limit: 5
+
+    # Group minor + patch bumps for devDependencies into a single PR to
+    # reduce noise. Security patches are always opened individually.
+    groups:
+      dev-minor-patch:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+
+    ignore:
+      # next-auth 5.x is still in beta — only accept patches on the current
+      # beta channel; major/minor jumps need manual review.
+      - dependency-name: "next-auth"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+
+      # Next.js major upgrades require coordinated work on the whole stack.
+      # Review manually and upgrade intentionally.
+      - dependency-name: "next"
+        update-types: ["version-update:semver-major"]
