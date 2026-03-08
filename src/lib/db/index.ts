@@ -73,26 +73,25 @@ function initSchema(db: Database.Database): void {
     INSERT OR IGNORE INTO config (key, value) VALUES ('vibe', 'official_soundtrack');
   `);
 
-  seedYtPlaylists(db);
 }
 
-function seedYtPlaylists(db: Database.Database): void {
-  const seedPath = path.join(process.cwd(), "yt-playlists.seed.json");
-  if (!fs.existsSync(seedPath)) return;
+let _seedMap: Map<string, string> | null = null;
 
-  const entries: Array<{ game_id: string; playlist_id: string }> = JSON.parse(
-    fs.readFileSync(seedPath, "utf-8"),
-  );
-  if (entries.length === 0) return;
-
-  const insert = db.prepare(`
-    INSERT OR IGNORE INTO game_yt_playlists (game_id, playlist_id)
-    VALUES (?, ?)
-  `);
-
-  db.transaction(() => {
-    for (const { game_id, playlist_id } of entries) {
-      insert.run(game_id, playlist_id);
+/**
+ * Returns the seeded YouTube playlist ID for a game title, or null if none.
+ * The seed file is loaded once and cached for the lifetime of the process.
+ */
+export function getSeedPlaylistId(gameTitle: string): string | null {
+  if (!_seedMap) {
+    const seedPath = path.join(process.cwd(), "data", "yt-playlists.json");
+    if (!fs.existsSync(seedPath)) {
+      _seedMap = new Map();
+    } else {
+      const entries: Array<{ game_title: string; playlist_id: string }> = JSON.parse(
+        fs.readFileSync(seedPath, "utf-8"),
+      );
+      _seedMap = new Map(entries.map((e) => [e.game_title, e.playlist_id]));
     }
-  })();
+  }
+  return _seedMap.get(gameTitle) ?? null;
 }

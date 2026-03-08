@@ -4,16 +4,16 @@ import { YtPlaylists } from "@/lib/db/repo";
 /**
  * GET /api/seed/yt-playlists
  *
- * Returns the current game_yt_playlists table as a seed-compatible JSON array.
- * Copy the response body into yt-playlists.seed.json at the project root to
- * persist discovered playlists across DB resets.
+ * Exports the current game_yt_playlists table as a JSON array keyed by game title.
+ * Save the response as data/yt-playlists.json to persist discovered playlists across DB resets.
  */
 export async function GET() {
   try {
     const entries = YtPlaylists.listAll();
     return NextResponse.json(entries, {
       headers: {
-        "Content-Disposition": 'attachment; filename="yt-playlists.seed.json"',
+        "Content-Disposition": 'attachment; filename="yt-playlists.json"',
+        "Content-Type": "application/json",
       },
     });
   } catch (err) {
