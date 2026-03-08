@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "db:reset": "node scripts/reset-db.js",
-    "db:snapshot": "node scripts/db-snapshot.js",
+    "db:backup": "node scripts/db-snapshot.js",
     "db:restore": "node scripts/db-restore.js"
   },
   "dependencies": {
