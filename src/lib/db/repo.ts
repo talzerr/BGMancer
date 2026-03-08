@@ -139,6 +139,7 @@ export interface InsertableTrack {
   channel_title: string | null;
   thumbnail: string | null;
   search_queries: string[] | null;
+  duration_seconds?: number | null;
   status: TrackStatus;
   error_message: string | null;
 }
@@ -204,8 +205,8 @@ export const Playlist = {
     const insert = db.prepare(`
       INSERT INTO playlist_tracks
         (id, game_id, track_name, video_id, video_title, channel_title, thumbnail,
-         search_queries, position, status, error_message)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         search_queries, duration_seconds, position, status, error_message)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     db.transaction(() => {
@@ -216,6 +217,7 @@ export const Playlist = {
           t.id, t.game_id, t.track_name, t.video_id, t.video_title,
           t.channel_title, t.thumbnail,
           t.search_queries ? JSON.stringify(t.search_queries) : null,
+          t.duration_seconds ?? null,
           position, t.status, t.error_message,
         );
       }

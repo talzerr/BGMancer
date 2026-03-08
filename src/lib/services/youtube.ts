@@ -173,6 +173,35 @@ export async function findBestVideo(
   return null;
 }
 
+/**
+ * Fetch durations for a batch of video IDs in a single videos.list call (1 quota unit).
+ * Returns a map of videoId → duration in seconds.
+ */
+export async function fetchVideoDurations(
+  videoIds: string[]
+): Promise<Map<string, number>> {
+  const durations = new Map<string, number>();
+  if (videoIds.length === 0) return durations;
+
+  const apiKey = process.env.YOUTUBE_API_KEY!;
+  const url = new URL(`${YOUTUBE_API_BASE}/videos`);
+  url.searchParams.set("key", apiKey);
+  url.searchParams.set("id", videoIds.join(","));
+  url.searchParams.set("part", "contentDetails");
+
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    await throwIfFatalError(res);
+    return durations;
+  }
+
+  const data = await res.json();
+  for (const v of data.items ?? []) {
+    durations.set(v.id, parseDuration(v.contentDetails?.duration ?? "PT0S"));
+  }
+  return durations;
+}
+
 // ─── OST playlist discovery (read-only, uses API key) ────────────────────────
 
 export interface OSTTrack {
@@ -237,30 +266,36 @@ export async function searchOSTPlaylist(
 }
 
 /**
- * Fetch up to 50 tracks from a YouTube playlist.
- * Uses playlistItems.list (1 quota unit).
+ * Fetch up to `maxTracks` tracks from a YouTube playlist, paginating as needed.
+ * Each page costs 1 quota unit (50 items per page).
+ * Default cap is 150 tracks (3 pages) to give the LLM a larger, varied pool.
  */
 export async function fetchPlaylistItems(
-  playlistId: string
+  playlistId: string,
+  maxTracks = 150
 ): Promise<OSTTrack[]> {
   const apiKey = process.env.YOUTUBE_API_KEY!;
-  const url = new URL(`${YOUTUBE_API_BASE}/playlistItems`);
-  url.searchParams.set("key", apiKey);
-  url.searchParams.set("playlistId", playlistId);
-  url.searchParams.set("part", "snippet");
-  url.searchParams.set("maxResults", "50");
+  const tracks: OSTTrack[] = [];
+  let pageToken: string | undefined;
 
-  const res = await fetch(url.toString());
-  if (!res.ok) {
-    console.error(`[YouTube] fetchPlaylistItems — playlistId: ${playlistId}`);
-    await throwIfFatalError(res);
-    return [];
-  }
+  do {
+    const url = new URL(`${YOUTUBE_API_BASE}/playlistItems`);
+    url.searchParams.set("key", apiKey);
+    url.searchParams.set("playlistId", playlistId);
+    url.searchParams.set("part", "snippet");
+    url.searchParams.set("maxResults", "50");
+    if (pageToken) url.searchParams.set("pageToken", pageToken);
 
-  const data = await res.json();
-  return (data.items ?? [])
-    .map(
-      (item: {
+    const res = await fetch(url.toString());
+    if (!res.ok) {
+      console.error(`[YouTube] fetchPlaylistItems — playlistId: ${playlistId}`);
+      await throwIfFatalError(res);
+      break;
+    }
+
+    const data = await res.json();
+    const page: OSTTrack[] = (data.items ?? [])
+      .map((item: {
         snippet: {
           resourceId?: { videoId?: string };
           title: string;
@@ -275,9 +310,16 @@ export async function fetchPlaylistItems(
           item.snippet.thumbnails?.medium?.url ??
           item.snippet.thumbnails?.default?.url ??
           "",
-      })
-    )
-    .filter((t: OSTTrack) => t.videoId && t.title !== "Deleted video" && t.title !== "Private video");
+      }))
+      .filter((t: OSTTrack) =>
+        t.videoId && t.title !== "Deleted video" && t.title !== "Private video"
+      );
+
+    tracks.push(...page);
+    pageToken = data.nextPageToken;
+  } while (pageToken && tracks.length < maxTracks);
+
+  return tracks.slice(0, maxTracks);
 }
 
 // ─── Playlist helpers (require user OAuth token) ──────────────────────────────

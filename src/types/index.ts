@@ -1,12 +1,18 @@
 export type VibePreference =
   | "official_soundtrack"
   | "boss_themes"
-  | "ambient_exploration";
+  | "ambient_exploration"
+  | "study_focus"
+  | "workout_hype"
+  | "emotional_story";
 
 export const VIBE_LABELS: Record<VibePreference, string> = {
   official_soundtrack: "Official Soundtrack",
-  boss_themes: "Boss Themes",
+  boss_themes:         "Boss Themes",
   ambient_exploration: "Ambient & Exploration",
+  study_focus:         "Study / Deep Work",
+  workout_hype:        "Workout / Hype",
+  emotional_story:     "Emotional / Story",
 };
 
 // ─── Game library ─────────────────────────────────────────────────────────────

@@ -26,6 +26,9 @@ const VIBE_ACCENT: Record<VibePreference, string> = {
   official_soundtrack: "border-l-violet-500/50",
   boss_themes:         "border-l-red-500/50",
   ambient_exploration: "border-l-sky-500/50",
+  study_focus:         "border-l-teal-500/50",
+  workout_hype:        "border-l-orange-500/50",
+  emotional_story:     "border-l-rose-500/50",
 };
 
 export function PlaylistTrackCard({

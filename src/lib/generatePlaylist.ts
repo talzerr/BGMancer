@@ -3,6 +3,7 @@ import { selectTracksFromList, compilationQueries } from "@/lib/services/llm";
 import {
   searchOSTPlaylist,
   fetchPlaylistItems,
+  fetchVideoDurations,
   findBestVideo,
   YouTubeQuotaError,
 } from "@/lib/services/youtube";
@@ -102,20 +103,21 @@ async function generateTracksForIndividual(
 
   send({ type: "progress", gameId: game.id, title: game.title, status: "done", message: `${selectedIndices.length} tracks selected` });
 
+  const selectedTracks = selectedIndices.map((idx) => playlistTracks[idx]);
+  const durations = await fetchVideoDurations(selectedTracks.map((t) => t.videoId));
+
   return {
     game,
-    tracks: selectedIndices.map((idx) => {
-      const t = playlistTracks[idx];
-      return makePendingTrack(game.id, game.title, {
-        track_name: t.title,
-        video_id: t.videoId,
-        video_title: t.title,
-        channel_title: t.channelTitle,
-        thumbnail: t.thumbnail,
-        search_queries: null,
-        status: "found",
-      });
-    }),
+    tracks: selectedTracks.map((t) => makePendingTrack(game.id, game.title, {
+      track_name: t.title,
+      video_id: t.videoId,
+      video_title: t.title,
+      channel_title: t.channelTitle,
+      thumbnail: t.thumbnail,
+      duration_seconds: durations.get(t.videoId) ?? null,
+      search_queries: null,
+      status: "found",
+    })),
   };
 }
 
@@ -142,6 +144,7 @@ function toInsertable(tracks: PendingTrack[]): InsertableTrack[] {
     channel_title: t.channel_title,
     thumbnail: t.thumbnail,
     search_queries: t.search_queries,
+    duration_seconds: t.duration_seconds,
     status: t.status,
     error_message: t.error_message,
   }));

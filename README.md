@@ -16,9 +16,9 @@
   </p>
 
   <p>
-    <a href="#-getting-started">Quick Start</a> · 
-    <a href="#-key-features">Features</a> · 
-    <a href="#-how-it-works">How It Works</a> · 
+    <a href="#-getting-started">Quick Start</a> ·
+    <a href="#-key-features">Features</a> ·
+    <a href="#-how-it-works">How It Works</a> ·
     <a href="BACKLOG.md">Roadmap</a>
   </p>
 </div>
@@ -40,7 +40,7 @@
 ## ✨ Key Features
 
 🎮 **Library-Driven Curation**
-Build your mix based on your personal game history. Add games, pick a vibe per game — *Official Soundtrack*, *Boss Themes*, or *Ambient & Exploration* — and BGMancer composes a varied playlist across all of them.
+Build your mix based on your personal game history. Add games and choose a mood per game — *Official Soundtrack*, *Boss Themes*, *Ambient & Exploration*, *Study / Deep Work*, *Workout / Hype*, or *Emotional / Story* — and BGMancer composes a varied playlist across all of them.
 
 🚂 **Steam Import**
 Paste your Steam profile URL to pull your entire game library in one go. A playtime filter and per-game enable/disable toggles let you curate exactly which games contribute to your playlist — no API key or login required from the user.
@@ -48,8 +48,8 @@ Paste your Steam profile URL to pull your entire game library in one go. A playt
 🧠 **Local AI Intelligence**
 Uses **Ollama (Llama 3.2)** running entirely on your machine to semantically analyze real YouTube track titles and select the best matches for your chosen vibe. No cloud AI, no API costs, no data leaving your box.
 
-⚡ **Zero-Config Database**
-Powered by SQLite — a single file, no Docker, no database server. Clone, install, play.
+⚡ **Zero-Config Setup**
+Powered by SQLite — a single file, no separate database server. Run via Docker with one command, or clone and run locally with Node.js and Ollama.
 
 📺 **Deep YouTube Integration**
 Stream directly via the YouTube IFrame API with a full-featured player bar that persists across page navigation, or sync curated playlists to your YouTube account via Google OAuth. When quota runs out, paste any public playlist URL to import tracks instantly.
@@ -77,25 +77,49 @@ Watch your playlist build in real time — a Server-Sent Events progress panel s
 
 ## 🚀 Getting Started
 
-### Prerequisites
+### Option A — Docker (recommended for most users)
+
+The easiest way to run BGMancer. Docker handles Node.js, Ollama, and the AI model automatically.
+
+**1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)**
+
+**2. Clone the repo and set up your keys**
+
+```bash
+git clone https://github.com/talzerr/bgmancer.git
+cd bgmancer
+cp .env.docker.example .env.docker
+```
+
+Open `.env.docker` and fill in your two API keys (instructions are in the file):
+
+- **YouTube API key** — [console.cloud.google.com](https://console.cloud.google.com) → APIs & Services → YouTube Data API v3 → Credentials
+- **Steam API key** — [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey) (free, instant)
+
+**3. Start everything**
+
+```bash
+docker compose up
+```
+
+On first run this downloads the Ollama model (~2 GB) — wait for it to finish before generating. Open **<http://localhost:6959>** when done.
+
+> Data persists in Docker volumes. Restart any time with `docker compose up`.
+
+---
+
+### Option B — Local dev setup
 
 | Requirement | How to get it |
 |---|---|
 | **Node.js** ≥ 18 | [nodejs.org](https://nodejs.org/) |
-| **Ollama** | [ollama.com](https://ollama.com/) → then run `ollama pull llama3.2` |
+| **Ollama** | [ollama.com](https://ollama.com/) → install the app → run `ollama pull llama3.2` |
 | **YouTube API Key** | [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → YouTube Data API v3 |
 
-### Installation
-
 ```bash
-git clone https://github.com/yourusername/bgmancer.git
+git clone https://github.com/talzerr/bgmancer.git
 cd bgmancer
 npm install
-```
-
-### Environment Setup
-
-```bash
 cp .env.local.example .env.local
 ```
 
@@ -104,26 +128,21 @@ Open `.env.local` and fill in your keys:
 ```env
 # Required
 YOUTUBE_API_KEY=your_youtube_api_key
-
-# Required for Steam library import
 STEAM_API_KEY=your_steam_api_key
 
-# Optional — only needed for "Sync to YouTube" feature
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-NEXTAUTH_SECRET=run_openssl_rand_base64_32
+# Auto-generated if left blank — change to any random string
+NEXTAUTH_SECRET=any-long-random-string
+
+# Optional — only needed for "Sync to YouTube"
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
 ```
-
-Get a Steam API key at [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey) (free, instant).
-
-### Launch
 
 ```bash
-ollama serve          # start the local AI model
+# If using the Ollama Mac app, it's already running — skip the first line
+ollama serve
 npm run dev           # → http://localhost:6959
 ```
-
-BGMancer automatically creates a `bgmancer.db` SQLite file in the project root on first boot. No migrations, no setup.
 
 > [!TIP]
 > **YouTube quota exhausted?** Paste any public YouTube playlist URL into the import form to load tracks with a single low-cost API call — no search quota needed.

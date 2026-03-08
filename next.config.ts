@@ -6,14 +6,11 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["better-sqlite3"],
   images: {
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "i.ytimg.com",
-      },
-      {
-        protocol: "https",
-        hostname: "img.youtube.com",
-      },
+      { protocol: "https", hostname: "i.ytimg.com" },
+      { protocol: "https", hostname: "img.youtube.com" },
+      // Steam cover art (library page)
+      { protocol: "https", hostname: "cdn.akamai.steamstatic.com" },
+      { protocol: "https", hostname: "cdn.cloudflare.steamstatic.com" },
     ],
   },
 };

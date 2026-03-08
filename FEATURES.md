@@ -27,7 +27,18 @@ The library toolbar lets you jump between **All**, **Active**, and **Disabled** 
 
 ### Per-game settings
 
-Change a game's **vibe** at any time, toggle **Full OST** mode (prefers long compilation videos over individual tracks), or delete it.
+Change a game's **vibe** at any time — choose from six moods that shape which tracks the AI picks:
+
+| Vibe | What it sounds like |
+|---|---|
+| **Official Soundtrack** | Iconic highlights — the tracks fans remember most |
+| **Boss Themes** | Intense combat and boss battle music |
+| **Ambient & Exploration** | Calm, atmospheric world music |
+| **Study / Deep Work** | Steady background music with no sudden loud moments |
+| **Workout / Hype** | High-energy, driving tracks with strong rhythm |
+| **Emotional / Story** | Cinematic, moving, or nostalgic story moments |
+
+Toggle **Full OST** mode to prefer long compilation videos over individual tracks, or delete a game entirely.
 
 ---
 
@@ -35,7 +46,7 @@ Change a game's **vibe** at any time, toggle **Full OST** mode (prefers long com
 
 Set how many tracks you want (25 / 50 / 100, or any number up to 200) and hit **Generate**. A live progress panel shows each game moving through the pipeline as BGMancer works.
 
-When it's done, tracks from all your games are woven together so the playlist stays varied — you won't hear five tracks from the same game in a row.
+When it's done, tracks from all your games are woven together so the playlist stays varied — you won't hear five tracks from the same game in a row. Each generation draws from a shuffled pool and uses slightly different AI picks, so regenerating with the same games produces a genuinely different playlist.
 
 Any tracks that couldn't be found automatically are marked as **pending**. Hit **Find Missing** to run another search pass on them.
 

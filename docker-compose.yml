@@ -1,0 +1,51 @@
+services:
+
+  # ── Ollama (local AI model server) ──────────────────────────────────────────
+  ollama:
+    image: ollama/ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  # ── Pull llama3.2 on first run (skips if already downloaded) ────────────────
+  ollama-pull:
+    image: ollama/ollama
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    command: pull llama3.2
+    restart: "no"
+
+  # ── BGMancer app ─────────────────────────────────────────────────────────────
+  bgmancer:
+    build: .
+    ports:
+      - "6959:3000"
+    depends_on:
+      ollama:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
+    volumes:
+      - bgmancer_data:/app/data
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - SQLITE_PATH=/app/data/bgmancer.db
+      - NEXTAUTH_URL=http://localhost:6959
+    env_file:
+      - .env.docker
+    restart: unless-stopped
+
+volumes:
+  ollama_data:    # model weights (~2 GB for llama3.2) — persists across restarts
+  bgmancer_data:  # SQLite database — persists across restarts
