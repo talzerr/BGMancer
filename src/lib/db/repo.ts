@@ -1,5 +1,5 @@
-import { getDB } from "@/lib/db";
-import { toGame, toGames, toPlaylistTrack, toPlaylistTracks } from "@/lib/db/mappers";
+import { getDB, getSeedPlaylistId } from "@/lib/db";
+import { toGame, toGames, toPlaylistTrack, toPlaylistTracks, parseSearchQueries } from "@/lib/db/mappers";
 import type { Game, PlaylistTrack, AppConfig, VibePreference, TrackStatus } from "@/types";
 import { VIBE_LABELS } from "@/types";
 
@@ -52,11 +52,17 @@ export const Games = {
     steamAppid: number | null = null,
     playtimeMinutes: number | null = null,
   ): Game {
-    getDB()
-      .prepare(
-        "INSERT INTO games (id, title, vibe_preference, allow_full_ost, enabled, steam_appid, playtime_minutes) VALUES (?, ?, 'official_soundtrack', 0, ?, ?, ?)",
-      )
-      .run(id, title, enabled ? 1 : 0, steamAppid, playtimeMinutes);
+    const db = getDB();
+    db.prepare(
+      "INSERT INTO games (id, title, vibe_preference, allow_full_ost, enabled, steam_appid, playtime_minutes) VALUES (?, ?, 'official_soundtrack', 0, ?, ?, ?)",
+    ).run(id, title, enabled ? 1 : 0, steamAppid, playtimeMinutes);
+
+    const seededPlaylistId = getSeedPlaylistId(title);
+    if (seededPlaylistId) {
+      db.prepare("INSERT OR IGNORE INTO game_yt_playlists (game_id, playlist_id) VALUES (?, ?)")
+        .run(id, seededPlaylistId);
+    }
+
     return this.getById(id)!;
   },
 
@@ -95,20 +101,21 @@ export const Games = {
         (id, title, vibe_preference, allow_full_ost, enabled, steam_appid, playtime_minutes)
       VALUES (?, ?, 'official_soundtrack', 0, 0, ?, ?)
     `);
+    const seedInsert = db.prepare(
+      "INSERT OR IGNORE INTO game_yt_playlists (game_id, playlist_id) VALUES (?, ?)",
+    );
 
     let imported = 0;
     let skipped = 0;
 
     db.transaction(() => {
       for (const g of games) {
-        const result = insert.run(
-          crypto.randomUUID(),
-          g.name,
-          g.appid,
-          Math.round(g.playtime_forever),
-        );
+        const id = crypto.randomUUID();
+        const result = insert.run(id, g.name, g.appid, Math.round(g.playtime_forever));
         if (result.changes > 0) {
           imported++;
+          const seededPlaylistId = getSeedPlaylistId(g.name);
+          if (seededPlaylistId) seedInsert.run(id, seededPlaylistId);
         } else {
           skipped++;
         }
@@ -248,11 +255,22 @@ export const Playlist = {
 // ─── YouTube Playlist Cache ───────────────────────────────────────────────────
 
 export const YtPlaylists = {
-  /** Returns all cached entries, ordered by game_id — used for seed export. */
-  listAll(): Array<{ game_id: string; playlist_id: string }> {
-    return getDB()
-      .prepare("SELECT game_id, playlist_id FROM game_yt_playlists ORDER BY game_id ASC")
+  /** Returns a map of game_id → playlist_id for all cached entries. */
+  listAllAsMap(): Record<string, string> {
+    const rows = getDB()
+      .prepare("SELECT game_id, playlist_id FROM game_yt_playlists")
       .all() as Array<{ game_id: string; playlist_id: string }>;
+    return Object.fromEntries(rows.map((r) => [r.game_id, r.playlist_id]));
+  },
+
+  /** Returns all cached entries joined with game title — used for seed export. */
+  listAll(): Array<{ game_title: string; playlist_id: string }> {
+    return getDB().prepare(`
+      SELECT g.title AS game_title, yp.playlist_id
+      FROM game_yt_playlists yp
+      JOIN games g ON g.id = yp.game_id
+      ORDER BY g.title ASC
+    `).all() as Array<{ game_title: string; playlist_id: string }>;
   },
 
   /** Returns the cached YouTube playlist ID for a game, or null if not cached. */
@@ -330,18 +348,3 @@ export const Config = {
   },
 };
 
-// ─── Internal ─────────────────────────────────────────────────────────────────
-
-function parseSearchQueries(raw: unknown): string[] | null {
-  if (raw == null) return null;
-  if (Array.isArray(raw)) return raw as string[];
-  if (typeof raw === "string") {
-    try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : null;
-    } catch {
-      return null;
-    }
-  }
-  return null;
-}

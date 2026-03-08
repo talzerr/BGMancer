@@ -24,7 +24,7 @@ export function toGames(rows: unknown[]): Game[] {
   return (rows as Record<string, unknown>[]).map(toGame);
 }
 
-function parseSearchQueries(raw: unknown): string[] | null {
+export function parseSearchQueries(raw: unknown): string[] | null {
   if (raw == null) return null;
   if (Array.isArray(raw)) return raw as string[];
   if (typeof raw === "string") {
