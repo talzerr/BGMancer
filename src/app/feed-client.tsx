@@ -82,7 +82,7 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
     <>
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[340px_1fr]">
         {/* ── Left panel ──────────────────────────────────────────────────── */}
-        <aside className="flex flex-col gap-4">
+        <aside className="flex flex-col gap-4 lg:sticky lg:top-20">
           <GenerateSection
             generating={playlist.generating}
             genProgress={playlist.genProgress}

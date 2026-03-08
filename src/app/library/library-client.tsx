@@ -12,6 +12,9 @@ import { SeedExportPanel } from "@/components/SeedExportPanel";
 type Filter = "all" | "active" | "disabled";
 type SortKey = "playtime" | "name" | "added";
 
+const PAGE_SIZE_OPTIONS = [15, 25, 50, 100] as const;
+type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
+
 export function LibraryClient() {
   const [games, setGames] = useState<Game[]>([]);
   const [ytCache, setYtCache] = useState<Record<string, string>>({});
@@ -20,6 +23,8 @@ export function LibraryClient() {
   const [sort, setSort] = useState<SortKey>("playtime");
   const [search, setSearch] = useState("");
   const [enablingAll, setEnablingAll] = useState(false);
+  const [pageSize, setPageSize] = useState<PageSize>(25);
+  const [page, setPage] = useState(0);
 
   const fetchGames = useCallback(async () => {
     try {
@@ -117,6 +122,15 @@ export function LibraryClient() {
 
     return list;
   }, [games, filter, sort, search]);
+
+  // Reset to first page whenever the filtered/sorted list changes
+  useEffect(() => {
+    setPage(0);
+  }, [filter, sort, search, pageSize]);
+
+  const totalPages = Math.ceil(displayed.length / pageSize);
+  const pageStart = page * pageSize;
+  const paginatedDisplayed = displayed.slice(pageStart, pageStart + pageSize);
 
   async function handleEnableAllShown() {
     const toEnable = displayed.filter((g) => !g.enabled);
@@ -272,7 +286,7 @@ export function LibraryClient() {
               </div>
             ) : (
               <div className="flex flex-col gap-1.5">
-                {displayed.map((game) => (
+                {paginatedDisplayed.map((game) => (
                   <GameRow
                     key={game.id}
                     game={game}
@@ -282,6 +296,49 @@ export function LibraryClient() {
                     onPlaylistChange={handlePlaylistChange}
                   />
                 ))}
+              </div>
+            )}
+
+            {/* Pagination */}
+            {!loading && displayed.length > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.05] pt-4">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-zinc-600">Per page:</span>
+                  {PAGE_SIZE_OPTIONS.map((size) => (
+                    <button
+                      key={size}
+                      onClick={() => setPageSize(size)}
+                      className={`cursor-pointer rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+                        pageSize === size
+                          ? "bg-zinc-700 text-white"
+                          : "text-zinc-500 hover:text-zinc-300"
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-zinc-500 tabular-nums">
+                    {pageStart + 1}–{Math.min(pageStart + pageSize, displayed.length)} of{" "}
+                    {displayed.length}
+                  </span>
+                  <button
+                    onClick={() => setPage((p) => p - 1)}
+                    disabled={page === 0}
+                    className="cursor-pointer rounded-lg border border-white/[0.06] px-3 py-1.5 text-xs font-semibold text-zinc-400 transition-colors hover:border-white/[0.12] hover:text-white disabled:cursor-default disabled:opacity-30"
+                  >
+                    ← Prev
+                  </button>
+                  <button
+                    onClick={() => setPage((p) => p + 1)}
+                    disabled={page >= totalPages - 1}
+                    className="cursor-pointer rounded-lg border border-white/[0.06] px-3 py-1.5 text-xs font-semibold text-zinc-400 transition-colors hover:border-white/[0.12] hover:text-white disabled:cursor-default disabled:opacity-30"
+                  >
+                    Next →
+                  </button>
+                </div>
               </div>
             )}
 

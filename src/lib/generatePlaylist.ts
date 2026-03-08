@@ -27,6 +27,50 @@ type GameTracks = {
   tracks: PendingTrack[];
 };
 
+function shuffle<T>(arr: T[]): T[] {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+/**
+ * Distribute `total` tracks across `n` games with random variance so the
+ * split is never identical across generations.
+ *
+ * - The fractional remainder (total % n) is assigned to randomly chosen
+ *   games instead of always the first N.
+ * - Up to min(floor(n/2), 3) random ±1 swaps between game pairs add
+ *   further spread without letting any game drop to 0 tracks.
+ * - Total is always preserved exactly.
+ */
+function distributeWithVariance(total: number, n: number): number[] {
+  if (n === 0) return [];
+  const base = Math.floor(total / n);
+  const counts = Array<number>(n).fill(base);
+
+  const remainderSlots = total - base * n;
+  const order = shuffle(Array.from({ length: n }, (_, i) => i));
+  for (let i = 0; i < remainderSlots; i++) {
+    counts[order[i]]++;
+  }
+
+  const swapCount = Math.min(Math.floor(n / 2), 3);
+  const pairs = shuffle(Array.from({ length: n }, (_, i) => i));
+  for (let i = 0; i + 1 < pairs.length && i / 2 < swapCount; i += 2) {
+    const a = pairs[i];
+    const b = pairs[i + 1];
+    if (counts[a] > 1) {
+      counts[a]--;
+      counts[b]++;
+    }
+  }
+
+  return counts;
+}
+
 function makePendingTrack(
   gameId: string,
   gameTitle: string,
@@ -234,11 +278,7 @@ export async function generatePlaylist(send: (event: GenerateEvent) => void): Pr
   const individualGames = games.filter((g) => !g.allow_full_ost);
 
   const remainingSlots = Math.max(0, targetCount - fullOSTGames.length);
-  const tracksPerGame =
-    individualGames.length > 0
-      ? Math.max(1, Math.floor(remainingSlots / individualGames.length))
-      : 0;
-  const remainder = individualGames.length > 0 ? remainingSlots % individualGames.length : 0;
+  const gameCounts = distributeWithVariance(remainingSlots, individualGames.length);
 
   // Pre-build index map to avoid O(n²) indexOf inside the loop.
   const individualGameIndex = new Map(individualGames.map((g, i) => [g.id, i]));
@@ -252,7 +292,7 @@ export async function generatePlaylist(send: (event: GenerateEvent) => void): Pr
     }
 
     const individualIdx = individualGameIndex.get(game.id) ?? 0;
-    const count = tracksPerGame + (individualIdx < remainder ? 1 : 0);
+    const count = Math.max(1, gameCounts[individualIdx] ?? 1);
 
     try {
       perGame.push(await generateTracksForIndividual(game, count, vibe, send));
@@ -281,7 +321,7 @@ export async function generatePlaylist(send: (event: GenerateEvent) => void): Pr
 
   // ── Interleave & persist ──────────────────────────────────────────────
 
-  const interleaved = interleave(perGame);
+  const interleaved = shuffle(interleave(perGame));
 
   send({ type: "progress", message: "Saving playlist…" });
 

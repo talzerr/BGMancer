@@ -37,6 +37,13 @@ Re-expose the per-game toggle that makes BGMancer find a single long compilation
 - **Sync to an existing playlist** — push to a YouTube playlist you already own instead of always creating a new one
 - **Multiple playlists** — maintain separate playlists for different moods
 
+## AI
+
+- **Hosted model support** — make the LLM provider configurable: add `OPENAI_API_KEY` (GPT-4o mini) and `GOOGLE_AI_API_KEY` (Gemini Flash) as drop-in alternatives to the local Ollama default. Both have vastly better video-game OST knowledge than a local llama3.2 and cost fractions of a cent per generation at BGMancer's scale. Ollama stays as the free fallback for self-hosters.
+- **Chain-of-thought selection** — change the LLM prompt to require an explicit reasoning step before returning indices: `{"thinking": ["1. Megalovania — intense final boss theme, perfect for Boss Themes", ...], "selected": [1, 7, 12]}`. Forcing the model to justify each pick before committing dramatically reduces position-bias and arbitrary selections, especially for tracks with ambiguous or generic names.
+- **Preference memory (feedback loop)** — store thumbs-up / thumbs-down ratings per `(game, vibe, track)` in SQLite and inject the history into the next generation prompt for that game+vibe pair: _"Previously rated good fits: [list]. Rated poor fits: [list]. Use the good ones as anchors; do not repeat the poor ones."_ The playlist improves with every session — the core personalisation engine.
+- **VGMdb track enrichment** — after a track is matched to a YouTube video, query the [VGMdb JSON API](https://vgmdb.net) to resolve its official name, album cover art, and composer credits. Cross-reference by game title + track name/duration. Surface the official name and composer in the track card UI, and use the album art as a higher-quality thumbnail fallback when the YouTube thumbnail is missing or low-res.
+
 ## Quality of Life
 
 - **Mobile install** — add BGMancer to your home screen as a PWA
