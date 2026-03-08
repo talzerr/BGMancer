@@ -1,10 +1,4 @@
-import type { Game, PlaylistTrack, TrackStatus, VibePreference } from "@/types";
-
-const VALID_VIBES: Set<string> = new Set([
-  "official_soundtrack",
-  "boss_themes",
-  "ambient_exploration",
-]);
+import type { Game, PlaylistTrack, TrackStatus } from "@/types";
 
 const VALID_STATUSES: Set<string> = new Set([
   "pending",
@@ -17,9 +11,6 @@ export function toGame(row: Record<string, unknown>): Game {
   return {
     id: String(row.id),
     title: String(row.title),
-    vibe_preference: VALID_VIBES.has(row.vibe_preference as string)
-      ? (row.vibe_preference as VibePreference)
-      : "official_soundtrack",
     allow_full_ost: !!(row.allow_full_ost),
     enabled: row.enabled !== 0,
     steam_appid: row.steam_appid != null ? Number(row.steam_appid) : null,

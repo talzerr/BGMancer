@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import type { Game, VibePreference } from "@/types";
-import { VIBE_LABELS } from "@/types";
+import type { Game } from "@/types";
 import { Spinner, TrashIcon, SearchIcon, ErrorCircle, CheckIcon } from "@/components/Icons";
 import { AddGameForm } from "@/components/AddGameForm";
 
@@ -79,12 +78,10 @@ function Toggle({
 function GameRow({
   game,
   onToggle,
-  onVibeChange,
   onDelete,
 }: {
   game: Game;
   onToggle: (id: string, enabled: boolean) => void;
-  onVibeChange: (id: string, vibe: VibePreference) => void;
   onDelete: (id: string) => void;
 }) {
   const [toggling, setToggling] = useState(false);
@@ -121,17 +118,6 @@ function GameRow({
           <p className="text-[11px] text-zinc-500 mt-0.5 leading-none">{playtime}</p>
         )}
       </div>
-
-      {/* Vibe */}
-      <select
-        value={game.vibe_preference}
-        onChange={(e) => onVibeChange(game.id, e.target.value as VibePreference)}
-        className="rounded-lg bg-zinc-800/80 border border-white/[0.07] px-2 py-1.5 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-teal-500/50 cursor-pointer appearance-none"
-      >
-        {(Object.entries(VIBE_LABELS) as [VibePreference, string][]).map(([v, label]) => (
-          <option key={v} value={v}>{label}</option>
-        ))}
-      </select>
 
       {/* Enable toggle */}
       <Toggle checked={game.enabled} onChange={handleToggle} disabled={toggling} />
@@ -268,7 +254,7 @@ function SteamImportPanel({ onImported }: { onImported: () => void }) {
 
       {open && (
         <div className="px-5 pb-5 flex flex-col gap-4 border-t border-white/[0.05]">
-          <div className="flex gap-2 pt-4">
+          <div className="flex flex-col gap-2 pt-4">
             <input
               type="text"
               value={input}
@@ -276,13 +262,13 @@ function SteamImportPanel({ onImported }: { onImported: () => void }) {
               onKeyDown={(e) => e.key === "Enter" && findGames()}
               placeholder="steamcommunity.com/id/yourname"
               disabled={loading}
-              className="flex-1 rounded-lg bg-zinc-800/80 border border-white/[0.07] px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 disabled:opacity-50"
+              className="w-full rounded-lg bg-zinc-800/80 border border-white/[0.07] px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 disabled:opacity-50"
             />
             <button
               type="button"
               onClick={findGames}
               disabled={loading || !input.trim()}
-              className="flex items-center gap-2 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:bg-zinc-800 disabled:text-zinc-600 px-4 py-2.5 text-sm font-semibold text-white cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
+              className="w-full flex items-center justify-center gap-2 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:bg-zinc-800 disabled:text-zinc-600 px-4 py-2.5 text-sm font-semibold text-white cursor-pointer disabled:cursor-not-allowed"
             >
               {loading ? <Spinner className="w-3.5 h-3.5" /> : <SearchIcon className="w-3.5 h-3.5" />}
               Find Library
@@ -380,6 +366,62 @@ function SteamImportPanel({ onImported }: { onImported: () => void }) {
   );
 }
 
+// ─── Seed export panel ────────────────────────────────────────────────────────
+
+function SeedExportPanel() {
+  const [state, setState] = useState<"idle" | "loading" | "done">("idle");
+  const [exported, setExported] = useState<number | null>(null);
+
+  async function handleExport() {
+    setState("loading");
+    try {
+      const res = await fetch("/api/seed/yt-playlists");
+      const entries = await res.json() as Array<{ game_id: string; playlist_id: string }>;
+      const blob = new Blob([JSON.stringify(entries, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "yt-playlists.seed.json";
+      a.click();
+      URL.revokeObjectURL(url);
+      setExported(entries.length);
+      setState("done");
+      setTimeout(() => setState("idle"), 3000);
+    } catch {
+      setState("idle");
+    }
+  }
+
+  return (
+    <section className="rounded-2xl bg-zinc-900/70 border border-white/[0.07] px-5 py-4 backdrop-blur-sm shadow-lg shadow-black/40">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h2 className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-0.5">
+            Playlist Seed
+          </h2>
+          <p className="text-xs text-zinc-500">
+            Snapshot discovered playlists so they survive a DB reset.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={state !== "idle"}
+          className={`shrink-0 flex items-center gap-2 rounded-lg border px-3.5 py-2 text-xs font-semibold transition-colors cursor-pointer disabled:cursor-not-allowed whitespace-nowrap ${
+            state === "done"
+              ? "border-teal-500/30 bg-teal-600/10 text-teal-400"
+              : "border-white/[0.07] bg-zinc-800/80 text-zinc-300 hover:text-white hover:bg-zinc-700/80 disabled:opacity-50"
+          }`}
+        >
+          {state === "loading" && <Spinner className="w-3 h-3" />}
+          {state === "done" && <CheckIcon className="w-3 h-3" />}
+          {state === "done" ? `Exported ${exported} entr${exported === 1 ? "y" : "ies"}` : "Export Seed"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 // ─── Main library client ──────────────────────────────────────────────────────
 
 export function LibraryClient() {
@@ -416,18 +458,6 @@ export function LibraryClient() {
     }
   }
 
-  async function handleVibeChange(id: string, vibe: VibePreference) {
-    setGames((prev) => prev.map((g) => g.id === id ? { ...g, vibe_preference: vibe } : g));
-    try {
-      await fetch(`/api/games?id=${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vibe_preference: vibe }),
-      });
-    } catch {
-      // Ignore — the optimistic update is good enough for a quick toggle
-    }
-  }
 
   async function handleDelete(id: string) {
     try {
@@ -482,10 +512,10 @@ export function LibraryClient() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
-      <div className="max-w-3xl mx-auto px-4 py-8 flex flex-col gap-6">
+      <div className="max-w-6xl mx-auto px-4 py-8">
 
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-8">
           <div>
             <Link
               href="/"
@@ -501,128 +531,142 @@ export function LibraryClient() {
           </div>
         </div>
 
-        {/* Manual add */}
-        <section className="rounded-2xl bg-zinc-900/70 border border-white/[0.07] p-5 backdrop-blur-sm shadow-lg shadow-black/40">
-          <h2 className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-4">Add a Game</h2>
-          <AddGameForm onGameAdded={() => { fetchGames(); }} />
-        </section>
+        {/* Two-column layout */}
+        <div className="flex flex-col lg:grid lg:grid-cols-[300px_1fr] gap-6 items-start">
 
-        {/* Steam import */}
-        <SteamImportPanel onImported={fetchGames} />
+          {/* Sidebar */}
+          <aside className="flex flex-col gap-4 lg:sticky lg:top-8">
 
-        {/* Filter + sort + search */}
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            {(
-              [
-                { key: "all" as Filter, label: `All (${games.length})` },
-                { key: "active" as Filter, label: `Active (${activeCount})` },
-                { key: "disabled" as Filter, label: `Disabled (${disabledCount})` },
-              ] as const
-            ).map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => setFilter(key)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
-                  filter === key
-                    ? "bg-zinc-700 text-white"
-                    : "bg-zinc-900/60 border border-white/[0.07] text-zinc-400 hover:text-white"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+            {/* Manual add */}
+            <section className="relative z-10 rounded-2xl bg-zinc-900/70 border border-white/[0.07] p-5 backdrop-blur-sm shadow-lg shadow-black/40">
+              <h2 className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-4">Add a Game</h2>
+              <AddGameForm onGameAdded={() => { fetchGames(); }} />
+            </section>
 
-            {/* Enable all currently visible disabled games */}
-            {displayed.some((g) => !g.enabled) && (
-              <button
-                onClick={handleEnableAllShown}
-                disabled={enablingAll}
-                className="flex items-center gap-1.5 rounded-lg bg-teal-600/20 hover:bg-teal-600/30 border border-teal-500/30 disabled:opacity-50 px-3 py-1.5 text-xs font-semibold text-teal-300 cursor-pointer disabled:cursor-not-allowed transition-colors"
-              >
-                {enablingAll ? <Spinner className="w-3 h-3" /> : <CheckIcon className="w-3 h-3" />}
-                Enable all shown ({displayed.filter((g) => !g.enabled).length})
-              </button>
+            {/* Steam import */}
+            <SteamImportPanel onImported={fetchGames} />
+
+            {/* Seed export */}
+            <SeedExportPanel />
+
+          </aside>
+
+          {/* Main: game list */}
+          <div className="flex flex-col gap-4 min-w-0">
+
+            {/* Filter + sort + search */}
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                {(
+                  [
+                    { key: "all" as Filter, label: `All (${games.length})` },
+                    { key: "active" as Filter, label: `Active (${activeCount})` },
+                    { key: "disabled" as Filter, label: `Disabled (${disabledCount})` },
+                  ] as const
+                ).map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setFilter(key)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                      filter === key
+                        ? "bg-zinc-700 text-white"
+                        : "bg-zinc-900/60 border border-white/[0.07] text-zinc-400 hover:text-white"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+
+                {/* Enable all currently visible disabled games */}
+                {displayed.some((g) => !g.enabled) && (
+                  <button
+                    onClick={handleEnableAllShown}
+                    disabled={enablingAll}
+                    className="flex items-center gap-1.5 rounded-lg bg-teal-600/20 hover:bg-teal-600/30 border border-teal-500/30 disabled:opacity-50 px-3 py-1.5 text-xs font-semibold text-teal-300 cursor-pointer disabled:cursor-not-allowed transition-colors"
+                  >
+                    {enablingAll ? <Spinner className="w-3 h-3" /> : <CheckIcon className="w-3 h-3" />}
+                    Enable all shown ({displayed.filter((g) => !g.enabled).length})
+                  </button>
+                )}
+
+                <div className="ml-auto flex items-center gap-2">
+                  <span className="text-xs text-zinc-500">Sort:</span>
+                  {(
+                    [
+                      { key: "added" as SortKey, label: "Added" },
+                      { key: "playtime" as SortKey, label: "Playtime" },
+                      { key: "name" as SortKey, label: "Name" },
+                    ] as const
+                  ).map(({ key, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => setSort(key)}
+                      className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                        sort === key
+                          ? "bg-zinc-700 text-white"
+                          : "text-zinc-500 hover:text-zinc-300"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="relative">
+                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search games…"
+                  className="w-full rounded-lg bg-zinc-800/60 border border-white/[0.07] pl-9 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                />
+              </div>
+            </div>
+
+            {/* Game list */}
+            {loading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="h-[52px] rounded-xl bg-zinc-900/40 animate-pulse" />
+                ))}
+              </div>
+            ) : displayed.length === 0 ? (
+              <div className="rounded-2xl bg-zinc-900/60 border border-white/[0.07] p-8 text-center">
+                {games.length === 0 ? (
+                  <>
+                    <p className="text-sm text-zinc-400 mb-1">No games in your library yet.</p>
+                    <p className="text-xs text-zinc-600">
+                      Add a game using the panel on the left, or import from Steam.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-zinc-500">No games match your filters.</p>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                {displayed.map((game) => (
+                  <GameRow
+                    key={game.id}
+                    game={game}
+                    onToggle={handleToggle}
+                    onDelete={handleDelete}
+                  />
+                ))}
+              </div>
             )}
 
-            <div className="ml-auto flex items-center gap-2">
-              <span className="text-xs text-zinc-500">Sort:</span>
-              {(
-                [
-                  { key: "added" as SortKey, label: "Added" },
-                  { key: "playtime" as SortKey, label: "Playtime" },
-                  { key: "name" as SortKey, label: "Name" },
-                ] as const
-              ).map(({ key, label }) => (
-                <button
-                  key={key}
-                  onClick={() => setSort(key)}
-                  className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
-                    sort === key
-                      ? "bg-zinc-700 text-white"
-                      : "text-zinc-500 hover:text-zinc-300"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
+            {/* Tip when all disabled */}
+            {!loading && games.length > 0 && activeCount === 0 && (
+              <p className="text-xs text-center text-zinc-600">
+                No active games — enable at least one to generate a playlist.
+              </p>
+            )}
 
-          <div className="relative">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search games…"
-              className="w-full rounded-lg bg-zinc-800/60 border border-white/[0.07] pl-9 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
-            />
           </div>
         </div>
-
-        {/* Game list */}
-        {loading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-[52px] rounded-xl bg-zinc-900/40 animate-pulse" />
-            ))}
-          </div>
-        ) : displayed.length === 0 ? (
-          <div className="rounded-2xl bg-zinc-900/60 border border-white/[0.07] p-8 text-center">
-            {games.length === 0 ? (
-              <>
-                <p className="text-sm text-zinc-400 mb-1">No games in your library yet.</p>
-                <p className="text-xs text-zinc-600">
-                  Add games manually on the{" "}
-                  <Link href="/" className="text-teal-400 hover:text-teal-300">main page</Link>
-                  {" "}or import from Steam above.
-                </p>
-              </>
-            ) : (
-              <p className="text-sm text-zinc-500">No games match your filters.</p>
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-1.5">
-            {displayed.map((game) => (
-              <GameRow
-                key={game.id}
-                game={game}
-                onToggle={handleToggle}
-                onVibeChange={handleVibeChange}
-                onDelete={handleDelete}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Tip when all disabled */}
-        {!loading && games.length > 0 && activeCount === 0 && (
-          <p className="text-xs text-center text-zinc-600">
-            No active games — enable at least one to generate a playlist.
-          </p>
-        )}
       </div>
     </div>
   );

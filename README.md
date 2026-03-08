@@ -40,7 +40,7 @@
 ## ✨ Key Features
 
 🎮 **Library-Driven Curation**
-Build your mix based on your personal game history. Add games and choose a mood per game — *Official Soundtrack*, *Boss Themes*, *Ambient & Exploration*, *Study / Deep Work*, *Workout / Hype*, or *Emotional / Story* — and BGMancer composes a varied playlist across all of them.
+Build your mix from your personal game history. Add games, pick a **Vibe** — *Official Soundtrack*, *Boss Themes*, *Ambient & Exploration*, *Study / Deep Work*, *Workout / Hype*, *Emotional / Story*, or **✦ Surprise Me** — and BGMancer curates a varied playlist across all of them. One vibe shapes the entire session so the mood stays coherent from track one to the end.
 
 🚂 **Steam Import**
 Paste your Steam profile URL to pull your entire game library in one go. A playtime filter and per-game enable/disable toggles let you curate exactly which games contribute to your playlist — no API key or login required from the user.
@@ -55,7 +55,7 @@ Powered by SQLite — a single file, no separate database server. Run via Docker
 Stream directly via the YouTube IFrame API with a full-featured player bar that persists across page navigation, or sync curated playlists to your YouTube account via Google OAuth. When quota runs out, paste any public playlist URL to import tracks instantly.
 
 🎚️ **Player Built for Deep Work**
-Shuffle, volume control, a **Dim toggle** that drops to 20% in one click (stay quiet on calls), Up Next preview, elapsed/duration display, and vibe-coded accent colors per track.
+Shuffle, volume control, a **Dim toggle** that drops to 20% in one click (stay quiet on calls), Up Next preview, elapsed/duration display, and persistent playback across page navigation.
 
 🔄 **Live Generation Pipeline**
 Watch your playlist build in real time — a Server-Sent Events progress panel shows per-game status as BGMancer searches YouTube, fetches track lists, and asks the AI to curate.
@@ -159,11 +159,12 @@ npm run dev           # → http://localhost:6959
 └─────────────┘    └──────────────┘    └───────────┘    └──────────┘
 ```
 
-1. **You add games** and choose a vibe for each
-2. **BGMancer searches YouTube** for each game's official OST playlist
-3. **The local AI reads real track titles** and picks the ones that match your vibe
-4. **Tracks are interleaved** across games so the playlist stays varied
-5. **Press play** — or sync to YouTube with one click
+1. **You add games** to your library and enable the ones you want
+2. **Pick a Vibe** (or let Surprise Me choose) and set your playlist size
+3. **BGMancer searches YouTube** for each game's OST playlist
+4. **The local AI reads real track titles** and picks the ones that best match the chosen vibe
+5. **Tracks are interleaved** across games so the playlist stays varied
+6. **Press play** — or sync to YouTube with one click
 
 The AI never hallucinates tracks. It only selects from real YouTube videos that actually exist.
 

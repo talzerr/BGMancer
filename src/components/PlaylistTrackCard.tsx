@@ -46,7 +46,7 @@ export function PlaylistTrackCard({
 
   return (
     <div
-      className={`group flex items-center gap-3 rounded-xl border border-l-2 px-3 py-2.5 transition-all duration-150 ${vibeAccent} ${
+      className={`group flex items-center gap-3 rounded-xl border border-l-2 px-3 py-2 transition-all duration-150 ${vibeAccent} ${
         isPlaying
           ? "bg-violet-950/50 border-violet-600/40 shadow-sm shadow-violet-900/20"
           : track.status === "error"
@@ -132,12 +132,14 @@ export function PlaylistTrackCard({
           </p>
         )}
         {hasVideo && track.channel_title && (
-          <p className="text-[11px] text-zinc-500 mt-0.5 truncate leading-none">{track.channel_title}</p>
+          <p className="text-[11px] text-zinc-400 mt-0.5 truncate leading-none">{track.channel_title}</p>
         )}
       </div>
 
-      {/* Status dot */}
-      <div className={`shrink-0 w-1.5 h-1.5 rounded-full ${statusCfg.dot}`} />
+      {/* Status dot — only shown for non-found states (found tracks communicate via play overlay) */}
+      {track.status !== "found" && (
+        <div className={`shrink-0 w-1.5 h-1.5 rounded-full ${statusCfg.dot}`} />
+      )}
     </div>
   );
 }

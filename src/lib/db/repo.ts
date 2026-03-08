@@ -1,12 +1,13 @@
 import { getDB } from "@/lib/db";
 import { toGame, toGames, toPlaylistTrack, toPlaylistTracks } from "@/lib/db/mappers";
 import type { Game, PlaylistTrack, AppConfig, VibePreference, TrackStatus } from "@/types";
+import { VIBE_LABELS } from "@/types";
+
+const VALID_VIBES = new Set<string>(Object.keys(VIBE_LABELS));
 
 // ─── Games ────────────────────────────────────────────────────────────────────
 
 export interface GameUpdateFields {
-  allow_full_ost?: boolean;
-  vibe_preference?: string;
   enabled?: boolean;
 }
 
@@ -47,17 +48,15 @@ export const Games = {
   create(
     id: string,
     title: string,
-    vibe: VibePreference,
-    allowFullOst: boolean,
     enabled = true,
     steamAppid: number | null = null,
     playtimeMinutes: number | null = null,
   ): Game {
     getDB()
       .prepare(
-        "INSERT INTO games (id, title, vibe_preference, allow_full_ost, enabled, steam_appid, playtime_minutes) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO games (id, title, vibe_preference, allow_full_ost, enabled, steam_appid, playtime_minutes) VALUES (?, ?, 'official_soundtrack', 0, ?, ?, ?)",
       )
-      .run(id, title, vibe, allowFullOst ? 1 : 0, enabled ? 1 : 0, steamAppid, playtimeMinutes);
+      .run(id, title, enabled ? 1 : 0, steamAppid, playtimeMinutes);
     return this.getById(id)!;
   },
 
@@ -65,14 +64,6 @@ export const Games = {
     const db = getDB();
     const now = "strftime('%Y-%m-%dT%H:%M:%SZ', 'now')";
 
-    if (fields.allow_full_ost !== undefined) {
-      db.prepare(`UPDATE games SET allow_full_ost = ?, updated_at = ${now} WHERE id = ?`)
-        .run(fields.allow_full_ost ? 1 : 0, id);
-    }
-    if (fields.vibe_preference !== undefined) {
-      db.prepare(`UPDATE games SET vibe_preference = ?, updated_at = ${now} WHERE id = ?`)
-        .run(fields.vibe_preference, id);
-    }
     if (fields.enabled !== undefined) {
       db.prepare(`UPDATE games SET enabled = ?, updated_at = ${now} WHERE id = ?`)
         .run(fields.enabled ? 1 : 0, id);
@@ -85,10 +76,10 @@ export const Games = {
     getDB().prepare("DELETE FROM games WHERE id = ?").run(id);
   },
 
-  ensureExists(id: string, title: string, vibe: VibePreference): void {
+  ensureExists(id: string, title: string): void {
     const exists = getDB().prepare("SELECT id FROM games WHERE id = ?").get(id);
     if (!exists) {
-      this.create(id, title, vibe, false);
+      this.create(id, title, false);
     }
   },
 
@@ -257,6 +248,13 @@ export const Playlist = {
 // ─── YouTube Playlist Cache ───────────────────────────────────────────────────
 
 export const YtPlaylists = {
+  /** Returns all cached entries, ordered by game_id — used for seed export. */
+  listAll(): Array<{ game_id: string; playlist_id: string }> {
+    return getDB()
+      .prepare("SELECT game_id, playlist_id FROM game_yt_playlists ORDER BY game_id ASC")
+      .all() as Array<{ game_id: string; playlist_id: string }>;
+  },
+
   /** Returns the cached YouTube playlist ID for a game, or null if not cached. */
   get(gameId: string): string | null {
     const row = getDB()
@@ -293,9 +291,11 @@ export const Config = {
       value: string;
     }>;
     const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+    const rawVibe = map.vibe ?? "official_soundtrack";
     return {
       target_track_count: parseInt(map.target_track_count ?? "50", 10),
       youtube_playlist_id: map.youtube_playlist_id ?? "",
+      vibe: (VALID_VIBES.has(rawVibe) ? rawVibe : "official_soundtrack") as VibePreference,
     };
   },
 

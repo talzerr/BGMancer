@@ -2,7 +2,9 @@
 
 ## Build your game library
 
-Everything related to your games lives on the **Library** page. The main feed stays focused on listening.
+Everything related to your games lives on the **Library** page — the main feed stays focused on listening.
+
+The library uses a two-column layout: a left sidebar for adding and importing games, and the main area for browsing and managing your collection.
 
 ### Add a game
 
@@ -25,9 +27,19 @@ Every game has an on/off toggle. Only enabled games are included when you genera
 
 The library toolbar lets you jump between **All**, **Active**, and **Disabled** views, sort by when you added games, playtime, or name, and search by title.
 
-### Per-game settings
+---
 
-Change a game's **vibe** at any time — choose from six moods that shape which tracks the AI picks:
+## Generate a playlist
+
+The left panel on the main feed is your **control center** — a single card with everything you need before hitting generate.
+
+### Playlist Size
+
+Choose from **25 / 50 / 100** preset pill buttons, or click **Custom** to type any number from 1 to 200. The Custom pill transforms into an inline input — no extra box, no layout jump.
+
+### Vibe
+
+Pick the mood that applies to the entire playlist. All tracks across all games will be curated to match it.
 
 | Vibe | What it sounds like |
 |---|---|
@@ -37,14 +49,15 @@ Change a game's **vibe** at any time — choose from six moods that shape which 
 | **Study / Deep Work** | Steady background music with no sudden loud moments |
 | **Workout / Hype** | High-energy, driving tracks with strong rhythm |
 | **Emotional / Story** | Cinematic, moving, or nostalgic story moments |
+| **✦ Surprise Me** | BGMancer picks a random vibe — different every time |
 
-Toggle **Full OST** mode to prefer long compilation videos over individual tracks, or delete a game entirely.
+Your last-used vibe is remembered between sessions.
 
----
+### Curate
 
-## Generate a playlist
+Hit **Curate N Tracks**. A live progress panel shows each game moving through the pipeline as BGMancer works — searching YouTube, fetching track lists, and asking the local AI to pick the best fit.
 
-Set how many tracks you want (25 / 50 / 100, or any number up to 200) and hit **Generate**. A live progress panel shows each game moving through the pipeline as BGMancer works.
+A summary line below the button shows you what you're about to generate: *"7 games · Official Soundtrack vibe · 50 tracks"*
 
 When it's done, tracks from all your games are woven together so the playlist stays varied — you won't hear five tracks from the same game in a row. Each generation draws from a shuffled pool and uses slightly different AI picks, so regenerating with the same games produces a genuinely different playlist.
 
@@ -54,7 +67,7 @@ Any tracks that couldn't be found automatically are marked as **pending**. Hit *
 
 ## Import from a YouTube playlist
 
-Skip generation entirely by pasting any public YouTube playlist URL into the import form. The tracks load instantly.
+Skip generation entirely by pasting any public YouTube playlist URL into the import form on the empty state. The tracks load instantly using a single API call.
 
 ---
 
@@ -72,8 +85,8 @@ Click any track to start the player. A bar appears at the bottom of the screen a
 
 **While listening:**
 
-- The main feed shows a pulsing dot with the name of the game currently playing
-- Animated equalizer bars on the active track
+- The game library card on the main feed shows a pulsing dot with the name of the game currently playing
+- Animated equalizer bars on the active track row
 - A direct link to open the current video on YouTube
 
 ---

@@ -22,24 +22,6 @@ export function useGameLibrary() {
     setGames((prev) => [...prev, game]);
   }
 
-  async function handleToggleFullOST(gameId: string, value: boolean) {
-    setGames((prev) =>
-      prev.map((g) => (g.id === gameId ? { ...g, allow_full_ost: value } : g))
-    );
-    try {
-      await fetch(`/api/games?id=${gameId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ allow_full_ost: value }),
-      });
-    } catch {
-      // Revert on error
-      setGames((prev) =>
-        prev.map((g) => (g.id === gameId ? { ...g, allow_full_ost: !value } : g))
-      );
-    }
-  }
-
   /** Returns true if the game was successfully deleted. */
   async function deleteGame(gameId: string): Promise<boolean> {
     try {
@@ -54,5 +36,5 @@ export function useGameLibrary() {
     return false;
   }
 
-  return { games, gamesLoading, fetchGames, handleGameAdded, handleToggleFullOST, deleteGame };
+  return { games, gamesLoading, fetchGames, handleGameAdded, deleteGame };
 }

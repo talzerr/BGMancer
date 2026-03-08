@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 import type { SyntheticEvent } from "react";
-import type { VibePreference } from "@/types";
 import Link from "next/link";
 import { useGameLibrary } from "@/hooks/useGameLibrary";
 import { useConfig } from "@/hooks/useConfig";
@@ -52,9 +51,6 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
   const foundCount = playlist.tracks.filter((t) => t.status === "found").length;
   const errorCount = playlist.tracks.filter((t) => t.status === "error").length;
   const hasFoundTracks = foundCount > 0;
-  const gameVibeMap = Object.fromEntries(
-    gameLibrary.games.map((g) => [g.id, g.vibe_preference])
-  ) as Record<string, VibePreference>;
 
   const playingGameTitle = playlist.tracks.find(
     (t) => t.id === player.playingTrackId
@@ -85,11 +81,16 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
             targetTrackCount={config.targetTrackCount}
             onTargetChange={config.setTargetTrackCount}
             onTargetSave={config.saveTrackCount}
+            vibe={config.vibe}
+            onVibeSave={config.saveVibe}
             gamesCount={gameLibrary.games.length}
             onGenerate={handleGenerate}
           />
 
-          <section className="rounded-2xl bg-zinc-900/70 border border-white/[0.07] p-4 backdrop-blur-sm shadow-lg shadow-black/40">
+          <Link
+            href="/library"
+            className="group block rounded-2xl bg-zinc-900/70 border border-white/[0.07] p-4 backdrop-blur-sm shadow-lg shadow-black/40 hover:border-white/[0.14] hover:bg-zinc-900/90 transition-all"
+          >
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-sm font-semibold text-white tabular-nums">
@@ -99,13 +100,45 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
                   active game{gameLibrary.games.length !== 1 ? "s" : ""}
                 </span>
               </div>
-              <Link
-                href="/library"
-                className="text-xs font-medium text-teal-400 hover:text-teal-300 transition-colors"
-              >
+              <span className="text-xs font-medium text-zinc-600 group-hover:text-teal-400 transition-colors">
                 Manage Library →
-              </Link>
+              </span>
             </div>
+
+            {/* Game cover avatars */}
+            {gameLibrary.games.length > 0 && (
+              <div className="flex items-center mt-3">
+                <div className="flex -space-x-2">
+                  {gameLibrary.games.slice(0, 5).map((game) => (
+                    <div
+                      key={game.id}
+                      className="w-7 h-7 rounded-full border-2 border-zinc-900 overflow-hidden bg-zinc-800 shrink-0 ring-0"
+                    >
+                      {game.steam_appid ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={`https://cdn.akamai.steamstatic.com/steam/apps/${game.steam_appid}/header.jpg`}
+                          alt={game.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-zinc-700">
+                          <span className="text-[9px] font-bold text-zinc-400 uppercase">
+                            {game.title.charAt(0)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {gameLibrary.games.length > 5 && (
+                  <span className="ml-2 text-[11px] text-zinc-500 tabular-nums">
+                    +{gameLibrary.games.length - 5} more
+                  </span>
+                )}
+              </div>
+            )}
+
             {playingGameTitle && (
               <div className="mt-2.5 flex items-center gap-2">
                 <span className="relative flex h-2 w-2 shrink-0">
@@ -122,14 +155,10 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
             )}
             {!gameLibrary.gamesLoading && gameLibrary.games.length === 0 && (
               <p className="mt-2 text-xs text-zinc-600">
-                No active games.{" "}
-                <Link href="/library" className="text-teal-500 hover:text-teal-400">
-                  Go to Library
-                </Link>{" "}
-                to add or activate games.
+                No active games — add and enable some to get started.
               </p>
             )}
-          </section>
+          </Link>
         </aside>
 
         {/* ── Right panel: Playlist ────────────────────────────────────────── */}
@@ -178,7 +207,7 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
                     </button>
                   </>
                 ) : (
-                  <button onClick={() => playlist.setConfirmClear(true)} className="text-xs text-zinc-500 hover:text-red-400 cursor-pointer">
+                  <button onClick={() => playlist.setConfirmClear(true)} className="text-xs text-zinc-500 hover:text-red-400 cursor-pointer mr-1">
                     Clear playlist
                   </button>
                 )}
@@ -202,7 +231,7 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
                   {totalDurationSeconds > 0 && (
                     <>
                       <span className="text-zinc-700 text-xs">·</span>
-                      <span className="text-xs text-zinc-500 tabular-nums">
+                      <span className="text-xs font-semibold text-zinc-300 tabular-nums">
                         {formatDuration(totalDurationSeconds)}
                       </span>
                     </>
@@ -258,7 +287,7 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
                     key={track.id}
                     track={track}
                     index={i}
-                    vibe={gameVibeMap[track.game_id]}
+                    vibe={config.vibe}
                     isPlaying={isCurrentTrack}
                     isActivelyPlaying={isCurrentTrack && player.isPlayerPlaying}
                     onPlay={effectiveIdx !== -1 ? () => {

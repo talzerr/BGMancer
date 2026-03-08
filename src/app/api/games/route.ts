@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { Games } from "@/lib/db/repo";
 import { YT_IMPORT_GAME_ID } from "@/lib/constants";
-import type { AddGamePayload, VibePreference } from "@/types";
-
-const VALID_VIBES = new Set<string>(["official_soundtrack", "boss_themes", "ambient_exploration"]);
+import type { AddGamePayload } from "@/types";
 
 export async function GET(request: Request) {
   try {
@@ -26,13 +24,10 @@ export async function POST(request: Request) {
     if (!body.title?.trim()) {
       return NextResponse.json({ error: "Game title is required" }, { status: 400 });
     }
-    if (!VALID_VIBES.has(body.vibe_preference)) {
-      return NextResponse.json({ error: "Invalid vibe preference" }, { status: 400 });
-    }
 
     const id = crypto.randomUUID();
     const steamAppid = typeof body.steam_appid === "number" ? body.steam_appid : null;
-    const game = Games.create(id, body.title.trim(), body.vibe_preference, !!body.allow_full_ost, true, steamAppid);
+    const game = Games.create(id, body.title.trim(), true, steamAppid);
     return NextResponse.json(game, { status: 201 });
   } catch (err) {
     console.error("[POST /api/games]", err);
@@ -50,14 +45,8 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const fields: { allow_full_ost?: boolean; vibe_preference?: string; enabled?: boolean } = {};
+    const fields: { enabled?: boolean } = {};
 
-    if (typeof body.allow_full_ost === "boolean") {
-      fields.allow_full_ost = body.allow_full_ost;
-    }
-    if (typeof body.vibe_preference === "string" && VALID_VIBES.has(body.vibe_preference)) {
-      fields.vibe_preference = body.vibe_preference as VibePreference;
-    }
     if (typeof body.enabled === "boolean") {
       fields.enabled = body.enabled;
     }

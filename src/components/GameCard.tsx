@@ -2,39 +2,16 @@
 
 import { useState } from "react";
 import type { Game } from "@/types";
-import { VIBE_LABELS } from "@/types";
-import { FilmIcon, TrashIcon } from "@/components/Icons";
+import { TrashIcon } from "@/components/Icons";
 
 interface GameCardProps {
   game: Game;
   isActive?: boolean;
-  onToggleFullOST: (gameId: string, value: boolean) => void;
   onDelete: (gameId: string) => void;
 }
 
-const VIBE_STYLES: Record<string, { badge: string; dot: string }> = {
-  official_soundtrack: {
-    badge: "bg-violet-500/15 text-violet-300 border-violet-500/20",
-    dot: "bg-violet-400",
-  },
-  boss_themes: {
-    badge: "bg-red-500/15 text-red-300 border-red-500/20",
-    dot: "bg-red-400",
-  },
-  ambient_exploration: {
-    badge: "bg-sky-500/15 text-sky-300 border-sky-500/20",
-    dot: "bg-sky-400",
-  },
-};
-
-const DEFAULT_VIBE_STYLE = {
-  badge: "bg-zinc-700/50 text-zinc-400 border-zinc-600/30",
-  dot: "bg-zinc-500",
-};
-
-export function GameCard({ game, isActive = false, onToggleFullOST, onDelete }: GameCardProps) {
+export function GameCard({ game, isActive = false, onDelete }: GameCardProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const vibeStyle = VIBE_STYLES[game.vibe_preference] ?? DEFAULT_VIBE_STYLE;
 
   return (
     <div
@@ -44,11 +21,11 @@ export function GameCard({ game, isActive = false, onToggleFullOST, onDelete }: 
           : "bg-zinc-900/60 border-white/[0.05] hover:border-white/[0.10]"
       }`}
     >
-      {/* Vibe dot — pulses when this game's track is playing */}
+      {/* Active indicator dot */}
       <div className="relative shrink-0 flex items-center justify-center w-3 h-3">
-        <div className={`w-1.5 h-1.5 rounded-full ${vibeStyle.dot}`} />
+        <div className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-violet-400" : "bg-zinc-600"}`} />
         {isActive && (
-          <div className={`absolute inset-0 rounded-full ${vibeStyle.dot} opacity-40 animate-ping`} />
+          <div className="absolute inset-0 rounded-full bg-violet-400 opacity-40 animate-ping" />
         )}
       </div>
 
@@ -57,32 +34,7 @@ export function GameCard({ game, isActive = false, onToggleFullOST, onDelete }: 
         <p className={`font-medium truncate text-sm leading-tight transition-colors ${isActive ? "text-white" : "text-zinc-100"}`}>
           {game.title}
         </p>
-        <div className="flex items-center gap-1.5 mt-1">
-          <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full border leading-none ${vibeStyle.badge}`}>
-            {VIBE_LABELS[game.vibe_preference] ?? game.vibe_preference}
-          </span>
-          {game.allow_full_ost && (
-            <span className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full border leading-none bg-zinc-700/50 text-zinc-400 border-zinc-600/30">
-              Full OST
-            </span>
-          )}
-        </div>
       </div>
-
-      {/* Full OST icon toggle */}
-      <button
-        role="switch"
-        aria-checked={game.allow_full_ost}
-        onClick={() => onToggleFullOST(game.id, !game.allow_full_ost)}
-        title={game.allow_full_ost ? "Full OST: on (find one compilation)" : "Full OST: off (individual tracks)"}
-        className={`shrink-0 p-1.5 rounded-lg transition-all cursor-pointer ${
-          game.allow_full_ost
-            ? "text-violet-400 bg-violet-500/15 border border-violet-500/20"
-            : "text-zinc-500 hover:text-zinc-300 bg-transparent border border-transparent hover:border-white/[0.06]"
-        }`}
-      >
-        <FilmIcon />
-      </button>
 
       {/* Delete */}
       {confirmDelete ? (

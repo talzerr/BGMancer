@@ -21,11 +21,12 @@ ENV NODE_ENV=production
 # openssl is used to auto-generate NEXTAUTH_SECRET when not provided
 RUN apk add --no-cache openssl
 
-COPY --from=builder /app/public       ./public
-COPY --from=builder /app/.next        ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/scripts      ./scripts
+COPY --from=builder /app/public                  ./public
+COPY --from=builder /app/.next                   ./.next
+COPY --from=builder /app/node_modules            ./node_modules
+COPY --from=builder /app/package.json            ./
+COPY --from=builder /app/scripts                 ./scripts
+COPY --from=builder /app/yt-playlists.seed.json  ./yt-playlists.seed.json
 
 EXPOSE 3000
 

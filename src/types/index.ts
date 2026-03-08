@@ -1,26 +1,19 @@
-export type VibePreference =
-  | "official_soundtrack"
-  | "boss_themes"
-  | "ambient_exploration"
-  | "study_focus"
-  | "workout_hype"
-  | "emotional_story";
-
-export const VIBE_LABELS: Record<VibePreference, string> = {
+export const VIBE_LABELS = {
   official_soundtrack: "Official Soundtrack",
   boss_themes:         "Boss Themes",
   ambient_exploration: "Ambient & Exploration",
   study_focus:         "Study / Deep Work",
   workout_hype:        "Workout / Hype",
   emotional_story:     "Emotional / Story",
-};
+} as const;
+
+export type VibePreference = keyof typeof VIBE_LABELS;
 
 // ─── Game library ─────────────────────────────────────────────────────────────
 
 export interface Game {
   id: string;
   title: string;
-  vibe_preference: VibePreference;
   allow_full_ost: boolean;
   enabled: boolean;
   steam_appid: number | null;
@@ -31,8 +24,6 @@ export interface Game {
 
 export interface AddGamePayload {
   title: string;
-  vibe_preference: VibePreference;
-  allow_full_ost?: boolean;
   steam_appid?: number;
 }
 
@@ -63,6 +54,7 @@ export interface PlaylistTrack {
 export interface AppConfig {
   target_track_count: number;
   youtube_playlist_id: string;
+  vibe: VibePreference;
 }
 
 // ─── YouTube ──────────────────────────────────────────────────────────────────

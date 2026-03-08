@@ -7,7 +7,7 @@ import {
   findBestVideo,
   YouTubeQuotaError,
 } from "@/lib/services/youtube";
-import type { Game, PlaylistTrack } from "@/types";
+import type { Game, PlaylistTrack, VibePreference } from "@/types";
 
 export type GenerateEvent =
   | { type: "progress"; gameId?: string; title?: string; status?: "active" | "done" | "error"; message: string }
@@ -45,10 +45,11 @@ function makePendingTrack(
 
 async function generateTracksForFullOST(
   game: Game,
+  vibe: VibePreference,
   send: (e: GenerateEvent) => void,
 ): Promise<GameTracks> {
   send({ type: "progress", gameId: game.id, title: game.title, status: "active", message: "Finding full OST compilation…" });
-  const queries = compilationQueries(game.title, game.vibe_preference);
+  const queries = compilationQueries(game.title, vibe);
   send({ type: "progress", gameId: game.id, title: game.title, status: "done", message: "Queued for YouTube search" });
   return {
     game,
@@ -59,6 +60,7 @@ async function generateTracksForFullOST(
 async function generateTracksForIndividual(
   game: Game,
   count: number,
+  vibe: VibePreference,
   send: (e: GenerateEvent) => void,
 ): Promise<GameTracks> {
   let playlistId = YtPlaylists.get(game.id);
@@ -72,7 +74,7 @@ async function generateTracksForIndividual(
   }
 
   if (!playlistId) {
-    const queries = compilationQueries(game.title, game.vibe_preference);
+    const queries = compilationQueries(game.title, vibe);
     send({ type: "progress", gameId: game.id, title: game.title, status: "done", message: "No playlist found — queued for search" });
     return {
       game,
@@ -96,7 +98,7 @@ async function generateTracksForIndividual(
   send({ type: "progress", gameId: game.id, title: game.title, status: "active", message: `AI selecting ${count} from ${playlistTracks.length} tracks…` });
   const selectedIndices = await selectTracksFromList(
     game.title,
-    game.vibe_preference,
+    vibe,
     playlistTracks,
     Math.min(count, playlistTracks.length),
   );
@@ -164,7 +166,9 @@ export async function generatePlaylist(
     return;
   }
 
-  const targetCount = Config.getTargetTrackCount();
+  const config = Config.load();
+  const targetCount = config.target_track_count;
+  const vibe: VibePreference = config.vibe;
 
   const fullOSTGames = games.filter((g) => g.allow_full_ost);
   const individualGames = games.filter((g) => !g.allow_full_ost);
@@ -181,7 +185,7 @@ export async function generatePlaylist(
 
   for (const game of games) {
     if (game.allow_full_ost) {
-      perGame.push(await generateTracksForFullOST(game, send));
+      perGame.push(await generateTracksForFullOST(game, vibe, send));
       continue;
     }
 
@@ -189,7 +193,7 @@ export async function generatePlaylist(
     const count = tracksPerGame + (individualIdx < remainder ? 1 : 0);
 
     try {
-      perGame.push(await generateTracksForIndividual(game, count, send));
+      perGame.push(await generateTracksForIndividual(game, count, vibe, send));
     } catch (err) {
       if (err instanceof YouTubeQuotaError) throw err;
 
