@@ -39,8 +39,7 @@ if (!fs.existsSync(backupPath)) {
   process.exit(1);
 }
 
-const dbPath =
-  process.env.SQLITE_PATH ?? path.join(process.cwd(), "bgmancer.db");
+const dbPath = process.env.SQLITE_PATH ?? path.join(process.cwd(), "bgmancer.db");
 
 fs.copyFileSync(backupPath, dbPath);
 

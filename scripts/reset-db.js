@@ -5,8 +5,7 @@
 const Database = require("better-sqlite3");
 const path = require("path");
 
-const dbPath =
-  process.env.SQLITE_PATH ?? path.join(process.cwd(), "bgmancer.db");
+const dbPath = process.env.SQLITE_PATH ?? path.join(process.cwd(), "bgmancer.db");
 
 const db = new Database(dbPath);
 

@@ -1,5 +1,4 @@
 services:
-
   # ── Ollama (local AI model server) ──────────────────────────────────────────
   ollama:
     image: ollama/ollama
@@ -47,5 +46,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  ollama_data:    # model weights (~2 GB for llama3.2) — persists across restarts
-  bgmancer_data:  # SQLite database — persists across restarts
+  ollama_data: # model weights (~2 GB for llama3.2) — persists across restarts
+  bgmancer_data: # SQLite database — persists across restarts

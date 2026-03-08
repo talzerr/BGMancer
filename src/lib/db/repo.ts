@@ -1,8 +1,7 @@
 import type Database from "better-sqlite3";
 import { getDB, getSeedPlaylistId } from "@/lib/db";
 import { toGame, toGames, toPlaylistTracks, parseSearchQueries } from "@/lib/db/mappers";
-import type { Game, PlaylistTrack, AppConfig, VibePreference, TrackStatus } from "@/types";
-import { VALID_VIBES } from "@/types";
+import type { Game, PlaylistTrack, AppConfig, TrackStatus } from "@/types";
 
 // Prepared statements cached by SQL string — avoids recompiling on every call.
 const _stmts = new Map<string, Database.Statement<unknown[]>>();
@@ -349,11 +348,9 @@ export const Config = {
       value: string;
     }>;
     const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-    const rawVibe = map.vibe ?? "official_soundtrack";
     return {
       target_track_count: parseInt(map.target_track_count ?? "50", 10),
       youtube_playlist_id: map.youtube_playlist_id ?? "",
-      vibe: (VALID_VIBES.has(rawVibe) ? rawVibe : "official_soundtrack") as VibePreference,
       anti_spoiler_enabled: map.anti_spoiler_enabled === "1",
     };
   },

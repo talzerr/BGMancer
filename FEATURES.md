@@ -1,123 +1,101 @@
-# What BGMancer Can Do
+# BGMancer Features
 
-## Build your game library
+## Your game library
 
-Everything related to your games lives on the **Library** page — the main feed stays focused on listening.
+Your library lives on the **Library** page. The main feed is just for listening — no clutter.
 
-The library uses a two-column layout: a left sidebar for adding and importing games, and the main area for browsing and managing your collection.
+### Adding games
 
-### Add a game
+Start typing a game title and an autocomplete dropdown suggests matches from Steam, with cover art. Pick one to link it properly, or type anything freely — BGMancer works with games that aren't on Steam too.
 
-Type a game title and an autocomplete dropdown suggests matches from Steam, complete with cover art. Select one to link it to its Steam page, or just type freely to add any game — even ones not on Steam.
+### Steam import
 
-### Import your Steam library
+Paste your Steam profile URL and click **Find Library**. BGMancer pulls your public collection, sorted by hours played.
 
-Paste your Steam profile URL and click **Find Library**. BGMancer pulls your public game collection and shows it sorted by hours played.
+- A **minimum playtime filter** (default: 10 hours) cuts out demos and games you barely touched
+- Imported games start **disabled** — they won't appear in playlists until you turn them on, so you can cherry-pick instead of flooding your playlist with 400 games at once
 
-- A **minimum playtime filter** (default: 10 hours) hides games you've barely touched, so you're not sorting through hundreds of demos and free weekends.
-- Imported games start **disabled** — they're in your library but won't show up in the playlist until you turn them on. This lets you cherry-pick instead of flooding your playlist with 400 games at once.
+### Enabling games
 
-### Enable and disable games
+Every game has an on/off toggle. Only enabled games contribute to the playlist. If things feel stale, toggle a few games in or out and regenerate.
 
-Every game has an on/off toggle. Only enabled games are included when you generate. If your playlist is feeling stale, flip a few games off and on to shift the mix.
+**Enable all shown** activates every game currently visible in your filtered view with one click.
 
-- **Enable all shown** — a single button activates all the games currently visible in your filtered view.
+### Filtering and searching
 
-### Filter, sort, and search
-
-The library toolbar lets you jump between **All**, **Active**, and **Disabled** views, sort by when you added games, playtime, or name, and search by title.
+Switch between **All**, **Active**, and **Disabled** views. Sort by playtime, name, or date added. Search by title.
 
 ---
 
-## Generate a playlist
+## Generating a playlist
 
-The left panel on the main feed is your **control center** — a single card with everything you need before hitting generate.
+The left panel on the main feed is where you set things up before hitting generate.
 
-### Playlist Size
+### How many tracks
 
-Choose from **25 / 50 / 100** preset pill buttons, or click **Custom** to type any number from 1 to 200. The Custom pill transforms into an inline input — no extra box, no layout jump.
+Pick **25**, **50**, or **100** from the preset buttons, or hit **Custom** to type any number up to 200.
 
-### Vibe
+### How it works
 
-Pick the mood that applies to the entire playlist. All tracks across all games will be curated to match it.
+Hit **Curate N Tracks** and watch a live progress panel as BGMancer works through your games. Behind the scenes it runs in three passes:
 
-| Vibe | What it sounds like |
-|---|---|
-| **Official Soundtrack** | Iconic highlights — the tracks fans remember most |
-| **Boss Themes** | Intense combat and boss battle music |
-| **Ambient & Exploration** | Calm, atmospheric world music |
-| **Study / Deep Work** | Steady background music with no sudden loud moments |
-| **Workout / Hype** | High-energy, driving tracks with strong rhythm |
-| **Emotional / Story** | Cinematic, moving, or nostalgic story moments |
-| **✦ Surprise Me** | BGMancer picks a random vibe — different every time |
+1. **Find the OST** — for each game, BGMancer looks up (or pulls from cache) the official YouTube OST playlist
+2. **Pick candidates** — an AI filters each game's playlist, removing filler and picking a diverse shortlist of roughly 3× your target count
+3. **Build the playlist** — a second AI pass looks across all games' shortlists and assembles the final ordered playlist, mixing games, varying energy, and shaping an arc from start to finish
 
-Your last-used vibe is remembered between sessions.
+Because the candidate pools are shuffled before the AI sees them, regenerating the same games gives you a genuinely different playlist each time.
 
-### Curate
+Tracks that couldn't be matched automatically are marked **pending** — hit **Find Missing** to run another search pass on them.
 
-Hit **Curate N Tracks**. A live progress panel shows each game moving through the pipeline as BGMancer works — searching YouTube, fetching track lists, and asking the local AI to pick the best fit.
+### Import instead of generating
 
-A summary line below the button shows you what you're about to generate: *"7 games · Official Soundtrack vibe · 50 tracks"*
-
-When it's done, tracks from all your games are woven together so the playlist stays varied — you won't hear five tracks from the same game in a row. Each generation draws from a shuffled pool and uses slightly different AI picks, so regenerating with the same games produces a genuinely different playlist.
-
-Any tracks that couldn't be found automatically are marked as **pending**. Hit **Find Missing** to run another search pass on them.
+Already have a YouTube playlist you like? Paste any public YouTube playlist URL into the import field and it loads instantly — no generation needed.
 
 ---
 
-## Import from a YouTube playlist
+## Listening
 
-Skip generation entirely by pasting any public YouTube playlist URL into the import form on the empty state. The tracks load instantly using a single API call.
+Click any track to start playback. The player bar appears at the bottom and **stays there as you navigate** — switching to the Library and back doesn't interrupt the music.
 
----
+**Controls:** Previous · Play/Pause · Next · time display · shuffle · volume slider
 
-## Listen
+**Dim** drops the volume to 20% with one click — handy when someone walks in. Click again to restore.
 
-Click any track to start the player. A bar appears at the bottom of the screen and **stays there while you navigate** — switching to the Library page and back doesn't stop the music.
+**Up Next** shows the title of the following track.
 
-**Controls:**
+While a track plays, an animated equalizer appears on its row, and a pulsing dot in the generate panel shows which game is currently playing.
 
-- Previous / Play-Pause / Next
-- Time display — shows where you are in the current track
-- **Shuffle** — randomises the order while keeping whatever's currently playing at the front
-- **Volume slider** with a **Dim toggle** — one click drops the volume to 20% (handy when someone walks in), one click brings it back
-- **Up Next** — shows the title of the next track so you know what's coming
-
-**While listening:**
-
-- The game library card on the main feed shows a pulsing dot with the name of the game currently playing
-- Animated equalizer bars on the active track row
-- A direct link to open the current video on YouTube
+Each track row has a direct link to open the video on YouTube.
 
 ---
 
 ## Playlist stats
 
-Above the track list you'll see: total tracks · how many are ready · the **total runtime** (e.g. `3h 42m`) · how many are still pending · how many errored.
+The bar above the track list shows: total tracks · tracks ready · **total runtime** (e.g. `3h 42m`) · pending · errors.
 
 ---
 
 ## Sync to YouTube
 
-Sign in with Google and hit **Sync to YouTube** to push your playlist to a *BGMancer Journey* playlist on your YouTube account.
+Sign in with Google and hit **Sync to YouTube** to push your playlist to a _BGMancer Journey_ playlist on your YouTube account.
 
 ---
 
 ## Anti-Spoiler Mode
 
-A **Spoilers** toggle in the playlist action bar that blurs every track you haven't played yet.
+Toggle **Spoilers** in the playlist action bar to blur every track you haven't played yet.
 
-OST titles often reference story moments — *The Fate of Aerith*, *Burning Hometown*, *You Died* — that spoil plot twists before you've reached them in the game. With Anti-Spoiler Mode on:
+OST titles are notorious spoilers — _The Fate of Aerith_, _Burning Hometown_, _You Died_. With Anti-Spoiler Mode on:
 
-- The track **thumbnail is blurred** (zoomed-in blur, not a black box)
-- The **title is blurred** in place — the text is still there but unreadable
-- The **channel name is hidden** entirely
-- The moment you hit **Play**, the track fully reveals itself — title, artwork, and channel
+- Track thumbnails are blurred (a soft zoom blur, not a black box)
+- Titles are blurred in place — still there, just unreadable
+- Channel names are hidden entirely
+- The moment you hit **Play**, the track fully reveals itself
 
-Toggle it off at any time to see the full playlist at once. Switching it on mid-session only hides tracks you still haven't played. Your preference is saved and remembered between sessions.
+Toggle it off at any time to see the full list. Turning it on mid-session only hides tracks you haven't reached yet. Your preference is remembered between sessions.
 
 ---
 
-## Clear and start over
+## Starting over
 
-**Clear playlist** asks for confirmation before wiping everything, so you won't accidentally lose a playlist you like.
+**Clear playlist** asks for confirmation before wiping everything — no accidental deletions.

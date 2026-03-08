@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { Config } from "@/lib/db/repo";
-import { VALID_VIBES } from "@/types";
-import type { AppConfig, VibePreference } from "@/types";
+import type { AppConfig } from "@/types";
 
 export async function GET() {
   try {
@@ -30,13 +29,6 @@ export async function PUT(request: Request) {
 
     if (body.youtube_playlist_id !== undefined) {
       entries.push(["youtube_playlist_id", body.youtube_playlist_id]);
-    }
-
-    if (body.vibe !== undefined) {
-      if (!VALID_VIBES.has(body.vibe)) {
-        return NextResponse.json({ error: "Invalid vibe" }, { status: 400 });
-      }
-      entries.push(["vibe", body.vibe as VibePreference]);
     }
 
     if (body.anti_spoiler_enabled !== undefined) {

@@ -2,16 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { GameProgressEntry } from "@/hooks/usePlaylist";
-import type { VibePreference } from "@/types";
-import { VIBE_LABELS } from "@/types";
-import {
-  Spinner,
-  CheckIcon,
-  XIcon,
-  ErrorCircle,
-  MusicNote,
-  ChevronDownIcon,
-} from "@/components/Icons";
+import { Spinner, CheckIcon, XIcon, ErrorCircle, MusicNote } from "@/components/Icons";
 
 interface GenerateSectionProps {
   generating: boolean;
@@ -21,14 +12,11 @@ interface GenerateSectionProps {
   targetTrackCount: number;
   onTargetChange: (n: number) => void;
   onTargetSave: (n: number) => void;
-  vibe: VibePreference;
-  onVibeSave: (v: VibePreference) => Promise<void> | void;
   gamesCount: number;
   onGenerate: () => void;
 }
 
 const PRESETS = [25, 50, 100] as const;
-const ALL_VIBES = Object.keys(VIBE_LABELS) as VibePreference[];
 
 export function GenerateSection({
   generating,
@@ -38,14 +26,11 @@ export function GenerateSection({
   targetTrackCount,
   onTargetChange,
   onTargetSave,
-  vibe,
-  onVibeSave,
   gamesCount,
   onGenerate,
 }: GenerateSectionProps) {
   const isPresetValue = (PRESETS as readonly number[]).includes(targetTrackCount);
   const [customActive, setCustomActive] = useState(!isPresetValue);
-  const [surpriseMeActive, setSurpriseMeActive] = useState(false);
   const customInputRef = useRef<HTMLInputElement>(null);
 
   function handlePresetClick(n: number) {
@@ -55,35 +40,15 @@ export function GenerateSection({
 
   function handleCustomClick() {
     setCustomActive(true);
-    // focus after state flush
     setTimeout(() => customInputRef.current?.select(), 0);
   }
 
-  function handleVibeChange(value: string) {
-    if (value === "surprise_me") {
-      setSurpriseMeActive(true);
-    } else {
-      setSurpriseMeActive(false);
-      onVibeSave(value as VibePreference);
-    }
-  }
-
-  async function handleGenerate() {
-    if (surpriseMeActive) {
-      const randomVibe = ALL_VIBES[Math.floor(Math.random() * ALL_VIBES.length)];
-      await onVibeSave(randomVibe);
-      setSurpriseMeActive(false);
-    }
-    onGenerate();
-  }
-
   const activePreset = customActive ? null : isPresetValue ? targetTrackCount : null;
-  const vibeLabel = surpriseMeActive ? "surprise" : VIBE_LABELS[vibe];
 
   const summaryText =
     gamesCount === 0
       ? "Add games to your library to get started."
-      : `${gamesCount} game${gamesCount !== 1 ? "s" : ""} · ${vibeLabel} vibe · ${targetTrackCount} tracks`;
+      : `${gamesCount} game${gamesCount !== 1 ? "s" : ""} · ${targetTrackCount} tracks`;
 
   return (
     <div className="flex flex-col gap-2">
@@ -92,7 +57,7 @@ export function GenerateSection({
           <div className="flex items-center gap-2">
             <Spinner className="h-3 w-3 shrink-0 text-teal-400" />
             <span className="text-[11px] font-semibold tracking-widest text-teal-400 uppercase">
-              Curating your vibe…
+              Curating your playlist…
             </span>
           </div>
 
@@ -156,7 +121,6 @@ export function GenerateSection({
                   {n}
                 </button>
               ))}
-              {/* Custom pill — becomes an input when active */}
               {customActive ? (
                 <input
                   ref={customInputRef}
@@ -192,32 +156,10 @@ export function GenerateSection({
             </div>
           </div>
 
-          {/* Vibe */}
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] font-semibold tracking-widest text-zinc-500 uppercase">
-              Vibe
-            </span>
-            <div className="relative">
-              <select
-                value={surpriseMeActive ? "surprise_me" : vibe}
-                onChange={(e) => handleVibeChange(e.target.value)}
-                className="w-full cursor-pointer appearance-none rounded-lg border border-white/[0.07] bg-zinc-950/60 py-1.5 pr-7 pl-2.5 text-xs text-white focus:border-teal-500/40 focus:ring-1 focus:ring-teal-500/50 focus:outline-none"
-              >
-                {(Object.entries(VIBE_LABELS) as [VibePreference, string][]).map(([v, label]) => (
-                  <option key={v} value={v}>
-                    {label}
-                  </option>
-                ))}
-                <option value="surprise_me">✦ Surprise Me</option>
-              </select>
-              <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-2 h-3 w-3 -translate-y-1/2 text-zinc-500" />
-            </div>
-          </div>
-
           {/* Action */}
           <div className="flex flex-col gap-2">
             <button
-              onClick={handleGenerate}
+              onClick={onGenerate}
               disabled={gamesCount === 0}
               className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_0_20px_-4px] shadow-teal-500/30 transition-colors hover:bg-teal-500 active:bg-teal-700 disabled:cursor-not-allowed disabled:border disabled:border-white/[0.05] disabled:bg-zinc-800/80 disabled:text-zinc-500 disabled:shadow-none"
             >

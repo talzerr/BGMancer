@@ -1,16 +1,3 @@
-export const VIBE_LABELS = {
-  official_soundtrack: "Official Soundtrack",
-  boss_themes: "Boss Themes",
-  ambient_exploration: "Ambient & Exploration",
-  study_focus: "Study / Deep Work",
-  workout_hype: "Workout / Hype",
-  emotional_story: "Emotional / Story",
-} as const;
-
-export type VibePreference = keyof typeof VIBE_LABELS;
-
-export const VALID_VIBES = new Set<string>(Object.keys(VIBE_LABELS));
-
 // ─── Game library ─────────────────────────────────────────────────────────────
 
 export interface Game {
@@ -56,7 +43,6 @@ export interface PlaylistTrack {
 export interface AppConfig {
   target_track_count: number;
   youtube_playlist_id: string;
-  vibe: VibePreference;
   anti_spoiler_enabled: boolean;
 }
 

@@ -3,46 +3,41 @@
 ## Player
 
 - **Seekbar** — click or drag to jump anywhere in the current track
-- **Track rating** — Thumbs Up / Thumbs Down while a track plays: thumbs up marks it as a keeper, thumbs down removes it and nudges the AI away from similar picks next time
-- **Chapter markers for Full OST videos** — when a long compilation is playing, parse the YouTube description for timestamps and render notches on the seekbar; hover to see the chapter name, click to jump there. This effectively beats the YouTube UI at its own game for long compilations.
 - **Repeat modes** — off / repeat all / repeat one
 - **Mini video view** — expand the player to show the actual YouTube video
-- **Vibe-coded equalizer bars** — the animated equalizer bars on the active track row take on colors that match the current vibe: red/orange for Boss Themes, slow-pulsing blue/teal for Ambient & Exploration, etc. Color reinforces the mood at a glance.
+- **Chapter markers for Full OST videos** — when a long compilation is playing, parse the YouTube description for timestamps and render notches on the seekbar; hover to see the chapter name, click to jump there
 
 ## Playlist
 
 - **Per-track remove** — remove a single track you don't like without clearing the whole playlist
-- **Per-track reroll** — a small refresh icon on each track row that tells the AI "keep the game and vibe, just give me a different track" — no need to regenerate the whole 50-track list
-- **Weighted distribution** — give a favourite game more track slots than others
+- **Per-track reroll** — a small refresh icon on each track row that asks the AI for a different track from the same game, without regenerating the whole list
+- **Track rating** — Thumbs Up / Thumbs Down while a track plays; liked/disliked video IDs are stored and injected into the Phase 3 curation prompt as explicit keep/avoid hints on the next run
 - **Drag to reorder** — manually rearrange the track list before syncing to YouTube
-- **Playlist seed export/import** — encode the current playlist as a compact base64 string (each entry is a YouTube video ID + game name, nothing else) and surface a share button next to the playlist stats; pasting a valid seed into an import field recreates the exact same playlist instantly, no generation needed. Useful for sharing a great session with a friend or bookmarking a favourite run.
+- **Playlist seed export/import** — encode the current playlist as a compact string (video ID + game name per entry) and surface a share button; pasting a valid seed recreates the exact playlist instantly, no generation needed
 
 ## Library
 
 - **Playlist cache refresh** — a button per game to force BGMancer to re-discover its YouTube playlist (useful when an OST upload gets taken down or replaced)
 - **Bulk text import** — paste a list of game titles to add multiple games at once
-- **"The Essentials" empty state** — when the library is empty, show a curated starter set (e.g. Chrono Trigger, Halo, Doom, Persona 5) as one-click adds. A first-time user should be able to hear music within 3 clicks of opening the app.
+- **"The Essentials" empty state** — when the library is empty, show a curated starter set (e.g. Chrono Trigger, Halo, Doom, Persona 5) as one-click adds; a first-time user should hear music within 3 clicks
+
+## Curation Intelligence
+
+- **Curation mood hint** — a free-text field on the generate panel (e.g. "focus session", "driving late at night", "boss rush energy") that gets appended to the Phase 3 system prompt. Replaces the old rigid vibe enum with something open-ended, stored as a single `curation_hint` config value
+- **Generation history** — store the last N generated playlists (video IDs + game titles + timestamp) so you can revisit a good run without regenerating
+- **Playlist preview before commit** — after Phase 3 returns, surface the ordered track list for review before saving; allow swapping or removing individual tracks in that moment
+- **Game priority hints** — mark a game as high/low priority, injected as a soft hint into the Phase 3 prompt ("favour more tracks from X", "keep Y minimal")
+- **MusicBrainz enrichment** — enrich track metadata (artist, mood tags) from MusicBrainz after each generation and cache it in `mb_track_cache`; feed cached tags into Phase 2 and Phase 3 prompts as structured energy/mood signal. Low hit-rate on game OSTs (~29% tags, ~55% artist in early testing) means it's a hint, not a hard requirement. Implementation was scaffolded but removed pending better coverage or an alternative metadata source
 
 ## Full OST mode
 
 Re-expose the per-game toggle that makes BGMancer find a single long compilation video for a game instead of individual tracks. The underlying pipeline logic is already in place — it just needs to surface in the UI again.
 
-## Vibe
-
-- **Per-game vibe override** — let individual games deviate from the global playlist vibe when the global mood doesn't fit that game's soundtrack
-- **Vibe blending** — automatically alternate between high-energy and chill tracks across the playlist for a more dynamic session
-
 ## YouTube
 
+- **YouTube quota indicator** — show estimated daily quota remaining or surface a warning at generation start; the hard quota limit is a real source of pain when generating often
 - **Sync to an existing playlist** — push to a YouTube playlist you already own instead of always creating a new one
-- **Multiple playlists** — maintain separate playlists for different moods
-
-## AI
-
-- **Hosted model support** — make the LLM provider configurable: add `OPENAI_API_KEY` (GPT-4o mini) and `GOOGLE_AI_API_KEY` (Gemini Flash) as drop-in alternatives to the local Ollama default. Both have vastly better video-game OST knowledge than a local llama3.2 and cost fractions of a cent per generation at BGMancer's scale. Ollama stays as the free fallback for self-hosters.
-- **Chain-of-thought selection** — change the LLM prompt to require an explicit reasoning step before returning indices: `{"thinking": ["1. Megalovania — intense final boss theme, perfect for Boss Themes", ...], "selected": [1, 7, 12]}`. Forcing the model to justify each pick before committing dramatically reduces position-bias and arbitrary selections, especially for tracks with ambiguous or generic names.
-- **Preference memory (feedback loop)** — store thumbs-up / thumbs-down ratings per `(game, vibe, track)` in SQLite and inject the history into the next generation prompt for that game+vibe pair: _"Previously rated good fits: [list]. Rated poor fits: [list]. Use the good ones as anchors; do not repeat the poor ones."_ The playlist improves with every session — the core personalisation engine.
-- **VGMdb track enrichment** — after a track is matched to a YouTube video, query the [VGMdb JSON API](https://vgmdb.net) to resolve its official name, album cover art, and composer credits. Cross-reference by game title + track name/duration. Surface the official name and composer in the track card UI, and use the album art as a higher-quality thumbnail fallback when the YouTube thumbnail is missing or low-res.
+- **Multiple playlists** — maintain separate playlists for different moods or sessions
 
 ## Quality of Life
 
@@ -51,10 +46,8 @@ Re-expose the per-game toggle that makes BGMancer find a single long compilation
 
 ## Hosting
 
-- **Anonymous multi-user sessions** — issue each visitor a UUID cookie and route all DB reads/writes to a dedicated per-session SQLite file (`data/sessions/{uuid}.db`). Sessions expire after 30 days of inactivity and are cleaned up on server start. No sign-in required; data is silently scoped per browser. The repo layer stays unchanged via `AsyncLocalStorage` — only the DB init and the API route wrappers need updating.
-- **Session data export** — let a user download their full library + config as a JSON bundle so they can back it up or migrate to a new browser/device before their session expires
-- **Optional Google sign-in for persistence** — allow a user to link their anonymous session to a Google account so their library survives cookie clears and works across devices; merges with any existing session data for that account
-- **Admin dashboard** — a password-protected `/admin` route showing active session count, disk usage per session, and a manual "purge old sessions" button for the server owner
-- **Rate limiting** — per-session limits on generation requests and YouTube API calls to prevent a single user from exhausting the server's API quota
-- **Metrics (Prometheus)** — expose a `/metrics` endpoint via `prom-client` tracking request latency, error rates, active sessions, and YouTube quota consumption; scrape with a Prometheus sidecar and visualise in Grafana
-- **Structured logging (Elastic)** — ship structured JSON logs to Elasticsearch via Filebeat or the Elastic APM Node agent; index per-session activity and API errors for full-text search and alerting in Kibana
+- **Anonymous multi-user sessions** — issue each visitor a UUID cookie and route all DB reads/writes to a dedicated per-session SQLite file (`data/sessions/{uuid}.db`). Sessions expire after 30 days of inactivity. No sign-in required; data is silently scoped per browser. The repo layer stays unchanged via `AsyncLocalStorage` — only the DB init and API route wrappers need updating
+- **Session data export** — let a user download their full library + config as a JSON bundle to back up or migrate before their session expires
+- **Optional Google sign-in for persistence** — link an anonymous session to a Google account so the library survives cookie clears and works across devices
+- **Admin dashboard** — a password-protected `/admin` route showing active session count, disk usage per session, and a manual purge button
+- **Rate limiting** — per-session limits on generation requests and YouTube API calls to prevent quota exhaustion

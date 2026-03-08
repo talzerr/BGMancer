@@ -1,13 +1,14 @@
 "use client";
 
 import Image from "next/image";
-import type { PlaylistTrack, VibePreference } from "@/types";
+import type { PlaylistTrack } from "@/types";
 import { YouTubeLogo, MusicNoteOutline, PlayIcon, PauseIcon } from "@/components/Icons";
 
 interface PlaylistTrackCardProps {
   track: PlaylistTrack;
   index: number;
-  vibe?: VibePreference;
+  /** Game cover thumbnail URL (Steam header) shown instead of the YouTube video thumbnail */
+  gameThumbnail?: string;
   /** true when this is the currently selected track (highlights the card) */
   isPlaying?: boolean;
   /** true when this track is actively playing (not paused) — drives waves + overlay icon */
@@ -24,19 +25,10 @@ const STATUS_CONFIG: Record<string, { dot: string }> = {
   error: { dot: "bg-red-400" },
 };
 
-const VIBE_ACCENT: Record<VibePreference, string> = {
-  official_soundtrack: "border-l-violet-500/50",
-  boss_themes: "border-l-red-500/50",
-  ambient_exploration: "border-l-sky-500/50",
-  study_focus: "border-l-teal-500/50",
-  workout_hype: "border-l-orange-500/50",
-  emotional_story: "border-l-rose-500/50",
-};
-
 export function PlaylistTrackCard({
   track,
   index,
-  vibe,
+  gameThumbnail,
   isPlaying = false,
   isActivelyPlaying = false,
   spoilerHidden = false,
@@ -45,11 +37,11 @@ export function PlaylistTrackCard({
   const hasVideo = !!track.video_id;
   const isFullOST = track.track_name === null;
   const statusCfg = STATUS_CONFIG[track.status] ?? STATUS_CONFIG.pending;
-  const vibeAccent = vibe ? VIBE_ACCENT[vibe] : "border-l-transparent";
+  const thumbnailSrc = gameThumbnail ?? track.thumbnail;
 
   return (
     <div
-      className={`group flex items-center gap-3 rounded-xl border border-l-2 px-3 py-2 transition-all duration-150 ${vibeAccent} ${
+      className={`group flex items-center gap-3 rounded-xl border border-l-2 border-l-transparent px-3 py-2 transition-all duration-150 ${
         isPlaying
           ? "border-violet-600/40 bg-violet-950/50 shadow-sm shadow-violet-900/20"
           : track.status === "error"
@@ -72,7 +64,7 @@ export function PlaylistTrackCard({
 
       {/* Thumbnail / play button */}
       <div className="relative h-11 w-16 shrink-0 overflow-hidden rounded-lg bg-zinc-800 ring-1 ring-white/[0.06]">
-        {hasVideo && track.thumbnail ? (
+        {hasVideo && thumbnailSrc ? (
           <button
             onClick={onPlay}
             disabled={!onPlay}
@@ -80,8 +72,8 @@ export function PlaylistTrackCard({
             aria-label={isActivelyPlaying ? "Pause" : isPlaying ? "Resume" : "Play track"}
           >
             <Image
-              src={track.thumbnail}
-              alt={track.video_title ?? ""}
+              src={thumbnailSrc}
+              alt={track.game_title ?? track.video_title ?? ""}
               fill
               className={`object-cover transition-all duration-300 ${spoilerHidden ? "scale-110 blur-md" : ""}`}
               sizes="64px"

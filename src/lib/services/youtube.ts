@@ -122,7 +122,7 @@ export async function searchYouTube(
 
   const videoIds = items.map((i) => i.id.videoId).join(",");
   const videosUrl = new URL(`${YOUTUBE_API_BASE}/videos`);
-  videosUrl.searchParams.set("key", apiKey);
+  videosUrl.searchParams.set("key", YOUTUBE_API_KEY);
   videosUrl.searchParams.set("id", videoIds);
   videosUrl.searchParams.set("part", "contentDetails");
 

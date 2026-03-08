@@ -1,123 +1,12 @@
-<div align="center">
-  <img src="public/icon-512.png" alt="BGMancer" width="128" />
-  <h1>BGMancer</h1>
-  <p><strong>The AI-powered curator for the ultimate video game music experience.</strong></p>
+# BGMancer
 
-  <img src="https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js" alt="Next.js 16" />
-  <img src="https://img.shields.io/badge/Tailwind_CSS-4-38B2AC?style=for-the-badge&logo=tailwind-css" alt="Tailwind CSS 4" />
-  <img src="https://img.shields.io/badge/AI-Ollama_(Llama_3.2)-orange?style=for-the-badge" alt="Ollama" />
-  <img src="https://img.shields.io/badge/Database-SQLite-003B57?style=for-the-badge&logo=sqlite" alt="SQLite" />
+An AI-powered playlist curator for video game soundtracks. Add games from your library, hit generate, and BGMancer searches YouTube for each game's OST, filters the tracks with an LLM, then assembles a single cohesive playlist ordered for listening — not just randomly shuffled.
 
-  <br /><br />
+Supports [Anthropic Claude](https://anthropic.com) (hosted) or [Ollama](https://ollama.com) (local) as the LLM backend. YouTube playback and optional sync to your YouTube account via Google OAuth.
 
-  <p>
-    BGMancer bridges your game library and the vast world of YouTube OSTs.<br />
-    By leveraging local LLMs, it doesn't just find music — it understands <em>vibes</em>.
-  </p>
+## Running locally
 
-  <p>
-    <a href="#-getting-started">Quick Start</a> ·
-    <a href="#-key-features">Features</a> ·
-    <a href="#-how-it-works">How It Works</a> ·
-    <a href="BACKLOG.md">Roadmap</a>
-  </p>
-</div>
-
-<br />
-
-<!-- 
-  TODO: Add a demo GIF or screenshot here.
-  A 10-second recording of generating a playlist and the equalizer bars moving 
-  will make this repo feel alive.
-
-  <div align="center">
-    <img src="docs/demo.gif" alt="BGMancer demo" width="720" />
-  </div>
--->
-
----
-
-## ✨ Key Features
-
-🎮 **Library-Driven Curation**
-Build your mix from your personal game history. Add games, pick a **Vibe** — *Official Soundtrack*, *Boss Themes*, *Ambient & Exploration*, *Study / Deep Work*, *Workout / Hype*, *Emotional / Story*, or **✦ Surprise Me** — and BGMancer curates a varied playlist across all of them. One vibe shapes the entire session so the mood stays coherent from track one to the end.
-
-🚂 **Steam Import**
-Paste your Steam profile URL to pull your entire game library in one go. A playtime filter and per-game enable/disable toggles let you curate exactly which games contribute to your playlist — no API key or login required from the user.
-
-🧠 **Local AI Intelligence**
-Uses **Ollama (Llama 3.2)** running entirely on your machine to semantically analyze real YouTube track titles and select the best matches for your chosen vibe. No cloud AI, no API costs, no data leaving your box.
-
-⚡ **Zero-Config Setup**
-Powered by SQLite — a single file, no separate database server. Run via Docker with one command, or clone and run locally with Node.js and Ollama.
-
-📺 **Deep YouTube Integration**
-Stream directly via the YouTube IFrame API with a full-featured player bar that persists across page navigation, or sync curated playlists to your YouTube account via Google OAuth. When quota runs out, paste any public playlist URL to import tracks instantly.
-
-🙈 **Anti-Spoiler Mode**
-OST titles are notorious spoilers (*The Fate of Aerith*, *You Died*). Flip the **Spoilers** toggle in the playlist and every unplayed track's title, thumbnail, and channel name blurs out in place — it reveals itself the moment you hit play.
-
-🎚️ **Player Built for Deep Work**
-Shuffle, volume control, a **Dim toggle** that drops to 20% in one click (stay quiet on calls), Up Next preview, elapsed/duration display, and persistent playback across page navigation.
-
-🔄 **Live Generation Pipeline**
-Watch your playlist build in real time — a Server-Sent Events progress panel shows per-game status as BGMancer searches YouTube, fetches track lists, and asks the AI to curate.
-
----
-
-## 🛠️ Tech Stack
-
-| Layer | Technology |
-|---|---|
-| **Frontend** | Next.js 16 (App Router, Turbopack), React 19, Tailwind CSS 4 |
-| **Intelligence** | Ollama running `llama3.2` locally |
-| **Backend** | Next.js Route Handlers, Server-Sent Events (SSE) |
-| **Storage** | SQLite via `better-sqlite3` (WAL mode, FK constraints) |
-| **YouTube** | Data API v3 (search + playlist read) + IFrame Player API |
-| **Auth** | NextAuth v5 + Google OAuth (optional — only for playlist sync) |
-
----
-
-## 🚀 Getting Started
-
-### Option A — Docker (recommended for most users)
-
-The easiest way to run BGMancer. Docker handles Node.js, Ollama, and the AI model automatically.
-
-**1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)**
-
-**2. Clone the repo and set up your keys**
-
-```bash
-git clone https://github.com/talzerr/bgmancer.git
-cd bgmancer
-cp .env.docker.example .env.docker
-```
-
-Open `.env.docker` and fill in your two API keys (instructions are in the file):
-
-- **YouTube API key** — [console.cloud.google.com](https://console.cloud.google.com) → APIs & Services → YouTube Data API v3 → Credentials
-- **Steam API key** — [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey) (free, instant)
-
-**3. Start everything**
-
-```bash
-docker compose up
-```
-
-On first run this downloads the Ollama model (~2 GB) — wait for it to finish before generating. Open **<http://localhost:6959>** when done.
-
-> Data persists in Docker volumes. Restart any time with `docker compose up`.
-
----
-
-### Option B — Local dev setup
-
-| Requirement | How to get it |
-|---|---|
-| **Node.js** ≥ 18 | [nodejs.org](https://nodejs.org/) |
-| **Ollama** | [ollama.com](https://ollama.com/) → install the app → run `ollama pull llama3.2` |
-| **YouTube API Key** | [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → YouTube Data API v3 |
+**Requirements:** Node.js ≥ 18, a [YouTube Data API v3 key](https://console.cloud.google.com/), a [Steam API key](https://steamcommunity.com/dev/apikey), and either an Anthropic API key or Ollama running locally.
 
 ```bash
 git clone https://github.com/talzerr/bgmancer.git
@@ -126,63 +15,29 @@ npm install
 cp .env.local.example .env.local
 ```
 
-Open `.env.local` and fill in your keys:
+Fill in `.env.local`:
 
 ```env
-# Required
-YOUTUBE_API_KEY=your_youtube_api_key
-STEAM_API_KEY=your_steam_api_key
+YOUTUBE_API_KEY=
+STEAM_API_KEY=
+ANTHROPIC_API_KEY=        # or leave blank and use Ollama below
+NEXTAUTH_SECRET=          # any random string
 
-# Auto-generated if left blank — change to any random string
-NEXTAUTH_SECRET=any-long-random-string
+# Optional — Ollama instead of (or alongside) Claude
+# OLLAMA_HOST=http://localhost:11434
+# OLLAMA_MODEL=llama3.2
 
 # Optional — only needed for "Sync to YouTube"
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
+# GOOGLE_CLIENT_ID=
+# GOOGLE_CLIENT_SECRET=
 ```
 
 ```bash
-# If using the Ollama Mac app, it's already running — skip the first line
-ollama serve
-npm run dev           # → http://localhost:6959
+npm run dev   # → http://localhost:6959
 ```
 
-> [!TIP]
-> **YouTube quota exhausted?** Paste any public YouTube playlist URL into the import form to load tracks with a single low-cost API call — no search quota needed.
+## Docs
 
----
-
-## 📖 How It Works
-
-```
-┌─────────────┐    ┌──────────────┐    ┌───────────┐    ┌──────────┐
-│  Game Library│───▶│  YouTube API │───▶│  Ollama   │───▶│ Playlist │
-│  (your games)│    │  (find OSTs) │    │ (pick the │    │ (curated │
-│              │    │              │    │  best fit) │    │  tracks) │
-└─────────────┘    └──────────────┘    └───────────┘    └──────────┘
-```
-
-1. **You add games** to your library and enable the ones you want
-2. **Pick a Vibe** (or let Surprise Me choose) and set your playlist size
-3. **BGMancer searches YouTube** for each game's OST playlist
-4. **The local AI reads real track titles** and picks the ones that best match the chosen vibe
-5. **Tracks are interleaved** across games so the playlist stays varied
-6. **Press play** — or sync to YouTube with one click
-
-The AI never hallucinates tracks. It only selects from real YouTube videos that actually exist.
-
----
-
-## 📚 Documentation
-
-| Document | Description |
-|---|---|
-| **[FEATURES.md](FEATURES.md)** | Detailed breakdown of every feature |
-| **[BACKLOG.md](BACKLOG.md)** | Roadmap — what's coming next |
-| **[LEGAL.md](LEGAL.md)** | Disclaimers and third-party terms |
-
----
-
-<div align="center">
-  <sub>Built for gamers who take their soundtracks seriously.</sub>
-</div>
+- [FEATURES.md](FEATURES.md) — full feature breakdown
+- [BACKLOG.md](BACKLOG.md) — what's coming next
+- [LEGAL.md](LEGAL.md) — disclaimers and third-party terms

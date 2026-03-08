@@ -6,8 +6,7 @@ const Database = require("better-sqlite3");
 const path = require("path");
 const fs = require("fs");
 
-const dbPath =
-  process.env.SQLITE_PATH ?? path.join(process.cwd(), "bgmancer.db");
+const dbPath = process.env.SQLITE_PATH ?? path.join(process.cwd(), "bgmancer.db");
 
 if (!fs.existsSync(dbPath)) {
   console.error(`Database not found at ${dbPath}`);

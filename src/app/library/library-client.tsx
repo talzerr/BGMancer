@@ -8,7 +8,6 @@ import { AddGameForm } from "@/components/AddGameForm";
 import { GameRow } from "@/components/GameRow";
 import { SteamImportPanel } from "@/components/SteamImportPanel";
 import { SeedExportPanel } from "@/components/SeedExportPanel";
-
 type Filter = "all" | "active" | "disabled";
 type SortKey = "playtime" | "name" | "added";
 

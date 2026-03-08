@@ -69,7 +69,6 @@ function initSchema(db: Database.Database): void {
 
     INSERT OR IGNORE INTO config (key, value) VALUES ('target_track_count', '50');
     INSERT OR IGNORE INTO config (key, value) VALUES ('youtube_playlist_id', '');
-    INSERT OR IGNORE INTO config (key, value) VALUES ('vibe', 'official_soundtrack');
   `);
 }
 

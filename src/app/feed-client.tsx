@@ -64,6 +64,15 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
   const errorCount = playlist.tracks.filter((t) => t.status === "error").length;
   const hasFoundTracks = foundCount > 0;
 
+  const gameThumbnailByGameId = new Map(
+    gameLibrary.games
+      .filter((g) => g.steam_appid)
+      .map((g) => [
+        g.id,
+        `https://cdn.akamai.steamstatic.com/steam/apps/${g.steam_appid}/header.jpg`,
+      ]),
+  );
+
   const playingGameTitle =
     playlist.tracks.find((t) => t.id === player.playingTrackId)?.game_title ?? null;
 
@@ -91,8 +100,6 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
             targetTrackCount={config.targetTrackCount}
             onTargetChange={config.setTargetTrackCount}
             onTargetSave={config.saveTrackCount}
-            vibe={config.vibe}
-            onVibeSave={config.saveVibe}
             gamesCount={gameLibrary.games.length}
             onGenerate={handleGenerate}
           />
@@ -346,7 +353,7 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
                     key={track.id}
                     track={track}
                     index={i}
-                    vibe={config.vibe}
+                    gameThumbnail={gameThumbnailByGameId.get(track.game_id)}
                     isPlaying={isCurrentTrack}
                     isActivelyPlaying={isCurrentTrack && player.isPlayerPlaying}
                     spoilerHidden={spoilerHidden}
