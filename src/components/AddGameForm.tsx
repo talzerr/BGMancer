@@ -1,40 +1,101 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 import type { VibePreference, Game } from "@/types";
 import { VIBE_LABELS } from "@/types";
-import { ErrorCircle } from "@/components/Icons";
+import { ErrorCircle, Spinner } from "@/components/Icons";
+
+interface SteamResult {
+  appid: number;
+  name: string;
+  tiny_image: string;
+}
 
 interface AddGameFormProps {
   onGameAdded: (game: Game) => void;
 }
 
 export function AddGameForm({ onGameAdded }: AddGameFormProps) {
-  const [title, setTitle] = useState("");
+  const [query, setQuery] = useState("");
+  const [selectedAppid, setSelectedAppid] = useState<number | null>(null);
+  const [results, setResults] = useState<SteamResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+
   const [vibe, setVibe] = useState<VibePreference>("official_soundtrack");
   const [allowFullOST, setAllowFullOST] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const vibeOptions = Object.entries(VIBE_LABELS) as [VibePreference, string][];
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  function handleQueryChange(value: string) {
+    setQuery(value);
+    setSelectedAppid(null); // clear selection if user edits the field
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (value.trim().length < 2) {
+      setResults([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    debounceRef.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await fetch(`/api/steam/search?q=${encodeURIComponent(value.trim())}`);
+        const data = await res.json() as { results?: SteamResult[] };
+        setResults(data.results ?? []);
+        setShowDropdown((data.results?.length ?? 0) > 0);
+      } catch {
+        setResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+  }
+
+  function handleSelect(result: SteamResult) {
+    setQuery(result.name);
+    setSelectedAppid(result.appid);
+    setResults([]);
+    setShowDropdown(false);
+  }
 
   async function handleSubmit(e: SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!query.trim()) return;
 
     setLoading(true);
     setError(null);
 
     try {
+      const body: Record<string, unknown> = {
+        title: query.trim(),
+        vibe_preference: vibe,
+        allow_full_ost: allowFullOST,
+      };
+      if (selectedAppid !== null) body.steam_appid = selectedAppid;
+
       const res = await fetch("/api/games", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: title.trim(),
-          vibe_preference: vibe,
-          allow_full_ost: allowFullOST,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
@@ -44,8 +105,10 @@ export function AddGameForm({ onGameAdded }: AddGameFormProps) {
 
       const game: Game = await res.json();
       onGameAdded(game);
-      setTitle("");
+      setQuery("");
+      setSelectedAppid(null);
       setAllowFullOST(false);
+      setResults([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -59,15 +122,60 @@ export function AddGameForm({ onGameAdded }: AddGameFormProps) {
         <label htmlFor="game-title" className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest">
           Game Title
         </label>
-        <input
-          id="game-title"
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="e.g. Elden Ring, Persona 5…"
-          disabled={loading}
-          className="w-full rounded-lg bg-zinc-800/80 border border-white/[0.07] px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 disabled:opacity-50"
-        />
+
+        <div ref={containerRef} className="relative">
+          <input
+            id="game-title"
+            type="text"
+            value={query}
+            onChange={(e) => handleQueryChange(e.target.value)}
+            onFocus={() => results.length > 0 && setShowDropdown(true)}
+            onKeyDown={(e) => e.key === "Escape" && setShowDropdown(false)}
+            placeholder="Search Steam or type any game…"
+            disabled={loading}
+            autoComplete="off"
+            className="w-full rounded-lg bg-zinc-800/80 border border-white/[0.07] px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 disabled:opacity-50 pr-8"
+          />
+
+          {/* Search spinner / Steam badge */}
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+            {searching ? (
+              <Spinner className="w-3.5 h-3.5 text-zinc-500" />
+            ) : selectedAppid !== null ? (
+              <svg className="w-3.5 h-3.5 text-teal-400" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.188.006l2.861-4.142V8.91c0-2.495 2.028-4.524 4.524-4.524 2.494 0 4.524 2.031 4.524 4.527s-2.03 4.525-4.524 4.525h-.105l-4.076 2.911c0 .052.004.105.004.159 0 1.875-1.515 3.396-3.39 3.396-1.635 0-3.016-1.173-3.331-2.727L.436 15.27C1.862 20.307 6.486 24 11.979 24c6.627 0 11.999-5.373 11.999-12S18.607 0 11.979 0z" />
+              </svg>
+            ) : null}
+          </div>
+
+          {/* Autocomplete dropdown */}
+          {showDropdown && results.length > 0 && (
+            <ul className="absolute z-50 top-full mt-1 w-full rounded-xl bg-zinc-900 border border-white/[0.10] shadow-xl shadow-black/60 overflow-hidden">
+              {results.map((r) => (
+                <li key={r.appid}>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // prevent blur before click registers
+                      handleSelect(r);
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2 hover:bg-white/[0.06] transition-colors text-left cursor-pointer"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={r.tiny_image}
+                      alt=""
+                      width={40}
+                      height={15}
+                      className="w-10 h-[15px] rounded object-cover shrink-0 bg-zinc-800"
+                    />
+                    <span className="text-sm text-zinc-200 truncate">{r.name}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-2">
@@ -94,7 +202,7 @@ export function AddGameForm({ onGameAdded }: AddGameFormProps) {
           <div className="text-[10px] text-transparent select-none" aria-hidden>·</div>
           <button
             type="submit"
-            disabled={loading || !title.trim()}
+            disabled={loading || !query.trim()}
             className="rounded-lg bg-violet-600 hover:bg-violet-500 disabled:bg-zinc-800 disabled:text-zinc-600 disabled:border disabled:border-white/[0.05] px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-900/30 focus:outline-none focus:ring-2 focus:ring-violet-500/50 cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
           >
             {loading ? "Adding…" : "Add Game"}

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { Playlist } from "@/lib/db/repo";
-import { findBestVideo } from "@/lib/services/youtube";
+import { findBestVideo, YouTubeInvalidKeyError } from "@/lib/services/youtube";
 
 /**
  * POST /api/playlist/search
@@ -12,6 +12,13 @@ import { findBestVideo } from "@/lib/services/youtube";
  * Individual tracks accept any length.
  */
 export async function POST() {
+  if (!process.env.YOUTUBE_API_KEY) {
+    return NextResponse.json(
+      { error: "YouTube API key is not configured. Add YOUTUBE_API_KEY to .env.local and restart the server." },
+      { status: 503 }
+    );
+  }
+
   try {
     const pendingRows = Playlist.listPending();
 
@@ -32,13 +39,14 @@ export async function POST() {
         const video = await findBestVideo(queries, allowShortVideo);
 
         if (video) {
-          Playlist.setFound(row.id, video.videoId, video.title, video.channelTitle, video.thumbnail);
+          Playlist.setFound(row.id, video.videoId, video.title, video.channelTitle, video.thumbnail, video.durationSeconds);
           updated++;
         } else {
           Playlist.setError(row.id, "No suitable video found after trying all queries.");
           failed++;
         }
       } catch (err) {
+        if (err instanceof YouTubeInvalidKeyError) throw err;
         Playlist.setError(row.id, err instanceof Error ? err.message : "YouTube search failed");
         failed++;
       }
@@ -47,9 +55,10 @@ export async function POST() {
     return NextResponse.json({ updated, failed, tracks: Playlist.listAllWithGameTitle() });
   } catch (err) {
     console.error("[POST /api/playlist/search]", err);
+    const status = err instanceof YouTubeInvalidKeyError ? 503 : 500;
     return NextResponse.json(
-      { error: "Search step failed", detail: err instanceof Error ? err.message : String(err) },
-      { status: 500 }
+      { error: err instanceof Error ? err.message : "Search step failed" },
+      { status }
     );
   }
 }

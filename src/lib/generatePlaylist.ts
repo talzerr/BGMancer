@@ -1,4 +1,4 @@
-import { Games, Playlist, Config, type InsertableTrack } from "@/lib/db/repo";
+import { Games, Playlist, Config, YtPlaylists, type InsertableTrack } from "@/lib/db/repo";
 import { selectTracksFromList, compilationQueries } from "@/lib/services/llm";
 import {
   searchOSTPlaylist,
@@ -35,6 +35,7 @@ function makePendingTrack(
     channel_title: null,
     thumbnail: null,
     search_queries: null,
+    duration_seconds: null,
     status: "pending",
     error_message: null,
     ...overrides,
@@ -59,8 +60,15 @@ async function generateTracksForIndividual(
   count: number,
   send: (e: GenerateEvent) => void,
 ): Promise<GameTracks> {
-  send({ type: "progress", gameId: game.id, title: game.title, status: "active", message: "Searching YouTube for OST playlist…" });
-  const playlistId = await searchOSTPlaylist(game.title);
+  let playlistId = YtPlaylists.get(game.id);
+
+  if (playlistId) {
+    send({ type: "progress", gameId: game.id, title: game.title, status: "active", message: "Using cached OST playlist…" });
+  } else {
+    send({ type: "progress", gameId: game.id, title: game.title, status: "active", message: "Searching YouTube for OST playlist…" });
+    playlistId = await searchOSTPlaylist(game.title);
+    if (playlistId) YtPlaylists.upsert(game.id, playlistId);
+  }
 
   if (!playlistId) {
     const queries = compilationQueries(game.title, game.vibe_preference);
@@ -216,10 +224,10 @@ export async function generatePlaylist(
     try {
       const video = await findBestVideo(track.search_queries!, false);
       if (video) {
-        Playlist.setFound(track.id, video.videoId, video.title, video.channelTitle, video.thumbnail);
+        Playlist.setFound(track.id, video.videoId, video.title, video.channelTitle, video.thumbnail, video.durationSeconds);
         const idx = inserted.findIndex((t) => t.id === track.id);
         if (idx !== -1) {
-          inserted[idx] = { ...inserted[idx], status: "found", video_id: video.videoId, video_title: video.title, channel_title: video.channelTitle, thumbnail: video.thumbnail };
+          inserted[idx] = { ...inserted[idx], status: "found", video_id: video.videoId, video_title: video.title, channel_title: video.channelTitle, thumbnail: video.thumbnail, duration_seconds: video.durationSeconds };
         }
       } else {
         Playlist.setError(track.id, "No suitable compilation video found.");

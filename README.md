@@ -42,6 +42,9 @@
 🎮 **Library-Driven Curation**
 Build your mix based on your personal game history. Add games, pick a vibe per game — *Official Soundtrack*, *Boss Themes*, or *Ambient & Exploration* — and BGMancer composes a varied playlist across all of them.
 
+🚂 **Steam Import**
+Paste your Steam profile URL to pull your entire game library in one go. A playtime filter and per-game enable/disable toggles let you curate exactly which games contribute to your playlist — no API key or login required from the user.
+
 🧠 **Local AI Intelligence**
 Uses **Ollama (Llama 3.2)** running entirely on your machine to semantically analyze real YouTube track titles and select the best matches for your chosen vibe. No cloud AI, no API costs, no data leaving your box.
 
@@ -49,7 +52,7 @@ Uses **Ollama (Llama 3.2)** running entirely on your machine to semantically ana
 Powered by SQLite — a single file, no Docker, no database server. Clone, install, play.
 
 📺 **Deep YouTube Integration**
-Stream directly via the YouTube IFrame API with a full-featured player bar, or sync curated playlists to your YouTube account via Google OAuth. When quota runs out, paste any public playlist URL to import tracks instantly.
+Stream directly via the YouTube IFrame API with a full-featured player bar that persists across page navigation, or sync curated playlists to your YouTube account via Google OAuth. When quota runs out, paste any public playlist URL to import tracks instantly.
 
 🎚️ **Player Built for Deep Work**
 Shuffle, volume control, a **Dim toggle** that drops to 20% in one click (stay quiet on calls), Up Next preview, elapsed/duration display, and vibe-coded accent colors per track.
@@ -102,11 +105,16 @@ Open `.env.local` and fill in your keys:
 # Required
 YOUTUBE_API_KEY=your_youtube_api_key
 
+# Required for Steam library import
+STEAM_API_KEY=your_steam_api_key
+
 # Optional — only needed for "Sync to YouTube" feature
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 NEXTAUTH_SECRET=run_openssl_rand_base64_32
 ```
+
+Get a Steam API key at [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey) (free, instant).
 
 ### Launch
 

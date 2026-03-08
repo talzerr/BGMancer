@@ -16,6 +16,9 @@ export interface Game {
   title: string;
   vibe_preference: VibePreference;
   allow_full_ost: boolean;
+  enabled: boolean;
+  steam_appid: number | null;
+  playtime_minutes: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -24,6 +27,7 @@ export interface AddGamePayload {
   title: string;
   vibe_preference: VibePreference;
   allow_full_ost?: boolean;
+  steam_appid?: number;
 }
 
 // ─── Playlist ─────────────────────────────────────────────────────────────────
@@ -40,6 +44,7 @@ export interface PlaylistTrack {
   channel_title: string | null;
   thumbnail: string | null;
   search_queries: string[] | null;
+  duration_seconds: number | null;
   position: number;
   status: TrackStatus;
   error_message: string | null;

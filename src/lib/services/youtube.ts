@@ -3,7 +3,7 @@ import type { YouTubeSearchResult } from "@/types";
 const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
 
 if (!process.env.YOUTUBE_API_KEY) {
-  console.warn("[YouTube] WARNING: YOUTUBE_API_KEY is not set — all API calls will return 403 Forbidden");
+  console.warn("[YouTube] WARNING: YOUTUBE_API_KEY is not set — all API calls will fail");
 }
 
 /** Thrown when the YouTube Data API quota is exceeded — callers should abort immediately */
@@ -14,8 +14,16 @@ export class YouTubeQuotaError extends Error {
   }
 }
 
-/** Parse a YouTube error response body and throw YouTubeQuotaError if applicable */
-async function throwIfQuotaError(res: Response): Promise<void> {
+/** Thrown when the YouTube API key is missing or invalid — callers should abort immediately */
+export class YouTubeInvalidKeyError extends Error {
+  constructor() {
+    super("YouTube API key is missing or invalid. Add a valid YOUTUBE_API_KEY to .env.local and restart the server.");
+    this.name = "YouTubeInvalidKeyError";
+  }
+}
+
+/** Parse a YouTube error response body and throw a fatal error if applicable */
+async function throwIfFatalError(res: Response): Promise<void> {
   const body = await res.text().catch(() => "");
   console.error(`[YouTube] ${res.url.split("?")[0]} failed — ${res.status} ${res.statusText}`);
   try {
@@ -23,8 +31,10 @@ async function throwIfQuotaError(res: Response): Promise<void> {
     const reason = parsed?.error?.errors?.[0]?.reason;
     console.error(`[YouTube] reason: ${reason ?? "unknown"}`);
     if (reason === "quotaExceeded") throw new YouTubeQuotaError();
+    const details: Array<{ reason?: string }> = parsed?.error?.details ?? [];
+    if (details.some((d) => d.reason === "API_KEY_INVALID")) throw new YouTubeInvalidKeyError();
   } catch (e) {
-    if (e instanceof YouTubeQuotaError) throw e;
+    if (e instanceof YouTubeQuotaError || e instanceof YouTubeInvalidKeyError) throw e;
   }
   console.error(`[YouTube] response body: ${body}`);
 }
@@ -89,7 +99,7 @@ export async function searchYouTube(
   const searchRes = await fetch(searchUrl.toString());
   if (!searchRes.ok) {
     console.error(`[YouTube] search.list — query: "${query}"`);
-    await throwIfQuotaError(searchRes);
+    await throwIfFatalError(searchRes);
     throw new Error(`YouTube search failed: ${searchRes.status} ${searchRes.statusText}`);
   }
 
@@ -114,7 +124,7 @@ export async function searchYouTube(
 
   const videosRes = await fetch(videosUrl.toString());
   if (!videosRes.ok) {
-    await throwIfQuotaError(videosRes);
+    await throwIfFatalError(videosRes);
     throw new Error(`YouTube videos.list failed: ${videosRes.status} ${videosRes.statusText}`);
   }
 
@@ -202,7 +212,7 @@ export async function searchOSTPlaylist(
     const res = await fetch(url.toString());
     if (!res.ok) {
       console.error(`[YouTube] searchOSTPlaylist — query: "${query}"`);
-      await throwIfQuotaError(res);
+      await throwIfFatalError(res);
       continue;
     }
 
@@ -243,7 +253,7 @@ export async function fetchPlaylistItems(
   const res = await fetch(url.toString());
   if (!res.ok) {
     console.error(`[YouTube] fetchPlaylistItems — playlistId: ${playlistId}`);
-    await throwIfQuotaError(res);
+    await throwIfFatalError(res);
     return [];
   }
 

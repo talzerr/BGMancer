@@ -21,6 +21,9 @@ export function toGame(row: Record<string, unknown>): Game {
       ? (row.vibe_preference as VibePreference)
       : "official_soundtrack",
     allow_full_ost: !!(row.allow_full_ost),
+    enabled: row.enabled !== 0,
+    steam_appid: row.steam_appid != null ? Number(row.steam_appid) : null,
+    playtime_minutes: row.playtime_minutes != null ? Number(row.playtime_minutes) : null,
     created_at: String(row.created_at ?? ""),
     updated_at: String(row.updated_at ?? ""),
   };
@@ -55,6 +58,7 @@ export function toPlaylistTrack(row: Record<string, unknown>): PlaylistTrack {
     channel_title: row.channel_title != null ? String(row.channel_title) : null,
     thumbnail: row.thumbnail != null ? String(row.thumbnail) : null,
     search_queries: parseSearchQueries(row.search_queries),
+    duration_seconds: row.duration_seconds != null ? Number(row.duration_seconds) : null,
     position: Number(row.position ?? 0),
     status: VALID_STATUSES.has(row.status as string)
       ? (row.status as TrackStatus)

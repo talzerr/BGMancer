@@ -2,51 +2,83 @@
 
 ## Build your game library
 
-Add any game with a title and a vibe — *Official Soundtrack*, *Boss Themes*, or *Ambient & Exploration*. Toggle **Full OST** on a game to prefer long compilation videos over individual tracks. Remove games with an inline confirmation prompt.
+Everything related to your games lives on the **Library** page. The main feed stays focused on listening.
+
+### Add a game
+
+Type a game title and an autocomplete dropdown suggests matches from Steam, complete with cover art. Select one to link it to its Steam page, or just type freely to add any game — even ones not on Steam.
+
+### Import your Steam library
+
+Paste your Steam profile URL and click **Find Library**. BGMancer pulls your public game collection and shows it sorted by hours played.
+
+- A **minimum playtime filter** (default: 10 hours) hides games you've barely touched, so you're not sorting through hundreds of demos and free weekends.
+- Imported games start **disabled** — they're in your library but won't show up in the playlist until you turn them on. This lets you cherry-pick instead of flooding your playlist with 400 games at once.
+
+### Enable and disable games
+
+Every game has an on/off toggle. Only enabled games are included when you generate. If your playlist is feeling stale, flip a few games off and on to shift the mix.
+
+- **Enable all shown** — a single button activates all the games currently visible in your filtered view.
+
+### Filter, sort, and search
+
+The library toolbar lets you jump between **All**, **Active**, and **Disabled** views, sort by when you added games, playtime, or name, and search by title.
+
+### Per-game settings
+
+Change a game's **vibe** at any time, toggle **Full OST** mode (prefers long compilation videos over individual tracks), or delete it.
+
+---
 
 ## Generate a playlist
 
-Choose how many tracks to generate with the **Tracks** picker (quick presets: 25 / 50 / 100, or type any number up to 200), then hit **Generate**. BGMancer runs a live AI pipeline for each game:
+Set how many tracks you want (25 / 50 / 100, or any number up to 200) and hit **Generate**. A live progress panel shows each game moving through the pipeline as BGMancer works.
 
-1. Finds the game's official OST playlist on YouTube
-2. Reads the real track list from it
-3. Asks the local AI model (Ollama / llama3.2) to pick the best tracks for your chosen vibe
-4. Tracks from all your games are interleaved so the playlist stays varied
+When it's done, tracks from all your games are woven together so the playlist stays varied — you won't hear five tracks from the same game in a row.
 
-A **live progress panel** replaces the button during generation, showing per-game status (waiting → active → done / error) in real-time via server-sent events. Any tracks that couldn't be sourced automatically are flagged as *pending* and can be resolved with the **Find Missing** button.
+Any tracks that couldn't be found automatically are marked as **pending**. Hit **Find Missing** to run another search pass on them.
 
-## Import a YouTube playlist directly
+---
 
-Paste any YouTube playlist URL into the empty-state import form to bypass the YouTube API search quota. Tracks are loaded in one low-cost `playlistItems.list` call and appear immediately.
+## Import from a YouTube playlist
 
-## Play it in the app
+Skip generation entirely by pasting any public YouTube playlist URL into the import form. The tracks load instantly.
 
-Click any track to start playing. A sticky player bar appears at the bottom with:
+---
 
-- **Prev / Play-Pause / Next** controls
-- **Elapsed / duration display** — `0:42 / 3:58` updates every second while a track plays
-- **Shuffle** — Fisher-Yates randomisation; toggling on keeps the current track playing at position 1, toggling off restores the original order; indicated by a violet shuffle icon
-- **Volume slider** — independent of system volume, with a **Dim toggle** that instantly drops to 20% (amber indicator) and restores on second click — one tap to stay quiet on a call
-- **Up Next preview** — shows the next track's title on wide screens, reducing skip anxiety
-- **Click a playing track to pause it** — click again to resume; animated equalizer waves show what's playing
-- Auto-advance to the next track when one ends, looping back to start
-- Thumbnail preview with YouTube attribution badge
-- A **▶ YouTube** button that opens the current video on YouTube
-- **Vibe-coded left border accents** on each playlist row — violet for Official Soundtrack, red for Boss Themes, sky for Ambient & Exploration
-- **Active game highlight** — the game card in the sidebar pulses when one of its tracks is playing
+## Listen
 
-## Clear playlist
+Click any track to start the player. A bar appears at the bottom of the screen and **stays there while you navigate** — switching to the Library page and back doesn't stop the music.
 
-The **Clear playlist** action requires an inline confirmation (*"Clear all tracks? Yes, clear / Cancel"*) before wiping the current playlist.
+**Controls:**
 
-## YouTube attribution
+- Previous / Play-Pause / Next
+- Time display — shows where you are in the current track
+- **Shuffle** — randomises the order while keeping whatever's currently playing at the front
+- **Volume slider** with a **Dim toggle** — one click drops the volume to 20% (handy when someone walks in), one click brings it back
+- **Up Next** — shows the title of the next track so you know what's coming
 
-Wherever YouTube thumbnails or track data are shown outside the native player, a **▶ YouTube** badge is displayed to comply with the YouTube API Terms of Service.
+**While listening:**
+
+- The main feed shows a pulsing dot with the name of the game currently playing
+- Animated equalizer bars on the active track
+- A direct link to open the current video on YouTube
+
+---
+
+## Playlist stats
+
+Above the track list you'll see: total tracks · how many are ready · the **total runtime** (e.g. `3h 42m`) · how many are still pending · how many errored.
+
+---
 
 ## Sync to YouTube
 
-Sign in with Google and hit **Sync to YouTube** to push your found tracks to a *BGMancer Journey* playlist on your YouTube account.
+Sign in with Google and hit **Sync to YouTube** to push your playlist to a *BGMancer Journey* playlist on your YouTube account.
 
-## Quota-safe generation
+---
 
-YouTube API quota errors are detected immediately, generation stops early with a clear message, and no further quota is consumed. A startup warning is logged if `YOUTUBE_API_KEY` is not set.
+## Clear and start over
+
+**Clear playlist** asks for confirmation before wiping everything, so you won't accidentally lose a playlist you like.

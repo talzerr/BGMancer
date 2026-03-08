@@ -3,16 +3,13 @@
 import { useEffect } from "react";
 import type { SyntheticEvent } from "react";
 import type { VibePreference } from "@/types";
+import Link from "next/link";
 import { useGameLibrary } from "@/hooks/useGameLibrary";
-import { usePlaylist } from "@/hooks/usePlaylist";
-import { usePlayerState } from "@/hooks/usePlayerState";
 import { useConfig } from "@/hooks/useConfig";
-import { AddGameForm } from "@/components/AddGameForm";
-import { GameCard } from "@/components/GameCard";
+import { usePlayerContext } from "@/context/player-context";
 import { GenerateSection } from "@/components/GenerateSection";
 import { PlaylistTrackCard } from "@/components/PlaylistTrackCard";
 import { PlaylistEmptyState } from "@/components/PlaylistEmptyState";
-import { PlayerBar } from "@/components/PlayerBar";
 import { SyncButton } from "@/components/SyncButton";
 import { Spinner, SearchIcon, CheckIcon } from "@/components/Icons";
 
@@ -23,17 +20,14 @@ interface FeedClientProps {
 
 export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
   const gameLibrary = useGameLibrary();
-  const playlist = usePlaylist();
   const config = useConfig();
+  const { playlist, player } = usePlayerContext();
 
-  const foundTracks = playlist.tracks.filter((t) => t.status === "found");
-  const player = usePlayerState(foundTracks);
-
-  // Initial data fetch
+  // Initial data fetch — playlist is already fetched by PlayerProvider on mount;
+  // we only need to refresh games here.
   useEffect(() => {
     gameLibrary.fetchGames();
-    playlist.fetchTracks();
-  }, [gameLibrary.fetchGames, playlist.fetchTracks]);
+  }, [gameLibrary.fetchGames]);
 
   // ── Cross-hook action coordinators ──────────────────────────────────────────
 
@@ -52,11 +46,6 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
     if (success) player.reset();
   }
 
-  async function handleDeleteGame(gameId: string) {
-    const deleted = await gameLibrary.deleteGame(gameId);
-    if (deleted) playlist.removeTracksForGame(gameId);
-  }
-
   // ── Derived values ───────────────────────────────────────────────────────────
 
   const pendingCount = playlist.tracks.filter((t) => t.status === "pending").length;
@@ -67,17 +56,27 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
     gameLibrary.games.map((g) => [g.id, g.vibe_preference])
   ) as Record<string, VibePreference>;
 
+  const playingGameTitle = playlist.tracks.find(
+    (t) => t.id === player.playingTrackId
+  )?.game_title ?? null;
+
+  const totalDurationSeconds = playlist.tracks
+    .filter((t) => t.status === "found")
+    .reduce((sum, t) => sum + (t.duration_seconds ?? 0), 0);
+
+  function formatDuration(seconds: number): string {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    if (h === 0) return `${m}m`;
+    return m === 0 ? `${h}h` : `${h}h ${m}m`;
+  }
+
   return (
     <>
       <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5 items-start">
 
         {/* ── Left panel ──────────────────────────────────────────────────── */}
         <aside className="flex flex-col gap-4">
-          <section className="rounded-2xl bg-zinc-900/70 border border-white/[0.07] p-5 backdrop-blur-sm shadow-lg shadow-black/40">
-            <h2 className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-4">Add a Game</h2>
-            <AddGameForm onGameAdded={gameLibrary.handleGameAdded} />
-          </section>
-
           <GenerateSection
             generating={playlist.generating}
             genProgress={playlist.genProgress}
@@ -90,36 +89,45 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
             onGenerate={handleGenerate}
           />
 
-          <section className="rounded-2xl bg-zinc-900/70 border border-white/[0.07] p-5 backdrop-blur-sm shadow-lg shadow-black/40">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">Game Library</h2>
-              {gameLibrary.games.length > 0 && (
-                <span className="text-[11px] font-medium text-zinc-400 tabular-nums">
-                  {gameLibrary.games.length} game{gameLibrary.games.length !== 1 ? "s" : ""}
+          <section className="rounded-2xl bg-zinc-900/70 border border-white/[0.07] p-4 backdrop-blur-sm shadow-lg shadow-black/40">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm font-semibold text-white tabular-nums">
+                  {gameLibrary.games.length}
                 </span>
-              )}
+                <span className="text-sm text-zinc-500 ml-1.5">
+                  active game{gameLibrary.games.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+              <Link
+                href="/library"
+                className="text-xs font-medium text-teal-400 hover:text-teal-300 transition-colors"
+              >
+                Manage Library →
+              </Link>
             </div>
-
-            {gameLibrary.gamesLoading ? (
-              <div className="space-y-2">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="h-[52px] rounded-xl bg-zinc-800/40 animate-pulse" />
-                ))}
+            {playingGameTitle && (
+              <div className="mt-2.5 flex items-center gap-2">
+                <span className="relative flex h-2 w-2 shrink-0">
+                  {player.isPlayerPlaying && (
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75" />
+                  )}
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500" />
+                </span>
+                <span className="text-xs truncate">
+                  <span className="text-zinc-600">From </span>
+                  <span className="text-zinc-300 font-medium">{playingGameTitle}</span>
+                </span>
               </div>
-            ) : gameLibrary.games.length === 0 ? (
-              <p className="text-sm text-zinc-500 py-6 text-center">No games yet.</p>
-            ) : (
-              <div className="flex flex-col gap-1.5">
-                {gameLibrary.games.map((game) => (
-                  <GameCard
-                    key={game.id}
-                    game={game}
-                    isActive={game.id === player.activeGameId}
-                    onToggleFullOST={gameLibrary.handleToggleFullOST}
-                    onDelete={handleDeleteGame}
-                  />
-                ))}
-              </div>
+            )}
+            {!gameLibrary.gamesLoading && gameLibrary.games.length === 0 && (
+              <p className="mt-2 text-xs text-zinc-600">
+                No active games.{" "}
+                <Link href="/library" className="text-teal-500 hover:text-teal-400">
+                  Go to Library
+                </Link>{" "}
+                to add or activate games.
+              </p>
             )}
           </section>
         </aside>
@@ -191,6 +199,14 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
                     <span className="font-semibold text-emerald-400 tabular-nums">{foundCount}</span>
                     <span className="text-zinc-500">ready to play</span>
                   </span>
+                  {totalDurationSeconds > 0 && (
+                    <>
+                      <span className="text-zinc-700 text-xs">·</span>
+                      <span className="text-xs text-zinc-500 tabular-nums">
+                        {formatDuration(totalDurationSeconds)}
+                      </span>
+                    </>
+                  )}
                 </>
               )}
               {pendingCount > 0 && (
@@ -260,19 +276,6 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
         </main>
       </div>
 
-      {/* Sticky player bar */}
-      {player.currentTrackIndex !== null && player.effectiveFoundTracks.length > 0 && (
-        <PlayerBar
-          ref={player.playerBarRef}
-          tracks={player.effectiveFoundTracks}
-          currentIndex={player.currentTrackIndex}
-          onIndexChange={player.setCurrentTrackIndex}
-          onClose={() => player.setCurrentTrackIndex(null)}
-          onPlayingChange={player.setIsPlayerPlaying}
-          shuffleMode={player.shuffleMode}
-          onToggleShuffle={hasFoundTracks ? player.handleToggleShuffle : undefined}
-        />
-      )}
     </>
   );
 }

@@ -7,18 +7,33 @@ import type { Game, PlaylistTrack, AppConfig, VibePreference, TrackStatus } from
 export interface GameUpdateFields {
   allow_full_ost?: boolean;
   vibe_preference?: string;
+  enabled?: boolean;
+}
+
+export interface SteamGameInput {
+  appid: number;
+  name: string;
+  playtime_forever: number;
 }
 
 export const Games = {
+  /** Returns only enabled games — used for playlist generation. */
   listAll(excludeId?: string): Game[] {
     const db = getDB();
     if (excludeId) {
       return toGames(
-        db.prepare("SELECT * FROM games WHERE id != ? ORDER BY created_at ASC").all(excludeId),
+        db.prepare("SELECT * FROM games WHERE enabled = 1 AND id != ? ORDER BY created_at ASC").all(excludeId),
       );
     }
     return toGames(
-      db.prepare("SELECT * FROM games ORDER BY created_at ASC").all(),
+      db.prepare("SELECT * FROM games WHERE enabled = 1 ORDER BY created_at ASC").all(),
+    );
+  },
+
+  /** Returns all games regardless of enabled state — used by the library page. */
+  listAllIncludingDisabled(): Game[] {
+    return toGames(
+      getDB().prepare("SELECT * FROM games ORDER BY created_at ASC").all(),
     );
   },
 
@@ -29,10 +44,20 @@ export const Games = {
     return row ? toGame(row) : null;
   },
 
-  create(id: string, title: string, vibe: VibePreference, allowFullOst: boolean): Game {
+  create(
+    id: string,
+    title: string,
+    vibe: VibePreference,
+    allowFullOst: boolean,
+    enabled = true,
+    steamAppid: number | null = null,
+    playtimeMinutes: number | null = null,
+  ): Game {
     getDB()
-      .prepare("INSERT INTO games (id, title, vibe_preference, allow_full_ost) VALUES (?, ?, ?, ?)")
-      .run(id, title, vibe, allowFullOst ? 1 : 0);
+      .prepare(
+        "INSERT INTO games (id, title, vibe_preference, allow_full_ost, enabled, steam_appid, playtime_minutes) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run(id, title, vibe, allowFullOst ? 1 : 0, enabled ? 1 : 0, steamAppid, playtimeMinutes);
     return this.getById(id)!;
   },
 
@@ -48,6 +73,10 @@ export const Games = {
       db.prepare(`UPDATE games SET vibe_preference = ?, updated_at = ${now} WHERE id = ?`)
         .run(fields.vibe_preference, id);
     }
+    if (fields.enabled !== undefined) {
+      db.prepare(`UPDATE games SET enabled = ?, updated_at = ${now} WHERE id = ?`)
+        .run(fields.enabled ? 1 : 0, id);
+    }
 
     return this.getById(id);
   },
@@ -61,6 +90,41 @@ export const Games = {
     if (!exists) {
       this.create(id, title, vibe, false);
     }
+  },
+
+  /**
+   * Bulk-inserts Steam games as disabled (enabled=0).
+   * Silently skips entries whose steam_appid already exists (via the unique index).
+   * Returns the count of newly inserted and skipped rows.
+   */
+  bulkImportSteam(games: SteamGameInput[]): { imported: number; skipped: number } {
+    const db = getDB();
+    const insert = db.prepare(`
+      INSERT OR IGNORE INTO games
+        (id, title, vibe_preference, allow_full_ost, enabled, steam_appid, playtime_minutes)
+      VALUES (?, ?, 'official_soundtrack', 0, 0, ?, ?)
+    `);
+
+    let imported = 0;
+    let skipped = 0;
+
+    db.transaction(() => {
+      for (const g of games) {
+        const result = insert.run(
+          crypto.randomUUID(),
+          g.name,
+          g.appid,
+          Math.round(g.playtime_forever),
+        );
+        if (result.changes > 0) {
+          imported++;
+        } else {
+          skipped++;
+        }
+      }
+    })();
+
+    return { imported, skipped };
   },
 };
 
@@ -166,13 +230,13 @@ export const Playlist = {
     getDB().prepare("UPDATE playlist_tracks SET status = 'searching' WHERE id = ?").run(id);
   },
 
-  setFound(id: string, videoId: string, title: string, channel: string, thumbnail: string): void {
+  setFound(id: string, videoId: string, title: string, channel: string, thumbnail: string, durationSeconds: number | null = null): void {
     getDB().prepare(`
       UPDATE playlist_tracks SET
         status = 'found', video_id = ?, video_title = ?,
-        channel_title = ?, thumbnail = ?, error_message = NULL
+        channel_title = ?, thumbnail = ?, duration_seconds = ?, error_message = NULL
       WHERE id = ?
-    `).run(videoId, title, channel, thumbnail, id);
+    `).run(videoId, title, channel, thumbnail, durationSeconds, id);
   },
 
   setError(id: string, message: string): void {
@@ -185,6 +249,36 @@ export const Playlist = {
     getDB()
       .prepare("UPDATE playlist_tracks SET synced_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?")
       .run(id);
+  },
+};
+
+// ─── YouTube Playlist Cache ───────────────────────────────────────────────────
+
+export const YtPlaylists = {
+  /** Returns the cached YouTube playlist ID for a game, or null if not cached. */
+  get(gameId: string): string | null {
+    const row = getDB()
+      .prepare("SELECT playlist_id FROM game_yt_playlists WHERE game_id = ?")
+      .get(gameId) as { playlist_id: string } | undefined;
+    return row?.playlist_id ?? null;
+  },
+
+  /** Inserts or updates the cached playlist ID for a game. */
+  upsert(gameId: string, playlistId: string): void {
+    getDB().prepare(`
+      INSERT INTO game_yt_playlists (game_id, playlist_id)
+      VALUES (?, ?)
+      ON CONFLICT(game_id) DO UPDATE SET
+        playlist_id   = excluded.playlist_id,
+        discovered_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+    `).run(gameId, playlistId);
+  },
+
+  /** Removes the cached entry for a game, forcing re-discovery on next generation. */
+  clearForGame(gameId: string): void {
+    getDB()
+      .prepare("DELETE FROM game_yt_playlists WHERE game_id = ?")
+      .run(gameId);
   },
 };
 

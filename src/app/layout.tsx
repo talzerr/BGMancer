@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { PlayerProvider } from "@/context/player-context";
 
 export const metadata: Metadata = {
   title: "BGMancer — AI Video Game OST Curator",
@@ -18,7 +19,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <PlayerProvider>{children}</PlayerProvider>
+      </body>
     </html>
   );
 }

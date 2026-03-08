@@ -1,5 +1,5 @@
 import { generatePlaylist, type GenerateEvent } from "@/lib/generatePlaylist";
-import { YouTubeQuotaError } from "@/lib/services/youtube";
+import { YouTubeQuotaError, YouTubeInvalidKeyError } from "@/lib/services/youtube";
 
 export { type GenerateEvent } from "@/lib/generatePlaylist";
 
@@ -29,14 +29,21 @@ function makeStream() {
  * Streams progress events while building the playlist.
  */
 export async function POST() {
+  if (!process.env.YOUTUBE_API_KEY) {
+    return new Response(
+      `data: ${JSON.stringify({ type: "error", message: "YouTube API key is not configured. Add YOUTUBE_API_KEY to .env.local and restart the server." })}\n\n`,
+      { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } }
+    );
+  }
+
   const { stream, send, close } = makeStream();
 
   (async () => {
     try {
       await generatePlaylist(send);
     } catch (err) {
-      if (err instanceof YouTubeQuotaError) {
-        console.error("[generate] YouTube quota exceeded — aborting");
+      if (err instanceof YouTubeQuotaError || err instanceof YouTubeInvalidKeyError) {
+        console.error(`[generate] YouTube fatal error — ${err.name}`);
         send({ type: "error", message: err.message });
       } else {
         console.error("[POST /api/playlist/generate]", err);
