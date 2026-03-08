@@ -40,6 +40,10 @@ export async function PUT(request: Request) {
       Config.upsert("vibe", body.vibe as VibePreference);
     }
 
+    if (body.anti_spoiler_enabled !== undefined) {
+      Config.upsert("anti_spoiler_enabled", body.anti_spoiler_enabled ? "1" : "0");
+    }
+
     return NextResponse.json(Config.load());
   } catch (err) {
     console.error("[PUT /api/config]", err);

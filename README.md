@@ -54,6 +54,9 @@ Powered by SQLite — a single file, no separate database server. Run via Docker
 📺 **Deep YouTube Integration**
 Stream directly via the YouTube IFrame API with a full-featured player bar that persists across page navigation, or sync curated playlists to your YouTube account via Google OAuth. When quota runs out, paste any public playlist URL to import tracks instantly.
 
+🙈 **Anti-Spoiler Mode**
+OST track titles often spoil story moments before you've reached them. Flip the **Spoilers** toggle in the playlist to blur every track's title and thumbnail until you play it — it reveals itself the moment you hit play.
+
 🎚️ **Player Built for Deep Work**
 Shuffle, volume control, a **Dim toggle** that drops to 20% in one click (stay quiet on calls), Up Next preview, elapsed/duration display, and persistent playback across page navigation.
 

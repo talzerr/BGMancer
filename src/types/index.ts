@@ -55,6 +55,7 @@ export interface AppConfig {
   target_track_count: number;
   youtube_playlist_id: string;
   vibe: VibePreference;
+  anti_spoiler_enabled: boolean;
 }
 
 // ─── YouTube ──────────────────────────────────────────────────────────────────

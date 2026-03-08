@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import type { PlaylistTrack } from "@/types";
 import type { PlayerBarHandle } from "@/components/PlayerBar";
 
@@ -9,12 +9,14 @@ export function usePlayerState(foundTracks: PlaylistTrack[]) {
   const [isPlayerPlaying, setIsPlayerPlaying] = useState(false);
   const [shuffleMode, setShuffleMode] = useState(false);
   const [shuffleOrder, setShuffleOrder] = useState<number[]>([]);
+  const [playedTrackIds, setPlayedTrackIds] = useState<Set<string>>(new Set());
   const playerBarRef = useRef<PlayerBarHandle | null>(null);
 
   function reset() {
     setCurrentTrackIndex(null);
     setShuffleMode(false);
     setShuffleOrder([]);
+    setPlayedTrackIds(new Set());
   }
 
   function handleToggleShuffle() {
@@ -52,6 +54,22 @@ export function usePlayerState(foundTracks: PlaylistTrack[]) {
       ? (effectiveFoundTracks[currentTrackIndex]?.game_id ?? null)
       : null;
 
+  // Mark current track as played whenever the index changes (must be after effectiveFoundTracks)
+  useEffect(() => {
+    if (currentTrackIndex !== null) {
+      const track = effectiveFoundTracks[currentTrackIndex];
+      if (track) {
+        setPlayedTrackIds((prev) => {
+          if (prev.has(track.id)) return prev;
+          const next = new Set(prev);
+          next.add(track.id);
+          return next;
+        });
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTrackIndex]);
+
   return {
     currentTrackIndex,
     setCurrentTrackIndex,
@@ -64,5 +82,6 @@ export function usePlayerState(foundTracks: PlaylistTrack[]) {
     effectiveFoundTracks,
     playingTrackId,
     activeGameId,
+    playedTrackIds,
   };
 }

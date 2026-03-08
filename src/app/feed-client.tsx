@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import type { SyntheticEvent } from "react";
 import Link from "next/link";
 import { useGameLibrary } from "@/hooks/useGameLibrary";
@@ -10,7 +10,8 @@ import { GenerateSection } from "@/components/GenerateSection";
 import { PlaylistTrackCard } from "@/components/PlaylistTrackCard";
 import { PlaylistEmptyState } from "@/components/PlaylistEmptyState";
 import { SyncButton } from "@/components/SyncButton";
-import { Spinner, SearchIcon, CheckIcon } from "@/components/Icons";
+import { DevPanel } from "@/components/DevPanel";
+import { Spinner, SearchIcon, CheckIcon, EyeIcon, EyeOffIcon } from "@/components/Icons";
 
 interface FeedClientProps {
   isSignedIn: boolean;
@@ -21,6 +22,11 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
   const gameLibrary = useGameLibrary();
   const config = useConfig();
   const { playlist, player } = usePlayerContext();
+  const [playedTrackIds, setPlayedTrackIds] = useState<Set<string>>(new Set());
+
+  const markPlayed = useCallback((id: string) => {
+    setPlayedTrackIds((prev) => prev.has(id) ? prev : new Set(prev).add(id));
+  }, []);
 
   // Initial data fetch — playlist is already fetched by PlayerProvider on mount;
   // we only need to refresh games here.
@@ -32,17 +38,19 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
 
   async function handleGenerate() {
     player.reset();
+    setPlayedTrackIds(new Set());
     await playlist.handleGenerate(gameLibrary.games);
   }
 
   async function handleClearPlaylist() {
     await playlist.handleClearPlaylist();
     player.reset();
+    setPlayedTrackIds(new Set());
   }
 
   async function handleImport(e: SyntheticEvent<HTMLFormElement>) {
     const success = await playlist.handleImport(e);
-    if (success) player.reset();
+    if (success) { player.reset(); setPlayedTrackIds(new Set()); }
   }
 
   // ── Derived values ───────────────────────────────────────────────────────────
@@ -196,6 +204,23 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
 
             {playlist.tracks.length > 0 && (
               <div className="ml-auto flex items-center gap-2">
+                {/* Anti-spoiler toggle */}
+                <button
+                  onClick={() => config.saveAntiSpoiler(!config.antiSpoilerEnabled)}
+                  title={config.antiSpoilerEnabled ? "Anti-Spoiler: On — click to disable" : "Anti-Spoiler: Off — click to enable"}
+                  className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium border transition-colors cursor-pointer ${
+                    config.antiSpoilerEnabled
+                      ? "bg-violet-900/40 border-violet-500/40 text-violet-300 hover:bg-violet-900/60"
+                      : "bg-zinc-800/60 border-white/[0.06] text-zinc-500 hover:text-zinc-300 hover:border-white/[0.12]"
+                  }`}
+                >
+                  {config.antiSpoilerEnabled
+                    ? <EyeOffIcon className="w-3.5 h-3.5" />
+                    : <EyeIcon className="w-3.5 h-3.5" />
+                  }
+                  Spoilers
+                </button>
+
                 {playlist.confirmClear ? (
                   <>
                     <span className="text-xs text-zinc-500">Clear all tracks?</span>
@@ -282,6 +307,7 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
               {playlist.tracks.map((track, i) => {
                 const effectiveIdx = player.effectiveFoundTracks.findIndex((ft) => ft.id === track.id);
                 const isCurrentTrack = track.id === player.playingTrackId;
+                const spoilerHidden = config.antiSpoilerEnabled && track.status === "found" && !playedTrackIds.has(track.id);
                 return (
                   <PlaylistTrackCard
                     key={track.id}
@@ -290,7 +316,9 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
                     vibe={config.vibe}
                     isPlaying={isCurrentTrack}
                     isActivelyPlaying={isCurrentTrack && player.isPlayerPlaying}
+                    spoilerHidden={spoilerHidden}
                     onPlay={effectiveIdx !== -1 ? () => {
+                      markPlayed(track.id);
                       if (isCurrentTrack) {
                         player.playerBarRef.current?.togglePlayPause();
                       } else {
@@ -305,6 +333,8 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
         </main>
       </div>
 
+      {/* ── Dev panel ───────────────────────────────────────────────────────── */}
+      <DevPanel />
     </>
   );
 }
