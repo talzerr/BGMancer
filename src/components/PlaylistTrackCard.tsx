@@ -12,6 +12,8 @@ interface PlaylistTrackCardProps {
   isPlaying?: boolean;
   /** true when this track is actively playing (not paused) — drives waves + overlay icon */
   isActivelyPlaying?: boolean;
+  /** true when anti-spoiler mode is on and this track hasn't been played yet */
+  spoilerHidden?: boolean;
   onPlay?: () => void;
 }
 
@@ -37,6 +39,7 @@ export function PlaylistTrackCard({
   vibe,
   isPlaying = false,
   isActivelyPlaying = false,
+  spoilerHidden = false,
   onPlay,
 }: PlaylistTrackCardProps) {
   const hasVideo = !!track.video_id;
@@ -80,7 +83,7 @@ export function PlaylistTrackCard({
               src={track.thumbnail}
               alt={track.video_title ?? ""}
               fill
-              className="object-cover"
+              className={`object-cover transition-all duration-300 ${spoilerHidden ? "blur-md scale-110" : ""}`}
               sizes="64px"
             />
             {/* Play/pause/resume overlay */}
@@ -115,15 +118,21 @@ export function PlaylistTrackCard({
           )}
         </div>
         {hasVideo && track.video_title ? (
-          <button
-            onClick={onPlay}
-            disabled={!onPlay}
-            className={`text-left text-sm font-medium line-clamp-1 leading-tight cursor-pointer disabled:cursor-default ${
-              isPlaying ? "text-violet-300" : "text-zinc-100 hover:text-violet-300"
-            }`}
-          >
-            {track.video_title}
-          </button>
+          spoilerHidden ? (
+            <p className="text-sm font-medium line-clamp-1 leading-tight blur-sm select-none text-zinc-400">
+              {track.video_title}
+            </p>
+          ) : (
+            <button
+              onClick={onPlay}
+              disabled={!onPlay}
+              className={`text-left text-sm font-medium line-clamp-1 leading-tight cursor-pointer disabled:cursor-default ${
+                isPlaying ? "text-violet-300" : "text-zinc-100 hover:text-violet-300"
+              }`}
+            >
+              {track.video_title}
+            </button>
+          )
         ) : track.status === "error" ? (
           <p className="text-xs text-red-400/80 line-clamp-1 leading-tight">{track.error_message ?? "Search failed"}</p>
         ) : (
@@ -131,7 +140,7 @@ export function PlaylistTrackCard({
             {track.track_name ?? (isFullOST ? "Finding compilation…" : "Pending search")}
           </p>
         )}
-        {hasVideo && track.channel_title && (
+        {hasVideo && track.channel_title && !spoilerHidden && (
           <p className="text-[11px] text-zinc-400 mt-0.5 truncate leading-none">{track.channel_title}</p>
         )}
       </div>

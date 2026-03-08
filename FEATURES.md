@@ -103,6 +103,21 @@ Sign in with Google and hit **Sync to YouTube** to push your playlist to a *BGMa
 
 ---
 
+## Anti-Spoiler Mode
+
+A **Spoilers** toggle in the playlist action bar that blurs every track you haven't played yet.
+
+OST titles often reference story moments — *The Fate of Aerith*, *Burning Hometown*, *You Died* — that spoil plot twists before you've reached them in the game. With Anti-Spoiler Mode on:
+
+- The track **thumbnail is blurred** (zoomed-in blur, not a black box)
+- The **title is blurred** in place — the text is still there but unreadable
+- The **channel name is hidden** entirely
+- The moment you hit **Play**, the track fully reveals itself — title, artwork, and channel
+
+Toggle it off at any time to see the full playlist at once. Switching it on mid-session only hides tracks you still haven't played. Your preference is saved and remembered between sessions.
+
+---
+
 ## Clear and start over
 
 **Clear playlist** asks for confirmation before wiping everything, so you won't accidentally lose a playlist you like.

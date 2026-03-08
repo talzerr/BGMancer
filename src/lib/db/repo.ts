@@ -280,6 +280,16 @@ export const YtPlaylists = {
       .prepare("DELETE FROM game_yt_playlists WHERE game_id = ?")
       .run(gameId);
   },
+
+  /** Returns all cached entries joined with game title — used by dev panel. */
+  loadRaw(): Array<{ game_id: string; game_title: string; playlist_id: string; discovered_at: string }> {
+    return getDB().prepare(`
+      SELECT yp.game_id, g.title AS game_title, yp.playlist_id, yp.discovered_at
+      FROM game_yt_playlists yp
+      JOIN games g ON g.id = yp.game_id
+      ORDER BY yp.discovered_at DESC
+    `).all() as Array<{ game_id: string; game_title: string; playlist_id: string; discovered_at: string }>;
+  },
 };
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -296,6 +306,7 @@ export const Config = {
       target_track_count: parseInt(map.target_track_count ?? "50", 10),
       youtube_playlist_id: map.youtube_playlist_id ?? "",
       vibe: (VALID_VIBES.has(rawVibe) ? rawVibe : "official_soundtrack") as VibePreference,
+      anti_spoiler_enabled: map.anti_spoiler_enabled === "1",
     };
   },
 
@@ -306,6 +317,12 @@ export const Config = {
         value = excluded.value,
         updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
     `).run(key, value);
+  },
+
+  loadRaw(): Array<{ key: string; value: string; updated_at: string }> {
+    return getDB()
+      .prepare("SELECT key, value, updated_at FROM config ORDER BY key ASC")
+      .all() as Array<{ key: string; value: string; updated_at: string }>;
   },
 
   getTargetTrackCount(): number {
