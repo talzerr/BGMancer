@@ -32,7 +32,7 @@ export async function POST() {
   if (!process.env.YOUTUBE_API_KEY) {
     return new Response(
       `data: ${JSON.stringify({ type: "error", message: "YouTube API key is not configured. Add YOUTUBE_API_KEY to .env.local and restart the server." })}\n\n`,
-      { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } }
+      { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } },
     );
   }
 
@@ -47,7 +47,11 @@ export async function POST() {
         send({ type: "error", message: err.message });
       } else {
         console.error("[POST /api/playlist/generate]", err);
-        send({ type: "error", message: "Generation failed", detail: err instanceof Error ? err.message : String(err) });
+        send({
+          type: "error",
+          message: "Generation failed",
+          detail: err instanceof Error ? err.message : String(err),
+        });
       }
     } finally {
       close();

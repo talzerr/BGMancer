@@ -4,7 +4,7 @@ import type { SteamGameInput } from "@/lib/db/repo";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json() as { games?: unknown };
+    const body = (await request.json()) as { games?: unknown };
 
     if (!Array.isArray(body.games) || body.games.length === 0) {
       return NextResponse.json({ error: "games array is required" }, { status: 400 });

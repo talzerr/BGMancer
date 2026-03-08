@@ -50,9 +50,7 @@ export function usePlayerState(foundTracks: PlaylistTrack[]) {
     currentTrackIndex !== null ? (effectiveFoundTracks[currentTrackIndex]?.id ?? null) : null;
 
   const activeGameId =
-    currentTrackIndex !== null
-      ? (effectiveFoundTracks[currentTrackIndex]?.game_id ?? null)
-      : null;
+    currentTrackIndex !== null ? (effectiveFoundTracks[currentTrackIndex]?.game_id ?? null) : null;
 
   // Mark current track as played whenever the index changes (must be after effectiveFoundTracks)
   useEffect(() => {
@@ -67,7 +65,7 @@ export function usePlayerState(foundTracks: PlaylistTrack[]) {
         });
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTrackIndex]);
 
   return {

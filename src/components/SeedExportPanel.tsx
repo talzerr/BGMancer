@@ -11,7 +11,7 @@ export function SeedExportPanel() {
     setState("loading");
     try {
       const res = await fetch("/api/seed/yt-playlists");
-      const entries = await res.json() as Array<{ game_title: string; playlist_id: string }>;
+      const entries = (await res.json()) as Array<{ game_title: string; playlist_id: string }>;
       const blob = new Blob([JSON.stringify(entries, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -28,10 +28,10 @@ export function SeedExportPanel() {
   }
 
   return (
-    <section className="rounded-2xl bg-zinc-900/70 border border-white/[0.07] px-5 py-4 backdrop-blur-sm shadow-lg shadow-black/40">
+    <section className="rounded-2xl border border-white/[0.07] bg-zinc-900/70 px-5 py-4 shadow-lg shadow-black/40 backdrop-blur-sm">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-0.5">
+          <h2 className="mb-0.5 text-[11px] font-bold tracking-widest text-zinc-500 uppercase">
             Playlist Seed
           </h2>
           <p className="text-xs text-zinc-500">
@@ -42,15 +42,17 @@ export function SeedExportPanel() {
           type="button"
           onClick={handleExport}
           disabled={state !== "idle"}
-          className={`shrink-0 flex items-center gap-2 rounded-lg border px-3.5 py-2 text-xs font-semibold transition-colors cursor-pointer disabled:cursor-not-allowed whitespace-nowrap ${
+          className={`flex shrink-0 cursor-pointer items-center gap-2 rounded-lg border px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-colors disabled:cursor-not-allowed ${
             state === "done"
               ? "border-teal-500/30 bg-teal-600/10 text-teal-400"
-              : "border-white/[0.07] bg-zinc-800/80 text-zinc-300 hover:text-white hover:bg-zinc-700/80 disabled:opacity-50"
+              : "border-white/[0.07] bg-zinc-800/80 text-zinc-300 hover:bg-zinc-700/80 hover:text-white disabled:opacity-50"
           }`}
         >
-          {state === "loading" && <Spinner className="w-3 h-3" />}
-          {state === "done" && <CheckIcon className="w-3 h-3" />}
-          {state === "done" ? `Exported ${exported} entr${exported === 1 ? "y" : "ies"}` : "Export Seed"}
+          {state === "loading" && <Spinner className="h-3 w-3" />}
+          {state === "done" && <CheckIcon className="h-3 w-3" />}
+          {state === "done"
+            ? `Exported ${exported} entr${exported === 1 ? "y" : "ies"}`
+            : "Export Seed"}
         </button>
       </div>
     </section>

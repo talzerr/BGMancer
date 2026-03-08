@@ -7,7 +7,9 @@ export interface SteamGame {
 }
 
 /** Extracts a SteamID64 or vanity name from the user-supplied input string. */
-function parseInput(raw: string): { type: "steamid"; id: string } | { type: "vanity"; name: string } {
+function parseInput(
+  raw: string,
+): { type: "steamid"; id: string } | { type: "vanity"; name: string } {
   const input = raw.trim();
 
   // Bare 17-digit numeric → SteamID64
@@ -35,7 +37,7 @@ async function resolveSteamId(vanity: string, apiKey: string): Promise<string | 
   const url = `https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/?key=${apiKey}&vanityurl=${encodeURIComponent(vanity)}`;
   const res = await fetch(url);
   if (!res.ok) return null;
-  const data = await res.json() as { response?: { success?: number; steamid?: string } };
+  const data = (await res.json()) as { response?: { success?: number; steamid?: string } };
   if (data.response?.success === 1 && data.response.steamid) {
     return data.response.steamid;
   }
@@ -77,7 +79,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "steam_error" }, { status: 502 });
     }
 
-    const data = await res.json() as {
+    const data = (await res.json()) as {
       response?: { game_count?: number; games?: SteamGame[] };
     };
 

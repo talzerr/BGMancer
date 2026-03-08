@@ -17,37 +17,39 @@ export function GameCard({ game, isActive = false, onDelete }: GameCardProps) {
     <div
       className={`group flex items-center gap-3 rounded-xl border px-3.5 py-2.5 transition-all duration-300 ${
         isActive
-          ? "bg-violet-950/40 border-violet-600/50 shadow-sm shadow-violet-900/20"
-          : "bg-zinc-900/60 border-white/[0.05] hover:border-white/[0.10]"
+          ? "border-violet-600/50 bg-violet-950/40 shadow-sm shadow-violet-900/20"
+          : "border-white/[0.05] bg-zinc-900/60 hover:border-white/[0.10]"
       }`}
     >
       {/* Active indicator dot */}
-      <div className="relative shrink-0 flex items-center justify-center w-3 h-3">
-        <div className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-violet-400" : "bg-zinc-600"}`} />
+      <div className="relative flex h-3 w-3 shrink-0 items-center justify-center">
+        <div className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-violet-400" : "bg-zinc-600"}`} />
         {isActive && (
-          <div className="absolute inset-0 rounded-full bg-violet-400 opacity-40 animate-ping" />
+          <div className="absolute inset-0 animate-ping rounded-full bg-violet-400 opacity-40" />
         )}
       </div>
 
       {/* Game info */}
-      <div className="flex-1 min-w-0">
-        <p className={`font-medium truncate text-sm leading-tight transition-colors ${isActive ? "text-white" : "text-zinc-100"}`}>
+      <div className="min-w-0 flex-1">
+        <p
+          className={`truncate text-sm leading-tight font-medium transition-colors ${isActive ? "text-white" : "text-zinc-100"}`}
+        >
           {game.title}
         </p>
       </div>
 
       {/* Delete */}
       {confirmDelete ? (
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex shrink-0 items-center gap-1">
           <button
             onClick={() => onDelete(game.id)}
-            className="rounded-lg bg-red-600/90 hover:bg-red-500 px-2.5 py-1 text-xs font-medium text-white cursor-pointer"
+            className="cursor-pointer rounded-lg bg-red-600/90 px-2.5 py-1 text-xs font-medium text-white hover:bg-red-500"
           >
             Remove
           </button>
           <button
             onClick={() => setConfirmDelete(false)}
-            className="rounded-lg bg-zinc-800 hover:bg-zinc-700 px-2.5 py-1 text-xs font-medium text-zinc-400 cursor-pointer"
+            className="cursor-pointer rounded-lg bg-zinc-800 px-2.5 py-1 text-xs font-medium text-zinc-400 hover:bg-zinc-700"
           >
             Cancel
           </button>
@@ -55,7 +57,7 @@ export function GameCard({ game, isActive = false, onDelete }: GameCardProps) {
       ) : (
         <button
           onClick={() => setConfirmDelete(true)}
-          className="shrink-0 rounded-lg p-1.5 text-zinc-600 hover:text-red-400 hover:bg-red-500/10 cursor-pointer opacity-0 group-hover:opacity-100 transition-all"
+          className="shrink-0 cursor-pointer rounded-lg p-1.5 text-zinc-600 opacity-0 transition-all group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-400"
           title="Remove game"
         >
           <TrashIcon />

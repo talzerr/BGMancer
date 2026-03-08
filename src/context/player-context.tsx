@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useEffect } from "react";
 import { usePlaylist } from "@/hooks/usePlaylist";
 import { usePlayerState } from "@/hooks/usePlayerState";
 import { PlayerBar } from "@/components/PlayerBar";
@@ -19,6 +19,15 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const playlist = usePlaylist();
   const foundTracks = playlist.tracks.filter((t) => t.status === "found");
   const player = usePlayerState(foundTracks);
+  const {
+    playerBarRef,
+    currentTrackIndex,
+    effectiveFoundTracks,
+    setCurrentTrackIndex,
+    setIsPlayerPlaying,
+    shuffleMode,
+    handleToggleShuffle,
+  } = player;
 
   const fetchTracks = playlist.fetchTracks;
   useEffect(() => {
@@ -28,16 +37,16 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   return (
     <PlayerContext.Provider value={{ playlist, player }}>
       {children}
-      {player.currentTrackIndex !== null && player.effectiveFoundTracks.length > 0 && (
+      {currentTrackIndex !== null && effectiveFoundTracks.length > 0 && (
         <PlayerBar
-          ref={player.playerBarRef}
-          tracks={player.effectiveFoundTracks}
-          currentIndex={player.currentTrackIndex}
-          onIndexChange={player.setCurrentTrackIndex}
-          onClose={() => player.setCurrentTrackIndex(null)}
-          onPlayingChange={player.setIsPlayerPlaying}
-          shuffleMode={player.shuffleMode}
-          onToggleShuffle={foundTracks.length > 0 ? player.handleToggleShuffle : undefined}
+          ref={playerBarRef}
+          tracks={effectiveFoundTracks}
+          currentIndex={currentTrackIndex}
+          onIndexChange={setCurrentTrackIndex}
+          onClose={() => setCurrentTrackIndex(null)}
+          onPlayingChange={setIsPlayerPlaying}
+          shuffleMode={shuffleMode}
+          onToggleShuffle={foundTracks.length > 0 ? handleToggleShuffle : undefined}
         />
       )}
     </PlayerContext.Provider>

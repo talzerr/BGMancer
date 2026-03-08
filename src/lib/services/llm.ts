@@ -43,16 +43,14 @@ export async function selectTracksFromList(
   gameTitle: string,
   vibe: VibePreference,
   tracks: OSTTrack[],
-  count: number
+  count: number,
 ): Promise<number[]> {
   // Shuffle so the LLM sees tracks in a different order each time.
   // We keep a mapping back to original indices.
   const shuffledIndices = shuffle(Array.from({ length: tracks.length }, (_, i) => i));
   const shuffledTracks = shuffledIndices.map((i) => tracks[i]);
 
-  const numbered = shuffledTracks
-    .map((t, i) => `${i + 1}. ${t.title}`)
-    .join("\n");
+  const numbered = shuffledTracks.map((t, i) => `${i + 1}. ${t.title}`).join("\n");
 
   const systemPrompt = `You are a Video Game Music Curator who builds emotionally cohesive playlists for specific listening contexts.
 You select tracks from a real provided list — you must NEVER invent or suggest tracks outside the list.
@@ -134,9 +132,7 @@ Return ONLY a JSON array of exactly ${count} integers (1 to ${shuffledTracks.len
   } catch {
     // Fallback: evenly spaced from original array
     const step = Math.max(1, Math.floor(tracks.length / count));
-    return Array.from({ length: count }, (_, i) =>
-      Math.min(i * step, tracks.length - 1)
-    );
+    return Array.from({ length: count }, (_, i) => Math.min(i * step, tracks.length - 1));
   }
 }
 
@@ -144,10 +140,7 @@ Return ONLY a JSON array of exactly ${count} integers (1 to ${shuffledTracks.len
  * Generate compilation search queries for a full-OST game slot.
  * No LLM call — purely deterministic based on title + vibe.
  */
-export function compilationQueries(
-  gameTitle: string,
-  vibe: VibePreference
-): string[] {
+export function compilationQueries(gameTitle: string, vibe: VibePreference): string[] {
   const vibeQueries: Record<VibePreference, string[]> = {
     official_soundtrack: [
       `${gameTitle} full OST official soundtrack`,

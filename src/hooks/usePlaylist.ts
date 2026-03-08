@@ -41,7 +41,9 @@ export function usePlaylist() {
 
   async function handleGenerate(games: Game[]) {
     if (games.length === 0) return;
-    setGenProgress(games.map((g) => ({ id: g.id, title: g.title, status: "waiting", message: "" })));
+    setGenProgress(
+      games.map((g) => ({ id: g.id, title: g.title, status: "waiting", message: "" })),
+    );
     setGenGlobalMsg("");
     setGenerating(true);
     setGenError(null);
@@ -72,8 +74,8 @@ export function usePlaylist() {
                   prev.map((e) =>
                     e.id === event.gameId
                       ? { ...e, status: event.status ?? "active", message: event.message }
-                      : e
-                  )
+                      : e,
+                  ),
                 );
               } else {
                 setGenGlobalMsg(event.message);

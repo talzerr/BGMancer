@@ -14,7 +14,8 @@ export function useConfig() {
       .then((cfg) => {
         if (cfg?.target_track_count) setTargetTrackCount(cfg.target_track_count);
         if (cfg?.vibe) setVibe(cfg.vibe as VibePreference);
-        if (cfg?.anti_spoiler_enabled !== undefined) setAntiSpoilerEnabled(cfg.anti_spoiler_enabled);
+        if (cfg?.anti_spoiler_enabled !== undefined)
+          setAntiSpoilerEnabled(cfg.anti_spoiler_enabled);
       })
       .catch(() => {});
   }, []);
@@ -46,5 +47,13 @@ export function useConfig() {
     }).catch(() => {});
   }
 
-  return { targetTrackCount, setTargetTrackCount, saveTrackCount, vibe, saveVibe, antiSpoilerEnabled, saveAntiSpoiler };
+  return {
+    targetTrackCount,
+    setTargetTrackCount,
+    saveTrackCount,
+    vibe,
+    saveVibe,
+    antiSpoilerEnabled,
+    saveAntiSpoiler,
+  };
 }

@@ -49,3 +49,5 @@ Re-expose the per-game toggle that makes BGMancer find a single long compilation
 - **Optional Google sign-in for persistence** — allow a user to link their anonymous session to a Google account so their library survives cookie clears and works across devices; merges with any existing session data for that account
 - **Admin dashboard** — a password-protected `/admin` route showing active session count, disk usage per session, and a manual "purge old sessions" button for the server owner
 - **Rate limiting** — per-session limits on generation requests and YouTube API calls to prevent a single user from exhausting the server's API quota
+- **Metrics (Prometheus)** — expose a `/metrics` endpoint via `prom-client` tracking request latency, error rates, active sessions, and YouTube quota consumption; scrape with a Prometheus sidecar and visualise in Grafana
+- **Structured logging (Elastic)** — ship structured JSON logs to Elasticsearch via Filebeat or the Elastic APM Node agent; index per-session activity and API errors for full-text search and alerting in Kibana

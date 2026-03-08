@@ -6,8 +6,7 @@ let _db: Database.Database | null = null;
 
 export function getDB(): Database.Database {
   if (!_db) {
-    const dbPath =
-      process.env.SQLITE_PATH ?? path.join(process.cwd(), "bgmancer.db");
+    const dbPath = process.env.SQLITE_PATH ?? path.join(process.cwd(), "bgmancer.db");
     _db = new Database(dbPath);
     _db.pragma("journal_mode = WAL");
     _db.pragma("foreign_keys = ON");
@@ -72,7 +71,6 @@ function initSchema(db: Database.Database): void {
     INSERT OR IGNORE INTO config (key, value) VALUES ('youtube_playlist_id', '');
     INSERT OR IGNORE INTO config (key, value) VALUES ('vibe', 'official_soundtrack');
   `);
-
 }
 
 let _seedMap: Map<string, string> | null = null;

@@ -21,13 +21,13 @@ export function PlaylistEmptyState({
   onImport,
 }: PlaylistEmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-14 text-center rounded-2xl bg-zinc-900/30 border border-white/[0.04] px-6 gap-6">
+    <div className="flex flex-col items-center justify-center gap-6 rounded-2xl border border-white/[0.04] bg-zinc-900/30 px-6 py-14 text-center">
       <div className="flex flex-col items-center">
-        <div className="w-14 h-14 rounded-2xl bg-zinc-800/60 border border-white/[0.06] flex items-center justify-center mb-4">
-          <MusicNoteOutline className="w-7 h-7 text-zinc-500" />
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/[0.06] bg-zinc-800/60">
+          <MusicNoteOutline className="h-7 w-7 text-zinc-500" />
         </div>
-        <h3 className="text-sm font-semibold text-zinc-400 mb-1.5">No playlist yet</h3>
-        <p className="text-sm text-zinc-400 max-w-xs leading-relaxed">
+        <h3 className="mb-1.5 text-sm font-semibold text-zinc-400">No playlist yet</h3>
+        <p className="max-w-xs text-sm leading-relaxed text-zinc-400">
           {gamesLength === 0
             ? "Add some games to your library, then generate a playlist."
             : "Click Generate Playlist to create your AI-curated soundtrack."}
@@ -35,10 +35,12 @@ export function PlaylistEmptyState({
       </div>
 
       <div className="w-full max-w-sm">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="flex-1 h-px bg-white/[0.06]" />
-          <span className="text-[11px] text-zinc-600 uppercase tracking-widest">or import directly</span>
-          <div className="flex-1 h-px bg-white/[0.06]" />
+        <div className="mb-3 flex items-center gap-2">
+          <div className="h-px flex-1 bg-white/[0.06]" />
+          <span className="text-[11px] tracking-widest text-zinc-600 uppercase">
+            or import directly
+          </span>
+          <div className="h-px flex-1 bg-white/[0.06]" />
         </div>
         <form onSubmit={onImport} className="flex flex-col gap-2">
           <input
@@ -47,28 +49,26 @@ export function PlaylistEmptyState({
             onChange={(e) => onImportUrlChange(e.target.value)}
             placeholder="Paste a YouTube playlist URL…"
             disabled={importing}
-            className="w-full rounded-lg bg-zinc-800/80 border border-white/[0.07] px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 disabled:opacity-50"
+            className="w-full rounded-lg border border-white/[0.07] bg-zinc-800/80 px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/50 focus:outline-none disabled:opacity-50"
           />
           <button
             type="submit"
             disabled={importing || !importUrl.trim()}
-            className="flex items-center justify-center gap-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-white/[0.07] disabled:opacity-50 px-4 py-2 text-sm font-medium text-zinc-300 cursor-pointer disabled:cursor-not-allowed"
+            className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-white/[0.07] bg-zinc-800 px-4 py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {importing ? (
               <>
-                <Spinner className="w-3.5 h-3.5" />
+                <Spinner className="h-3.5 w-3.5" />
                 Importing…
               </>
             ) : (
               <>
-                <YouTubeLogo className="w-3.5 h-3.5 text-red-400" />
+                <YouTubeLogo className="h-3.5 w-3.5 text-red-400" />
                 Import from YouTube
               </>
             )}
           </button>
-          {importError && (
-            <p className="text-xs text-red-400 text-center">{importError}</p>
-          )}
+          {importError && <p className="text-center text-xs text-red-400">{importError}</p>}
         </form>
       </div>
     </div>

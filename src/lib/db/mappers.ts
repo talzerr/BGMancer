@@ -1,17 +1,12 @@
 import type { Game, PlaylistTrack, TrackStatus } from "@/types";
 
-const VALID_STATUSES: Set<string> = new Set([
-  "pending",
-  "searching",
-  "found",
-  "error",
-]);
+const VALID_STATUSES: Set<string> = new Set(["pending", "searching", "found", "error"]);
 
 export function toGame(row: Record<string, unknown>): Game {
   return {
     id: String(row.id),
     title: String(row.title),
-    allow_full_ost: !!(row.allow_full_ost),
+    allow_full_ost: !!row.allow_full_ost,
     enabled: row.enabled !== 0,
     steam_appid: row.steam_appid != null ? Number(row.steam_appid) : null,
     playtime_minutes: row.playtime_minutes != null ? Number(row.playtime_minutes) : null,
@@ -51,9 +46,7 @@ export function toPlaylistTrack(row: Record<string, unknown>): PlaylistTrack {
     search_queries: parseSearchQueries(row.search_queries),
     duration_seconds: row.duration_seconds != null ? Number(row.duration_seconds) : null,
     position: Number(row.position ?? 0),
-    status: VALID_STATUSES.has(row.status as string)
-      ? (row.status as TrackStatus)
-      : "pending",
+    status: VALID_STATUSES.has(row.status as string) ? (row.status as TrackStatus) : "pending",
     error_message: row.error_message != null ? String(row.error_message) : null,
     created_at: String(row.created_at ?? ""),
     synced_at: row.synced_at != null ? String(row.synced_at) : null,

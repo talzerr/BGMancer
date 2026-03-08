@@ -30,7 +30,7 @@ declare global {
             onReady?: () => void;
             onStateChange?: (e: { data: number }) => void;
           };
-        }
+        },
       ) => YTPlayer;
       PlayerState: { ENDED: number; PLAYING: number; PAUSED: number };
     };
@@ -74,9 +74,15 @@ export function useYouTubePlayer({
   const tracksRef = useRef(tracks);
   const onIndexChangeRef = useRef(onIndexChange);
 
-  useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
-  useEffect(() => { tracksRef.current = tracks; }, [tracks]);
-  useEffect(() => { onIndexChangeRef.current = onIndexChange; }, [onIndexChange]);
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
+  useEffect(() => {
+    tracksRef.current = tracks;
+  }, [tracks]);
+  useEffect(() => {
+    onIndexChangeRef.current = onIndexChange;
+  }, [onIndexChange]);
 
   function setPlaying(value: boolean) {
     setIsPlayingState(value);
@@ -127,7 +133,10 @@ export function useYouTubePlayer({
   // Load the YT IFrame API script once
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (window.YT?.Player) { setApiReady(true); return; }
+    if (window.YT?.Player) {
+      setApiReady(true);
+      return;
+    }
 
     if (!document.getElementById("yt-iframe-api")) {
       const tag = document.createElement("script");
@@ -159,9 +168,7 @@ export function useYouTubePlayer({
           setPlaying(e.data === 1);
           if (e.data === 0) {
             const next = currentIndexRef.current + 1;
-            onIndexChangeRef.current(
-              next < tracksRef.current.length ? next : 0
-            );
+            onIndexChangeRef.current(next < tracksRef.current.length ? next : 0);
           }
         },
       },

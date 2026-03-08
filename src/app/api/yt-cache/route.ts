@@ -14,7 +14,7 @@ export async function GET() {
 /** PUT /api/yt-cache — body: { game_id, playlist_id } — upserts a cached entry. */
 export async function PUT(request: Request) {
   try {
-    const { game_id, playlist_id } = await request.json() as {
+    const { game_id, playlist_id } = (await request.json()) as {
       game_id?: string;
       playlist_id?: string;
     };

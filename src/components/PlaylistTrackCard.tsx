@@ -18,19 +18,19 @@ interface PlaylistTrackCardProps {
 }
 
 const STATUS_CONFIG: Record<string, { dot: string }> = {
-  pending:   { dot: "bg-zinc-500" },
+  pending: { dot: "bg-zinc-500" },
   searching: { dot: "bg-amber-400 animate-pulse" },
-  found:     { dot: "bg-emerald-400" },
-  error:     { dot: "bg-red-400" },
+  found: { dot: "bg-emerald-400" },
+  error: { dot: "bg-red-400" },
 };
 
 const VIBE_ACCENT: Record<VibePreference, string> = {
   official_soundtrack: "border-l-violet-500/50",
-  boss_themes:         "border-l-red-500/50",
+  boss_themes: "border-l-red-500/50",
   ambient_exploration: "border-l-sky-500/50",
-  study_focus:         "border-l-teal-500/50",
-  workout_hype:        "border-l-orange-500/50",
-  emotional_story:     "border-l-rose-500/50",
+  study_focus: "border-l-teal-500/50",
+  workout_hype: "border-l-orange-500/50",
+  emotional_story: "border-l-rose-500/50",
 };
 
 export function PlaylistTrackCard({
@@ -51,82 +51,86 @@ export function PlaylistTrackCard({
     <div
       className={`group flex items-center gap-3 rounded-xl border border-l-2 px-3 py-2 transition-all duration-150 ${vibeAccent} ${
         isPlaying
-          ? "bg-violet-950/50 border-violet-600/40 shadow-sm shadow-violet-900/20"
+          ? "border-violet-600/40 bg-violet-950/50 shadow-sm shadow-violet-900/20"
           : track.status === "error"
-          ? "bg-red-950/20 border-red-800/30"
-          : "bg-zinc-900/60 border-white/[0.05] hover:border-white/[0.10] hover:bg-zinc-900/80"
+            ? "border-red-800/30 bg-red-950/20"
+            : "border-white/[0.05] bg-zinc-900/60 hover:border-white/[0.10] hover:bg-zinc-900/80"
       }`}
     >
       {/* Position number -> waves when actively playing */}
-      <div className="shrink-0 w-6 flex items-center justify-center">
+      <div className="flex w-6 shrink-0 items-center justify-center">
         {isPlaying ? (
-          <div className="flex items-end gap-px h-[14px]">
-            <span className={`eq-bar${!isActivelyPlaying ? " eq-bar-paused" : ""}`} />
-            <span className={`eq-bar${!isActivelyPlaying ? " eq-bar-paused" : ""}`} />
-            <span className={`eq-bar${!isActivelyPlaying ? " eq-bar-paused" : ""}`} />
+          <div className="flex h-[14px] items-end gap-px">
+            <span className={`eq-bar${!isActivelyPlaying ? "eq-bar-paused" : ""}`} />
+            <span className={`eq-bar${!isActivelyPlaying ? "eq-bar-paused" : ""}`} />
+            <span className={`eq-bar${!isActivelyPlaying ? "eq-bar-paused" : ""}`} />
           </div>
         ) : (
-          <span className="text-xs font-mono text-zinc-500 select-none">{index + 1}</span>
+          <span className="font-mono text-xs text-zinc-500 select-none">{index + 1}</span>
         )}
       </div>
 
       {/* Thumbnail / play button */}
-      <div className="shrink-0 w-16 h-11 rounded-lg overflow-hidden bg-zinc-800 relative ring-1 ring-white/[0.06]">
+      <div className="relative h-11 w-16 shrink-0 overflow-hidden rounded-lg bg-zinc-800 ring-1 ring-white/[0.06]">
         {hasVideo && track.thumbnail ? (
           <button
             onClick={onPlay}
             disabled={!onPlay}
-            className="block w-full h-full cursor-pointer disabled:cursor-default"
+            className="block h-full w-full cursor-pointer disabled:cursor-default"
             aria-label={isActivelyPlaying ? "Pause" : isPlaying ? "Resume" : "Play track"}
           >
             <Image
               src={track.thumbnail}
               alt={track.video_title ?? ""}
               fill
-              className={`object-cover transition-all duration-300 ${spoilerHidden ? "blur-md scale-110" : ""}`}
+              className={`object-cover transition-all duration-300 ${spoilerHidden ? "scale-110 blur-md" : ""}`}
               sizes="64px"
             />
             {/* Play/pause/resume overlay */}
-            <div className={`absolute inset-0 flex items-center justify-center bg-black/50 transition-opacity ${isPlaying ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+            <div
+              className={`absolute inset-0 flex items-center justify-center bg-black/50 transition-opacity ${isPlaying ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+            >
               {isActivelyPlaying ? (
-                <PauseIcon className="w-4 h-4 text-white drop-shadow" />
+                <PauseIcon className="h-4 w-4 text-white drop-shadow" />
               ) : (
-                <PlayIcon className="w-4 h-4 text-white drop-shadow" />
+                <PlayIcon className="h-4 w-4 text-white drop-shadow" />
               )}
             </div>
             {/* YouTube attribution */}
-            <div className="absolute bottom-0 right-0 flex items-center gap-0.5 bg-black/70 px-1 py-0.5 rounded-tl opacity-0 group-hover:opacity-100 transition-opacity">
-              <YouTubeLogo className="w-2 h-2 text-[#FF0000] fill-current shrink-0" />
-              <span className="text-[8px] font-medium text-white leading-none">YouTube</span>
+            <div className="absolute right-0 bottom-0 flex items-center gap-0.5 rounded-tl bg-black/70 px-1 py-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+              <YouTubeLogo className="h-2 w-2 shrink-0 fill-current text-[#FF0000]" />
+              <span className="text-[8px] leading-none font-medium text-white">YouTube</span>
             </div>
           </button>
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <MusicNoteOutline className="w-5 h-5 text-zinc-500" />
+          <div className="flex h-full w-full items-center justify-center">
+            <MusicNoteOutline className="h-5 w-5 text-zinc-500" />
           </div>
         )}
       </div>
 
       {/* Track info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 mb-0.5">
-          <span className="text-[11px] text-zinc-400 truncate leading-none">{track.game_title}</span>
+      <div className="min-w-0 flex-1">
+        <div className="mb-0.5 flex items-center gap-1.5">
+          <span className="truncate text-[11px] leading-none text-zinc-400">
+            {track.game_title}
+          </span>
           {isFullOST && (
-            <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/20 leading-none">
+            <span className="shrink-0 rounded-full border border-violet-500/20 bg-violet-500/15 px-1.5 py-0.5 text-[10px] leading-none font-semibold text-violet-400">
               Full OST
             </span>
           )}
         </div>
         {hasVideo && track.video_title ? (
           spoilerHidden ? (
-            <p className="text-sm font-medium line-clamp-1 leading-tight blur-sm select-none text-zinc-400">
+            <p className="line-clamp-1 text-sm leading-tight font-medium text-zinc-400 blur-sm select-none">
               {track.video_title}
             </p>
           ) : (
             <button
               onClick={onPlay}
               disabled={!onPlay}
-              className={`text-left text-sm font-medium line-clamp-1 leading-tight cursor-pointer disabled:cursor-default ${
+              className={`line-clamp-1 cursor-pointer text-left text-sm leading-tight font-medium disabled:cursor-default ${
                 isPlaying ? "text-violet-300" : "text-zinc-100 hover:text-violet-300"
               }`}
             >
@@ -134,20 +138,24 @@ export function PlaylistTrackCard({
             </button>
           )
         ) : track.status === "error" ? (
-          <p className="text-xs text-red-400/80 line-clamp-1 leading-tight">{track.error_message ?? "Search failed"}</p>
+          <p className="line-clamp-1 text-xs leading-tight text-red-400/80">
+            {track.error_message ?? "Search failed"}
+          </p>
         ) : (
-          <p className="text-sm text-zinc-400 line-clamp-1 leading-tight">
+          <p className="line-clamp-1 text-sm leading-tight text-zinc-400">
             {track.track_name ?? (isFullOST ? "Finding compilation…" : "Pending search")}
           </p>
         )}
         {hasVideo && track.channel_title && !spoilerHidden && (
-          <p className="text-[11px] text-zinc-400 mt-0.5 truncate leading-none">{track.channel_title}</p>
+          <p className="mt-0.5 truncate text-[11px] leading-none text-zinc-400">
+            {track.channel_title}
+          </p>
         )}
       </div>
 
       {/* Status dot — only shown for non-found states (found tracks communicate via play overlay) */}
       {track.status !== "found" && (
-        <div className={`shrink-0 w-1.5 h-1.5 rounded-full ${statusCfg.dot}`} />
+        <div className={`h-1.5 w-1.5 shrink-0 rounded-full ${statusCfg.dot}`} />
       )}
     </div>
   );

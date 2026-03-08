@@ -28,7 +28,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ results: [] });
     }
 
-    const data = await res.json() as {
+    const data = (await res.json()) as {
       items?: Array<{ id: number; name: string; tiny_image: string }>;
     };
 

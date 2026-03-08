@@ -6,10 +6,14 @@ if (!process.env.YOUTUBE_API_KEY) {
   console.warn("[YouTube] WARNING: YOUTUBE_API_KEY is not set — all API calls will fail");
 }
 
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY ?? "";
+
 /** Thrown when the YouTube Data API quota is exceeded — callers should abort immediately */
 export class YouTubeQuotaError extends Error {
   constructor() {
-    super("YouTube API quota exceeded. The free quota resets at midnight Pacific Time (PT). Try again tomorrow or create a new API key at console.cloud.google.com.");
+    super(
+      "YouTube API quota exceeded. The free quota resets at midnight Pacific Time (PT). Try again tomorrow or create a new API key at console.cloud.google.com.",
+    );
     this.name = "YouTubeQuotaError";
   }
 }
@@ -17,7 +21,9 @@ export class YouTubeQuotaError extends Error {
 /** Thrown when the YouTube API key is missing or invalid — callers should abort immediately */
 export class YouTubeInvalidKeyError extends Error {
   constructor() {
-    super("YouTube API key is missing or invalid. Add a valid YOUTUBE_API_KEY to .env.local and restart the server.");
+    super(
+      "YouTube API key is missing or invalid. Add a valid YOUTUBE_API_KEY to .env.local and restart the server.",
+    );
     this.name = "YouTubeInvalidKeyError";
   }
 }
@@ -83,12 +89,10 @@ function isRejected(title: string, description: string): boolean {
  */
 export async function searchYouTube(
   query: string,
-  allowShortVideo = false
+  allowShortVideo = false,
 ): Promise<YouTubeSearchResult[]> {
-  const apiKey = process.env.YOUTUBE_API_KEY!;
-
   const searchUrl = new URL(`${YOUTUBE_API_BASE}/search`);
-  searchUrl.searchParams.set("key", apiKey);
+  searchUrl.searchParams.set("key", YOUTUBE_API_KEY);
   searchUrl.searchParams.set("q", query);
   searchUrl.searchParams.set("part", "snippet");
   searchUrl.searchParams.set("type", "video");
@@ -162,7 +166,7 @@ export async function searchYouTube(
  */
 export async function findBestVideo(
   queries: string[],
-  allowShortVideo = false
+  allowShortVideo = false,
 ): Promise<YouTubeSearchResult | null> {
   for (const query of queries) {
     const results = await searchYouTube(query, allowShortVideo);
@@ -177,15 +181,12 @@ export async function findBestVideo(
  * Fetch durations for a batch of video IDs in a single videos.list call (1 quota unit).
  * Returns a map of videoId → duration in seconds.
  */
-export async function fetchVideoDurations(
-  videoIds: string[]
-): Promise<Map<string, number>> {
+export async function fetchVideoDurations(videoIds: string[]): Promise<Map<string, number>> {
   const durations = new Map<string, number>();
   if (videoIds.length === 0) return durations;
 
-  const apiKey = process.env.YOUTUBE_API_KEY!;
   const url = new URL(`${YOUTUBE_API_BASE}/videos`);
-  url.searchParams.set("key", apiKey);
+  url.searchParams.set("key", YOUTUBE_API_KEY);
   url.searchParams.set("id", videoIds.join(","));
   url.searchParams.set("part", "contentDetails");
 
@@ -215,10 +216,7 @@ export interface OSTTrack {
  * Search YouTube for a game's official OST playlist.
  * Tries progressively broader queries and returns the best playlist ID found.
  */
-export async function searchOSTPlaylist(
-  gameTitle: string
-): Promise<string | null> {
-  const apiKey = process.env.YOUTUBE_API_KEY!;
+export async function searchOSTPlaylist(gameTitle: string): Promise<string | null> {
   const queries = [
     `${gameTitle} original soundtrack official playlist`,
     `${gameTitle} OST full playlist`,
@@ -232,7 +230,7 @@ export async function searchOSTPlaylist(
 
   for (const query of queries) {
     const url = new URL(`${YOUTUBE_API_BASE}/search`);
-    url.searchParams.set("key", apiKey);
+    url.searchParams.set("key", YOUTUBE_API_KEY);
     url.searchParams.set("q", query);
     url.searchParams.set("part", "snippet");
     url.searchParams.set("type", "playlist");
@@ -270,17 +268,13 @@ export async function searchOSTPlaylist(
  * Each page costs 1 quota unit (50 items per page).
  * Default cap is 150 tracks (3 pages) to give the LLM a larger, varied pool.
  */
-export async function fetchPlaylistItems(
-  playlistId: string,
-  maxTracks = 150
-): Promise<OSTTrack[]> {
-  const apiKey = process.env.YOUTUBE_API_KEY!;
+export async function fetchPlaylistItems(playlistId: string, maxTracks = 150): Promise<OSTTrack[]> {
   const tracks: OSTTrack[] = [];
   let pageToken: string | undefined;
 
   do {
     const url = new URL(`${YOUTUBE_API_BASE}/playlistItems`);
-    url.searchParams.set("key", apiKey);
+    url.searchParams.set("key", YOUTUBE_API_KEY);
     url.searchParams.set("playlistId", playlistId);
     url.searchParams.set("part", "snippet");
     url.searchParams.set("maxResults", "50");
@@ -295,24 +289,24 @@ export async function fetchPlaylistItems(
 
     const data = await res.json();
     const page: OSTTrack[] = (data.items ?? [])
-      .map((item: {
-        snippet: {
-          resourceId?: { videoId?: string };
-          title: string;
-          videoOwnerChannelTitle?: string;
-          thumbnails?: { medium?: { url: string }; default?: { url: string } };
-        };
-      }) => ({
-        videoId: item.snippet.resourceId?.videoId ?? "",
-        title: item.snippet.title,
-        channelTitle: item.snippet.videoOwnerChannelTitle ?? "",
-        thumbnail:
-          item.snippet.thumbnails?.medium?.url ??
-          item.snippet.thumbnails?.default?.url ??
-          "",
-      }))
-      .filter((t: OSTTrack) =>
-        t.videoId && t.title !== "Deleted video" && t.title !== "Private video"
+      .map(
+        (item: {
+          snippet: {
+            resourceId?: { videoId?: string };
+            title: string;
+            videoOwnerChannelTitle?: string;
+            thumbnails?: { medium?: { url: string }; default?: { url: string } };
+          };
+        }) => ({
+          videoId: item.snippet.resourceId?.videoId ?? "",
+          title: item.snippet.title,
+          channelTitle: item.snippet.videoOwnerChannelTitle ?? "",
+          thumbnail:
+            item.snippet.thumbnails?.medium?.url ?? item.snippet.thumbnails?.default?.url ?? "",
+        }),
+      )
+      .filter(
+        (t: OSTTrack) => t.videoId && t.title !== "Deleted video" && t.title !== "Private video",
       );
 
     tracks.push(...page);
@@ -330,9 +324,7 @@ interface PlaylistItem {
 }
 
 /** Find the "BGMancer Journey" playlist, or return null if not found */
-export async function findBGMancerPlaylist(
-  accessToken: string
-): Promise<string | null> {
+export async function findBGMancerPlaylist(accessToken: string): Promise<string | null> {
   const url = new URL(`${YOUTUBE_API_BASE}/playlists`);
   url.searchParams.set("part", "snippet");
   url.searchParams.set("mine", "true");
@@ -345,16 +337,12 @@ export async function findBGMancerPlaylist(
 
   const data = await res.json();
   const playlists: PlaylistItem[] = data.items ?? [];
-  const match = playlists.find(
-    (p) => p.snippet.title === "BGMancer Journey"
-  );
+  const match = playlists.find((p) => p.snippet.title === "BGMancer Journey");
   return match?.id ?? null;
 }
 
 /** Create the "BGMancer Journey" playlist and return its ID */
-export async function createBGMancerPlaylist(
-  accessToken: string
-): Promise<string> {
+export async function createBGMancerPlaylist(accessToken: string): Promise<string> {
   const res = await fetch(`${YOUTUBE_API_BASE}/playlists?part=snippet,status`, {
     method: "POST",
     headers: {
@@ -384,7 +372,7 @@ export async function createBGMancerPlaylist(
 export async function addVideoToPlaylist(
   accessToken: string,
   playlistId: string,
-  videoId: string
+  videoId: string,
 ): Promise<string> {
   const res = await fetch(`${YOUTUBE_API_BASE}/playlistItems?part=snippet`, {
     method: "POST",
