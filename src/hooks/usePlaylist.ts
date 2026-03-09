@@ -23,6 +23,7 @@ export function usePlaylist() {
   const [importUrl, setImportUrl] = useState("");
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [rerollingIds, setRerollingIds] = useState<Set<string>>(new Set());
 
   const fetchTracks = useCallback(async () => {
     try {
@@ -37,6 +38,46 @@ export function usePlaylist() {
 
   function removeTracksForGame(gameId: string) {
     setTracks((prev) => prev.filter((t) => t.game_id !== gameId));
+  }
+
+  async function removeTrack(id: string) {
+    try {
+      await fetch(`/api/playlist/${id}`, { method: "DELETE" });
+      setTracks((prev) => prev.filter((t) => t.id !== id));
+    } catch (err) {
+      console.error("Failed to remove track:", err);
+    }
+  }
+
+  async function rerollTrack(id: string) {
+    setRerollingIds((prev) => new Set(prev).add(id));
+    try {
+      const res = await fetch(`/api/playlist/${id}/reroll`, { method: "POST" });
+      if (res.ok) {
+        const { track } = (await res.json()) as { track: PlaylistTrack };
+        setTracks((prev) => prev.map((t) => (t.id === id ? track : t)));
+      }
+    } catch (err) {
+      console.error("Failed to reroll track:", err);
+    } finally {
+      setRerollingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  }
+
+  function reorderTracks(orderedIds: string[]) {
+    setTracks((prev) => {
+      const trackMap = new Map(prev.map((t) => [t.id, t]));
+      return orderedIds.map((id) => trackMap.get(id)).filter((t): t is PlaylistTrack => !!t);
+    });
+    fetch("/api/playlist", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderedIds }),
+    }).catch((err) => console.error("Failed to persist track order:", err));
   }
 
   async function handleGenerate(games: Game[]) {
@@ -163,8 +204,12 @@ export function usePlaylist() {
     setImportUrl,
     importing,
     importError,
+    rerollingIds,
     fetchTracks,
     removeTracksForGame,
+    removeTrack,
+    rerollTrack,
+    reorderTracks,
     handleGenerate,
     handleFindVideos,
     handleClearPlaylist,

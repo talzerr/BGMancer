@@ -2,7 +2,16 @@
 
 import Image from "next/image";
 import type { PlaylistTrack } from "@/types";
-import { YouTubeLogo, MusicNoteOutline, PlayIcon, PauseIcon } from "@/components/Icons";
+import {
+  YouTubeLogo,
+  MusicNoteOutline,
+  PlayIcon,
+  PauseIcon,
+  XIcon,
+  RefreshIcon,
+  Spinner,
+  GripIcon,
+} from "@/components/Icons";
 
 interface PlaylistTrackCardProps {
   track: PlaylistTrack;
@@ -16,6 +25,14 @@ interface PlaylistTrackCardProps {
   /** true when anti-spoiler mode is on and this track hasn't been played yet */
   spoilerHidden?: boolean;
   onPlay?: () => void;
+  onRemove?: () => void;
+  onReroll?: () => void;
+  /** true while an AI reroll is in flight for this track */
+  isRerolling?: boolean;
+  /** Props to spread onto the drag handle element (from @dnd-kit useSortable) */
+  dragHandleProps?: React.HTMLAttributes<HTMLElement>;
+  /** true while this card is being dragged */
+  isDragging?: boolean;
 }
 
 const STATUS_CONFIG: Record<string, { dot: string }> = {
@@ -33,6 +50,11 @@ export function PlaylistTrackCard({
   isActivelyPlaying = false,
   spoilerHidden = false,
   onPlay,
+  onRemove,
+  onReroll,
+  isRerolling = false,
+  dragHandleProps,
+  isDragging = false,
 }: PlaylistTrackCardProps) {
   const hasVideo = !!track.video_id;
   const isFullOST = track.track_name === null;
@@ -42,6 +64,8 @@ export function PlaylistTrackCard({
   return (
     <div
       className={`group flex items-center gap-3 rounded-xl border border-l-2 border-l-transparent px-3 py-2 transition-all duration-150 ${
+        isDragging ? "opacity-50 shadow-lg shadow-black/40" : ""
+      } ${
         isPlaying
           ? "border-violet-600/40 bg-violet-950/50 shadow-sm shadow-violet-900/20"
           : track.status === "error"
@@ -49,6 +73,16 @@ export function PlaylistTrackCard({
             : "border-white/[0.05] bg-zinc-900/60 hover:border-white/[0.10] hover:bg-zinc-900/80"
       }`}
     >
+      {/* Drag handle */}
+      {dragHandleProps && (
+        <div
+          {...dragHandleProps}
+          className="shrink-0 cursor-grab touch-none opacity-0 transition-opacity group-hover:opacity-40 hover:!opacity-100 active:cursor-grabbing"
+        >
+          <GripIcon className="h-3.5 w-3.5 text-zinc-400" />
+        </div>
+      )}
+
       {/* Position number -> waves when actively playing */}
       <div className="flex w-6 shrink-0 items-center justify-center">
         {isPlaying ? (
@@ -145,10 +179,34 @@ export function PlaylistTrackCard({
         )}
       </div>
 
-      {/* Status dot — only shown for non-found states (found tracks communicate via play overlay) */}
-      {track.status !== "found" && (
-        <div className={`h-1.5 w-1.5 shrink-0 rounded-full ${statusCfg.dot}`} />
-      )}
+      {/* Right side: status dot + action buttons */}
+      <div className="flex shrink-0 items-center gap-0.5">
+        {track.status !== "found" && (
+          <div className={`h-1.5 w-1.5 shrink-0 rounded-full ${statusCfg.dot}`} />
+        )}
+
+        {onReroll && (
+          <button
+            onClick={onReroll}
+            disabled={isRerolling || track.status === "searching"}
+            title="Get a different track from this game"
+            className="ml-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-zinc-700/60 hover:text-zinc-300 disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            {isRerolling ? <Spinner className="h-3 w-3" /> : <RefreshIcon className="h-3 w-3" />}
+          </button>
+        )}
+
+        {onRemove && (
+          <button
+            onClick={onRemove}
+            disabled={track.status === "searching"}
+            title="Remove track"
+            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-900/40 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            <XIcon className="h-3 w-3" />
+          </button>
+        )}
+      </div>
     </div>
   );
 }

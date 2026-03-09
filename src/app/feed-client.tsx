@@ -1,8 +1,25 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import type { SyntheticEvent } from "react";
 import Link from "next/link";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useGameLibrary } from "@/hooks/useGameLibrary";
 import { useConfig } from "@/hooks/useConfig";
 import { usePlayerContext } from "@/context/player-context";
@@ -12,11 +29,72 @@ import { PlaylistEmptyState } from "@/components/PlaylistEmptyState";
 import { SyncButton } from "@/components/SyncButton";
 import { DevPanel } from "@/components/DevPanel";
 import { Spinner, SearchIcon, CheckIcon, EyeIcon, EyeOffIcon } from "@/components/Icons";
+import type { PlaylistTrack } from "@/types";
 
 interface FeedClientProps {
   isSignedIn: boolean;
   authConfigured: boolean;
 }
+
+// ── Sortable wrapper for each track card ────────────────────────────────────
+
+interface SortableTrackItemProps {
+  track: PlaylistTrack;
+  index: number;
+  gameThumbnail?: string;
+  isPlaying: boolean;
+  isActivelyPlaying: boolean;
+  spoilerHidden: boolean;
+  isRerolling: boolean;
+  onPlay?: () => void;
+  onRemove: () => void;
+  onReroll: () => void;
+}
+
+function SortableTrackItem({
+  track,
+  index,
+  gameThumbnail,
+  isPlaying,
+  isActivelyPlaying,
+  spoilerHidden,
+  isRerolling,
+  onPlay,
+  onRemove,
+  onReroll,
+}: SortableTrackItemProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: track.id,
+  });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : undefined,
+    position: isDragging ? "relative" : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <PlaylistTrackCard
+        track={track}
+        index={index}
+        gameThumbnail={gameThumbnail}
+        isPlaying={isPlaying}
+        isActivelyPlaying={isActivelyPlaying}
+        spoilerHidden={spoilerHidden}
+        isRerolling={isRerolling}
+        onPlay={onPlay}
+        onRemove={onRemove}
+        onReroll={onReroll}
+        dragHandleProps={{ ...listeners, ...attributes }}
+        isDragging={isDragging}
+      />
+    </div>
+  );
+}
+
+// ── Main feed component ─────────────────────────────────────────────────────
 
 export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
   const gameLibrary = useGameLibrary();
@@ -55,6 +133,23 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
       player.reset();
       setPlayedTrackIds(new Set());
     }
+  }
+
+  // ── DnD ────────────────────────────────────────────────────────────────────
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const trackIds = useMemo(() => playlist.tracks.map((t) => t.id), [playlist.tracks]);
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = playlist.tracks.findIndex((t) => t.id === active.id);
+    const newIndex = playlist.tracks.findIndex((t) => t.id === over.id);
+    playlist.reorderTracks(arrayMove(playlist.tracks, oldIndex, newIndex).map((t) => t.id));
   }
 
   // ── Derived values ───────────────────────────────────────────────────────────
@@ -338,41 +433,55 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
               onImport={handleImport}
             />
           ) : (
-            <div className="flex flex-col gap-1.5 pb-24">
-              {playlist.tracks.map((track, i) => {
-                const effectiveIdx = player.effectiveFoundTracks.findIndex(
-                  (ft) => ft.id === track.id,
-                );
-                const isCurrentTrack = track.id === player.playingTrackId;
-                const spoilerHidden =
-                  config.antiSpoilerEnabled &&
-                  track.status === "found" &&
-                  !playedTrackIds.has(track.id);
-                return (
-                  <PlaylistTrackCard
-                    key={track.id}
-                    track={track}
-                    index={i}
-                    gameThumbnail={gameThumbnailByGameId.get(track.game_id)}
-                    isPlaying={isCurrentTrack}
-                    isActivelyPlaying={isCurrentTrack && player.isPlayerPlaying}
-                    spoilerHidden={spoilerHidden}
-                    onPlay={
-                      effectiveIdx !== -1
-                        ? () => {
-                            markPlayed(track.id);
-                            if (isCurrentTrack) {
-                              player.playerBarRef.current?.togglePlayPause();
-                            } else {
-                              player.setCurrentTrackIndex(effectiveIdx);
-                            }
-                          }
-                        : undefined
-                    }
-                  />
-                );
-              })}
-            </div>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext items={trackIds} strategy={verticalListSortingStrategy}>
+                <div className="flex flex-col gap-1.5 pb-24">
+                  {playlist.tracks.map((track, i) => {
+                    const effectiveIdx = player.effectiveFoundTracks.findIndex(
+                      (ft) => ft.id === track.id,
+                    );
+                    const isCurrentTrack = track.id === player.playingTrackId;
+                    const spoilerHidden =
+                      config.antiSpoilerEnabled &&
+                      track.status === "found" &&
+                      !playedTrackIds.has(track.id);
+                    return (
+                      <SortableTrackItem
+                        key={track.id}
+                        track={track}
+                        index={i}
+                        gameThumbnail={gameThumbnailByGameId.get(track.game_id)}
+                        isPlaying={isCurrentTrack}
+                        isActivelyPlaying={isCurrentTrack && player.isPlayerPlaying}
+                        spoilerHidden={spoilerHidden}
+                        isRerolling={playlist.rerollingIds.has(track.id)}
+                        onPlay={
+                          effectiveIdx !== -1
+                            ? () => {
+                                markPlayed(track.id);
+                                if (isCurrentTrack) {
+                                  player.playerBarRef.current?.togglePlayPause();
+                                } else {
+                                  player.setCurrentTrackIndex(effectiveIdx);
+                                }
+                              }
+                            : undefined
+                        }
+                        onRemove={() => {
+                          if (track.id === player.playingTrackId) player.reset();
+                          playlist.removeTrack(track.id);
+                        }}
+                        onReroll={() => playlist.rerollTrack(track.id)}
+                      />
+                    );
+                  })}
+                </div>
+              </SortableContext>
+            </DndContext>
           )}
         </main>
       </div>

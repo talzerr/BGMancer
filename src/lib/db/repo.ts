@@ -270,6 +270,39 @@ export const Playlist = {
       "UPDATE playlist_tracks SET synced_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?",
     ).run(id);
   },
+
+  removeOne(id: string): void {
+    stmt("DELETE FROM playlist_tracks WHERE id = ?").run(id);
+  },
+
+  getById(id: string): PlaylistTrack | undefined {
+    const rows = toPlaylistTracks(
+      stmt(`
+        SELECT pt.*, g.title AS game_title
+        FROM playlist_tracks pt
+        JOIN games g ON g.id = pt.game_id
+        WHERE pt.id = ?
+      `).all(id),
+    );
+    return rows[0];
+  },
+
+  getVideoIdsForGame(gameId: string): string[] {
+    const rows = stmt(
+      "SELECT video_id FROM playlist_tracks WHERE game_id = ? AND video_id IS NOT NULL",
+    ).all(gameId) as Array<{ video_id: string }>;
+    return rows.map((r) => r.video_id);
+  },
+
+  reorder(orderedIds: string[]): void {
+    const db = getDB();
+    const updateStmt = stmt("UPDATE playlist_tracks SET position = ? WHERE id = ?");
+    db.transaction(() => {
+      for (let i = 0; i < orderedIds.length; i++) {
+        updateStmt.run(i, orderedIds[i]);
+      }
+    })();
+  },
 };
 
 // ─── YouTube Playlist Cache ───────────────────────────────────────────────────

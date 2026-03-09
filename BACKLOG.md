@@ -9,10 +9,7 @@
 
 ## Playlist
 
-- **Per-track remove** — remove a single track you don't like without clearing the whole playlist
-- **Per-track reroll** — a small refresh icon on each track row that asks the AI for a different track from the same game, without regenerating the whole list
 - **Track rating** — Thumbs Up / Thumbs Down while a track plays; liked/disliked video IDs are stored and injected into the Phase 3 curation prompt as explicit keep/avoid hints on the next run
-- **Drag to reorder** — manually rearrange the track list before syncing to YouTube
 - **Playlist seed export/import** — encode the current playlist as a compact string (video ID + game name per entry) and surface a share button; pasting a valid seed recreates the exact playlist instantly, no generation needed
 
 ## Library
