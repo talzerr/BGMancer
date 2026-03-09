@@ -2,9 +2,10 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { Playlist } from "@/lib/db/repo";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    return NextResponse.json(Playlist.listAllWithGameTitle());
+    const sessionId = req.nextUrl.searchParams.get("sessionId") ?? undefined;
+    return NextResponse.json(Playlist.listAllWithGameTitle(sessionId));
   } catch (err) {
     console.error("[GET /api/playlist]", err);
     return NextResponse.json({ error: "Failed to fetch playlist" }, { status: 500 });

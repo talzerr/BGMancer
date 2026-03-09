@@ -14,6 +14,8 @@ interface GenerateSectionProps {
   onTargetSave: (n: number) => void;
   gamesCount: number;
   onGenerate: () => void;
+  allowLongTracks: boolean;
+  onToggleLongTracks: (enabled: boolean) => void;
 }
 
 const PRESETS = [25, 50, 100] as const;
@@ -28,6 +30,8 @@ export function GenerateSection({
   onTargetSave,
   gamesCount,
   onGenerate,
+  allowLongTracks,
+  onToggleLongTracks,
 }: GenerateSectionProps) {
   const isPresetValue = (PRESETS as readonly number[]).includes(targetTrackCount);
   const [customActive, setCustomActive] = useState(!isPresetValue);
@@ -153,6 +157,36 @@ export function GenerateSection({
                   Custom
                 </button>
               )}
+            </div>
+          </div>
+
+          {/* Options */}
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-semibold tracking-widest text-zinc-500 uppercase">
+              Options
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {/* Allow long tracks toggle */}
+              <div className="group relative">
+                <button
+                  onClick={() => onToggleLongTracks(!allowLongTracks)}
+                  className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
+                    allowLongTracks
+                      ? "border-orange-500/40 bg-orange-900/30 text-orange-300 hover:bg-orange-900/50"
+                      : "border-white/[0.06] bg-zinc-950/60 text-zinc-500 hover:border-white/[0.12] hover:text-zinc-300"
+                  }`}
+                >
+                  <span>{allowLongTracks ? "⏱ Long tracks: on" : "⏱ Long tracks: off"}</span>
+                </button>
+                {/* Tooltip */}
+                <div className="pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-56 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 opacity-0 shadow-xl shadow-black/50 transition-opacity group-hover:opacity-100">
+                  <p className="text-xs font-medium text-zinc-200">Allow long tracks</p>
+                  <p className="mt-0.5 text-[11px] leading-snug text-zinc-400">
+                    When off (default), tracks longer than 10 minutes are excluded. Useful for
+                    keeping a playlist focused — OST medleys and extended suites are skipped.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 

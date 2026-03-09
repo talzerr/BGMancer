@@ -127,12 +127,19 @@ export async function generatePlaylist(send: (event: GenerateEvent) => void): Pr
   // ── Assemble final track list ─────────────────────────────────────────────
   // Curated individual tracks first (in curator order), then full-OST compilations
   const fullOSTTracks = fullOSTResults.flatMap((r) => r.tracks);
-  const allTracks = [...curatedTracks, ...fallbackTracks, ...fullOSTTracks];
+  const MAX_TRACK_DURATION = 600; // 10 minutes
+  const allTracks = [...curatedTracks, ...fallbackTracks, ...fullOSTTracks].filter(
+    (t) =>
+      config.allow_long_tracks ||
+      t.duration_seconds == null ||
+      t.duration_seconds <= MAX_TRACK_DURATION,
+  );
 
   send({ type: "progress", message: "Saving playlist…" });
   const user = Users.getOrCreateDefault();
   const gameNames = [...new Set(allTracks.map((t) => t.game_title ?? t.game_id))];
-  const sessionName = `${new Date().toLocaleDateString()} – ${gameNames.join(", ")}`;
+  const nameList = gameNames.slice(0, 3).join(", ") + (gameNames.length > 3 ? " and more" : "");
+  const sessionName = `${new Date().toLocaleDateString()} – ${nameList}`;
   const session = Sessions.create(user.id, sessionName);
   Playlist.replaceAll(session.id, toInsertable(allTracks));
 
@@ -145,13 +152,14 @@ export async function generatePlaylist(send: (event: GenerateEvent) => void): Pr
   }));
 
   // ── Resolve pending slots (full-OST + fallback search queries) ────────────
-  await resolvePendingSlots(inserted);
+  await resolvePendingSlots(inserted, config.allow_long_tracks);
 
   const foundCount = inserted.filter((t) => t.status === "found").length;
   const pendingCount = inserted.filter((t) => t.status === "pending").length;
 
   send({
     type: "done",
+    sessionId: session.id,
     tracks: inserted,
     count: inserted.length,
     found: foundCount,

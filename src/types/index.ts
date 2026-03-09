@@ -18,6 +18,10 @@ export interface PlaylistSession {
   created_at: string;
 }
 
+export interface PlaylistSessionWithCount extends PlaylistSession {
+  track_count: number;
+}
+
 // ─── Game library ─────────────────────────────────────────────────────────────
 
 export interface Game {
@@ -65,6 +69,7 @@ export interface AppConfig {
   target_track_count: number;
   youtube_playlist_id: string;
   anti_spoiler_enabled: boolean;
+  allow_long_tracks: boolean;
 }
 
 // ─── YouTube ──────────────────────────────────────────────────────────────────

@@ -9,7 +9,14 @@ export type GenerateEvent =
       status?: "active" | "done" | "error";
       message: string;
     }
-  | { type: "done"; tracks: PlaylistTrack[]; count: number; found: number; pending: number }
+  | {
+      type: "done";
+      sessionId: string;
+      tracks: PlaylistTrack[];
+      count: number;
+      found: number;
+      pending: number;
+    }
   | { type: "error"; message: string; detail?: string };
 
 export type PendingTrack = Omit<

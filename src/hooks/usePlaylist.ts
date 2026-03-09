@@ -14,6 +14,7 @@ export type GameProgressEntry = {
 export function usePlaylist() {
   const [tracks, setTracks] = useState<PlaylistTrack[]>([]);
   const [tracksLoading, setTracksLoading] = useState(true);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [searching, setSearching] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
@@ -25,10 +26,20 @@ export function usePlaylist() {
   const [importError, setImportError] = useState<string | null>(null);
   const [rerollingIds, setRerollingIds] = useState<Set<string>>(new Set());
 
-  const fetchTracks = useCallback(async () => {
+  const fetchTracks = useCallback(async (sessionId?: string) => {
     try {
-      const res = await fetch("/api/playlist");
-      if (res.ok) setTracks(await res.json());
+      const url = sessionId ? `/api/playlist?sessionId=${sessionId}` : "/api/playlist";
+      const res = await fetch(url);
+      if (res.ok) {
+        const data: PlaylistTrack[] = await res.json();
+        setTracks(data);
+        // Capture the session ID from the first track if not explicitly provided.
+        if (!sessionId && data.length > 0) {
+          setCurrentSessionId(data[0].playlist_id);
+        } else if (sessionId) {
+          setCurrentSessionId(sessionId);
+        }
+      }
     } catch (err) {
       console.error("Failed to fetch playlist:", err);
     } finally {
@@ -36,8 +47,28 @@ export function usePlaylist() {
     }
   }, []);
 
+  const loadForSession = useCallback(
+    async (id: string) => {
+      setTracksLoading(true);
+      await fetchTracks(id);
+    },
+    [fetchTracks],
+  );
+
   function removeTracksForGame(gameId: string) {
     setTracks((prev) => prev.filter((t) => t.game_id !== gameId));
+  }
+
+  function removeTrackLocal(id: string) {
+    setTracks((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  function restoreTrackLocal(track: PlaylistTrack, position: number) {
+    setTracks((prev) => {
+      const arr = [...prev];
+      arr.splice(position, 0, track);
+      return arr;
+    });
   }
 
   async function removeTrack(id: string) {
@@ -123,6 +154,7 @@ export function usePlaylist() {
               }
             } else if (event.type === "done") {
               setTracks(event.tracks ?? []);
+              if (event.sessionId) setCurrentSessionId(event.sessionId);
             } else if (event.type === "error") {
               setGenError(event.message ?? "Generation failed");
             }
@@ -193,6 +225,7 @@ export function usePlaylist() {
   return {
     tracks,
     tracksLoading,
+    currentSessionId,
     generating,
     searching,
     genError,
@@ -206,7 +239,10 @@ export function usePlaylist() {
     importError,
     rerollingIds,
     fetchTracks,
+    loadForSession,
     removeTracksForGame,
+    removeTrackLocal,
+    restoreTrackLocal,
     removeTrack,
     rerollTrack,
     reorderTracks,

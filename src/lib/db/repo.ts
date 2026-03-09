@@ -5,7 +5,6 @@ import {
   toGames,
   toPlaylistTracks,
   toPlaylistSession,
-  toPlaylistSessions,
   toUser,
   parseSearchQueries,
 } from "@/lib/db/mappers";
@@ -170,7 +169,18 @@ export const Users = {
 // ─── Playlist Sessions ────────────────────────────────────────────────────────
 
 export const Sessions = {
+  /** Creates a new session, enforcing a 3-session-per-user FIFO limit. */
   create(userId: string, name: string, description?: string): PlaylistSession {
+    const { cnt } = stmt("SELECT COUNT(*) AS cnt FROM playlists WHERE user_id = ?").get(userId) as {
+      cnt: number;
+    };
+
+    if (cnt >= 3) {
+      stmt(
+        "DELETE FROM playlists WHERE id = (SELECT id FROM playlists WHERE user_id = ? ORDER BY created_at ASC LIMIT 1)",
+      ).run(userId);
+    }
+
     const id = newId();
     stmt("INSERT INTO playlists (id, user_id, name, description) VALUES (?, ?, ?, ?)").run(
       id,
@@ -198,8 +208,29 @@ export const Sessions = {
     return row ? toPlaylistSession(row) : null;
   },
 
-  listAll(): PlaylistSession[] {
-    return toPlaylistSessions(stmt("SELECT * FROM playlists ORDER BY created_at DESC").all());
+  /** Returns all sessions with a track_count field, newest first. */
+  listAllWithCounts(): Array<PlaylistSession & { track_count: number }> {
+    const rows = stmt(`
+      SELECT p.*, COUNT(pt.id) AS track_count
+      FROM playlists p
+      LEFT JOIN playlist_tracks pt ON pt.playlist_id = p.id
+      GROUP BY p.id
+      ORDER BY p.created_at DESC
+    `).all() as Array<Record<string, unknown>>;
+
+    return rows.map((r) => ({
+      ...toPlaylistSession(r),
+      track_count: Number(r.track_count ?? 0),
+    }));
+  },
+
+  rename(id: string, name: string): void {
+    stmt("UPDATE playlists SET name = ? WHERE id = ?").run(name, id);
+  },
+
+  /** Hard-deletes a session and all its tracks (via CASCADE). */
+  delete(id: string): void {
+    stmt("DELETE FROM playlists WHERE id = ?").run(id);
   },
 
   archive(id: string): void {
@@ -240,7 +271,18 @@ export interface SyncableTrackRow {
 }
 
 export const Playlist = {
-  listAllWithGameTitle(): PlaylistTrack[] {
+  listAllWithGameTitle(sessionId?: string): PlaylistTrack[] {
+    if (sessionId) {
+      return toPlaylistTracks(
+        stmt(`
+          SELECT pt.*, g.title AS game_title
+          FROM playlist_tracks pt
+          JOIN games g ON g.id = pt.game_id
+          WHERE pt.playlist_id = ?
+          ORDER BY pt.position ASC
+        `).all(sessionId),
+      );
+    }
     return toPlaylistTracks(
       stmt(`
         SELECT pt.*, g.title AS game_title
@@ -477,6 +519,7 @@ export const Config = {
       target_track_count: parseInt(map.target_track_count ?? "50", 10),
       youtube_playlist_id: map.youtube_playlist_id ?? "",
       anti_spoiler_enabled: map.anti_spoiler_enabled === "1",
+      allow_long_tracks: map.allow_long_tracks === "1",
     };
   },
 

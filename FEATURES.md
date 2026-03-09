@@ -35,6 +35,10 @@ The left panel on the main feed is where you set things up before hitting genera
 
 Pick **25**, **50**, or **100** from the preset buttons, or hit **Custom** to type any number up to 200.
 
+### Options
+
+- **Long tracks** — off by default. When off, any track longer than 10 minutes is excluded from the playlist. This keeps OST medleys and extended suites out of a focused listening session. Turn it on if you want the full experience including those longer pieces.
+
 ### How it works
 
 Hit **Curate N Tracks** and watch a live progress panel as BGMancer works through your games. Behind the scenes it runs in three passes:
@@ -47,6 +51,16 @@ Because the candidate pools are shuffled before the AI sees them, regenerating t
 
 Tracks that couldn't be matched automatically are marked **pending** — hit **Find Missing** to run another search pass on them.
 
+### Session history
+
+Every time you hit **Curate** or import a playlist, BGMancer saves it as a named session rather than overwriting what you had. Up to 3 sessions are kept; the oldest is automatically removed when a fourth is created.
+
+Sessions appear in the left sidebar. Click one to switch to it — full interaction is available on any session, not just the current one. The active session is highlighted with a teal dot.
+
+**Renaming:** click the session title at the top of the playlist panel (it highlights on hover) and type a new name. Up to 60 characters.
+
+**Deleting a session:** click **Delete** in the sub-row below the title and confirm. This permanently removes the session and all its tracks.
+
 ### Import instead of generating
 
 Already have a YouTube playlist you like? Paste any public YouTube playlist URL into the import field and it loads instantly — no generation needed.
@@ -55,9 +69,11 @@ Already have a YouTube playlist you like? Paste any public YouTube playlist URL 
 
 ## Listening
 
-Click any track to start playback. The player bar appears at the bottom and **stays there as you navigate** — switching to the Library and back doesn't interrupt the music.
+Click anywhere on a track row to start playback. The player bar appears at the bottom and **stays there as you navigate** — switching to the Library and back doesn't interrupt the music.
 
 **Controls:** Previous · Play/Pause · Next · time display · shuffle · volume slider
+
+The player shows your position as **N / Total** to the left of the album art, so you always know where you are in the session.
 
 **Dim** drops the volume to 20% with one click — handy when someone walks in. Click again to restore.
 
@@ -71,7 +87,7 @@ Each track row has a direct link to open the video on YouTube.
 
 ## Playlist stats
 
-The bar above the track list shows: total tracks · tracks ready · **total runtime** (e.g. `3h 42m`) · pending · errors.
+The sub-row below the session title shows: total tracks · tracks ready · **total runtime** (highlighted in orange) · pending · errors.
 
 ---
 
@@ -96,6 +112,10 @@ Toggle it off at any time to see the full list. Turning it on mid-session only h
 
 ---
 
+## Removing tracks
+
+Hover any track row to reveal a remove button (×) on the right. Clicking it immediately removes the track and shows an **Undo** toast at the bottom of the screen. You have 4 seconds to undo before the deletion is committed. If you remove another track while the window is open, the previous deletion commits immediately and a new undo window starts.
+
 ## Starting over
 
-**Clear playlist** asks for confirmation before wiping everything — no accidental deletions.
+**Delete** in the playlist sub-row asks for confirmation before permanently removing the session and all its tracks.

@@ -52,7 +52,12 @@ export function toInsertable(tracks: PendingTrack[]): InsertableTrack[] {
  * Updates the DB in-place and mutates the passed array so the caller's
  * in-memory state stays consistent.
  */
-export async function resolvePendingSlots(inserted: PlaylistTrack[]): Promise<void> {
+const MAX_TRACK_DURATION = 600; // 10 minutes
+
+export async function resolvePendingSlots(
+  inserted: PlaylistTrack[],
+  allowLongTracks = false,
+): Promise<void> {
   const pendingTracks = inserted.filter((t) => t.status === "pending" && t.search_queries);
   const insertedIndexById = new Map(inserted.map((t, i) => [t.id, i]));
 
@@ -60,6 +65,10 @@ export async function resolvePendingSlots(inserted: PlaylistTrack[]): Promise<vo
     try {
       const video = await findBestVideo(track.search_queries ?? [], false);
       if (video) {
+        if (!allowLongTracks && video.durationSeconds > MAX_TRACK_DURATION) {
+          Playlist.setError(track.id, "Track exceeds maximum duration.");
+          continue;
+        }
         Playlist.setFound(
           track.id,
           video.videoId,

@@ -21,7 +21,7 @@
 ## Curation Intelligence
 
 - **Curation mood hint** — a free-text field on the generate panel (e.g. "focus session", "driving late at night", "boss rush energy") that gets appended to the Phase 3 system prompt. Replaces the old rigid vibe enum with something open-ended, stored as a single `curation_hint` config value
-- **Generation history** — store the last N generated playlists (video IDs + game titles + timestamp) so you can revisit a good run without regenerating
+- **Cross-session uniqueness** — when generating a new session, bias against tracks that already appear in recent sessions so consecutive runs feel genuinely different
 - **Playlist preview before commit** — after Phase 3 returns, surface the ordered track list for review before saving; allow swapping or removing individual tracks in that moment
 - **Game priority hints** — mark a game as high/low priority, injected as a soft hint into the Phase 3 prompt ("favour more tracks from X", "keep Y minimal")
 - **MusicBrainz enrichment** — enrich track metadata (artist, mood tags) from MusicBrainz after each generation and cache it in `mb_track_cache`; feed cached tags into Phase 2 and Phase 3 prompts as structured energy/mood signal. Low hit-rate on game OSTs (~29% tags, ~55% artist in early testing) means it's a hint, not a hard requirement. Implementation was scaffolded but removed pending better coverage or an alternative metadata source

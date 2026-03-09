@@ -61,11 +61,14 @@ export function PlaylistTrackCard({
   const statusCfg = STATUS_CONFIG[track.status] ?? STATUS_CONFIG.pending;
   const thumbnailSrc = gameThumbnail ?? track.thumbnail;
 
+  const isPlayable = hasVideo && !!onPlay;
+
   return (
     <div
+      onClick={isPlayable ? onPlay : undefined}
       className={`group flex items-center gap-3 rounded-xl border border-l-2 border-l-transparent px-3 py-2 transition-all duration-150 ${
-        isDragging ? "opacity-50 shadow-lg shadow-black/40" : ""
-      } ${
+        isPlayable ? "cursor-pointer" : ""
+      } ${isDragging ? "opacity-50 shadow-lg shadow-black/40" : ""} ${
         isPlaying
           ? "border-violet-600/40 bg-violet-950/50 shadow-sm shadow-violet-900/20"
           : track.status === "error"
@@ -77,6 +80,7 @@ export function PlaylistTrackCard({
       {dragHandleProps && (
         <div
           {...dragHandleProps}
+          onClick={(e) => e.stopPropagation()}
           className="shrink-0 cursor-grab touch-none opacity-0 transition-opacity group-hover:opacity-40 hover:!opacity-100 active:cursor-grabbing"
         >
           <GripIcon className="h-3.5 w-3.5 text-zinc-400" />
@@ -96,15 +100,10 @@ export function PlaylistTrackCard({
         )}
       </div>
 
-      {/* Thumbnail / play button */}
+      {/* Thumbnail */}
       <div className="relative h-11 w-16 shrink-0 overflow-hidden rounded-lg bg-zinc-800 ring-1 ring-white/[0.06]">
         {hasVideo && thumbnailSrc ? (
-          <button
-            onClick={onPlay}
-            disabled={!onPlay}
-            className="block h-full w-full cursor-pointer disabled:cursor-default"
-            aria-label={isActivelyPlaying ? "Pause" : isPlaying ? "Resume" : "Play track"}
-          >
+          <>
             <Image
               src={thumbnailSrc}
               alt={track.game_title ?? track.video_title ?? ""}
@@ -112,7 +111,7 @@ export function PlaylistTrackCard({
               className={`object-cover transition-all duration-300 ${spoilerHidden ? "scale-110 blur-md" : ""}`}
               sizes="64px"
             />
-            {/* Play/pause/resume overlay */}
+            {/* Play/pause overlay */}
             <div
               className={`absolute inset-0 flex items-center justify-center bg-black/50 transition-opacity ${isPlaying ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
             >
@@ -127,7 +126,7 @@ export function PlaylistTrackCard({
               <YouTubeLogo className="h-2 w-2 shrink-0 fill-current text-[#FF0000]" />
               <span className="text-[8px] leading-none font-medium text-white">YouTube</span>
             </div>
-          </button>
+          </>
         ) : (
           <div className="flex h-full w-full items-center justify-center">
             <MusicNoteOutline className="h-5 w-5 text-zinc-500" />
@@ -153,15 +152,13 @@ export function PlaylistTrackCard({
               {track.track_name ?? track.video_title}
             </p>
           ) : (
-            <button
-              onClick={onPlay}
-              disabled={!onPlay}
-              className={`line-clamp-1 cursor-pointer text-left text-sm leading-tight font-medium disabled:cursor-default ${
-                isPlaying ? "text-violet-300" : "text-zinc-100 hover:text-violet-300"
+            <p
+              className={`line-clamp-1 text-sm leading-tight font-medium ${
+                isPlaying ? "text-violet-300" : "text-zinc-100"
               }`}
             >
               {track.track_name ?? track.video_title}
-            </button>
+            </p>
           )
         ) : track.status === "error" ? (
           <p className="line-clamp-1 text-xs leading-tight text-red-400/80">
@@ -187,7 +184,10 @@ export function PlaylistTrackCard({
 
         {onReroll && (
           <button
-            onClick={onReroll}
+            onClick={(e) => {
+              e.stopPropagation();
+              onReroll();
+            }}
             disabled={isRerolling || track.status === "searching"}
             title="Get a different track from this game"
             className="ml-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-zinc-700/60 hover:text-zinc-300 disabled:cursor-not-allowed disabled:opacity-30"
@@ -198,7 +198,10 @@ export function PlaylistTrackCard({
 
         {onRemove && (
           <button
-            onClick={onRemove}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove();
+            }}
             disabled={track.status === "searching"}
             title="Remove track"
             className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-900/40 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30"

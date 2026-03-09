@@ -121,9 +121,16 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
           <ChevronUpIcon className="h-3 w-3" />
         </button>
       ) : (
-        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2.5">
+        <div className="mx-auto grid max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-2.5">
           {/* Track info */}
-          <div className="flex w-[220px] min-w-0 shrink-0 items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            {/* Track counter */}
+            <span className="shrink-0 font-mono text-[10px] text-zinc-600 tabular-nums">
+              <span className="text-zinc-400">{currentIndex + 1}</span>
+              <span className="mx-0.5">/</span>
+              <span>{tracks.length}</span>
+            </span>
+
             {currentTrack.thumbnail ? (
               <div className="relative h-10 w-14 shrink-0 overflow-hidden rounded-md bg-zinc-800 ring-1 ring-white/10">
                 <Image
@@ -154,7 +161,7 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
           </div>
 
           {/* Center: controls + time */}
-          <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
+          <div className="flex flex-col items-center gap-1">
             <div className="flex items-center gap-0.5">
               <button
                 onClick={() => canPrev && onIndexChange(currentIndex - 1)}
@@ -191,7 +198,7 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
           </div>
 
           {/* Right: Up Next + controls + links */}
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex min-w-0 items-center justify-end gap-2">
             {nextTrack && (
               <div className="hidden max-w-[160px] min-w-0 flex-col items-end lg:flex">
                 <span className="mb-0.5 text-[10px] leading-none tracking-wider text-zinc-600 uppercase">
@@ -245,10 +252,6 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
               title={`Volume: ${volume}%`}
               className="hidden h-1 w-20 cursor-pointer accent-violet-500 sm:block"
             />
-
-            <span className="hidden text-xs text-zinc-400 tabular-nums sm:block">
-              {currentIndex + 1} / {tracks.length}
-            </span>
 
             <a
               href={`https://www.youtube.com/watch?v=${currentTrack.video_id}`}

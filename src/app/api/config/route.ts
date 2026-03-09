@@ -35,6 +35,10 @@ export async function PUT(request: Request) {
       entries.push(["anti_spoiler_enabled", body.anti_spoiler_enabled ? "1" : "0"]);
     }
 
+    if (body.allow_long_tracks !== undefined) {
+      entries.push(["allow_long_tracks", body.allow_long_tracks ? "1" : "0"]);
+    }
+
     Config.upsertBatch(entries);
     return NextResponse.json(Config.load());
   } catch (err) {

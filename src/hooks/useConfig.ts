@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 export function useConfig() {
   const [targetTrackCount, setTargetTrackCount] = useState(50);
   const [antiSpoilerEnabled, setAntiSpoilerEnabled] = useState(false);
+  const [allowLongTracks, setAllowLongTracks] = useState(false);
 
   useEffect(() => {
     fetch("/api/config")
@@ -13,6 +14,7 @@ export function useConfig() {
         if (cfg?.target_track_count) setTargetTrackCount(cfg.target_track_count);
         if (cfg?.anti_spoiler_enabled !== undefined)
           setAntiSpoilerEnabled(cfg.anti_spoiler_enabled);
+        if (cfg?.allow_long_tracks !== undefined) setAllowLongTracks(cfg.allow_long_tracks);
       })
       .catch(() => {});
   }, []);
@@ -35,11 +37,22 @@ export function useConfig() {
     }).catch(() => {});
   }
 
+  async function saveAllowLongTracks(enabled: boolean) {
+    setAllowLongTracks(enabled);
+    await fetch("/api/config", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ allow_long_tracks: enabled }),
+    }).catch(() => {});
+  }
+
   return {
     targetTrackCount,
     setTargetTrackCount,
     saveTrackCount,
     antiSpoilerEnabled,
     saveAntiSpoiler,
+    allowLongTracks,
+    saveAllowLongTracks,
   };
 }
