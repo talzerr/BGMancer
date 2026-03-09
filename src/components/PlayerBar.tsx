@@ -108,7 +108,7 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
           )}
           <div className="min-w-0">
             <p className="truncate text-sm leading-tight font-medium text-white">
-              {currentTrack.video_title ?? currentTrack.track_name ?? "Unknown track"}
+              {currentTrack.track_name ?? currentTrack.video_title ?? "Unknown track"}
             </p>
             <p className="mt-0.5 truncate text-xs text-zinc-500">{currentTrack.game_title}</p>
           </div>
@@ -158,8 +158,13 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
               <span className="mb-0.5 text-[10px] leading-none tracking-wider text-zinc-600 uppercase">
                 Up Next
               </span>
+              {nextTrack.game_title && (
+                <span className="max-w-full truncate text-[10px] leading-tight text-zinc-600">
+                  {nextTrack.game_title}
+                </span>
+              )}
               <span className="max-w-full truncate text-[11px] leading-tight text-zinc-400">
-                {nextTrack.video_title ?? nextTrack.track_name ?? ""}
+                {nextTrack.track_name ?? nextTrack.video_title ?? ""}
               </span>
             </div>
           )}

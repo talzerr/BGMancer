@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { Playlist, Games, YtPlaylists } from "@/lib/db/repo";
 import { fetchPlaylistItems, fetchVideoDurations } from "@/lib/services/youtube";
-import { selectTracksFromList } from "@/lib/services/llm";
+import { selectTracksFromList } from "@/lib/services/curation";
 import { getLocalLLMProvider } from "@/lib/llm";
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {

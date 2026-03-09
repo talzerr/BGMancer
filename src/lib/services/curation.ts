@@ -204,6 +204,66 @@ Return ONLY a JSON array of exactly ${targetCount} integers.`;
   }
 }
 
+// ─── Track name cleaning ──────────────────────────────────────────────────────
+
+const CLEAN_SYSTEM = `You are a music metadata cleaner. Given a game title and a raw YouTube video title, return only the clean track name — nothing else.
+
+Rules (follow exactly):
+1. Remove the full game title — including any subtitle or series number that is part of it (e.g. if the game is "Clair Obscur: Expedition 33", remove "Clair Obscur: Expedition 33", not just "Clair Obscur").
+2. Remove standalone noise labels wherever they appear as whole words: BGM, OST, Soundtrack, Original Soundtrack, Original Score, Music, Theme, Video Game, Full Album, Original Game.
+3. Strip leading track numbers of the form "NN -" or "(NN)" that remain after step 1 (e.g. "09 -", "90 -").
+4. Remove separators (|, ~) only when they are at the very start or end of the remaining text. Never remove or alter separators that sit in the middle of the track name.
+5. Preserve every character of the track name exactly: apostrophes (e.g. Movin'), colons (e.g. Castle Trap: Upper), dashes (e.g. The Reacher - Mémoires), and parentheses (e.g. Dust (Carpenter Brut Remix)).
+6. If nothing meaningful remains after stripping, return the original title unchanged.
+
+Examples:
+  Game: "MapleStory" | "[MapleStory BGM] Maple Island: First Step Master"  →  Maple Island: First Step Master
+  Game: "MapleStory" | "[MapleStory BGM] Malaysia: Highland"  →  Malaysia: Highland
+  Game: "Hotline Miami" | "Hotline Miami Soundtrack ~ Musik"  →  Musik
+  Game: "Hotline Miami 2: Wrong Number" | "Hotline Miami 2: Wrong Number Soundtrack - Dust (Carpenter Brut Remix)"  →  Dust (Carpenter Brut Remix)
+  Game: "Clair Obscur: Expedition 33" | "Clair Obscur: Expedition 33 (Original Soundtrack) 90 - World Map - Waiting Canvas"  →  World Map - Waiting Canvas
+  Game: "Sekiro: Shadows Die Twice" | "Isshin Ashina | Sekiro™: Shadows Die Twice OST"  →  Isshin Ashina
+  Game: "FINAL FANTASY VIII" | "Galbadia GARDEN"  →  Galbadia Garden
+  Game: "FINAL FANTASY VIII" | "Movin'"  →  Movin'
+
+Output ONLY the clean track name. No quotes, no explanation, no extra punctuation.`;
+
+/**
+ * Ask the local LLM to clean a single raw YouTube title into a concise display
+ * name. Returns the original title on any failure.
+ */
+async function cleanOneTrack(
+  gameTitle: string,
+  videoTitle: string,
+  provider: LLMProvider,
+): Promise<string> {
+  const user = `Game: "${gameTitle}"\nTitle: "${videoTitle}"`;
+  try {
+    const raw = await provider.complete(CLEAN_SYSTEM, user, { temperature: 0.1 });
+    const cleaned = raw.trim().replace(/^["']|["']$/g, "");
+    return cleaned || videoTitle;
+  } catch {
+    return videoTitle;
+  }
+}
+
+/**
+ * Clean raw YouTube video titles into concise display names using the local LLM.
+ * Each track is cleaned in a separate call to avoid ordering issues with batching.
+ * Returns a Map<id, cleanName>; on failure the original videoTitle is kept.
+ */
+export async function cleanTrackNames(
+  tracks: Array<{ id: string; gameTitle: string; videoTitle: string }>,
+  provider: LLMProvider,
+): Promise<Map<string, string>> {
+  const entries = await Promise.all(
+    tracks.map(
+      async (t) => [t.id, await cleanOneTrack(t.gameTitle, t.videoTitle, provider)] as const,
+    ),
+  );
+  return new Map(entries);
+}
+
 // ─── Compilation search queries ───────────────────────────────────────────────
 
 export function compilationQueries(gameTitle: string): string[] {

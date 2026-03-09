@@ -150,7 +150,7 @@ export function PlaylistTrackCard({
         {hasVideo && track.video_title ? (
           spoilerHidden ? (
             <p className="line-clamp-1 text-sm leading-tight font-medium text-zinc-400 blur-sm select-none">
-              {track.video_title}
+              {track.track_name ?? track.video_title}
             </p>
           ) : (
             <button
@@ -160,7 +160,7 @@ export function PlaylistTrackCard({
                 isPlaying ? "text-violet-300" : "text-zinc-100 hover:text-violet-300"
               }`}
             >
-              {track.video_title}
+              {track.track_name ?? track.video_title}
             </button>
           )
         ) : track.status === "error" ? (
