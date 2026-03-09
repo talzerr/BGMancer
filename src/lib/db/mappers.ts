@@ -1,6 +1,30 @@
-import type { Game, PlaylistTrack, TrackStatus } from "@/types";
+import type { Game, PlaylistTrack, PlaylistSession, TrackStatus, User } from "@/types";
 
 const VALID_STATUSES: Set<string> = new Set(["pending", "searching", "found", "error"]);
+
+export function toUser(row: Record<string, unknown>): User {
+  return {
+    id: String(row.id),
+    email: String(row.email),
+    username: row.username != null ? String(row.username) : null,
+    created_at: String(row.created_at ?? ""),
+  };
+}
+
+export function toPlaylistSession(row: Record<string, unknown>): PlaylistSession {
+  return {
+    id: String(row.id),
+    user_id: String(row.user_id),
+    name: String(row.name),
+    description: row.description != null ? String(row.description) : null,
+    is_archived: !!row.is_archived,
+    created_at: String(row.created_at ?? ""),
+  };
+}
+
+export function toPlaylistSessions(rows: unknown[]): PlaylistSession[] {
+  return (rows as Record<string, unknown>[]).map(toPlaylistSession);
+}
 
 export function toGame(row: Record<string, unknown>): Game {
   return {
@@ -36,6 +60,7 @@ export function parseSearchQueries(raw: unknown): string[] | null {
 export function toPlaylistTrack(row: Record<string, unknown>): PlaylistTrack {
   return {
     id: String(row.id),
+    playlist_id: String(row.playlist_id ?? ""),
     game_id: String(row.game_id),
     game_title: row.game_title != null ? String(row.game_title) : undefined,
     track_name: row.track_name != null ? String(row.track_name) : null,

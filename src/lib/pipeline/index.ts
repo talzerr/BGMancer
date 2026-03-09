@@ -1,4 +1,4 @@
-import { Games, Playlist, Config } from "@/lib/db/repo";
+import { Games, Playlist, Users, Sessions, Config } from "@/lib/db/repo";
 import { getLLMProvider, getLocalLLMProvider } from "@/lib/llm";
 import { fetchVideoDurations, YouTubeQuotaError } from "@/lib/services/youtube";
 import { curatePlaylist, cleanTrackNames, type CandidateGroup } from "@/lib/services/curation";
@@ -130,10 +130,15 @@ export async function generatePlaylist(send: (event: GenerateEvent) => void): Pr
   const allTracks = [...curatedTracks, ...fallbackTracks, ...fullOSTTracks];
 
   send({ type: "progress", message: "Saving playlist…" });
-  Playlist.replaceAll(toInsertable(allTracks));
+  const user = Users.getOrCreateDefault();
+  const gameNames = [...new Set(allTracks.map((t) => t.game_title ?? t.game_id))];
+  const sessionName = `${new Date().toLocaleDateString()} – ${gameNames.join(", ")}`;
+  const session = Sessions.create(user.id, sessionName);
+  Playlist.replaceAll(session.id, toInsertable(allTracks));
 
   const inserted: PlaylistTrack[] = allTracks.map((t, position) => ({
     ...t,
+    playlist_id: session.id,
     position,
     created_at: new Date().toISOString(),
     synced_at: null,

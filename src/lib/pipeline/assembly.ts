@@ -1,5 +1,6 @@
 import { Playlist, type InsertableTrack } from "@/lib/db/repo";
 import { findBestVideo } from "@/lib/services/youtube";
+import { newId } from "@/lib/uuid";
 import type { PlaylistTrack } from "@/types";
 import type { PendingTrack } from "@/lib/pipeline/types";
 
@@ -11,7 +12,7 @@ export function makePendingTrack(
   overrides: Partial<PendingTrack> = {},
 ): PendingTrack {
   return {
-    id: crypto.randomUUID(),
+    id: newId(),
     game_id: gameId,
     game_title: gameTitle,
     track_name: null,

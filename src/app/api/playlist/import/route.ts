@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { Games, Playlist } from "@/lib/db/repo";
+import { Games, Playlist, Users, Sessions } from "@/lib/db/repo";
 import { YT_IMPORT_GAME_ID } from "@/lib/constants";
 import { fetchPlaylistItems, YouTubeQuotaError } from "@/lib/services/youtube";
+import { newId } from "@/lib/uuid";
 import type { PlaylistTrack } from "@/types";
 
 function extractPlaylistId(input: string): string | null {
@@ -45,9 +46,12 @@ export async function POST(request: Request) {
 
     Games.ensureExists(YT_IMPORT_GAME_ID, "YouTube Import");
 
+    const user = Users.getOrCreateDefault();
+    const session = Sessions.create(user.id, `YouTube Import – ${new Date().toLocaleDateString()}`);
+
     const now = new Date().toISOString();
     const tracksToInsert = tracks.map((t) => ({
-      id: crypto.randomUUID(),
+      id: newId(),
       game_id: YT_IMPORT_GAME_ID,
       track_name: t.title,
       video_id: t.videoId,
@@ -60,11 +64,12 @@ export async function POST(request: Request) {
       error_message: null,
     }));
 
-    Playlist.replaceAll(tracksToInsert);
+    Playlist.replaceAll(session.id, tracksToInsert);
 
     // Construct the response in-memory — avoids a round-trip JOIN query.
     const result: PlaylistTrack[] = tracksToInsert.map((t, i) => ({
       ...t,
+      playlist_id: session.id,
       game_title: "YouTube Import",
       position: i,
       created_at: now,

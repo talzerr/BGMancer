@@ -1,7 +1,16 @@
 import type Database from "better-sqlite3";
-import { getDB, getSeedPlaylistId } from "@/lib/db";
-import { toGame, toGames, toPlaylistTracks, parseSearchQueries } from "@/lib/db/mappers";
-import type { Game, PlaylistTrack, AppConfig, TrackStatus } from "@/types";
+import { getDB, getSeedPlaylistId, LOCAL_USER_ID } from "@/lib/db";
+import {
+  toGame,
+  toGames,
+  toPlaylistTracks,
+  toPlaylistSession,
+  toPlaylistSessions,
+  toUser,
+  parseSearchQueries,
+} from "@/lib/db/mappers";
+import type { Game, PlaylistTrack, PlaylistSession, User, AppConfig, TrackStatus } from "@/types";
+import { newId } from "@/lib/uuid";
 
 // Prepared statements cached by SQL string — avoids recompiling on every call.
 const _stmts = new Map<string, Database.Statement<unknown[]>>();
@@ -114,7 +123,7 @@ export const Games = {
 
     db.transaction(() => {
       for (const g of games) {
-        const id = crypto.randomUUID();
+        const id = newId();
         const result = stmt(insertSQL).run(id, g.name, g.appid, Math.round(g.playtime_forever));
         if (result.changes > 0) {
           imported++;
@@ -127,6 +136,74 @@ export const Games = {
     })();
 
     return { imported, skipped };
+  },
+};
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+
+export const Users = {
+  getOrCreateDefault(): User {
+    const existing = stmt("SELECT * FROM users WHERE id = ?").get(LOCAL_USER_ID) as
+      | Record<string, unknown>
+      | undefined;
+    if (existing) return toUser(existing);
+
+    stmt(
+      "INSERT OR IGNORE INTO users (id, email, username) VALUES (?, 'local@bgmancer.app', 'Local')",
+    ).run(LOCAL_USER_ID);
+
+    const created = stmt("SELECT * FROM users WHERE id = ?").get(LOCAL_USER_ID) as Record<
+      string,
+      unknown
+    >;
+    return toUser(created);
+  },
+
+  getById(id: string): User | null {
+    const row = stmt("SELECT * FROM users WHERE id = ?").get(id) as
+      | Record<string, unknown>
+      | undefined;
+    return row ? toUser(row) : null;
+  },
+};
+
+// ─── Playlist Sessions ────────────────────────────────────────────────────────
+
+export const Sessions = {
+  create(userId: string, name: string, description?: string): PlaylistSession {
+    const id = newId();
+    stmt("INSERT INTO playlists (id, user_id, name, description) VALUES (?, ?, ?, ?)").run(
+      id,
+      userId,
+      name,
+      description ?? null,
+    );
+
+    const created = stmt("SELECT * FROM playlists WHERE id = ?").get(id) as Record<string, unknown>;
+    return toPlaylistSession(created);
+  },
+
+  /** Returns the most recently created non-archived session, or null if none exist. */
+  getActive(): PlaylistSession | null {
+    const row = stmt(
+      "SELECT * FROM playlists WHERE is_archived = 0 ORDER BY created_at DESC LIMIT 1",
+    ).get() as Record<string, unknown> | undefined;
+    return row ? toPlaylistSession(row) : null;
+  },
+
+  getById(id: string): PlaylistSession | null {
+    const row = stmt("SELECT * FROM playlists WHERE id = ?").get(id) as
+      | Record<string, unknown>
+      | undefined;
+    return row ? toPlaylistSession(row) : null;
+  },
+
+  listAll(): PlaylistSession[] {
+    return toPlaylistSessions(stmt("SELECT * FROM playlists ORDER BY created_at DESC").all());
+  },
+
+  archive(id: string): void {
+    stmt("UPDATE playlists SET is_archived = 1 WHERE id = ?").run(id);
   },
 };
 
@@ -145,6 +222,10 @@ export interface InsertableTrack {
   status: TrackStatus;
   error_message: string | null;
 }
+
+// Subquery that resolves the active (most recent non-archived) session ID.
+const ACTIVE_SESSION_SQ =
+  "(SELECT id FROM playlists WHERE is_archived = 0 ORDER BY created_at DESC LIMIT 1)";
 
 export interface PendingTrackRow {
   id: string;
@@ -165,6 +246,7 @@ export const Playlist = {
         SELECT pt.*, g.title AS game_title
         FROM playlist_tracks pt
         JOIN games g ON g.id = pt.game_id
+        WHERE pt.playlist_id = ${ACTIVE_SESSION_SQ}
         ORDER BY pt.position ASC
       `).all(),
     );
@@ -176,6 +258,7 @@ export const Playlist = {
       FROM playlist_tracks pt
       JOIN games g ON g.id = pt.game_id
       WHERE pt.status = 'pending'
+        AND pt.playlist_id = ${ACTIVE_SESSION_SQ}
       ORDER BY pt.position ASC
     `).all() as Array<Record<string, unknown>>;
 
@@ -190,34 +273,42 @@ export const Playlist = {
     return stmt(`
       SELECT id, video_id, position
       FROM playlist_tracks
-      WHERE status = 'found' AND video_id IS NOT NULL AND synced_at IS NULL
+      WHERE status = 'found'
+        AND video_id IS NOT NULL
+        AND synced_at IS NULL
+        AND playlist_id = ${ACTIVE_SESSION_SQ}
       ORDER BY position ASC
     `).all() as SyncableTrackRow[];
   },
 
   countSynced(): number {
     const row = stmt(
-      "SELECT COUNT(*) AS cnt FROM playlist_tracks WHERE synced_at IS NOT NULL",
+      `SELECT COUNT(*) AS cnt FROM playlist_tracks WHERE synced_at IS NOT NULL AND playlist_id = ${ACTIVE_SESSION_SQ}`,
     ).get() as { cnt: number };
     return row.cnt;
   },
 
-  replaceAll(tracks: InsertableTrack[]): void {
+  /**
+   * Atomically replaces all tracks for a given session.
+   * Deletes existing tracks for that playlist_id, then bulk-inserts the new set.
+   */
+  replaceAll(playlistId: string, tracks: InsertableTrack[]): void {
     const db = getDB();
     const insertSQL = `
       INSERT INTO playlist_tracks
-        (id, game_id, track_name, video_id, video_title, channel_title, thumbnail,
+        (id, playlist_id, game_id, track_name, video_id, video_title, channel_title, thumbnail,
          search_queries, duration_seconds, position, status, error_message)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     db.transaction(() => {
-      stmt("DELETE FROM playlist_tracks").run();
+      stmt("DELETE FROM playlist_tracks WHERE playlist_id = ?").run(playlistId);
       const insertStmt = stmt(insertSQL);
       for (let position = 0; position < tracks.length; position++) {
         const t = tracks[position];
         insertStmt.run(
           t.id,
+          playlistId,
           t.game_id,
           t.track_name,
           t.video_id,
@@ -234,8 +325,9 @@ export const Playlist = {
     })();
   },
 
+  /** Deletes all tracks belonging to the active session. */
   clearAll(): void {
-    stmt("DELETE FROM playlist_tracks").run();
+    stmt(`DELETE FROM playlist_tracks WHERE playlist_id = ${ACTIVE_SESSION_SQ}`).run();
   },
 
   setSearching(id: string): void {

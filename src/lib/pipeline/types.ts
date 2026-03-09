@@ -12,7 +12,10 @@ export type GenerateEvent =
   | { type: "done"; tracks: PlaylistTrack[]; count: number; found: number; pending: number }
   | { type: "error"; message: string; detail?: string };
 
-export type PendingTrack = Omit<PlaylistTrack, "position" | "created_at" | "synced_at">;
+export type PendingTrack = Omit<
+  PlaylistTrack,
+  "playlist_id" | "position" | "created_at" | "synced_at"
+>;
 
 export type GameTracks = { game: Game; tracks: PendingTrack[] };
 

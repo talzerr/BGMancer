@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useImperativeHandle } from "react";
+import { forwardRef, useImperativeHandle, useState } from "react";
 import Image from "next/image";
 import type { PlaylistTrack } from "@/types";
 import { useYouTubePlayer } from "@/hooks/useYouTubePlayer";
@@ -14,7 +14,8 @@ import {
   ShuffleIcon,
   VolumeLow,
   VolumeMuted,
-  CloseIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
 } from "@/components/Icons";
 
 export interface PlayerBarHandle {
@@ -43,7 +44,7 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
     tracks,
     currentIndex,
     onIndexChange,
-    onClose,
+    onClose: _onClose,
     onPlayingChange,
     shuffleMode = false,
     onToggleShuffle,
@@ -58,9 +59,17 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
     volume,
     dimmed,
     togglePlayPause,
+    seekTo,
     applyVolume,
     toggleDim,
   } = useYouTubePlayer({ tracks, currentIndex, onIndexChange, onPlayingChange });
+
+  const [isSeeking, setIsSeeking] = useState(false);
+  const [seekingValue, setSeekingValue] = useState(0);
+  const [isMinimized, setIsMinimized] = useState(false);
+
+  const displayTime = isSeeking ? seekingValue : currentTime;
+  const fillPct = (displayTime / Math.max(duration, 1)) * 100;
 
   useImperativeHandle(ref, () => ({ togglePlayPause }));
 
@@ -73,7 +82,28 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
 
   return (
     <div className="fixed right-0 bottom-0 left-0 z-50 border-t border-violet-500/20 bg-zinc-950/97 shadow-[0_-4px_24px_rgba(0,0,0,0.6)] backdrop-blur-xl">
-      <div className="absolute top-0 right-0 left-0 h-px bg-gradient-to-r from-transparent via-violet-500/30 to-transparent" />
+      {/* Seek bar — full width, positioned at the very top of the player */}
+      <input
+        type="range"
+        min={0}
+        max={Math.max(duration, 1)}
+        step={1}
+        value={displayTime}
+        onPointerDown={() => {
+          setIsSeeking(true);
+          setSeekingValue(currentTime);
+        }}
+        onChange={(e) => setSeekingValue(Number(e.target.value))}
+        onPointerUp={(e) => {
+          seekTo(Number((e.target as HTMLInputElement).value));
+          setIsSeeking(false);
+        }}
+        aria-label="Seek"
+        style={{
+          background: `linear-gradient(to right, rgb(139 92 246) 0%, rgb(139 92 246) ${fillPct}%, rgb(39 39 42) ${fillPct}%, rgb(39 39 42) 100%)`,
+        }}
+        className="absolute top-0 right-0 left-0 h-1 w-full cursor-pointer appearance-none accent-violet-500 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-violet-400 [&::-webkit-slider-thumb]:opacity-0 hover:[&::-webkit-slider-thumb]:opacity-100"
+      />
 
       {/* Hidden YT player div */}
       <div
@@ -82,155 +112,165 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
         aria-hidden="true"
       />
 
-      <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2.5">
-        {/* Track info */}
-        <div className="flex w-[220px] min-w-0 shrink-0 items-center gap-3">
-          {currentTrack.thumbnail ? (
-            <div className="relative h-10 w-14 shrink-0 overflow-hidden rounded-md bg-zinc-800 ring-1 ring-white/10">
-              <Image
-                src={currentTrack.thumbnail}
-                alt=""
-                fill
-                className="object-cover"
-                sizes="56px"
-              />
-              <div className="absolute right-0 bottom-0 flex items-center gap-0.5 rounded-tl bg-black/75 px-1 py-0.5">
-                <YouTubeLogo className="h-2 w-2 shrink-0 fill-current text-[#FF0000]" />
-                <span className="text-[8px] leading-none font-medium tracking-tight text-white">
-                  YouTube
+      {isMinimized ? (
+        <button
+          onClick={() => setIsMinimized(false)}
+          title="Expand player"
+          className="flex w-full items-center justify-center py-1 text-zinc-700 transition-colors hover:text-zinc-400"
+        >
+          <ChevronUpIcon className="h-3 w-3" />
+        </button>
+      ) : (
+        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2.5">
+          {/* Track info */}
+          <div className="flex w-[220px] min-w-0 shrink-0 items-center gap-3">
+            {currentTrack.thumbnail ? (
+              <div className="relative h-10 w-14 shrink-0 overflow-hidden rounded-md bg-zinc-800 ring-1 ring-white/10">
+                <Image
+                  src={currentTrack.thumbnail}
+                  alt=""
+                  fill
+                  className="object-cover"
+                  sizes="56px"
+                />
+                <div className="absolute right-0 bottom-0 flex items-center gap-0.5 rounded-tl bg-black/75 px-1 py-0.5">
+                  <YouTubeLogo className="h-2 w-2 shrink-0 fill-current text-[#FF0000]" />
+                  <span className="text-[8px] leading-none font-medium tracking-tight text-white">
+                    YouTube
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex h-10 w-14 shrink-0 items-center justify-center rounded-md bg-zinc-800 ring-1 ring-white/10">
+                <MusicNote className="h-5 w-5 text-zinc-500" />
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="truncate text-sm leading-tight font-medium text-white">
+                {currentTrack.track_name ?? currentTrack.video_title ?? "Unknown track"}
+              </p>
+              <p className="mt-0.5 truncate text-xs text-zinc-500">{currentTrack.game_title}</p>
+            </div>
+          </div>
+
+          {/* Center: controls + time */}
+          <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => canPrev && onIndexChange(currentIndex - 1)}
+                disabled={!canPrev}
+                aria-label="Previous track"
+                className="cursor-pointer rounded-full p-2 text-zinc-500 hover:text-white disabled:cursor-default disabled:opacity-20"
+              >
+                <PrevTrackIcon />
+              </button>
+
+              <button
+                onClick={togglePlayPause}
+                aria-label={isPlaying ? "Pause" : "Play"}
+                className="cursor-pointer rounded-full bg-violet-600 p-2.5 text-white shadow-lg shadow-violet-900/40 hover:bg-violet-500"
+              >
+                {isPlaying ? <PauseIcon /> : <PlayIcon />}
+              </button>
+
+              <button
+                onClick={() => canNext && onIndexChange(currentIndex + 1)}
+                disabled={!canNext}
+                aria-label="Next track"
+                className="cursor-pointer rounded-full p-2 text-zinc-500 hover:text-white disabled:cursor-default disabled:opacity-20"
+              >
+                <NextTrackIcon />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-1.5 font-mono text-[11px] text-zinc-500 tabular-nums">
+              <span>{fmtTime(currentTime)}</span>
+              <span className="text-zinc-700">/</span>
+              <span>{fmtTime(duration)}</span>
+            </div>
+          </div>
+
+          {/* Right: Up Next + controls + links */}
+          <div className="flex shrink-0 items-center gap-2">
+            {nextTrack && (
+              <div className="hidden max-w-[160px] min-w-0 flex-col items-end lg:flex">
+                <span className="mb-0.5 text-[10px] leading-none tracking-wider text-zinc-600 uppercase">
+                  Up Next
+                </span>
+                {nextTrack.game_title && (
+                  <span className="max-w-full truncate text-[10px] leading-tight text-zinc-600">
+                    {nextTrack.game_title}
+                  </span>
+                )}
+                <span className="max-w-full truncate text-[11px] leading-tight text-zinc-400">
+                  {nextTrack.track_name ?? nextTrack.video_title ?? ""}
                 </span>
               </div>
-            </div>
-          ) : (
-            <div className="flex h-10 w-14 shrink-0 items-center justify-center rounded-md bg-zinc-800 ring-1 ring-white/10">
-              <MusicNote className="h-5 w-5 text-zinc-500" />
-            </div>
-          )}
-          <div className="min-w-0">
-            <p className="truncate text-sm leading-tight font-medium text-white">
-              {currentTrack.track_name ?? currentTrack.video_title ?? "Unknown track"}
-            </p>
-            <p className="mt-0.5 truncate text-xs text-zinc-500">{currentTrack.game_title}</p>
-          </div>
-        </div>
+            )}
 
-        {/* Center: controls + time */}
-        <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
-          <div className="flex items-center gap-0.5">
-            <button
-              onClick={() => canPrev && onIndexChange(currentIndex - 1)}
-              disabled={!canPrev}
-              aria-label="Previous track"
-              className="cursor-pointer rounded-full p-2 text-zinc-500 hover:text-white disabled:cursor-default disabled:opacity-20"
-            >
-              <PrevTrackIcon />
-            </button>
+            {onToggleShuffle && (
+              <button
+                onClick={onToggleShuffle}
+                title={
+                  shuffleMode ? "Shuffle on — click to turn off" : "Shuffle off — click to turn on"
+                }
+                className={`cursor-pointer rounded-md p-1.5 transition-colors ${
+                  shuffleMode
+                    ? "bg-violet-500/15 text-violet-400"
+                    : "text-zinc-500 hover:bg-zinc-800/80 hover:text-zinc-300"
+                }`}
+              >
+                <ShuffleIcon />
+              </button>
+            )}
 
             <button
-              onClick={togglePlayPause}
-              aria-label={isPlaying ? "Pause" : "Play"}
-              className="cursor-pointer rounded-full bg-violet-600 p-2.5 text-white shadow-lg shadow-violet-900/40 hover:bg-violet-500"
-            >
-              {isPlaying ? <PauseIcon /> : <PlayIcon />}
-            </button>
-
-            <button
-              onClick={() => canNext && onIndexChange(currentIndex + 1)}
-              disabled={!canNext}
-              aria-label="Next track"
-              className="cursor-pointer rounded-full p-2 text-zinc-500 hover:text-white disabled:cursor-default disabled:opacity-20"
-            >
-              <NextTrackIcon />
-            </button>
-          </div>
-
-          <div className="flex items-center gap-1.5 font-mono text-[11px] text-zinc-500 tabular-nums">
-            <span>{fmtTime(currentTime)}</span>
-            <span className="text-zinc-700">/</span>
-            <span>{fmtTime(duration)}</span>
-          </div>
-        </div>
-
-        {/* Right: Up Next + controls + links */}
-        <div className="flex shrink-0 items-center gap-2">
-          {nextTrack && (
-            <div className="hidden max-w-[160px] min-w-0 flex-col items-end lg:flex">
-              <span className="mb-0.5 text-[10px] leading-none tracking-wider text-zinc-600 uppercase">
-                Up Next
-              </span>
-              {nextTrack.game_title && (
-                <span className="max-w-full truncate text-[10px] leading-tight text-zinc-600">
-                  {nextTrack.game_title}
-                </span>
-              )}
-              <span className="max-w-full truncate text-[11px] leading-tight text-zinc-400">
-                {nextTrack.track_name ?? nextTrack.video_title ?? ""}
-              </span>
-            </div>
-          )}
-
-          {onToggleShuffle && (
-            <button
-              onClick={onToggleShuffle}
-              title={
-                shuffleMode ? "Shuffle on — click to turn off" : "Shuffle off — click to turn on"
-              }
+              onClick={toggleDim}
+              title={dimmed ? "Restore volume" : "Dim to 20%"}
               className={`cursor-pointer rounded-md p-1.5 transition-colors ${
-                shuffleMode
-                  ? "bg-violet-500/15 text-violet-400"
+                dimmed
+                  ? "bg-amber-500/15 text-amber-400"
                   : "text-zinc-500 hover:bg-zinc-800/80 hover:text-zinc-300"
               }`}
             >
-              <ShuffleIcon />
+              {dimmed ? <VolumeMuted /> : <VolumeLow />}
             </button>
-          )}
 
-          <button
-            onClick={toggleDim}
-            title={dimmed ? "Restore volume" : "Dim to 20%"}
-            className={`cursor-pointer rounded-md p-1.5 transition-colors ${
-              dimmed
-                ? "bg-amber-500/15 text-amber-400"
-                : "text-zinc-500 hover:bg-zinc-800/80 hover:text-zinc-300"
-            }`}
-          >
-            {dimmed ? <VolumeMuted /> : <VolumeLow />}
-          </button>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={volume}
+              onChange={(e) => applyVolume(Number(e.target.value))}
+              title={`Volume: ${volume}%`}
+              className="hidden h-1 w-20 cursor-pointer accent-violet-500 sm:block"
+            />
 
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={volume}
-            onChange={(e) => applyVolume(Number(e.target.value))}
-            title={`Volume: ${volume}%`}
-            className="hidden h-1 w-20 cursor-pointer accent-violet-500 sm:block"
-          />
+            <span className="hidden text-xs text-zinc-400 tabular-nums sm:block">
+              {currentIndex + 1} / {tracks.length}
+            </span>
 
-          <span className="hidden text-xs text-zinc-400 tabular-nums sm:block">
-            {currentIndex + 1} / {tracks.length}
-          </span>
+            <a
+              href={`https://www.youtube.com/watch?v=${currentTrack.video_id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Watch on YouTube"
+              className="flex items-center gap-1 rounded-md border border-white/[0.06] bg-zinc-800/80 px-2 py-1 text-xs font-medium text-zinc-400 hover:bg-zinc-700/80 hover:text-white"
+            >
+              <YouTubeLogo className="h-3 w-3 fill-current text-[#FF0000]" />
+              <span className="hidden sm:inline">YouTube</span>
+            </a>
 
-          <a
-            href={`https://www.youtube.com/watch?v=${currentTrack.video_id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Watch on YouTube"
-            className="flex items-center gap-1 rounded-md border border-white/[0.06] bg-zinc-800/80 px-2 py-1 text-xs font-medium text-zinc-400 hover:bg-zinc-700/80 hover:text-white"
-          >
-            <YouTubeLogo className="h-3 w-3 fill-current text-[#FF0000]" />
-            <span className="hidden sm:inline">YouTube</span>
-          </a>
-
-          <button
-            onClick={onClose}
-            title="Close player"
-            className="cursor-pointer rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800/80 hover:text-zinc-200"
-          >
-            <CloseIcon />
-          </button>
+            <button
+              onClick={() => setIsMinimized(true)}
+              title="Minimize player"
+              className="cursor-pointer rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800/80 hover:text-zinc-200"
+            >
+              <ChevronDownIcon />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 });

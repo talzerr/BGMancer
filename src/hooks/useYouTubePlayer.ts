@@ -9,6 +9,7 @@ export interface YTPlayer {
   loadVideoById(videoId: string): void;
   playVideo(): void;
   pauseVideo(): void;
+  seekTo(seconds: number, allowSeekAhead: boolean): void;
   getPlayerState(): number;
   getCurrentTime(): number;
   getDuration(): number;
@@ -118,6 +119,11 @@ export function useYouTubePlayer({
     }
   }
 
+  function seekTo(seconds: number) {
+    playerRef.current?.seekTo(seconds, true);
+    setCurrentTime(seconds);
+  }
+
   // Poll elapsed time while playing
   useEffect(() => {
     if (!isPlaying) return;
@@ -126,7 +132,7 @@ export function useYouTubePlayer({
         setCurrentTime(playerRef.current.getCurrentTime());
         setDuration(playerRef.current.getDuration());
       }
-    }, 1000);
+    }, 250);
     return () => clearInterval(id);
   }, [isPlaying]);
 
@@ -204,6 +210,7 @@ export function useYouTubePlayer({
     volume,
     dimmed,
     togglePlayPause,
+    seekTo,
     applyVolume,
     toggleDim,
   };

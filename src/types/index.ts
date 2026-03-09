@@ -1,3 +1,23 @@
+// ─── Users ────────────────────────────────────────────────────────────────────
+
+export interface User {
+  id: string;
+  email: string;
+  username: string | null;
+  created_at: string;
+}
+
+// ─── Playlist sessions ────────────────────────────────────────────────────────
+
+export interface PlaylistSession {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  is_archived: boolean;
+  created_at: string;
+}
+
 // ─── Game library ─────────────────────────────────────────────────────────────
 
 export interface Game {
@@ -22,6 +42,7 @@ export type TrackStatus = "pending" | "searching" | "found" | "error";
 
 export interface PlaylistTrack {
   id: string;
+  playlist_id: string;
   game_id: string;
   game_title?: string; // populated via JOIN in API responses
   track_name: string | null; // null for full-OST compilation slots

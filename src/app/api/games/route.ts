@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Games } from "@/lib/db/repo";
 import { YT_IMPORT_GAME_ID } from "@/lib/constants";
+import { newId } from "@/lib/uuid";
 import type { AddGamePayload } from "@/types";
 
 export async function GET(request: Request) {
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Game title is required" }, { status: 400 });
     }
 
-    const id = crypto.randomUUID();
+    const id = newId();
     const steamAppid = typeof body.steam_appid === "number" ? body.steam_appid : null;
     const game = Games.create(id, body.title.trim(), true, steamAppid);
     return NextResponse.json(game, { status: 201 });
