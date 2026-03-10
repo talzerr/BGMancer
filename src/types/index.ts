@@ -105,7 +105,6 @@ export interface PlaylistTrack {
 
 export interface AppConfig {
   target_track_count: number;
-  youtube_playlist_id: string;
   anti_spoiler_enabled: boolean;
   allow_long_tracks: boolean;
 }

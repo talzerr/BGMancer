@@ -231,7 +231,7 @@ export function GenerateSection({
                       <span>{allowLongTracks ? "⏱ Long tracks: on" : "⏱ Long tracks: off"}</span>
                     </button>
                     {/* Tooltip */}
-                    <div className="pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-56 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 opacity-0 shadow-xl shadow-black/50 transition-opacity group-hover:opacity-100">
+                    <div className="pointer-events-none absolute top-full left-0 z-10 mt-2 w-56 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 opacity-0 shadow-xl shadow-black/50 transition-opacity group-hover:opacity-100">
                       <p className="text-xs font-medium text-zinc-200">Allow long tracks</p>
                       <p className="mt-0.5 text-[11px] leading-snug text-zinc-400">
                         When off (default), tracks longer than 10 minutes are excluded. Useful for

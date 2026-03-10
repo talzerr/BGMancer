@@ -54,7 +54,6 @@ export async function POST(request: Request) {
     target_track_count: Number(body.target_track_count) || DEFAULT_TRACK_COUNT,
     allow_long_tracks: body.allow_long_tracks === true,
     anti_spoiler_enabled: body.anti_spoiler_enabled === true,
-    youtube_playlist_id: "",
   };
 
   const cookieStore = await cookies();
