@@ -40,6 +40,10 @@ export const Users = {
     return row?.tier === UserTier.Maestro ? UserTier.Maestro : UserTier.Bard;
   },
 
+  setTier(id: string, tier: UserTier): void {
+    stmt("UPDATE users SET tier = ? WHERE id = ?").run(tier, id);
+  },
+
   /**
    * Atomically checks and acquires the per-user generation lock.
    * Returns { acquired: true } or { acquired: false, reason: string }.

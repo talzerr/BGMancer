@@ -20,6 +20,7 @@ import {
   MIN_TRACK_DURATION_SECONDS,
   MAX_TRACK_DURATION_SECONDS,
   SESSION_NAME_MAX_GAMES,
+  SESSION_NAME_MAX_LENGTH,
 } from "@/lib/constants";
 
 export type { GenerateEvent };
@@ -196,10 +197,14 @@ export async function generatePlaylist(
 
   send({ type: "progress", message: "Saving playlist…" });
   const gameNames = [...new Set(allTracks.map((t) => t.game_title ?? t.game_id))];
-  const nameList =
+  const rawNameList =
     gameNames.slice(0, SESSION_NAME_MAX_GAMES).join(", ") +
     (gameNames.length > SESSION_NAME_MAX_GAMES ? " and more" : "");
-  const sessionName = `${new Date().toLocaleDateString()} – ${nameList}`;
+  const nameList =
+    rawNameList.length > SESSION_NAME_MAX_LENGTH
+      ? `${rawNameList.slice(0, SESSION_NAME_MAX_LENGTH - 1).trimEnd()}…`
+      : rawNameList;
+  const sessionName = nameList;
   const session = Sessions.create(user.id, sessionName);
   Playlist.replaceAll(session.id, toInsertable(allTracks));
 

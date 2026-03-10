@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { usePlayerContext } from "@/context/player-context";
 import { SyncButton } from "@/components/SyncButton";
 import { Spinner, SearchIcon, CheckIcon, EyeIcon, EyeOffIcon } from "@/components/Icons";
@@ -34,6 +34,15 @@ export function PlaylistHeader({
   const [titleEditValue, setTitleEditValue] = useState("");
   const titleInputRef = useRef<HTMLTextAreaElement>(null);
 
+  // Auto-resize the textarea to fit its content when it first appears.
+  useEffect(() => {
+    if (editingTitle && titleInputRef.current) {
+      const el = titleInputRef.current;
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    }
+  }, [editingTitle]);
+
   if (!playlist.currentSessionId) return null;
 
   const pendingCount = playlist.tracks.filter((t) => t.status === TrackStatus.Pending).length;
@@ -63,7 +72,8 @@ export function PlaylistHeader({
           onBlur={() => {
             setEditingTitle(false);
             const trimmed = titleEditValue.trim();
-            if (trimmed && playlist.currentSessionId) {
+            const original = currentSession ? formatSessionName(currentSession.name) : "";
+            if (trimmed && trimmed !== original && playlist.currentSessionId) {
               void onRename(playlist.currentSessionId, trimmed);
             }
           }}
@@ -75,7 +85,7 @@ export function PlaylistHeader({
             if (e.key === "Escape") setEditingTitle(false);
           }}
           maxLength={SESSION_NAME_MAX_LENGTH}
-          className="-mx-2 -my-1 w-[calc(100%+1rem)] resize-none overflow-hidden border-b border-teal-500 bg-transparent px-2 py-1 text-xl leading-snug font-semibold text-white caret-teal-400 focus:outline-none"
+          className="-mx-2 -my-1 w-[calc(100%+1rem)] resize-none overflow-hidden border-b border-teal-500 bg-transparent px-2 py-1 text-xl leading-snug font-semibold break-words text-white caret-teal-400 focus:outline-none"
         />
       ) : (
         <button
@@ -87,7 +97,7 @@ export function PlaylistHeader({
           }}
           className="group -mx-2 -my-1 flex w-full min-w-0 cursor-text items-start gap-1.5 rounded-lg px-2 py-1 text-xl font-semibold text-white transition-colors hover:bg-zinc-800/70"
         >
-          <span className="leading-snug break-words">
+          <span className="min-w-0 flex-1 leading-snug break-words">
             {formatSessionName(currentSession?.name ?? "")}
           </span>
           <svg

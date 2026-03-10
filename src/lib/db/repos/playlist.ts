@@ -142,13 +142,14 @@ export const Playlist = {
     channel: string,
     thumbnail: string,
     durationSeconds: number | null = null,
+    trackName: string | null = null,
   ): void {
     stmt(`
       UPDATE playlist_tracks SET
         status = 'found', video_id = ?, video_title = ?,
-        channel_title = ?, thumbnail = ?, duration_seconds = ?, error_message = NULL
+        channel_title = ?, thumbnail = ?, duration_seconds = ?, track_name = ?, error_message = NULL
       WHERE id = ?
-    `).run(videoId, title, channel, thumbnail, durationSeconds, id);
+    `).run(videoId, title, channel, thumbnail, durationSeconds, trackName, id);
   },
 
   setError(id: string, message: string): void {

@@ -36,10 +36,19 @@ interface PlayerBarProps {
   onPlayingChange?: (playing: boolean) => void;
   shuffleMode?: boolean;
   onToggleShuffle?: () => void;
+  gameThumbnailByGameId?: Map<string, string>;
 }
 
 export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function PlayerBar(
-  { tracks, currentIndex, onIndexChange, onPlayingChange, shuffleMode = false, onToggleShuffle },
+  {
+    tracks,
+    currentIndex,
+    onIndexChange,
+    onPlayingChange,
+    shuffleMode = false,
+    onToggleShuffle,
+    gameThumbnailByGameId,
+  },
   ref,
 ) {
   const {
@@ -73,6 +82,12 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
   const nextTrack = tracks[currentIndex + 1] ?? null;
   const canPrev = currentIndex > 0;
   const canNext = currentIndex < tracks.length - 1;
+
+  const steamThumbnail = currentTrack
+    ? (gameThumbnailByGameId?.get(currentTrack.game_id) ?? null)
+    : null;
+  const thumbnailSrc = steamThumbnail ?? currentTrack?.thumbnail ?? null;
+  const thumbnailIsYouTube = !steamThumbnail && !!currentTrack?.thumbnail;
 
   if (!currentTrack) return null;
 
@@ -127,21 +142,17 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
               <span>{tracks.length}</span>
             </span>
 
-            {currentTrack.thumbnail ? (
+            {thumbnailSrc ? (
               <div className="relative h-10 w-14 shrink-0 overflow-hidden rounded-md bg-zinc-800 ring-1 ring-white/10">
-                <Image
-                  src={currentTrack.thumbnail}
-                  alt=""
-                  fill
-                  className="object-cover"
-                  sizes="56px"
-                />
-                <div className="absolute right-0 bottom-0 flex items-center gap-0.5 rounded-tl bg-black/75 px-1 py-0.5">
-                  <YouTubeLogo className="h-2 w-2 shrink-0 fill-current text-[#FF0000]" />
-                  <span className="text-[8px] leading-none font-medium tracking-tight text-white">
-                    YouTube
-                  </span>
-                </div>
+                <Image src={thumbnailSrc} alt="" fill className="object-cover" sizes="56px" />
+                {thumbnailIsYouTube && (
+                  <div className="absolute right-0 bottom-0 flex items-center gap-0.5 rounded-tl bg-black/75 px-1 py-0.5">
+                    <YouTubeLogo className="h-2 w-2 shrink-0 fill-current text-[#FF0000]" />
+                    <span className="text-[8px] leading-none font-medium tracking-tight text-white">
+                      YouTube
+                    </span>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex h-10 w-14 shrink-0 items-center justify-center rounded-md bg-zinc-800 ring-1 ring-white/10">

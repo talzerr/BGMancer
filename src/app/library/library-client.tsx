@@ -9,6 +9,7 @@ import { AddGameForm } from "@/components/AddGameForm";
 import { GameRow, CurationLegend } from "@/components/GameRow";
 import { SteamImportPanel } from "@/components/SteamImportPanel";
 import { SeedExportPanel } from "@/components/SeedExportPanel";
+import { usePlayerContext } from "@/context/player-context";
 type Filter = "all" | "skip" | "lite" | "include" | "focus";
 type SortKey = "playtime" | "name" | "added";
 
@@ -16,6 +17,7 @@ const PAGE_SIZE_OPTIONS = [15, 25, 50, 100] as const;
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 
 export function LibraryClient() {
+  const { gameLibrary } = usePlayerContext();
   const [games, setGames] = useState<Game[]>([]);
   const [ytCache, setYtCache] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -54,6 +56,7 @@ export function LibraryClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ curation: newCuration }),
       });
+      gameLibrary.fetchGames();
     } catch {
       if (prevCuration !== undefined) {
         setGames((list) => list.map((g) => (g.id === id ? { ...g, curation: prevCuration } : g)));
@@ -96,7 +99,10 @@ export function LibraryClient() {
   async function handleDelete(id: string) {
     try {
       const res = await fetch(`/api/games?id=${id}`, { method: "DELETE" });
-      if (res.ok) setGames((prev) => prev.filter((g) => g.id !== id));
+      if (res.ok) {
+        setGames((prev) => prev.filter((g) => g.id !== id));
+        gameLibrary.fetchGames();
+      }
     } catch (err) {
       console.error("Failed to delete game:", err);
     }
@@ -160,6 +166,7 @@ export function LibraryClient() {
         }),
       ),
     );
+    gameLibrary.fetchGames();
     setEnablingAll(false);
   }
 
@@ -194,10 +201,16 @@ export function LibraryClient() {
               <AddGameForm
                 onGameAdded={() => {
                   fetchGames();
+                  gameLibrary.fetchGames();
                 }}
               />
             </section>
-            <SteamImportPanel onImported={fetchGames} />
+            <SteamImportPanel
+              onImported={() => {
+                fetchGames();
+                gameLibrary.fetchGames();
+              }}
+            />
             <SeedExportPanel />
           </aside>
 

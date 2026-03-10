@@ -9,7 +9,7 @@ export const YT_IMPORT_GAME_ID = "yt-import";
 export const MAX_PLAYLIST_SESSIONS = 3;
 
 /** Maximum characters allowed when renaming a session. */
-export const SESSION_NAME_MAX_LENGTH = 60;
+export const SESSION_NAME_MAX_LENGTH = 100;
 
 /** Max game names shown in an auto-generated session name before "and more" is appended. */
 export const SESSION_NAME_MAX_GAMES = 3;
@@ -40,6 +40,13 @@ export const CANDIDATES_MIN = 5;
 
 /** Maximum candidates to request per game (controls prompt size and API cost). */
 export const CANDIDATES_MAX = 30;
+
+/**
+ * Phase 3 is asked for this many extra tracks beyond the target so the duration
+ * filter has headroom to drop short stingers / long suites without leaving gaps.
+ * All selected tracks are still LLM-curated; excess is truncated after filtering.
+ */
+export const DURATION_FILTER_OVERHEAD = 1.2;
 
 // ─── Steam CDN ────────────────────────────────────────────────────────────────
 

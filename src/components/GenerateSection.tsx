@@ -90,59 +90,70 @@ export function GenerateSection({
       : `${gamesCount} game${gamesCount !== 1 ? "s" : ""} · ${targetTrackCount} tracks`;
 
   const showGenerate = mode === "generate" && !generating;
+  const showProgress = mode === "generate" && generating;
   const showImport = mode === "import";
 
   return (
-    <div className="flex flex-col gap-2">
-      {/* Generate mode — progress */}
-      {mode === "generate" && generating && (
-        <div className="flex flex-col gap-3 rounded-xl border border-teal-500/20 bg-zinc-900/70 p-4 shadow-lg shadow-black/30">
-          <div className="flex items-center gap-2">
-            <Spinner className="h-3 w-3 shrink-0 text-teal-400" />
-            <span className="text-[11px] font-semibold tracking-widest text-teal-400 uppercase">
-              Curating your playlist…
-            </span>
-          </div>
+    <div className="flex flex-col">
+      {/* Generate mode — progress (animated in/out) */}
+      <div
+        className={`grid transition-[grid-template-rows] duration-250 ease-in-out ${
+          showProgress ? "[grid-template-rows:1fr]" : "[grid-template-rows:0fr]"
+        }`}
+      >
+        <div
+          className={`overflow-hidden transition-opacity duration-200 ${
+            showProgress ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          <div className="mb-2 flex flex-col gap-3 rounded-xl border border-teal-500/20 bg-zinc-900/70 p-4 shadow-lg shadow-black/30">
+            <div className="flex items-center gap-2">
+              <Spinner className="h-3 w-3 shrink-0 text-teal-400" />
+              <span className="text-[11px] font-semibold tracking-widest text-teal-400 uppercase">
+                Curating your playlist…
+              </span>
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            {genProgress.map((entry) => (
-              <div key={entry.id} className="flex min-w-0 items-start gap-2">
-                <div className="mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center">
-                  {entry.status === GameProgressStatus.Active ? (
-                    <Spinner className="h-3 w-3 text-teal-400" />
-                  ) : entry.status === GameProgressStatus.Done ? (
-                    <CheckIcon className="h-3 w-3 text-emerald-400" />
-                  ) : entry.status === GameProgressStatus.Error ? (
-                    <XIcon className="h-3 w-3 text-red-400" />
-                  ) : (
-                    <span className="block h-1.5 w-1.5 rounded-full bg-zinc-600" />
-                  )}
+            <div className="flex flex-col gap-1.5">
+              {genProgress.map((entry) => (
+                <div key={entry.id} className="flex min-w-0 items-start gap-2">
+                  <div className="mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+                    {entry.status === GameProgressStatus.Active ? (
+                      <Spinner className="h-3 w-3 text-teal-400" />
+                    ) : entry.status === GameProgressStatus.Done ? (
+                      <CheckIcon className="h-3 w-3 text-emerald-400" />
+                    ) : entry.status === GameProgressStatus.Error ? (
+                      <XIcon className="h-3 w-3 text-red-400" />
+                    ) : (
+                      <span className="block h-1.5 w-1.5 rounded-full bg-zinc-600" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <span
+                      className={`truncate text-xs font-medium ${
+                        entry.status === GameProgressStatus.Active
+                          ? "text-white"
+                          : entry.status === GameProgressStatus.Done
+                            ? "text-zinc-400"
+                            : entry.status === GameProgressStatus.Error
+                              ? "text-red-400"
+                              : "text-zinc-600"
+                      }`}
+                    >
+                      {entry.title}
+                    </span>
+                    {entry.status !== GameProgressStatus.Waiting && entry.message && (
+                      <span className="ml-1.5 text-[11px] text-zinc-500">{entry.message}</span>
+                    )}
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <span
-                    className={`truncate text-xs font-medium ${
-                      entry.status === GameProgressStatus.Active
-                        ? "text-white"
-                        : entry.status === GameProgressStatus.Done
-                          ? "text-zinc-400"
-                          : entry.status === GameProgressStatus.Error
-                            ? "text-red-400"
-                            : "text-zinc-600"
-                    }`}
-                  >
-                    {entry.title}
-                  </span>
-                  {entry.status !== GameProgressStatus.Waiting && entry.message && (
-                    <span className="ml-1.5 text-[11px] text-zinc-500">{entry.message}</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
 
-          {genGlobalMsg && <p className="text-[11px] text-zinc-500 italic">{genGlobalMsg}</p>}
+            {genGlobalMsg && <p className="text-[11px] text-zinc-500 italic">{genGlobalMsg}</p>}
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Animated card slot — both panels live here, no gap between them */}
       <div className="flex flex-col">
@@ -256,11 +267,13 @@ export function GenerateSection({
                     `Curate ${targetTrackCount} Tracks`
                   )}
                 </button>
-                <div className="flex items-center justify-between px-1">
+                <div
+                  className={`flex px-1 ${gamesCount === 0 ? "flex-col gap-1" : "items-center justify-between"}`}
+                >
                   <p className="text-[11px] leading-snug text-zinc-600">{summaryText}</p>
                   <button
                     onClick={() => setMode("import")}
-                    className="shrink-0 text-[11px] text-zinc-600 transition-colors hover:text-zinc-400"
+                    className={`shrink-0 text-[11px] text-zinc-600 transition-colors hover:text-zinc-400 ${gamesCount === 0 ? "self-end" : ""}`}
                   >
                     Import from YouTube →
                   </button>

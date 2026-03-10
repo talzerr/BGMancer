@@ -1,13 +1,16 @@
 import Image from "next/image";
+import { cookies } from "next/headers";
 import { auth, signIn, signOut, AUTH_CONFIGURED } from "@/lib/services/auth";
 import { Users } from "@/lib/db/repo";
-import { LOCAL_USER_ID } from "@/lib/db";
-import { UserTier } from "@/types";
+import { getOrCreateUserId } from "@/lib/services/session";
 import { FeedClient } from "./feed-client";
+import { TierToggle } from "@/components/TierToggle";
 
 export default async function HomePage() {
   const session = AUTH_CONFIGURED ? await auth() : null;
-  const tier = Users.getTier(LOCAL_USER_ID);
+  const cookieStore = await cookies();
+  const userId = await getOrCreateUserId(cookieStore);
+  const tier = Users.getTier(userId);
 
   return (
     <div className="relative min-h-screen bg-zinc-950">
@@ -36,15 +39,7 @@ export default async function HomePage() {
 
           {/* Auth + tier badge */}
           <div className="flex items-center gap-3">
-            {tier === UserTier.Maestro ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-medium tracking-wide text-amber-400">
-                🎼 Maestro
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[11px] font-medium tracking-wide text-zinc-400">
-                🪕 Bard
-              </span>
-            )}
+            <TierToggle initialTier={tier} />
             {AUTH_CONFIGURED ? (
               session?.user ? (
                 <>

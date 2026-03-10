@@ -98,6 +98,22 @@ a {
   transform: scaleY(0.5);
 }
 
+/* Session row entrance */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.session-row-enter {
+  animation: fade-up 200ms ease-out both;
+}
+
 /* Undo toast countdown bar */
 @keyframes shrink {
   from {

@@ -23,15 +23,11 @@ function formatRelativeDate(isoString: string): string {
 }
 
 export function formatSessionName(name: string): string {
-  // Strip the auto-generated date prefix ("3/9/2026 – ") to show just the game names.
-  const dashIdx = name.indexOf(" – ");
-  return dashIdx !== -1 ? name.slice(dashIdx + 3) : name;
+  return name;
 }
 
 export function SessionList({ sessions, selectedId, onSelect, onDelete }: SessionListProps) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-
-  if (sessions.length === 0) return null;
 
   return (
     <div className="flex flex-col gap-1.5 rounded-2xl border border-white/[0.07] bg-zinc-900/70 p-3 shadow-lg shadow-black/40 backdrop-blur-sm">
@@ -39,9 +35,11 @@ export function SessionList({ sessions, selectedId, onSelect, onDelete }: Sessio
         <span className="text-[10px] font-semibold tracking-widest text-zinc-500 uppercase">
           Playlist History
         </span>
-        <span className="text-[10px] font-medium text-zinc-600 tabular-nums">
-          {sessions.length}/{MAX_PLAYLIST_SESSIONS}
-        </span>
+        {sessions.length > 0 && (
+          <span className="text-[10px] font-medium text-zinc-600 tabular-nums">
+            {sessions.length}/{MAX_PLAYLIST_SESSIONS}
+          </span>
+        )}
         {/* Info tooltip */}
         <div className="group relative ml-0.5">
           <svg
@@ -67,6 +65,12 @@ export function SessionList({ sessions, selectedId, onSelect, onDelete }: Sessio
         </div>
       </div>
 
+      {sessions.length === 0 ? (
+        <p className="px-1 py-2 text-[11px] text-zinc-600">
+          No playlists yet — curate or import one to get started.
+        </p>
+      ) : null}
+
       <div className="flex flex-col gap-0.5">
         {sessions.map((session) => {
           const isSelected = session.id === selectedId;
@@ -81,7 +85,7 @@ export function SessionList({ sessions, selectedId, onSelect, onDelete }: Sessio
                   onSelect(session.id);
                 }
               }}
-              className={`group relative flex cursor-pointer items-center gap-2.5 rounded-xl px-2.5 py-2 transition-colors ${
+              className={`session-row-enter group relative flex cursor-pointer items-center gap-2.5 rounded-xl px-2.5 py-2 transition-colors ${
                 isSelected ? "bg-zinc-800/80 ring-1 ring-white/[0.08]" : "hover:bg-zinc-800/50"
               }`}
             >

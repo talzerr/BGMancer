@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import { Playlist, Games, YtPlaylists } from "@/lib/db/repo";
 import { getOrCreateUserId } from "@/lib/services/session";
 import { fetchPlaylistItems, fetchVideoDurations } from "@/lib/services/youtube";
-import { selectTracksFromList } from "@/lib/services/curation";
-import { getLocalLLMProvider } from "@/lib/llm";
+import { selectTracksFromList, cleanTrackNames } from "@/lib/services/curation";
+import { getLocalLLMProvider, getCleaningProvider } from "@/lib/llm";
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const cookieStore = await cookies();
@@ -79,6 +79,18 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     // Duration is optional — proceed without it
   }
 
+  // Clean the new track's display name so the card reflects the reroll visually.
+  let trackName: string | null = null;
+  try {
+    const cleanedNames = await cleanTrackNames(
+      [{ id, gameTitle: game.title, videoTitle: picked.title }],
+      getCleaningProvider(),
+    );
+    trackName = cleanedNames.get(id) ?? null;
+  } catch {
+    // Name cleaning is optional — fall back to raw video title
+  }
+
   try {
     Playlist.setFound(
       id,
@@ -87,6 +99,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       picked.channelTitle,
       picked.thumbnail,
       durationSeconds,
+      trackName,
     );
   } catch (err) {
     console.error("[reroll] setFound failed:", err);

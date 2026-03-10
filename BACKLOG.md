@@ -18,17 +18,56 @@
 
 ## Playlist
 
+- **Better auto-generated session names** — the current name is just a comma-joined list of game titles (e.g. "Elden Ring, Hades, Celeste"). Consider having the LLM produce a short evocative title for the playlist based on the games and mood — something like "Soulsborne Descent" or "Indie Chill Mix" — generated as a cheap side-call at the end of Phase 3. Fallback to the game-list name if the call fails.
+
 - **Track rating** — Thumbs Up / Thumbs Down while a track plays; liked/disliked video IDs are stored and injected into the Phase 3 curation prompt as explicit keep/avoid hints on the next run
 - **Track blacklist** — permanently mark a video as "never include this again"; persisted to DB and filtered during Phase 2 candidate selection
 - **Playlist preview before commit** — after Phase 3 returns, surface the ordered track list for review before saving; allow swapping or removing individual tracks in that moment
 - **Playlist text/CSV export** — export current playlist as plain text or CSV (distinct from YouTube sync); useful for copying tracklists or sharing outside the app
 - **Playlist seed export/import** — encode the current playlist as a compact string (video ID + game name per entry) and surface a share button; pasting a valid seed recreates the exact playlist instantly, no generation needed; depends on the `/share/[seed]` page
+- **Rethink track reroll** - do we want it? can we make sure its not abused?
 
 ## Library
 
 - **Playlist cache refresh** — a button per game to force BGMancer to re-discover its YouTube playlist (useful when an OST upload gets taken down or replaced)
 - **Bulk text import** — paste a list of game titles to add multiple games at once
 - **"The Essentials" empty state** — when the library is empty, show a curated starter set (e.g. Chrono Trigger, Halo, Doom, Persona 5) as one-click adds; a first-time user should hear music within 3 clicks
+
+## 🔴 Curation Overhaul [TOP PRIORITY]
+
+The current three-phase pipeline (Phase 2 per-game candidate selection → Phase 3 global curation) has a fundamental quality ceiling. The end result often feels inconsistent — curated tracks feel intentional but the tail of the playlist is uneven, and single-game sessions get no arc ordering at all. This needs a ground-up rethink before further incremental patches make the design harder to change.
+
+Key problems to solve:
+
+- **Phase 3 selects blind** — the LLM picks tracks by title only with no signal about duration, energy, or whether a track is a boss theme vs. ambient. Providing duration annotations (so the LLM avoids stingers and 20-minute suites) and game metadata (genre, platform) would give it real signal.
+- **Single-game has no arc** — for one-game sessions, Phase 3 is skipped entirely; the output is Phase 2's shuffled slice. A dedicated ordering step (even a lightweight re-ranking prompt) would make single-game playlists feel intentional.
+- **Fill tracks are uncurated** — when the duration filter drops tracks post-Phase 3, the reserve fills (unused Phase 2 candidates) are added mechanically in round-robin order, not curated. The seam between "curated" and "filled" is visible.
+- **CANDIDATES_MAX=30 is a hard ceiling** — for a single-game 50-track target, Phase 2 only provides 30 candidates. Phase 3 is then asked to fill 60 slots from 30 sources. More candidates are needed for large targets.
+- **No cross-session variety** — consecutive generations can produce very similar playlists because there's no signal about what was played before.
+- **Name cleaning stage** - improve, every generation has errors for example
+
+```exmp1
+game: Grand Theft Auto III – The Definitive Edition
+track: GTA III (GTA 3) - Game FM | Agallah + Sean Price - "Rising to the Top"
+result: The Definitive Edition
+expected: Rising to the Top
+```
+
+```exmp2
+game: Aeruta
+track: Elite Strategist - Aeruta (OST) | Red Eyes Studios
+result: Aeruta
+expected: Elite Strategist
+```
+
+Possible directions to explore before implementing anything:
+
+1. Redesign Phase 3 to receive duration + energy metadata per track (requires a pre-Phase-3 YouTube duration fetch or a metadata enrichment step)
+2. Collapse Phase 2 + Phase 3 into a single LLM call that receives the full candidate pool with metadata and returns an ordered playlist directly
+3. Give Phase 2 explicit "role" targets (e.g., "pick 2 openers, 3 mid-energy builds, 1 closer") so Phase 3 has structured variety to work with
+4. Add a post-Phase-3 re-ranking step that scores the draft playlist against diversity and arc criteria and swaps out weak spots
+
+---
 
 ## Curation Intelligence
 
