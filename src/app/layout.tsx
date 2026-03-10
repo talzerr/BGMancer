@@ -1,3 +1,7 @@
+// BGMancer — Copyright (C) 2026 Tal Koviazin (talzerr)
+// This program is free software: you can redistribute it and/or modify it
+// under the terms of the GNU Affero General Public License v3 as published
+// by the Free Software Foundation. See the LICENSE file for details.
 import type { Metadata } from "next";
 import "./globals.css";
 import { PlayerProvider } from "@/context/player-context";
