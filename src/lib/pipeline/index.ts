@@ -1,5 +1,10 @@
 import { Games, Playlist, Users, Sessions, Config } from "@/lib/db/repo";
-import { getLLMProvider, getLocalLLMProvider } from "@/lib/llm";
+import {
+  getCandidatesProvider,
+  getCurationProvider,
+  getCleaningProvider,
+  type LLMProvider,
+} from "@/lib/llm";
 import { fetchVideoDurations, YouTubeQuotaError } from "@/lib/services/youtube";
 import { curatePlaylist, cleanTrackNames, type CandidateGroup } from "@/lib/services/curation";
 import { generateTracksForFullOST, fetchGameCandidates } from "@/lib/pipeline/candidates";
@@ -7,6 +12,14 @@ import { makePendingTrack, toInsertable, resolvePendingSlots } from "@/lib/pipel
 import type { GenerateEvent, PendingTrack, CandidateResult } from "@/lib/pipeline/types";
 import type { OSTTrack } from "@/lib/services/youtube";
 import type { Game, PlaylistTrack } from "@/types";
+import {
+  CANDIDATES_MAX,
+  CANDIDATES_MIN,
+  CANDIDATES_MULTIPLIER,
+  MIN_TRACK_DURATION_SECONDS,
+  MAX_TRACK_DURATION_SECONDS,
+  SESSION_NAME_MAX_GAMES,
+} from "@/lib/constants";
 
 export type { GenerateEvent };
 
@@ -16,17 +29,24 @@ export type { GenerateEvent };
  * Three-phase approach for individual-track games:
  *   Phase 1 — Playlist discovery: for each game, find (or load from cache)
  *             the YouTube OST playlist ID.
- *   Phase 2 — Per-game track selection: LLM picks 3× the fair-share count
- *             from each game's playlist, filtering junk and ensuring variety
- *             within the game. Produces a candidate pool per game.
- *   Phase 3 — Global curation: a single LLM call across all candidate pools
- *             builds the final ordered playlist — balancing cross-game variety,
- *             energy flow, and overall arc from start to end.
+ *   Phase 2 — Per-game candidate selection: the candidates provider (Claude
+ *             when available, else Ollama) picks candidates per game, filtering
+ *             junk and ensuring within-game variety. Produces a candidate pool.
+ *   Phase 3 — Global curation: the curation provider (Claude when available,
+ *             else Ollama) builds the final ordered playlist across all pools —
+ *             balancing cross-game variety, energy flow, and overall arc.
+ *
+ * Curation modes affect pipeline behaviour:
+ *   skip    — excluded entirely (Games.listAll() already filters these out)
+ *   lite    — phases 1/2 with half the candidate count; competes in phase 3
+ *   include — standard phases 1/2/3 (default)
+ *   focus   — phases 1/2 with exactly fair-share candidates; bypasses
+ *             phase 3, gets guaranteed fair-share slots directly
  *
  * Full-OST games bypass all three phases (one compilation video per game).
  */
 export async function generatePlaylist(send: (event: GenerateEvent) => void): Promise<void> {
-  const games = Games.listAll();
+  const games = Games.listAll(); // skip-mode games are already excluded
 
   if (games.length === 0) {
     send({ type: "error", message: "Add at least one game before generating a playlist." });
@@ -36,14 +56,18 @@ export async function generatePlaylist(send: (event: GenerateEvent) => void): Pr
   const config = Config.load();
   const targetCount = config.target_track_count;
 
-  // Phase 2 uses a local model (Ollama) — no game knowledge required, just
-  // junk filtering and within-game variety. Phase 3 uses the primary provider
-  // (Claude) where game knowledge matters for cross-game curation.
-  const localProvider = getLocalLLMProvider();
-  const mainProvider = getLLMProvider();
+  // Phase 2 (per-game candidates) uses the candidates provider — Claude when
+  // available since game knowledge improves candidate quality. Phase 3 (global
+  // curation) uses the curation provider — Claude preferred for cross-game
+  // ordering and energy arc. Name cleaning uses a local model only (text
+  // processing; no game knowledge needed, not worth burning API quota).
+  const candidatesProvider = getCandidatesProvider();
+  const curationProvider = getCurationProvider();
+  const cleaningProvider = getCleaningProvider();
 
   const fullOSTGames = games.filter((g) => g.allow_full_ost);
-  const individualGames = games.filter((g) => !g.allow_full_ost);
+  const allIndividualGames = games.filter((g) => !g.allow_full_ost);
+  const focusGames = allIndividualGames.filter((g) => g.curation === "focus");
 
   // ── Full OST games ────────────────────────────────────────────────────────
   const fullOSTResults = await Promise.all(
@@ -53,17 +77,34 @@ export async function generatePlaylist(send: (event: GenerateEvent) => void): Pr
   // ── Phases 1 & 2: playlist discovery + per-game candidate selection ──────
   const targetForIndividual = Math.max(0, targetCount - fullOSTGames.length);
   const perGameFairShare =
-    individualGames.length > 0 ? Math.ceil(targetForIndividual / individualGames.length) : 0;
+    allIndividualGames.length > 0 ? Math.ceil(targetForIndividual / allIndividualGames.length) : 0;
   // 3× fair share per game as candidates, capped at 30 (prompt size / cost)
-  const perGameCandidateTarget = Math.min(Math.max(perGameFairShare * 3, 5), 30);
+  const perGameCandidateTarget = Math.min(
+    Math.max(perGameFairShare * CANDIDATES_MULTIPLIER, CANDIDATES_MIN),
+    CANDIDATES_MAX,
+  );
+
+  // Focus games consume guaranteed slots; curation games (lite + include) share the rest.
+  const focusSlots = focusGames.length * perGameFairShare;
+  const curationSlots = Math.max(0, targetForIndividual - focusSlots);
 
   // Phases 1 & 2 run in parallel across all games — YouTube fetches and local
   // LLM calls are independent per game. If any game throws a quota error it
   // propagates immediately; other errors are caught per-game.
+  // Candidate counts by mode:
+  //   focus  — exactly perGameFairShare (bypasses phase 3, no extras needed)
+  //   lite   — half of perGameCandidateTarget (fewer candidates → lower phase 3 representation)
+  //   include — full perGameCandidateTarget
   const candidateResults: CandidateResult[] = await Promise.all(
-    individualGames.map(async (game) => {
+    allIndividualGames.map(async (game) => {
+      const candidateCount =
+        game.curation === "focus"
+          ? perGameFairShare
+          : game.curation === "lite"
+            ? Math.max(1, Math.round(perGameCandidateTarget * 0.5))
+            : perGameCandidateTarget;
       try {
-        return await fetchGameCandidates(game, perGameCandidateTarget, localProvider, send);
+        return await fetchGameCandidates(game, candidateCount, candidatesProvider, send);
       } catch (err) {
         if (err instanceof YouTubeQuotaError) throw err;
         console.error(`[generate] Phases 1/2 failed for game "${game.title}":`, err);
@@ -88,26 +129,36 @@ export async function generatePlaylist(send: (event: GenerateEvent) => void): Pr
     }),
   );
 
-  const trackResults = candidateResults.filter(
+  const focusTrackResults = candidateResults.filter(
     (r): r is Extract<CandidateResult, { kind: "tracks" }> =>
-      r.kind === "tracks" && r.tracks.length > 0,
+      r.kind === "tracks" && r.game.curation === "focus" && r.tracks.length > 0,
+  );
+  const curationTrackResults = candidateResults.filter(
+    (r): r is Extract<CandidateResult, { kind: "tracks" }> =>
+      r.kind === "tracks" && r.game.curation !== "focus" && r.tracks.length > 0,
   );
   const fallbackTracks = candidateResults
     .filter((r): r is Extract<CandidateResult, { kind: "fallback" }> => r.kind === "fallback")
     .flatMap((r) => r.pendingTracks);
 
-  // ── Phase 3: global cross-game curation ──────────────────────────────────
+  // ── Focus games: bypass curation, take guaranteed slots directly ──────────
+  const focusedTracks = await resolveDirectTracks(focusTrackResults, perGameFairShare);
+
+  // ── Phase 3: global cross-game curation (lite + include games) ───────────
   const curatedTracks = await runCurationPhase(
-    trackResults,
-    targetForIndividual,
-    mainProvider,
+    curationTrackResults,
+    curationSlots,
+    curationProvider,
     send,
   );
 
   // ── Clean track display names ─────────────────────────────────────────────
   // Ask the local LLM to strip YouTube title noise. video_title is left as the
   // raw reference. Full-OST tracks (track_name = null) are skipped.
-  const tracksToClean = curatedTracks.filter((t) => t.video_title != null && t.track_name != null);
+  const allIndividualTracks = [...focusedTracks, ...curatedTracks];
+  const tracksToClean = allIndividualTracks.filter(
+    (t) => t.video_title != null && t.track_name != null,
+  );
   if (tracksToClean.length > 0) {
     send({ type: "progress", message: "Cleaning track names…" });
     const cleanedNames = await cleanTrackNames(
@@ -116,29 +167,35 @@ export async function generatePlaylist(send: (event: GenerateEvent) => void): Pr
         gameTitle: t.game_title ?? "",
         videoTitle: t.video_title ?? "",
       })),
-      localProvider,
+      cleaningProvider,
     );
-    for (const track of curatedTracks) {
+    for (const track of allIndividualTracks) {
       const cleaned = cleanedNames.get(track.id);
       if (cleaned != null) track.track_name = cleaned;
     }
   }
 
   // ── Assemble final track list ─────────────────────────────────────────────
-  // Curated individual tracks first (in curator order), then full-OST compilations
+  // Focus tracks first (guaranteed), then curated, fallbacks, then full-OST compilations
   const fullOSTTracks = fullOSTResults.flatMap((r) => r.tracks);
-  const MAX_TRACK_DURATION = 600; // 10 minutes
-  const allTracks = [...curatedTracks, ...fallbackTracks, ...fullOSTTracks].filter(
-    (t) =>
-      config.allow_long_tracks ||
-      t.duration_seconds == null ||
-      t.duration_seconds <= MAX_TRACK_DURATION,
-  );
+  const allTracks = [
+    ...focusedTracks,
+    ...curatedTracks,
+    ...fallbackTracks,
+    ...fullOSTTracks,
+  ].filter((t) => {
+    if (t.duration_seconds == null) return true; // duration unknown — keep and let the player handle it
+    if (t.duration_seconds < MIN_TRACK_DURATION_SECONDS) return false; // always drop short intros/stingers
+    if (!config.allow_long_tracks && t.duration_seconds > MAX_TRACK_DURATION_SECONDS) return false;
+    return true;
+  });
 
   send({ type: "progress", message: "Saving playlist…" });
   const user = Users.getOrCreateDefault();
   const gameNames = [...new Set(allTracks.map((t) => t.game_title ?? t.game_id))];
-  const nameList = gameNames.slice(0, 3).join(", ") + (gameNames.length > 3 ? " and more" : "");
+  const nameList =
+    gameNames.slice(0, SESSION_NAME_MAX_GAMES).join(", ") +
+    (gameNames.length > SESSION_NAME_MAX_GAMES ? " and more" : "");
   const sessionName = `${new Date().toLocaleDateString()} – ${nameList}`;
   const session = Sessions.create(user.id, sessionName);
   Playlist.replaceAll(session.id, toInsertable(allTracks));
@@ -167,12 +224,37 @@ export async function generatePlaylist(send: (event: GenerateEvent) => void): Pr
   });
 }
 
+// ─── Focus game helper ────────────────────────────────────────────────────────
+
+/** Converts focus-game candidate results directly to PendingTracks, bypassing phase 3. */
+async function resolveDirectTracks(
+  trackResults: Array<{ game: Game; tracks: OSTTrack[] }>,
+  perGameCount: number,
+): Promise<PendingTrack[]> {
+  if (trackResults.length === 0) return [];
+  const selected = trackResults.flatMap(({ game, tracks }) =>
+    tracks.slice(0, perGameCount).map((t) => ({ game, track: t })),
+  );
+  const durations = await fetchVideoDurations(selected.map(({ track }) => track.videoId));
+  return selected.map(({ game, track }) =>
+    makePendingTrack(game.id, game.title, {
+      track_name: track.title,
+      video_id: track.videoId,
+      video_title: track.title,
+      channel_title: track.channelTitle,
+      thumbnail: track.thumbnail,
+      duration_seconds: durations.get(track.videoId) ?? null,
+      status: "found",
+    }),
+  );
+}
+
 // ─── Phase 3 helper ───────────────────────────────────────────────────────────
 
 async function runCurationPhase(
   trackResults: Array<{ game: Game; tracks: OSTTrack[] }>,
   targetForIndividual: number,
-  mainProvider: ReturnType<typeof getLLMProvider>,
+  mainProvider: LLMProvider,
   send: (e: GenerateEvent) => void,
 ): Promise<PendingTrack[]> {
   if (trackResults.length === 0) return [];

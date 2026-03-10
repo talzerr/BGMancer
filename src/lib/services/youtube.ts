@@ -181,25 +181,33 @@ export async function findBestVideo(
  * Fetch durations for a batch of video IDs in a single videos.list call (1 quota unit).
  * Returns a map of videoId → duration in seconds.
  */
+const YT_VIDEOS_PAGE_SIZE = 50; // YouTube videos.list max IDs per request
+
 export async function fetchVideoDurations(videoIds: string[]): Promise<Map<string, number>> {
   const durations = new Map<string, number>();
   if (videoIds.length === 0) return durations;
 
-  const url = new URL(`${YOUTUBE_API_BASE}/videos`);
-  url.searchParams.set("key", YOUTUBE_API_KEY);
-  url.searchParams.set("id", videoIds.join(","));
-  url.searchParams.set("part", "contentDetails");
+  // Chunk into pages of 50 — the YouTube videos.list endpoint hard-caps at 50 IDs.
+  for (let i = 0; i < videoIds.length; i += YT_VIDEOS_PAGE_SIZE) {
+    const chunk = videoIds.slice(i, i + YT_VIDEOS_PAGE_SIZE);
 
-  const res = await fetch(url.toString());
-  if (!res.ok) {
-    await throwIfFatalError(res);
-    return durations;
+    const url = new URL(`${YOUTUBE_API_BASE}/videos`);
+    url.searchParams.set("key", YOUTUBE_API_KEY);
+    url.searchParams.set("id", chunk.join(","));
+    url.searchParams.set("part", "contentDetails");
+
+    const res = await fetch(url.toString());
+    if (!res.ok) {
+      await throwIfFatalError(res);
+      continue; // best-effort: skip this chunk, keep results so far
+    }
+
+    const data = await res.json();
+    for (const v of data.items ?? []) {
+      durations.set(v.id, parseDuration(v.contentDetails?.duration ?? "PT0S"));
+    }
   }
 
-  const data = await res.json();
-  for (const v of data.items ?? []) {
-    durations.set(v.id, parseDuration(v.contentDetails?.duration ?? "PT0S"));
-  }
   return durations;
 }
 

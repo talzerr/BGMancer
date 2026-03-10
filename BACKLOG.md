@@ -40,6 +40,8 @@ Re-expose the per-game toggle that makes BGMancer find a single long compilation
 
 - **Mobile install** — add BGMancer to your home screen as a PWA
 - **Quick-Add suggestions** — based on your active games, show recommended games to add with one click
+- **Keyboard shortcuts** — space to play/pause, ← / → for previous/next, `m` to mute/dim; show a shortcuts cheat-sheet on `?`
+- **Player memory** — persist the last-used player state, including track playing, location and voltime
 
 ## Hosting
 

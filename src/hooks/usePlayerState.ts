@@ -65,6 +65,9 @@ export function usePlayerState(foundTracks: PlaylistTrack[]) {
         });
       }
     }
+    // effectiveFoundTracks is intentionally omitted: we only want to mark a track
+    // as played when the *index* changes (i.e. the user or auto-advance moves to a
+    // new track), not on every playlist mutation (reorder, delete, etc.).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTrackIndex]);
 

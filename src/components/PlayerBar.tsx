@@ -33,22 +33,13 @@ interface PlayerBarProps {
   tracks: PlaylistTrack[];
   currentIndex: number;
   onIndexChange: (i: number) => void;
-  onClose: () => void;
   onPlayingChange?: (playing: boolean) => void;
   shuffleMode?: boolean;
   onToggleShuffle?: () => void;
 }
 
 export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function PlayerBar(
-  {
-    tracks,
-    currentIndex,
-    onIndexChange,
-    onClose: _onClose,
-    onPlayingChange,
-    shuffleMode = false,
-    onToggleShuffle,
-  },
+  { tracks, currentIndex, onIndexChange, onPlayingChange, shuffleMode = false, onToggleShuffle },
   ref,
 ) {
   const {
@@ -68,8 +59,13 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
   const [seekingValue, setSeekingValue] = useState(0);
   const [isMinimized, setIsMinimized] = useState(false);
 
-  const displayTime = isSeeking ? seekingValue : currentTime;
-  const fillPct = (displayTime / Math.max(duration, 1)) * 100;
+  const safeDuration = isFinite(duration) && duration > 0 ? duration : 0;
+  const displayTime = isFinite(isSeeking ? seekingValue : currentTime)
+    ? isSeeking
+      ? seekingValue
+      : currentTime
+    : 0;
+  const fillPct = safeDuration > 0 ? (displayTime / safeDuration) * 100 : 0;
 
   useImperativeHandle(ref, () => ({ togglePlayPause }));
 
@@ -86,7 +82,7 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
       <input
         type="range"
         min={0}
-        max={Math.max(duration, 1)}
+        max={Math.max(safeDuration, 1)}
         step={1}
         value={displayTime}
         onPointerDown={() => {
@@ -193,7 +189,7 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
             <div className="flex items-center gap-1.5 font-mono text-[11px] text-zinc-500 tabular-nums">
               <span>{fmtTime(currentTime)}</span>
               <span className="text-zinc-700">/</span>
-              <span>{fmtTime(duration)}</span>
+              <span>{fmtTime(safeDuration)}</span>
             </div>
           </div>
 

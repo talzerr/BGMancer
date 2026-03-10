@@ -39,6 +39,8 @@ Pick **25**, **50**, or **100** from the preset buttons, or hit **Custom** to ty
 
 - **Long tracks** — off by default. When off, any track longer than 10 minutes is excluded from the playlist. This keeps OST medleys and extended suites out of a focused listening session. Turn it on if you want the full experience including those longer pieces.
 
+Regardless of this setting, tracks shorter than 90 seconds are always filtered out — title cards, stingers, and menu jingles aren't worth a playlist slot.
+
 ### How it works
 
 Hit **Curate N Tracks** and watch a live progress panel as BGMancer works through your games. Behind the scenes it runs in three passes:
@@ -104,9 +106,10 @@ Toggle **Spoilers** in the playlist action bar to blur every track you haven't p
 OST titles are notorious spoilers — _The Fate of Aerith_, _Burning Hometown_, _You Died_. With Anti-Spoiler Mode on:
 
 - Track thumbnails are blurred (a soft zoom blur, not a black box)
-- Titles are blurred in place — still there, just unreadable
+- Track titles are blurred in place — still there, just unreadable
+- Game names are blurred — so even the source game is hidden until you play it
 - Channel names are hidden entirely
-- The moment you hit **Play**, the track fully reveals itself
+- The moment you hit **Play**, the track fully reveals itself — in the playlist row and in the player bar
 
 Toggle it off at any time to see the full list. Turning it on mid-session only hides tracks you haven't reached yet. Your preference is remembered between sessions.
 
@@ -118,4 +121,4 @@ Hover any track row to reveal a remove button (×) on the right. Clicking it imm
 
 ## Starting over
 
-**Delete** in the playlist sub-row asks for confirmation before permanently removing the session and all its tracks.
+**Delete** in the playlist sub-row opens a confirmation step. Hover either button to see a tooltip — the confirmation button makes clear the action is permanent and cannot be undone.

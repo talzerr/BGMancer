@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Config } from "@/lib/db/repo";
 import type { AppConfig } from "@/types";
+import { MAX_TRACK_COUNT } from "@/lib/constants";
 
 export async function GET() {
   try {
@@ -18,9 +19,9 @@ export async function PUT(request: Request) {
 
     if (body.target_track_count !== undefined) {
       const n = Number(body.target_track_count);
-      if (!Number.isInteger(n) || n < 1 || n > 200) {
+      if (!Number.isInteger(n) || n < 1 || n > MAX_TRACK_COUNT) {
         return NextResponse.json(
-          { error: "target_track_count must be an integer between 1 and 200" },
+          { error: `target_track_count must be an integer between 1 and ${MAX_TRACK_COUNT}` },
           { status: 400 },
         );
       }

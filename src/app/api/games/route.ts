@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { Games } from "@/lib/db/repo";
+import { VALID_CURATIONS } from "@/lib/db/mappers";
 import { YT_IMPORT_GAME_ID } from "@/lib/constants";
 import { newId } from "@/lib/uuid";
-import type { AddGamePayload } from "@/types";
+import type { AddGamePayload, CurationMode } from "@/types";
 
 export async function GET(request: Request) {
   try {
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
 
     const id = newId();
     const steamAppid = typeof body.steam_appid === "number" ? body.steam_appid : null;
-    const game = Games.create(id, body.title.trim(), true, steamAppid);
+    const game = Games.create(id, body.title.trim(), "include", steamAppid);
     return NextResponse.json(game, { status: 201 });
   } catch (err) {
     console.error("[POST /api/games]", err);
@@ -46,10 +47,10 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const fields: { enabled?: boolean } = {};
+    const fields: { curation?: CurationMode } = {};
 
-    if (typeof body.enabled === "boolean") {
-      fields.enabled = body.enabled;
+    if (typeof body.curation === "string" && VALID_CURATIONS.has(body.curation as CurationMode)) {
+      fields.curation = body.curation as CurationMode;
     }
 
     if (Object.keys(fields).length === 0) {

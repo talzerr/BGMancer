@@ -1,8 +1,9 @@
 import { Playlist, type InsertableTrack } from "@/lib/db/repo";
-import { findBestVideo } from "@/lib/services/youtube";
+import { findBestVideo, YouTubeQuotaError } from "@/lib/services/youtube";
 import { newId } from "@/lib/uuid";
 import type { PlaylistTrack } from "@/types";
 import type { PendingTrack } from "@/lib/pipeline/types";
+import { MIN_TRACK_DURATION_SECONDS, MAX_TRACK_DURATION_SECONDS } from "@/lib/constants";
 
 // ─── Track factories ──────────────────────────────────────────────────────────
 
@@ -52,8 +53,6 @@ export function toInsertable(tracks: PendingTrack[]): InsertableTrack[] {
  * Updates the DB in-place and mutates the passed array so the caller's
  * in-memory state stays consistent.
  */
-const MAX_TRACK_DURATION = 600; // 10 minutes
-
 export async function resolvePendingSlots(
   inserted: PlaylistTrack[],
   allowLongTracks = false,
@@ -65,7 +64,11 @@ export async function resolvePendingSlots(
     try {
       const video = await findBestVideo(track.search_queries ?? [], false);
       if (video) {
-        if (!allowLongTracks && video.durationSeconds > MAX_TRACK_DURATION) {
+        if (video.durationSeconds < MIN_TRACK_DURATION_SECONDS) {
+          Playlist.setError(track.id, "Track is too short (intro or stinger).");
+          continue;
+        }
+        if (!allowLongTracks && video.durationSeconds > MAX_TRACK_DURATION_SECONDS) {
           Playlist.setError(track.id, "Track exceeds maximum duration.");
           continue;
         }
@@ -92,8 +95,10 @@ export async function resolvePendingSlots(
       } else {
         Playlist.setError(track.id, "No suitable compilation video found.");
       }
-    } catch {
-      // Leave as pending — user can retry
+    } catch (err) {
+      if (err instanceof YouTubeQuotaError) throw err; // propagate quota errors immediately
+      console.error(`[resolvePendingSlots] search failed for track ${track.id}:`, err);
+      // Other errors: leave as pending — user can retry
     }
   }
 }

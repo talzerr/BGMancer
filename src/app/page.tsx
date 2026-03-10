@@ -99,7 +99,7 @@ export default async function HomePage() {
       </header>
 
       {/* Main content */}
-      <main className="relative z-10 mx-auto max-w-6xl px-4 py-6 sm:px-6">
+      <main className="relative mx-auto max-w-6xl px-4 py-6 sm:px-6">
         <FeedClient isSignedIn={!!session?.user} authConfigured={AUTH_CONFIGURED} />
       </main>
     </div>

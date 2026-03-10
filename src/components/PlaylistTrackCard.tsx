@@ -137,10 +137,12 @@ export function PlaylistTrackCard({
       {/* Track info */}
       <div className="min-w-0 flex-1">
         <div className="mb-0.5 flex items-center gap-1.5">
-          <span className="truncate text-[11px] leading-none text-zinc-400">
+          <span
+            className={`truncate text-[11px] leading-none text-zinc-400 ${spoilerHidden ? "blur-sm select-none" : ""}`}
+          >
             {track.game_title}
           </span>
-          {isFullOST && (
+          {isFullOST && !spoilerHidden && (
             <span className="shrink-0 rounded-full border border-violet-500/20 bg-violet-500/15 px-1.5 py-0.5 text-[10px] leading-none font-semibold text-violet-400">
               Full OST
             </span>
@@ -183,31 +185,39 @@ export function PlaylistTrackCard({
         )}
 
         {onReroll && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onReroll();
-            }}
-            disabled={isRerolling || track.status === "searching"}
-            title="Get a different track from this game"
-            className="ml-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-zinc-700/60 hover:text-zinc-300 disabled:cursor-not-allowed disabled:opacity-30"
-          >
-            {isRerolling ? <Spinner className="h-3 w-3" /> : <RefreshIcon className="h-3 w-3" />}
-          </button>
+          <div className="group/reroll relative ml-1">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onReroll();
+              }}
+              disabled={isRerolling || track.status === "searching"}
+              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-zinc-700/60 hover:text-zinc-300 disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              {isRerolling ? <Spinner className="h-3 w-3" /> : <RefreshIcon className="h-3 w-3" />}
+            </button>
+            <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 rounded-md border border-white/[0.08] bg-zinc-900 px-2 py-1 text-[11px] whitespace-nowrap text-zinc-300 opacity-0 shadow-lg shadow-black/40 transition-opacity group-hover/reroll:opacity-100">
+              Replace with a different track
+            </div>
+          </div>
         )}
 
         {onRemove && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onRemove();
-            }}
-            disabled={track.status === "searching"}
-            title="Remove track"
-            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-900/40 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30"
-          >
-            <XIcon className="h-3 w-3" />
-          </button>
+          <div className="group/remove relative">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove();
+              }}
+              disabled={track.status === "searching"}
+              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-900/40 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              <XIcon className="h-3 w-3" />
+            </button>
+            <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 rounded-md border border-white/[0.08] bg-zinc-900 px-2 py-1 text-[11px] whitespace-nowrap text-zinc-300 opacity-0 shadow-lg shadow-black/40 transition-opacity group-hover/remove:opacity-100">
+              Remove from playlist
+            </div>
+          </div>
         )}
       </div>
     </div>

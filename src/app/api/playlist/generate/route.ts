@@ -1,7 +1,7 @@
-import { generatePlaylist, type GenerateEvent } from "@/lib/generatePlaylist";
+import { generatePlaylist, type GenerateEvent } from "@/lib/pipeline/index";
 import { YouTubeQuotaError, YouTubeInvalidKeyError } from "@/lib/services/youtube";
 
-export { type GenerateEvent } from "@/lib/generatePlaylist";
+export type { GenerateEvent };
 
 function makeStream() {
   const encoder = new TextEncoder();

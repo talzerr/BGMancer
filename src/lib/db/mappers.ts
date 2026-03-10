@@ -1,4 +1,11 @@
-import type { Game, PlaylistTrack, PlaylistSession, TrackStatus, User } from "@/types";
+import type {
+  Game,
+  PlaylistTrack,
+  PlaylistSession,
+  TrackStatus,
+  User,
+  CurationMode,
+} from "@/types";
 
 const VALID_STATUSES: Set<string> = new Set(["pending", "searching", "found", "error"]);
 
@@ -22,16 +29,18 @@ export function toPlaylistSession(row: Record<string, unknown>): PlaylistSession
   };
 }
 
-export function toPlaylistSessions(rows: unknown[]): PlaylistSession[] {
-  return (rows as Record<string, unknown>[]).map(toPlaylistSession);
-}
+export const VALID_CURATIONS = new Set<CurationMode>(["skip", "lite", "include", "focus"]);
 
 export function toGame(row: Record<string, unknown>): Game {
+  const raw = String(row.curation ?? "include");
+  const curation: CurationMode = VALID_CURATIONS.has(raw as CurationMode)
+    ? (raw as CurationMode)
+    : "include";
   return {
     id: String(row.id),
     title: String(row.title),
     allow_full_ost: !!row.allow_full_ost,
-    enabled: row.enabled !== 0,
+    curation,
     steam_appid: row.steam_appid != null ? Number(row.steam_appid) : null,
     playtime_minutes: row.playtime_minutes != null ? Number(row.playtime_minutes) : null,
     created_at: String(row.created_at ?? ""),

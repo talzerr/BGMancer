@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import type { Game } from "@/types";
+import type { Game, CurationMode } from "@/types";
 import { Spinner, SearchIcon, CheckIcon } from "@/components/Icons";
 import { AddGameForm } from "@/components/AddGameForm";
 import { GameRow } from "@/components/GameRow";
 import { SteamImportPanel } from "@/components/SteamImportPanel";
 import { SeedExportPanel } from "@/components/SeedExportPanel";
-type Filter = "all" | "active" | "disabled";
+type Filter = "all" | "skip" | "lite" | "include" | "focus";
 type SortKey = "playtime" | "name" | "added";
 
 const PAGE_SIZE_OPTIONS = [15, 25, 50, 100] as const;
@@ -44,16 +44,19 @@ export function LibraryClient() {
     fetchGames();
   }, [fetchGames]);
 
-  async function handleToggle(id: string, enabled: boolean) {
-    setGames((prev) => prev.map((g) => (g.id === id ? { ...g, enabled } : g)));
+  async function handleCurationChange(id: string, newCuration: CurationMode) {
+    const prevCuration = games.find((g) => g.id === id)?.curation;
+    setGames((list) => list.map((g) => (g.id === id ? { ...g, curation: newCuration } : g)));
     try {
       await fetch(`/api/games?id=${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled }),
+        body: JSON.stringify({ curation: newCuration }),
       });
     } catch {
-      setGames((prev) => prev.map((g) => (g.id === id ? { ...g, enabled: !enabled } : g)));
+      if (prevCuration !== undefined) {
+        setGames((list) => list.map((g) => (g.id === id ? { ...g, curation: prevCuration } : g)));
+      }
     }
   }
 
@@ -98,14 +101,19 @@ export function LibraryClient() {
     }
   }
 
-  const activeCount = games.filter((g) => g.enabled).length;
-  const disabledCount = games.filter((g) => !g.enabled).length;
+  const activeCount = games.filter((g) => g.curation !== "skip").length;
+  const skipCount = games.filter((g) => g.curation === "skip").length;
+  const liteCount = games.filter((g) => g.curation === "lite").length;
+  const includeCount = games.filter((g) => g.curation === "include").length;
+  const focusCount = games.filter((g) => g.curation === "focus").length;
 
   const displayed = useMemo(() => {
     let list = [...games];
 
-    if (filter === "active") list = list.filter((g) => g.enabled);
-    else if (filter === "disabled") list = list.filter((g) => !g.enabled);
+    if (filter === "skip") list = list.filter((g) => g.curation === "skip");
+    else if (filter === "lite") list = list.filter((g) => g.curation === "lite");
+    else if (filter === "include") list = list.filter((g) => g.curation === "include");
+    else if (filter === "focus") list = list.filter((g) => g.curation === "focus");
 
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -131,18 +139,18 @@ export function LibraryClient() {
   const pageStart = page * pageSize;
   const paginatedDisplayed = displayed.slice(pageStart, pageStart + pageSize);
 
-  async function handleEnableAllShown() {
-    const toEnable = displayed.filter((g) => !g.enabled);
-    if (toEnable.length === 0) return;
+  async function handleIncludeAllShown() {
+    const toInclude = displayed.filter((g) => g.curation === "skip");
+    if (toInclude.length === 0) return;
     setEnablingAll(true);
-    const ids = new Set(toEnable.map((g) => g.id));
-    setGames((prev) => prev.map((g) => (ids.has(g.id) ? { ...g, enabled: true } : g)));
+    const ids = new Set(toInclude.map((g) => g.id));
+    setGames((list) => list.map((g) => (ids.has(g.id) ? { ...g, curation: "include" } : g)));
     await Promise.all(
-      toEnable.map((g) =>
+      toInclude.map((g) =>
         fetch(`/api/games?id=${g.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ enabled: true }),
+          body: JSON.stringify({ curation: "include" }),
         }),
       ),
     );
@@ -195,8 +203,10 @@ export function LibraryClient() {
                 {(
                   [
                     { key: "all" as Filter, label: `All (${games.length})` },
-                    { key: "active" as Filter, label: `Active (${activeCount})` },
-                    { key: "disabled" as Filter, label: `Disabled (${disabledCount})` },
+                    { key: "focus" as Filter, label: `Focus (${focusCount})` },
+                    { key: "include" as Filter, label: `Include (${includeCount})` },
+                    { key: "lite" as Filter, label: `Lite (${liteCount})` },
+                    { key: "skip" as Filter, label: `Skip (${skipCount})` },
                   ] as const
                 ).map(({ key, label }) => (
                   <button
@@ -212,9 +222,9 @@ export function LibraryClient() {
                   </button>
                 ))}
 
-                {displayed.some((g) => !g.enabled) && (
+                {displayed.some((g) => g.curation === "skip") && (
                   <button
-                    onClick={handleEnableAllShown}
+                    onClick={handleIncludeAllShown}
                     disabled={enablingAll}
                     className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-teal-500/30 bg-teal-600/20 px-3 py-1.5 text-xs font-semibold text-teal-300 transition-colors hover:bg-teal-600/30 disabled:cursor-not-allowed disabled:opacity-50"
                   >
@@ -223,7 +233,7 @@ export function LibraryClient() {
                     ) : (
                       <CheckIcon className="h-3 w-3" />
                     )}
-                    Enable all shown ({displayed.filter((g) => !g.enabled).length})
+                    Include all shown ({displayed.filter((g) => g.curation === "skip").length})
                   </button>
                 )}
 
@@ -290,7 +300,7 @@ export function LibraryClient() {
                     key={game.id}
                     game={game}
                     ytPlaylistId={ytCache[game.id] ?? null}
-                    onToggle={handleToggle}
+                    onCurationChange={handleCurationChange}
                     onDelete={handleDelete}
                     onPlaylistChange={handlePlaylistChange}
                   />
@@ -343,7 +353,8 @@ export function LibraryClient() {
 
             {!loading && games.length > 0 && activeCount === 0 && (
               <p className="text-center text-xs text-zinc-600">
-                No active games — enable at least one to generate a playlist.
+                All games are set to Skip — set at least one to Lite, Include, or Focus to generate
+                a playlist.
               </p>
             )}
           </div>

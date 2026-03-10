@@ -55,6 +55,12 @@ export function usePlaylist() {
     [fetchTracks],
   );
 
+  function clearTracks() {
+    setTracks([]);
+    setCurrentSessionId(null);
+    setTracksLoading(false);
+  }
+
   function removeTracksForGame(gameId: string) {
     setTracks((prev) => prev.filter((t) => t.game_id !== gameId));
   }
@@ -240,6 +246,7 @@ export function usePlaylist() {
     rerollingIds,
     fetchTracks,
     loadForSession,
+    clearTracks,
     removeTracksForGame,
     removeTrackLocal,
     restoreTrackLocal,

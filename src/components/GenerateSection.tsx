@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import type { GameProgressEntry } from "@/hooks/usePlaylist";
 import { Spinner, CheckIcon, XIcon, ErrorCircle, MusicNote } from "@/components/Icons";
+import { MAX_TRACK_COUNT } from "@/lib/constants";
 
 interface GenerateSectionProps {
   generating: boolean;
@@ -130,7 +131,7 @@ export function GenerateSection({
                   ref={customInputRef}
                   type="number"
                   min={1}
-                  max={200}
+                  max={MAX_TRACK_COUNT}
                   value={targetTrackCount}
                   autoFocus
                   onChange={(e) => {

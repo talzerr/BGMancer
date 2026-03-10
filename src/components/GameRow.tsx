@@ -1,9 +1,41 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { Game } from "@/types";
+import type { Game, CurationMode } from "@/types";
 import { TrashIcon, YouTubeLogo, CheckIcon, XIcon } from "@/components/Icons";
-import { Toggle } from "@/components/Toggle";
+import { steamHeaderUrl } from "@/lib/constants";
+
+const CURATION_OPTIONS: {
+  mode: CurationMode;
+  label: string;
+  tooltip: string;
+  activeClass: string;
+}[] = [
+  {
+    mode: "skip",
+    label: "Skip",
+    tooltip: "Excluded from all playlists",
+    activeClass: "bg-zinc-700 text-zinc-200",
+  },
+  {
+    mode: "lite",
+    label: "Lite",
+    tooltip: "Occasional tracks — enters curation with fewer candidates",
+    activeClass: "bg-blue-600/30 text-blue-300",
+  },
+  {
+    mode: "include",
+    label: "Include",
+    tooltip: "Standard inclusion — normal representation in playlists",
+    activeClass: "bg-teal-600/30 text-teal-300",
+  },
+  {
+    mode: "focus",
+    label: "Focus",
+    tooltip: "Guaranteed tracks in every playlist — bypasses AI curation",
+    activeClass: "bg-amber-600/30 text-amber-300",
+  },
+];
 
 export function formatPlaytime(minutes: number | null): string | null {
   if (minutes == null) return null;
@@ -18,7 +50,7 @@ function SteamCoverArt({ appid, title }: { appid: number; title: string }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={`https://cdn.akamai.steamstatic.com/steam/apps/${appid}/header.jpg`}
+      src={steamHeaderUrl(appid)}
       alt={title}
       width={46}
       height={22}
@@ -45,13 +77,13 @@ function parsePlaylistId(input: string): string | null {
 export function GameRow({
   game,
   ytPlaylistId,
-  onToggle,
+  onCurationChange,
   onDelete,
   onPlaylistChange,
 }: {
   game: Game;
   ytPlaylistId: string | null;
-  onToggle: (id: string, enabled: boolean) => void;
+  onCurationChange: (id: string, curation: CurationMode) => void;
   onDelete: (id: string) => void;
   onPlaylistChange: (id: string, playlistId: string | null) => void;
 }) {
@@ -63,9 +95,10 @@ export function GameRow({
   const inputRef = useRef<HTMLInputElement>(null);
   const playtime = formatPlaytime(game.playtime_minutes);
 
-  async function handleToggle(value: boolean) {
+  async function handleCurationChange(mode: CurationMode) {
+    if (mode === game.curation) return;
     setToggling(true);
-    await onToggle(game.id, value);
+    await onCurationChange(game.id, mode);
     setToggling(false);
   }
 
@@ -96,14 +129,15 @@ export function GameRow({
     if (e.key === "Escape") setEditingPlaylist(false);
   }
 
+  const rowClass = {
+    skip: "border-white/[0.03] bg-zinc-950/60 opacity-50",
+    lite: "border-white/[0.05] bg-zinc-900/40",
+    include: "border-white/[0.07] bg-zinc-900/60",
+    focus: "border-amber-500/20 bg-amber-950/20",
+  }[game.curation];
+
   return (
-    <div
-      className={`group rounded-xl border px-3.5 pt-2.5 pb-2 transition-colors ${
-        game.enabled
-          ? "border-white/[0.07] bg-zinc-900/60"
-          : "border-white/[0.03] bg-zinc-950/60 opacity-60"
-      }`}
-    >
+    <div className={`group rounded-xl border px-3.5 pt-2.5 pb-2 transition-colors ${rowClass}`}>
       {/* Main row */}
       <div className="flex items-center gap-3">
         {game.steam_appid ? (
@@ -119,7 +153,21 @@ export function GameRow({
           {playtime && <p className="mt-0.5 text-[11px] leading-none text-zinc-500">{playtime}</p>}
         </div>
 
-        <Toggle checked={game.enabled} onChange={handleToggle} disabled={toggling} />
+        <div className="flex shrink-0 overflow-hidden rounded-lg border border-white/[0.07]">
+          {CURATION_OPTIONS.map(({ mode, label, tooltip, activeClass }) => (
+            <button
+              key={mode}
+              title={tooltip}
+              onClick={() => handleCurationChange(mode)}
+              disabled={toggling}
+              className={`cursor-pointer px-2 py-1 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed ${
+                game.curation === mode ? activeClass : "text-zinc-600 hover:text-zinc-300"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
         {confirmDelete ? (
           <div className="flex shrink-0 items-center gap-1">

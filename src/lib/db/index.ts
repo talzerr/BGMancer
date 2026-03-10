@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
+import { DEFAULT_TRACK_COUNT } from "@/lib/constants";
 
 // Stable UUID for the single local user — burned in so INSERT OR IGNORE is idempotent.
 export const LOCAL_USER_ID = "01960000-0000-7000-8000-000000000001";
@@ -32,9 +33,8 @@ function initSchema(db: Database.Database): void {
     CREATE TABLE IF NOT EXISTS games (
       id               TEXT    NOT NULL PRIMARY KEY,
       title            TEXT    NOT NULL,
-      vibe_preference  TEXT    NOT NULL,
       allow_full_ost   INTEGER NOT NULL DEFAULT 0,
-      enabled          INTEGER NOT NULL DEFAULT 1,
+      curation         TEXT    NOT NULL DEFAULT 'include',
       steam_appid      INTEGER,
       playtime_minutes INTEGER,
       created_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
@@ -95,7 +95,7 @@ function initSchema(db: Database.Database): void {
       updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
     );
 
-    INSERT OR IGNORE INTO config (key, value) VALUES ('target_track_count', '50');
+    INSERT OR IGNORE INTO config (key, value) VALUES ('target_track_count', '${DEFAULT_TRACK_COUNT}');
     INSERT OR IGNORE INTO config (key, value) VALUES ('youtube_playlist_id', '');
   `);
 }

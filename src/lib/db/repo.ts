@@ -1,5 +1,6 @@
 import type Database from "better-sqlite3";
 import { getDB, getSeedPlaylistId, LOCAL_USER_ID } from "@/lib/db";
+import { MAX_PLAYLIST_SESSIONS, DEFAULT_TRACK_COUNT } from "@/lib/constants";
 import {
   toGame,
   toGames,
@@ -8,7 +9,15 @@ import {
   toUser,
   parseSearchQueries,
 } from "@/lib/db/mappers";
-import type { Game, PlaylistTrack, PlaylistSession, User, AppConfig, TrackStatus } from "@/types";
+import type {
+  Game,
+  PlaylistTrack,
+  PlaylistSession,
+  User,
+  AppConfig,
+  TrackStatus,
+  CurationMode,
+} from "@/types";
 import { newId } from "@/lib/uuid";
 
 // Prepared statements cached by SQL string — avoids recompiling on every call.
@@ -25,7 +34,7 @@ function stmt(sql: string): Database.Statement<unknown[]> {
 // ─── Games ────────────────────────────────────────────────────────────────────
 
 export interface GameUpdateFields {
-  enabled?: boolean;
+  curation?: CurationMode;
 }
 
 export interface SteamGameInput {
@@ -35,16 +44,18 @@ export interface SteamGameInput {
 }
 
 export const Games = {
-  /** Returns only enabled games — used for playlist generation. */
+  /** Returns all non-skip games — used for playlist generation. */
   listAll(excludeId?: string): Game[] {
     if (excludeId) {
       return toGames(
-        stmt("SELECT * FROM games WHERE enabled = 1 AND id != ? ORDER BY created_at ASC").all(
-          excludeId,
-        ),
+        stmt(
+          "SELECT * FROM games WHERE curation != 'skip' AND id != ? ORDER BY created_at ASC",
+        ).all(excludeId),
       );
     }
-    return toGames(stmt("SELECT * FROM games WHERE enabled = 1 ORDER BY created_at ASC").all());
+    return toGames(
+      stmt("SELECT * FROM games WHERE curation != 'skip' ORDER BY created_at ASC").all(),
+    );
   },
 
   /** Returns all games regardless of enabled state — used by the library page. */
@@ -62,13 +73,13 @@ export const Games = {
   create(
     id: string,
     title: string,
-    enabled = true,
+    curation: CurationMode = "include",
     steamAppid: number | null = null,
     playtimeMinutes: number | null = null,
   ): Game {
     stmt(
-      "INSERT INTO games (id, title, vibe_preference, allow_full_ost, enabled, steam_appid, playtime_minutes) VALUES (?, ?, 'official_soundtrack', 0, ?, ?, ?)",
-    ).run(id, title, enabled ? 1 : 0, steamAppid, playtimeMinutes);
+      "INSERT INTO games (id, title, allow_full_ost, curation, steam_appid, playtime_minutes) VALUES (?, ?, 0, ?, ?, ?)",
+    ).run(id, title, curation, steamAppid, playtimeMinutes);
 
     const seededPlaylistId = getSeedPlaylistId(title);
     if (seededPlaylistId) {
@@ -84,10 +95,10 @@ export const Games = {
   },
 
   update(id: string, fields: GameUpdateFields): Game | null {
-    if (fields.enabled !== undefined) {
+    if (fields.curation !== undefined) {
       stmt(
-        `UPDATE games SET enabled = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`,
-      ).run(fields.enabled ? 1 : 0, id);
+        `UPDATE games SET curation = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`,
+      ).run(fields.curation, id);
     }
     return this.getById(id);
   },
@@ -99,7 +110,7 @@ export const Games = {
   ensureExists(id: string, title: string): void {
     const exists = stmt("SELECT id FROM games WHERE id = ?").get(id);
     if (!exists) {
-      this.create(id, title, false);
+      this.create(id, title, "skip");
     }
   },
 
@@ -112,8 +123,8 @@ export const Games = {
     const db = getDB();
     const insertSQL = `
       INSERT OR IGNORE INTO games
-        (id, title, vibe_preference, allow_full_ost, enabled, steam_appid, playtime_minutes)
-      VALUES (?, ?, 'official_soundtrack', 0, 0, ?, ?)
+        (id, title, allow_full_ost, curation, steam_appid, playtime_minutes)
+      VALUES (?, ?, 0, 'skip', ?, ?)
     `;
     const seedSQL = "INSERT OR IGNORE INTO game_yt_playlists (game_id, playlist_id) VALUES (?, ?)";
 
@@ -169,13 +180,13 @@ export const Users = {
 // ─── Playlist Sessions ────────────────────────────────────────────────────────
 
 export const Sessions = {
-  /** Creates a new session, enforcing a 3-session-per-user FIFO limit. */
+  /** Creates a new session, enforcing a MAX_PLAYLIST_SESSIONS-per-user FIFO limit. */
   create(userId: string, name: string, description?: string): PlaylistSession {
     const { cnt } = stmt("SELECT COUNT(*) AS cnt FROM playlists WHERE user_id = ?").get(userId) as {
       cnt: number;
     };
 
-    if (cnt >= 3) {
+    if (cnt >= MAX_PLAYLIST_SESSIONS) {
       stmt(
         "DELETE FROM playlists WHERE id = (SELECT id FROM playlists WHERE user_id = ? ORDER BY created_at ASC LIMIT 1)",
       ).run(userId);
@@ -231,10 +242,6 @@ export const Sessions = {
   /** Hard-deletes a session and all its tracks (via CASCADE). */
   delete(id: string): void {
     stmt("DELETE FROM playlists WHERE id = ?").run(id);
-  },
-
-  archive(id: string): void {
-    stmt("UPDATE playlists SET is_archived = 1 WHERE id = ?").run(id);
   },
 };
 
@@ -516,7 +523,7 @@ export const Config = {
     }>;
     const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
     return {
-      target_track_count: parseInt(map.target_track_count ?? "50", 10),
+      target_track_count: parseInt(map.target_track_count ?? String(DEFAULT_TRACK_COUNT), 10),
       youtube_playlist_id: map.youtube_playlist_id ?? "",
       anti_spoiler_enabled: map.anti_spoiler_enabled === "1",
       allow_long_tracks: map.allow_long_tracks === "1",

@@ -129,8 +129,10 @@ export function useYouTubePlayer({
     if (!isPlaying) return;
     const id = setInterval(() => {
       if (playerRef.current) {
-        setCurrentTime(playerRef.current.getCurrentTime());
-        setDuration(playerRef.current.getDuration());
+        const ct = playerRef.current.getCurrentTime();
+        const dur = playerRef.current.getDuration();
+        if (isFinite(ct)) setCurrentTime(ct);
+        if (isFinite(dur) && dur > 0) setDuration(dur);
       }
     }, 250);
     return () => clearInterval(id);
@@ -179,6 +181,9 @@ export function useYouTubePlayer({
         },
       },
     });
+    // currentIndexRef and tracksRef are intentionally omitted: the player is
+    // created once on API ready with whatever track is current at that moment.
+    // Adding them would tear down and recreate the player on every track change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiReady]);
 
@@ -191,6 +196,8 @@ export function useYouTubePlayer({
     setCurrentTime(0);
     setDuration(0);
     setPlaying(true);
+    // setPlaying is intentionally omitted: it's a stable internal helper derived
+    // from setState calls; including it would cause the effect to re-run spuriously.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentVideoId]);
 

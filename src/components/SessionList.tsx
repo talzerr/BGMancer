@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { PlaylistSessionWithCount } from "@/types";
+import { MAX_PLAYLIST_SESSIONS } from "@/lib/constants";
 
 interface SessionListProps {
   sessions: PlaylistSessionWithCount[];
@@ -34,9 +35,37 @@ export function SessionList({ sessions, selectedId, onSelect, onDelete }: Sessio
 
   return (
     <div className="flex flex-col gap-1.5 rounded-2xl border border-white/[0.07] bg-zinc-900/70 p-3 shadow-lg shadow-black/40 backdrop-blur-sm">
-      <span className="px-1 text-[10px] font-semibold tracking-widest text-zinc-500 uppercase">
-        Sessions
-      </span>
+      <div className="flex items-center gap-1.5 px-1">
+        <span className="text-[10px] font-semibold tracking-widest text-zinc-500 uppercase">
+          Playlist History
+        </span>
+        <span className="text-[10px] font-medium text-zinc-600 tabular-nums">
+          {sessions.length}/{MAX_PLAYLIST_SESSIONS}
+        </span>
+        {/* Info tooltip */}
+        <div className="group relative ml-0.5">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 16 16"
+            fill="currentColor"
+            className="h-3 w-3 cursor-default text-zinc-700 hover:text-zinc-500"
+          >
+            <path
+              fillRule="evenodd"
+              d="M15 8A7 7 0 1 1 1 8a7 7 0 0 1 14 0Zm-6 3.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM7.293 5.293a1 1 0 1 1 .99 1.667A.999.999 0 0 0 7.5 8a.75.75 0 0 0 1.5 0 2.5 2.5 0 1 0-2.197-3.707.75.75 0 1 0 1.046 1.074 1 1 0 0 1 .444-.074Z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <div className="pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-52 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 opacity-0 shadow-xl shadow-black/50 transition-opacity group-hover:opacity-100">
+            <p className="text-xs font-medium text-zinc-200">Playlist History</p>
+            <p className="mt-0.5 text-[11px] leading-snug text-zinc-400">
+              Each time you curate or import, a new playlist is saved here so you can switch between
+              past runs. Up to {MAX_PLAYLIST_SESSIONS} are kept — the oldest is automatically
+              removed when a new one is created.
+            </p>
+          </div>
+        </div>
+      </div>
 
       <div className="flex flex-col gap-0.5">
         {sessions.map((session) => {

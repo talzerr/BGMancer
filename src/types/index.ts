@@ -24,11 +24,19 @@ export interface PlaylistSessionWithCount extends PlaylistSession {
 
 // ─── Game library ─────────────────────────────────────────────────────────────
 
+/** Controls how a game participates in playlist generation.
+ *  skip    — excluded entirely
+ *  lite    — enters curation with half as many candidates (appears occasionally)
+ *  include — standard inclusion (default)
+ *  focus   — guaranteed tracks in every playlist, bypasses AI curation
+ */
+export type CurationMode = "skip" | "lite" | "include" | "focus";
+
 export interface Game {
   id: string;
   title: string;
   allow_full_ost: boolean;
-  enabled: boolean;
+  curation: CurationMode;
   steam_appid: number | null;
   playtime_minutes: number | null;
   created_at: string;
