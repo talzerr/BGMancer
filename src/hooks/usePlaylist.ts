@@ -227,7 +227,13 @@ export function usePlaylist() {
         setImportError(data.error ?? "Import failed");
         return false;
       }
-      setTracks(data.tracks ?? []);
+      // Switch to the newly created session
+      const sessionId = data.sessionId;
+      if (sessionId) {
+        await loadForSession(sessionId);
+      } else {
+        setTracks(data.tracks ?? []);
+      }
       setImportUrl("");
       return true;
     } catch (err) {

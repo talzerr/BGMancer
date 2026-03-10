@@ -42,7 +42,7 @@ Re-expose the per-game toggle that makes BGMancer find a single long compilation
 - **Mobile install** — add BGMancer to your home screen as a PWA
 - **Quick-Add suggestions** — based on your active games, show recommended games to add with one click
 - **Keyboard shortcuts** — space to play/pause, ← / → for previous/next, `m` to mute/dim; show a shortcuts cheat-sheet on `?`
-- **Player memory** — persist the last-used player state, including track playing, location and voltime
+- **Legal disclaimer footer** — add a site-wide footer with links to LICENSE, privacy notice (if applicable), and attribution; keep the same clean, minimal vibe as the AGPL license header
 
 ## Stats & Insights
 
@@ -52,15 +52,71 @@ A `/stats` page surfacing data already captured in the DB — no new tracking ne
 - **Total listening time** — cumulative runtime across all saved sessions
 - **Reroll & error heatmap** — tracks most frequently rerolled or stuck in error state; surfaces games the LLM consistently misjudges or YouTube has poor coverage for
 - **Track status trends** — found vs. pending vs. error rates per session over time, useful for diagnosing YouTube quota pressure
+- **YouTube quota monitor** — real-time YouTube API quota usage and estimated reset time; warn if approaching daily limit
+
+## Admin & Developer
+
+- **Admin dashboard** (`/admin`) — password-protected route for monitoring:
+  - YouTube API quota consumption and daily reset countdown
+  - Active session count (when multi-user is live)
+  - Disk usage per session
+  - Manual session purge controls
+  - Error logs and generation history
+- **Remove dev panel** — the DevPanel UI component is scaffolded but should be removed before shipping; admin dashboard replaces its functionality
 
 ## New Pages
 
 - **`/share/[seed]`** — a landing page for shared playlists. Depends on the playlist seed export/import feature (see Playlist section above); a visitor who follows a share link sees a read-only playlist view and can clone it into their own library with one click
 
-## Hosting
+## Launch Readiness
 
 - **Anonymous multi-user sessions** — issue each visitor a UUID cookie and route all DB reads/writes to a dedicated per-session SQLite file (`data/sessions/{uuid}.db`). Sessions expire after 30 days of inactivity. No sign-in required; data is silently scoped per browser. The repo layer stays unchanged via `AsyncLocalStorage` — only the DB init and API route wrappers need updating
+- **Self-host documentation** — comprehensive GETTING_STARTED.md covering YouTube API key setup, Ollama installation, environment config, and troubleshooting
+- **Live demo deployment** — host a public instance of BGMancer to showcase the product
+
+## Tier UX & Settings
+
+- **Tier switcher UI** — add a settings page where users can view their current tier (Bard/Maestro) and switch between them
+- **Tier capabilities display** — show what features are available on each tier and the differences
+- **Billing placeholder** — stub out UI for future billing/credit system if moving toward monetization
+- **Tier documentation** — update README with clear tier comparison and benefits
+
+## Mobile & Offline
+
+- **PWA install** — add BGMancer to your home screen as a Progressive Web App
+- **Player memory** — persist the last-used player state, including track playing, seek position, and volume; restore on reload
+
+## Hosting
+
 - **Session data export** — let a user download their full library + config as a JSON bundle to back up or migrate before their session expires
 - **Optional Google sign-in for persistence** — link an anonymous session to a Google account so the library survives cookie clears and works across devices
 - **Admin dashboard** — a password-protected `/admin` route showing active session count, disk usage per session, and a manual purge button
-- **Rate limiting** — per-session limits on generation requests and YouTube API calls to prevent quota exhaustion
+
+## Abuse Prevention & Public Launch Safeguards
+
+### Rate Limiting & Request Throttling
+
+- **Generation request rate limiting** — add per-session cooldown on `/api/playlist/generate` (e.g., 1 generation per 30 seconds, or 10 per hour); enforce via token bucket or sliding window; return `429 Too Many Requests` with retry-after header
+- **YouTube API quota budgets** — assign per-session daily quota limits (e.g., Bard tier gets 500/day, Maestro gets 5000/day); track quota spend and reject requests once exceeded
+- **LLM token budgets** — cap tokens per generation and track cumulative spend per session to prevent runaway costs on Claude/Ollama
+
+### Storage & Data Limits
+
+- **Library size cap** — add `MAX_LIBRARY_GAMES` constant (suggest 500–1000) and enforce at game-add endpoints; show friendly error when exceeded
+- **Per-session storage quota** — implement quota tracking (e.g., 50 MB per session) to prevent disk bloat; archive old playlists instead of deleting
+- **Concurrent generation limit** — allow only 1 active generation per session; queue subsequent requests and provide status feedback
+
+### Input Validation & Security
+
+- **Game title length limits** — add `MAX_GAME_TITLE_LENGTH` constant (suggest 200 chars) to prevent XSS and UI rendering issues
+- **Input sanitization** — sanitize all user input (game titles, session names, search queries, mood hints) to prevent injection attacks
+- **YouTube playlist import caps** — max imported tracks per playlist (e.g., 500 tracks) and max games per Steam import (e.g., 100 games)
+
+### Active Games Limit During Curation
+
+- **Hard limit on active games per generation** — cap the number of games that can contribute to a single playlist curation (e.g., max 50 active games); if library exceeds this, user must mark games as skipped to stay within limit; prevents combinatorial explosion of LLM prompt complexity and YouTube API spam
+
+### Usage Analytics & Monitoring
+
+- **Per-session usage logging** — track generation count, quota spend, storage usage, and error rates to identify abuse patterns
+- **Abuse detection alerts** — flag sessions that exceed thresholds (e.g., 10+ generations in 1 hour, quota spend > 90% daily limit)

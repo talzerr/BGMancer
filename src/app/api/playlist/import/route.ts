@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { Games, Playlist, Users, Sessions } from "@/lib/db/repo";
 import { YT_IMPORT_GAME_ID } from "@/lib/constants";
-import { fetchPlaylistItems, YouTubeQuotaError } from "@/lib/services/youtube";
+import {
+  fetchPlaylistItems,
+  fetchPlaylistMetadata,
+  YouTubeQuotaError,
+} from "@/lib/services/youtube";
 import { newId } from "@/lib/uuid";
 import { TrackStatus } from "@/types";
 import type { PlaylistTrack } from "@/types";
@@ -22,7 +26,8 @@ function extractPlaylistId(input: string): string | null {
  * POST /api/playlist/import
  *
  * Imports all tracks from a YouTube playlist by URL or ID.
- * Replaces the existing playlist. Tracks are imported as status='found'.
+ * Creates a new session (does not replace existing playlist).
+ * Tracks are imported as status='found'.
  */
 export async function POST(request: Request) {
   try {
@@ -45,10 +50,15 @@ export async function POST(request: Request) {
       );
     }
 
+    // Fetch playlist metadata to get the actual title
+    const metadata = await fetchPlaylistMetadata(playlistId);
+    const playlistTitle = metadata?.title ?? `YouTube Playlist (${playlistId.slice(0, 6)})`;
+    const sessionName = `YouTube: ${playlistTitle}`;
+
     Games.ensureExists(YT_IMPORT_GAME_ID, "YouTube Import");
 
     const user = Users.getOrCreateDefault();
-    const session = Sessions.create(user.id, `YouTube Import – ${new Date().toLocaleDateString()}`);
+    const session = Sessions.create(user.id, sessionName);
 
     const now = new Date().toISOString();
     const tracksToInsert = tracks.map((t) => ({
@@ -81,6 +91,7 @@ export async function POST(request: Request) {
       tracks: result,
       count: result.length,
       playlistId,
+      sessionId: session.id,
     });
   } catch (err) {
     if (err instanceof YouTubeQuotaError) {

@@ -102,6 +102,11 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
             onGenerate={handleGenerate}
             allowLongTracks={config.allowLongTracks}
             onToggleLongTracks={config.saveAllowLongTracks}
+            importUrl={playlist.importUrl}
+            onImportUrlChange={playlist.setImportUrl}
+            importing={playlist.importing}
+            importError={playlist.importError}
+            onImport={handleImport}
           />
 
           <SessionList

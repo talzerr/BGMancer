@@ -272,6 +272,36 @@ export async function searchOSTPlaylist(gameTitle: string): Promise<string | nul
 }
 
 /**
+ * Fetch playlist metadata (title, description, etc.) from YouTube.
+ * Costs 1 quota unit.
+ */
+export async function fetchPlaylistMetadata(
+  playlistId: string,
+): Promise<{ title: string; description: string } | null> {
+  const url = new URL(`${YOUTUBE_API_BASE}/playlists`);
+  url.searchParams.set("key", YOUTUBE_API_KEY);
+  url.searchParams.set("id", playlistId);
+  url.searchParams.set("part", "snippet");
+
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    console.error(`[YouTube] fetchPlaylistMetadata — playlistId: ${playlistId}`);
+    await throwIfFatalError(res);
+    return null;
+  }
+
+  const data = await res.json();
+  const items: Array<{ snippet: { title: string; description: string } }> = data.items ?? [];
+
+  if (items.length === 0) return null;
+
+  return {
+    title: items[0].snippet.title,
+    description: items[0].snippet.description,
+  };
+}
+
+/**
  * Fetch up to `maxTracks` tracks from a YouTube playlist, paginating as needed.
  * Each page costs 1 quota unit (50 items per page).
  * Default cap is 150 tracks (3 pages) to give the LLM a larger, varied pool.

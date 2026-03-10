@@ -59,6 +59,7 @@ export function PlaylistTrackCard({
 }: PlaylistTrackCardProps) {
   const hasVideo = !!track.video_id;
   const isFullOST = track.track_name === null;
+  const isImported = track.game_title === "YouTube Import";
   const statusCfg = STATUS_CONFIG[track.status] ?? STATUS_CONFIG.pending;
   const thumbnailSrc = gameThumbnail ?? track.thumbnail;
 
@@ -192,13 +193,13 @@ export function PlaylistTrackCard({
                 e.stopPropagation();
                 onReroll();
               }}
-              disabled={isRerolling || track.status === "searching"}
+              disabled={isRerolling || track.status === "searching" || isImported}
               className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-zinc-700/60 hover:text-zinc-300 disabled:cursor-not-allowed disabled:opacity-30"
             >
               {isRerolling ? <Spinner className="h-3 w-3" /> : <RefreshIcon className="h-3 w-3" />}
             </button>
             <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 rounded-md border border-white/[0.08] bg-zinc-900 px-2 py-1 text-[11px] whitespace-nowrap text-zinc-300 opacity-0 shadow-lg shadow-black/40 transition-opacity group-hover/reroll:opacity-100">
-              Replace with a different track
+              {isImported ? "Imported tracks cannot be rerolled" : "Replace with a different track"}
             </div>
           </div>
         )}
