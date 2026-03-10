@@ -1,4 +1,4 @@
-import { Games, Playlist, Users, Sessions, Config } from "@/lib/db/repo";
+import { Games, Playlist, Users, Sessions } from "@/lib/db/repo";
 import { CurationMode, GameProgressStatus, TrackStatus } from "@/types";
 import {
   getCandidatesProvider,
@@ -12,7 +12,7 @@ import { generateTracksForFullOST, fetchGameCandidates } from "@/lib/pipeline/ca
 import { makePendingTrack, toInsertable, resolvePendingSlots } from "@/lib/pipeline/assembly";
 import type { GenerateEvent, PendingTrack, CandidateResult } from "@/lib/pipeline/types";
 import type { OSTTrack } from "@/lib/services/youtube";
-import type { Game, PlaylistTrack } from "@/types";
+import type { AppConfig, Game, PlaylistTrack } from "@/types";
 import {
   CANDIDATES_MAX,
   CANDIDATES_MIN,
@@ -46,22 +46,25 @@ export type { GenerateEvent };
  *
  * Full-OST games bypass all three phases (one compilation video per game).
  */
-export async function generatePlaylist(send: (event: GenerateEvent) => void): Promise<void> {
-  const games = Games.listAll(); // skip-mode games are already excluded
+export async function generatePlaylist(
+  send: (event: GenerateEvent) => void,
+  userId: string,
+  config: AppConfig,
+): Promise<void> {
+  const games = Games.listAll(userId); // skip-mode games are already excluded
 
   if (games.length === 0) {
     send({ type: "error", message: "Add at least one game before generating a playlist." });
     return;
   }
 
-  const config = Config.load();
   const targetCount = config.target_track_count;
 
   // Phase 2 (per-game candidates) and Phase 3 (global curation) use providers
   // determined by the user's tier — Maestro routes to Anthropic when a key is
   // available, Bard always uses local Ollama. Name cleaning always uses Ollama
   // (text processing only; no game knowledge needed, not worth burning quota).
-  const user = Users.getOrCreateDefault();
+  const user = Users.getOrCreate(userId);
   const candidatesProvider = getCandidatesProvider(user.tier);
   const curationProvider = getCurationProvider(user.tier);
   const cleaningProvider = getCleaningProvider();
@@ -105,7 +108,7 @@ export async function generatePlaylist(send: (event: GenerateEvent) => void): Pr
             ? Math.max(1, Math.round(perGameCandidateTarget * 0.5))
             : perGameCandidateTarget;
       try {
-        return await fetchGameCandidates(game, candidateCount, candidatesProvider, send);
+        return await fetchGameCandidates(game, candidateCount, candidatesProvider, send, userId);
       } catch (err) {
         if (err instanceof YouTubeQuotaError) throw err;
         console.error(`[generate] Phases 1/2 failed for game "${game.title}":`, err);

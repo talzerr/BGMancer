@@ -6,6 +6,12 @@ import { GameProgressStatus } from "@/types";
 import type { Game, PlaylistTrack } from "@/types";
 import { GENERATION_COOLDOWN_MS } from "@/lib/constants";
 
+export interface GenerateConfig {
+  target_track_count: number;
+  allow_long_tracks: boolean;
+  anti_spoiler_enabled: boolean;
+}
+
 export type GameProgressEntry = {
   id: string;
   title: string;
@@ -121,7 +127,7 @@ export function usePlaylist() {
     }).catch((err) => console.error("Failed to persist track order:", err));
   }
 
-  async function handleGenerate(games: Game[]) {
+  async function handleGenerate(games: Game[], config?: GenerateConfig) {
     if (games.length === 0) return;
 
     // Client-side cooldown guard: skip the fetch entirely and let the UI countdown handle it.
@@ -136,7 +142,11 @@ export function usePlaylist() {
     let started = false;
 
     try {
-      const response = await fetch("/api/playlist/generate", { method: "POST" });
+      const response = await fetch("/api/playlist/generate", {
+        method: "POST",
+        headers: config ? { "Content-Type": "application/json" } : undefined,
+        body: config ? JSON.stringify(config) : undefined,
+      });
       if (!response.body) throw new Error("No response body from server");
 
       const reader = response.body.getReader();

@@ -1,19 +1,29 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { YtPlaylists } from "@/lib/db/repo";
+import { YtPlaylists, Users } from "@/lib/db/repo";
+import { getOrCreateUserId } from "@/lib/services/session";
 
-/** GET /api/yt-cache — returns { [game_id]: playlist_id } for all cached entries. */
+/** GET /api/yt-cache — returns merged {game_id: playlist_id} for the current user. */
 export async function GET() {
   try {
-    return NextResponse.json(YtPlaylists.listAllAsMap());
+    const cookieStore = await cookies();
+    const userId = await getOrCreateUserId(cookieStore);
+    Users.getOrCreate(userId);
+
+    return NextResponse.json(YtPlaylists.listAllAsMap(userId));
   } catch (err) {
     console.error("[GET /api/yt-cache]", err);
     return NextResponse.json({ error: "Failed to load playlist cache" }, { status: 500 });
   }
 }
 
-/** PUT /api/yt-cache — body: { game_id, playlist_id } — upserts a cached entry. */
+/** PUT /api/yt-cache — body: { game_id, playlist_id } — sets a personal override for the user. */
 export async function PUT(request: Request) {
   try {
+    const cookieStore = await cookies();
+    const userId = await getOrCreateUserId(cookieStore);
+    Users.getOrCreate(userId);
+
     const { game_id, playlist_id } = (await request.json()) as {
       game_id?: string;
       playlist_id?: string;
@@ -23,7 +33,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "game_id and playlist_id are required" }, { status: 400 });
     }
 
-    YtPlaylists.upsert(game_id, playlist_id);
+    YtPlaylists.upsertForUser(game_id, userId, playlist_id);
     return NextResponse.json({ game_id, playlist_id });
   } catch (err) {
     console.error("[PUT /api/yt-cache]", err);
@@ -31,9 +41,12 @@ export async function PUT(request: Request) {
   }
 }
 
-/** DELETE /api/yt-cache?game_id=... — clears the cached entry for a game. */
+/** DELETE /api/yt-cache?game_id=... — clears the user's personal override (falls back to global). */
 export async function DELETE(request: Request) {
   try {
+    const cookieStore = await cookies();
+    const userId = await getOrCreateUserId(cookieStore);
+
     const { searchParams } = new URL(request.url);
     const game_id = searchParams.get("game_id");
 
@@ -41,7 +54,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "game_id is required" }, { status: 400 });
     }
 
-    YtPlaylists.clearForGame(game_id);
+    YtPlaylists.clearForUser(game_id, userId);
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[DELETE /api/yt-cache]", err);

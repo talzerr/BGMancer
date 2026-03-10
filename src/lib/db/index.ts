@@ -16,6 +16,7 @@ export function getDB(): Database.Database {
     _db.pragma("journal_mode = WAL");
     _db.pragma("foreign_keys = ON");
     initSchema(_db);
+    migrateSchema(_db);
     seedDefaultUser(_db);
     syncYtPlaylistSeeds(_db);
   }
@@ -105,9 +106,11 @@ function initSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_tracks_status    ON playlist_tracks(status);
 
     CREATE TABLE IF NOT EXISTS game_yt_playlists (
-      game_id       TEXT NOT NULL PRIMARY KEY,
+      game_id       TEXT NOT NULL,
+      user_id       TEXT NOT NULL DEFAULT '',
       playlist_id   TEXT NOT NULL,
       discovered_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      PRIMARY KEY (game_id, user_id),
       FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
     );
 
@@ -120,6 +123,50 @@ function initSchema(db: Database.Database): void {
     INSERT OR IGNORE INTO config (key, value) VALUES ('target_track_count', '${DEFAULT_TRACK_COUNT}');
     INSERT OR IGNORE INTO config (key, value) VALUES ('youtube_playlist_id', '');
   `);
+}
+
+/**
+ * Additive schema migrations — safe to run on every startup.
+ * Uses try/catch because SQLite's ADD COLUMN errors if the column already exists.
+ */
+function migrateSchema(db: Database.Database): void {
+  try {
+    db.prepare("ALTER TABLE users ADD COLUMN is_generating INTEGER NOT NULL DEFAULT 0").run();
+  } catch {
+    // column already exists
+  }
+  try {
+    db.prepare("ALTER TABLE users ADD COLUMN last_generated_at TEXT").run();
+  } catch {
+    // column already exists
+  }
+
+  // Migrate game_yt_playlists from single game_id PK to (game_id, user_id) composite PK.
+  // '' = global/shared entry; a real user_id = personal override.
+  const ytCols = db.prepare("PRAGMA table_info(game_yt_playlists)").all() as Array<{
+    name: string;
+  }>;
+  if (!ytCols.some((c) => c.name === "user_id")) {
+    db.transaction(() => {
+      db.prepare("ALTER TABLE game_yt_playlists RENAME TO _game_yt_playlists_v1").run();
+      db.prepare(
+        `
+        CREATE TABLE game_yt_playlists (
+          game_id       TEXT NOT NULL,
+          user_id       TEXT NOT NULL DEFAULT '',
+          playlist_id   TEXT NOT NULL,
+          discovered_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+          PRIMARY KEY (game_id, user_id),
+          FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+        )
+      `,
+      ).run();
+      db.prepare(
+        "INSERT OR IGNORE INTO game_yt_playlists (game_id, user_id, playlist_id, discovered_at) SELECT game_id, '', playlist_id, discovered_at FROM _game_yt_playlists_v1",
+      ).run();
+      db.prepare("DROP TABLE _game_yt_playlists_v1").run();
+    })();
+  }
 }
 
 function seedDefaultUser(db: Database.Database): void {
@@ -152,11 +199,11 @@ function syncYtPlaylistSeeds(db: Database.Database): void {
   // INSERT ... SELECT so we only touch rows whose game title exists in the games table,
   // naturally respecting the FK constraint without needing to look up IDs first.
   const upsertSQL = `
-    INSERT INTO game_yt_playlists (game_id, playlist_id)
-    SELECT g.id, ?
+    INSERT INTO game_yt_playlists (game_id, user_id, playlist_id)
+    SELECT g.id, '', ?
     FROM games g
     WHERE g.title = ?
-    ON CONFLICT(game_id) DO UPDATE SET
+    ON CONFLICT(game_id, user_id) DO UPDATE SET
       playlist_id   = excluded.playlist_id,
       discovered_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
   `;

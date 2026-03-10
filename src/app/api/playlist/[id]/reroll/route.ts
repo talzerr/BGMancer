@@ -1,10 +1,15 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { Playlist, Games, YtPlaylists } from "@/lib/db/repo";
+import { getOrCreateUserId } from "@/lib/services/session";
 import { fetchPlaylistItems, fetchVideoDurations } from "@/lib/services/youtube";
 import { selectTracksFromList } from "@/lib/services/curation";
 import { getLocalLLMProvider } from "@/lib/llm";
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const cookieStore = await cookies();
+  const userId = await getOrCreateUserId(cookieStore);
+
   const { id } = await params;
 
   const track = Playlist.getById(id);
@@ -17,7 +22,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: "Game not found" }, { status: 404 });
   }
 
-  const ytPlaylistId = YtPlaylists.get(track.game_id);
+  const ytPlaylistId = YtPlaylists.get(track.game_id, userId, game.title);
   if (!ytPlaylistId) {
     return NextResponse.json(
       {

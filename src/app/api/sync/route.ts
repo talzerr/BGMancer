@@ -1,12 +1,14 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/services/auth";
-import { Playlist, Config } from "@/lib/db/repo";
+import { Playlist, Users } from "@/lib/db/repo";
 import {
   findBGMancerPlaylist,
   createBGMancerPlaylist,
   addVideoToPlaylist,
 } from "@/lib/services/youtube";
 import { runConcurrent } from "@/lib/concurrency";
+import { getOrCreateUserId } from "@/lib/services/session";
 
 const SYNC_CONCURRENCY = 4;
 
@@ -20,11 +22,15 @@ export async function POST() {
       );
     }
 
+    const cookieStore = await cookies();
+    const userId = await getOrCreateUserId(cookieStore);
+    Users.getOrCreate(userId);
+
     const accessToken = session.access_token;
-    const trackRows = Playlist.listUnsyncedFound();
+    const trackRows = Playlist.listUnsyncedFound(userId);
 
     if (trackRows.length === 0) {
-      const alreadySynced = Playlist.countSynced() > 0;
+      const alreadySynced = Playlist.countSynced(userId) > 0;
       return NextResponse.json({
         message: alreadySynced
           ? "All tracks are already synced."
@@ -38,8 +44,6 @@ export async function POST() {
     if (!playlistId) {
       playlistId = await createBGMancerPlaylist(accessToken);
     }
-
-    Config.upsert("youtube_playlist_id", playlistId);
 
     const syncedIds: string[] = [];
     const errors: Array<{ track_id: string; error: string }> = [];

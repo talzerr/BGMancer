@@ -1,7 +1,9 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { Playlist } from "@/lib/db/repo";
+import { Playlist, Users } from "@/lib/db/repo";
 import { findBestVideo, YouTubeInvalidKeyError } from "@/lib/services/youtube";
 import { runConcurrent } from "@/lib/concurrency";
+import { getOrCreateUserId } from "@/lib/services/session";
 
 const SEARCH_CONCURRENCY = 5;
 
@@ -26,7 +28,11 @@ export async function POST() {
   }
 
   try {
-    const pendingRows = Playlist.listPending();
+    const cookieStore = await cookies();
+    const userId = await getOrCreateUserId(cookieStore);
+    Users.getOrCreate(userId);
+
+    const pendingRows = Playlist.listPending(userId);
 
     if (pendingRows.length === 0) {
       return NextResponse.json({ message: "No pending tracks to search.", updated: 0 });
@@ -65,7 +71,7 @@ export async function POST() {
       }
     });
 
-    return NextResponse.json({ updated, failed, tracks: Playlist.listAllWithGameTitle() });
+    return NextResponse.json({ updated, failed, tracks: Playlist.listAllWithGameTitle(userId) });
   } catch (err) {
     console.error("[POST /api/playlist/search]", err);
     const status = err instanceof YouTubeInvalidKeyError ? 503 : 500;

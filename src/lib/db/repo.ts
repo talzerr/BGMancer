@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import { getDB, getSeedPlaylistId, LOCAL_USER_ID } from "@/lib/db";
+import { getDB, getSeedPlaylistId } from "@/lib/db";
 import { MAX_PLAYLIST_SESSIONS, DEFAULT_TRACK_COUNT, YT_IMPORT_GAME_ID } from "@/lib/constants";
 import {
   toGame,
@@ -24,6 +24,11 @@ function stmt(sql: string): Database.Statement<unknown[]> {
   return s;
 }
 
+// Parameterized subquery templates (userId bound as '?' at call time).
+const LIBRARY_SQ = "(SELECT id FROM libraries WHERE user_id = ? LIMIT 1)";
+const ACTIVE_SESSION_SQ =
+  "(SELECT id FROM playlists WHERE user_id = ? AND is_archived = 0 ORDER BY created_at DESC LIMIT 1)";
+
 // ─── Games ────────────────────────────────────────────────────────────────────
 
 export interface GameUpdateFields {
@@ -36,44 +41,41 @@ export interface SteamGameInput {
   playtime_forever: number;
 }
 
-// Subquery that resolves the local user's library ID.
-const LOCAL_LIBRARY_SQ = `(SELECT id FROM libraries WHERE user_id = '${LOCAL_USER_ID}' LIMIT 1)`;
-
 export const Games = {
-  /** Returns all non-skip games in the local library — used for playlist generation. */
-  listAll(excludeId?: string): Game[] {
+  /** Returns all non-skip games in the user's library — used for playlist generation. */
+  listAll(userId: string, excludeId?: string): Game[] {
     const base = `
       SELECT g.* FROM games g
       JOIN library_games lg ON lg.game_id = g.id
-      WHERE lg.library_id = ${LOCAL_LIBRARY_SQ}
+      WHERE lg.library_id = ${LIBRARY_SQ}
         AND g.curation != 'skip'
     `;
     if (excludeId) {
-      return toGames(stmt(`${base} AND g.id != ? ORDER BY lg.added_at ASC`).all(excludeId));
+      return toGames(stmt(`${base} AND g.id != ? ORDER BY lg.added_at ASC`).all(userId, excludeId));
     }
-    return toGames(stmt(`${base} ORDER BY lg.added_at ASC`).all());
+    return toGames(stmt(`${base} ORDER BY lg.added_at ASC`).all(userId));
   },
 
-  /** Returns all games in the local library regardless of curation — used by the library page. */
-  listAllIncludingDisabled(): Game[] {
+  /** Returns all games in the user's library regardless of curation — used by the library page. */
+  listAllIncludingDisabled(userId: string): Game[] {
     return toGames(
       stmt(`
         SELECT g.* FROM games g
         JOIN library_games lg ON lg.game_id = g.id
-        WHERE lg.library_id = ${LOCAL_LIBRARY_SQ}
+        WHERE lg.library_id = ${LIBRARY_SQ}
         ORDER BY lg.added_at ASC
-      `).all(),
+      `).all(userId),
     );
   },
 
-  /** Returns the number of real games in the local library, excluding the synthetic YT-import entry. */
-  count(): number {
+  /** Returns the number of real games in the user's library, excluding the synthetic YT-import entry. */
+  count(userId: string): number {
     const row = stmt(`
       SELECT COUNT(*) AS cnt FROM games g
       JOIN library_games lg ON lg.game_id = g.id
-      WHERE lg.library_id = ${LOCAL_LIBRARY_SQ}
+      WHERE lg.library_id = ${LIBRARY_SQ}
         AND g.id != '${YT_IMPORT_GAME_ID}'
-    `).get() as { cnt: number };
+    `).get(userId) as { cnt: number };
     return row.cnt;
   },
 
@@ -85,6 +87,7 @@ export const Games = {
   },
 
   create(
+    userId: string,
     id: string,
     title: string,
     curation: CurationMode = CurationMode.Include,
@@ -98,15 +101,14 @@ export const Games = {
       ).run(id, title, curation, steamAppid, playtimeMinutes);
 
       stmt(
-        `INSERT OR IGNORE INTO library_games (library_id, game_id) VALUES (${LOCAL_LIBRARY_SQ}, ?)`,
-      ).run(id);
+        `INSERT OR IGNORE INTO library_games (library_id, game_id) VALUES (${LIBRARY_SQ}, ?)`,
+      ).run(userId, id);
 
       const seededPlaylistId = getSeedPlaylistId(title);
       if (seededPlaylistId) {
-        stmt("INSERT OR IGNORE INTO game_yt_playlists (game_id, playlist_id) VALUES (?, ?)").run(
-          id,
-          seededPlaylistId,
-        );
+        stmt(
+          "INSERT OR IGNORE INTO game_yt_playlists (game_id, user_id, playlist_id) VALUES (?, '', ?)",
+        ).run(id, seededPlaylistId);
       }
     })();
 
@@ -124,11 +126,12 @@ export const Games = {
     return this.getById(id);
   },
 
-  /** Removes the game from the local library (and deletes the game row if it has no other library entries). */
-  remove(id: string): void {
+  /** Removes the game from the user's library (and deletes the game row if it has no other library entries). */
+  remove(userId: string, id: string): void {
     const db = getDB();
     db.transaction(() => {
-      stmt(`DELETE FROM library_games WHERE library_id = ${LOCAL_LIBRARY_SQ} AND game_id = ?`).run(
+      stmt(`DELETE FROM library_games WHERE library_id = ${LIBRARY_SQ} AND game_id = ?`).run(
+        userId,
         id,
       );
       const remaining = stmt("SELECT COUNT(*) AS cnt FROM library_games WHERE game_id = ?").get(
@@ -140,27 +143,33 @@ export const Games = {
     })();
   },
 
-  ensureExists(id: string, title: string): void {
+  ensureExists(userId: string, id: string, title: string): void {
     const exists = stmt("SELECT id FROM games WHERE id = ?").get(id);
     if (!exists) {
-      this.create(id, title, CurationMode.Skip);
+      this.create(userId, id, title, CurationMode.Skip);
+    } else {
+      // Ensure it's in this user's library (idempotent)
+      stmt(
+        `INSERT OR IGNORE INTO library_games (library_id, game_id) VALUES (${LIBRARY_SQ}, ?)`,
+      ).run(userId, id);
     }
   },
 
   /**
-   * Bulk-inserts Steam games as disabled (curation='skip') into the local library.
+   * Bulk-inserts Steam games as disabled (curation='skip') into the user's library.
    * Silently skips entries whose steam_appid already exists (via the unique index).
    * Returns the count of newly inserted and skipped rows.
    */
-  bulkImportSteam(games: SteamGameInput[]): { imported: number; skipped: number } {
+  bulkImportSteam(userId: string, games: SteamGameInput[]): { imported: number; skipped: number } {
     const db = getDB();
     const insertGameSQL = `
       INSERT OR IGNORE INTO games
         (id, title, allow_full_ost, curation, steam_appid, playtime_minutes)
       VALUES (?, ?, 0, 'skip', ?, ?)
     `;
-    const insertLibrarySQL = `INSERT OR IGNORE INTO library_games (library_id, game_id) VALUES (${LOCAL_LIBRARY_SQ}, ?)`;
-    const seedSQL = "INSERT OR IGNORE INTO game_yt_playlists (game_id, playlist_id) VALUES (?, ?)";
+    const insertLibrarySQL = `INSERT OR IGNORE INTO library_games (library_id, game_id) VALUES (${LIBRARY_SQ}, ?)`;
+    const seedSQL =
+      "INSERT OR IGNORE INTO game_yt_playlists (game_id, user_id, playlist_id) VALUES (?, '', ?)";
 
     let imported = 0;
     let skipped = 0;
@@ -171,7 +180,7 @@ export const Games = {
         const result = stmt(insertGameSQL).run(id, g.name, g.appid, Math.round(g.playtime_forever));
         if (result.changes > 0) {
           imported++;
-          stmt(insertLibrarySQL).run(id);
+          stmt(insertLibrarySQL).run(userId, id);
           const seededPlaylistId = getSeedPlaylistId(g.name);
           if (seededPlaylistId) stmt(seedSQL).run(id, seededPlaylistId);
         } else {
@@ -187,20 +196,25 @@ export const Games = {
 // ─── Users ────────────────────────────────────────────────────────────────────
 
 export const Users = {
-  getOrCreateDefault(): User {
-    const existing = stmt("SELECT * FROM users WHERE id = ?").get(LOCAL_USER_ID) as
+  /**
+   * Returns the user if they exist, otherwise creates user + library atomically.
+   * Safe to call on every request — INSERT OR IGNORE makes it idempotent.
+   */
+  getOrCreate(id: string): User {
+    const existing = stmt("SELECT * FROM users WHERE id = ?").get(id) as
       | Record<string, unknown>
       | undefined;
     if (existing) return toUser(existing);
 
-    stmt(
-      "INSERT OR IGNORE INTO users (id, email, username) VALUES (?, 'local@bgmancer.app', 'Local')",
-    ).run(LOCAL_USER_ID);
+    const db = getDB();
+    db.transaction(() => {
+      stmt(
+        "INSERT OR IGNORE INTO users (id, email, username, tier) VALUES (?, ?, NULL, 'bard')",
+      ).run(id, `anon+${id}@bgmancer.app`);
+      stmt("INSERT OR IGNORE INTO libraries (id, user_id) VALUES (?, ?)").run(newId(), id);
+    })();
 
-    const created = stmt("SELECT * FROM users WHERE id = ?").get(LOCAL_USER_ID) as Record<
-      string,
-      unknown
-    >;
+    const created = stmt("SELECT * FROM users WHERE id = ?").get(id) as Record<string, unknown>;
     return toUser(created);
   },
 
@@ -214,6 +228,47 @@ export const Users = {
   getTier(id: string): UserTier {
     const row = stmt("SELECT tier FROM users WHERE id = ?").get(id) as { tier: string } | undefined;
     return row?.tier === UserTier.Maestro ? UserTier.Maestro : UserTier.Bard;
+  },
+
+  /**
+   * Atomically checks and acquires the per-user generation lock.
+   * Returns { acquired: true } or { acquired: false, reason: string }.
+   */
+  tryAcquireGenerationLock(id: string, cooldownMs: number): { acquired: boolean; reason?: string } {
+    const db = getDB();
+    return db.transaction(() => {
+      const row = stmt("SELECT is_generating, last_generated_at FROM users WHERE id = ?").get(
+        id,
+      ) as { is_generating: number; last_generated_at: string | null } | undefined;
+
+      if (!row) return { acquired: false, reason: "User not found" };
+
+      if (row.is_generating) {
+        return {
+          acquired: false,
+          reason: "A generation is already in progress. Please wait for it to finish.",
+        };
+      }
+
+      const lastGenTime = row.last_generated_at ? new Date(row.last_generated_at).getTime() : 0;
+      const cooldownRemaining = cooldownMs - (Date.now() - lastGenTime);
+      if (cooldownRemaining > 0) {
+        return {
+          acquired: false,
+          reason: `Please wait ${Math.ceil(cooldownRemaining / 1000)}s before generating again.`,
+        };
+      }
+
+      stmt("UPDATE users SET is_generating = 1 WHERE id = ?").run(id);
+      return { acquired: true };
+    })();
+  },
+
+  /** Releases the generation lock and stamps the completion time for cooldown tracking. */
+  releaseGenerationLock(id: string): void {
+    stmt(
+      "UPDATE users SET is_generating = 0, last_generated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?",
+    ).run(id);
   },
 };
 
@@ -244,11 +299,11 @@ export const Sessions = {
     return toPlaylistSession(created);
   },
 
-  /** Returns the most recently created non-archived session, or null if none exist. */
-  getActive(): PlaylistSession | null {
+  /** Returns the most recently created non-archived session for the user, or null if none exist. */
+  getActive(userId: string): PlaylistSession | null {
     const row = stmt(
-      "SELECT * FROM playlists WHERE is_archived = 0 ORDER BY created_at DESC LIMIT 1",
-    ).get() as Record<string, unknown> | undefined;
+      "SELECT * FROM playlists WHERE user_id = ? AND is_archived = 0 ORDER BY created_at DESC LIMIT 1",
+    ).get(userId) as Record<string, unknown> | undefined;
     return row ? toPlaylistSession(row) : null;
   },
 
@@ -259,15 +314,16 @@ export const Sessions = {
     return row ? toPlaylistSession(row) : null;
   },
 
-  /** Returns all sessions with a track_count field, newest first. */
-  listAllWithCounts(): Array<PlaylistSession & { track_count: number }> {
+  /** Returns all sessions for the user with a track_count field, newest first. */
+  listAllWithCounts(userId: string): Array<PlaylistSession & { track_count: number }> {
     const rows = stmt(`
       SELECT p.*, COUNT(pt.id) AS track_count
       FROM playlists p
       LEFT JOIN playlist_tracks pt ON pt.playlist_id = p.id
+      WHERE p.user_id = ?
       GROUP BY p.id
       ORDER BY p.created_at DESC
-    `).all() as Array<Record<string, unknown>>;
+    `).all(userId) as Array<Record<string, unknown>>;
 
     return rows.map((r) => ({
       ...toPlaylistSession(r),
@@ -301,10 +357,6 @@ export interface InsertableTrack {
   error_message: string | null;
 }
 
-// Subquery that resolves the active (most recent non-archived) session ID.
-const ACTIVE_SESSION_SQ =
-  "(SELECT id FROM playlists WHERE is_archived = 0 ORDER BY created_at DESC LIMIT 1)";
-
 export interface PendingTrackRow {
   id: string;
   search_queries: string[] | null;
@@ -318,7 +370,7 @@ export interface SyncableTrackRow {
 }
 
 export const Playlist = {
-  listAllWithGameTitle(sessionId?: string): PlaylistTrack[] {
+  listAllWithGameTitle(userId: string, sessionId?: string): PlaylistTrack[] {
     if (sessionId) {
       return toPlaylistTracks(
         stmt(`
@@ -337,11 +389,11 @@ export const Playlist = {
         JOIN games g ON g.id = pt.game_id
         WHERE pt.playlist_id = ${ACTIVE_SESSION_SQ}
         ORDER BY pt.position ASC
-      `).all(),
+      `).all(userId),
     );
   },
 
-  listPending(): PendingTrackRow[] {
+  listPending(userId: string): PendingTrackRow[] {
     const rows = stmt(`
       SELECT pt.id, pt.search_queries, g.allow_full_ost
       FROM playlist_tracks pt
@@ -349,7 +401,7 @@ export const Playlist = {
       WHERE pt.status = 'pending'
         AND pt.playlist_id = ${ACTIVE_SESSION_SQ}
       ORDER BY pt.position ASC
-    `).all() as Array<Record<string, unknown>>;
+    `).all(userId) as Array<Record<string, unknown>>;
 
     return rows.map((r) => ({
       id: String(r.id),
@@ -358,7 +410,7 @@ export const Playlist = {
     }));
   },
 
-  listUnsyncedFound(): SyncableTrackRow[] {
+  listUnsyncedFound(userId: string): SyncableTrackRow[] {
     return stmt(`
       SELECT id, video_id, position
       FROM playlist_tracks
@@ -367,13 +419,13 @@ export const Playlist = {
         AND synced_at IS NULL
         AND playlist_id = ${ACTIVE_SESSION_SQ}
       ORDER BY position ASC
-    `).all() as SyncableTrackRow[];
+    `).all(userId) as SyncableTrackRow[];
   },
 
-  countSynced(): number {
+  countSynced(userId: string): number {
     const row = stmt(
       `SELECT COUNT(*) AS cnt FROM playlist_tracks WHERE synced_at IS NOT NULL AND playlist_id = ${ACTIVE_SESSION_SQ}`,
-    ).get() as { cnt: number };
+    ).get(userId) as { cnt: number };
     return row.cnt;
   },
 
@@ -414,9 +466,9 @@ export const Playlist = {
     })();
   },
 
-  /** Deletes all tracks belonging to the active session. */
-  clearAll(): void {
-    stmt(`DELETE FROM playlist_tracks WHERE playlist_id = ${ACTIVE_SESSION_SQ}`).run();
+  /** Deletes all tracks belonging to the user's active session. */
+  clearAll(userId: string): void {
+    stmt(`DELETE FROM playlist_tracks WHERE playlist_id = ${ACTIVE_SESSION_SQ}`).run(userId);
   },
 
   setSearching(id: string): void {
@@ -487,60 +539,115 @@ export const Playlist = {
 };
 
 // ─── YouTube Playlist Cache ───────────────────────────────────────────────────
+//
+// Two-layer cache:
+//   user_id = ''  → global shared entry (auto-discovery, seed file) — visible to all users
+//   user_id = uid → personal override for that user only
+//
+// Lookup order: user override → global by game_id → global by game title (cross-user sharing)
 
 export const YtPlaylists = {
-  /** Returns a map of game_id → playlist_id for all cached entries. */
-  listAllAsMap(): Record<string, string> {
-    const rows = stmt("SELECT game_id, playlist_id FROM game_yt_playlists").all() as Array<{
-      game_id: string;
-      playlist_id: string;
-    }>;
-    return Object.fromEntries(rows.map((r) => [r.game_id, r.playlist_id]));
+  /**
+   * Returns the effective playlist ID for a game.
+   * Checks (in order): user override, global for this game_id, global by title.
+   * Pass gameTitle to enable cross-user sharing for manually-added games.
+   */
+  get(gameId: string, userId: string, gameTitle?: string): string | null {
+    // 1. User-specific override
+    const userRow = stmt(
+      "SELECT playlist_id FROM game_yt_playlists WHERE game_id = ? AND user_id = ?",
+    ).get(gameId, userId) as { playlist_id: string } | undefined;
+    if (userRow) return userRow.playlist_id;
+
+    // 2. Global entry for this exact game_id
+    const globalRow = stmt(
+      "SELECT playlist_id FROM game_yt_playlists WHERE game_id = ? AND user_id = ''",
+    ).get(gameId) as { playlist_id: string } | undefined;
+    if (globalRow) return globalRow.playlist_id;
+
+    // 3. Global entry for any game with the same title (cross-user sharing for manual games)
+    if (gameTitle) {
+      const titleRow = stmt(`
+        SELECT yp.playlist_id FROM game_yt_playlists yp
+        JOIN games g ON g.id = yp.game_id
+        WHERE yp.user_id = '' AND g.title = ?
+        LIMIT 1
+      `).get(gameTitle) as { playlist_id: string } | undefined;
+      if (titleRow) return titleRow.playlist_id;
+    }
+
+    return null;
   },
 
-  /** Returns all cached entries joined with game title — used for seed export. */
-  listAll(): Array<{ game_title: string; playlist_id: string }> {
-    return stmt(`
-      SELECT g.title AS game_title, yp.playlist_id
-      FROM game_yt_playlists yp
-      JOIN games g ON g.id = yp.game_id
-      ORDER BY g.title ASC
-    `).all() as Array<{ game_title: string; playlist_id: string }>;
-  },
-
-  /** Returns the cached YouTube playlist ID for a game, or null if not cached. */
-  get(gameId: string): string | null {
-    const row = stmt("SELECT playlist_id FROM game_yt_playlists WHERE game_id = ?").get(gameId) as
-      | { playlist_id: string }
-      | undefined;
-    return row?.playlist_id ?? null;
-  },
-
-  /** Inserts or updates the cached playlist ID for a game. */
+  /** Upserts a globally shared cache entry (auto-discovery, seed file). */
   upsert(gameId: string, playlistId: string): void {
     stmt(`
-      INSERT INTO game_yt_playlists (game_id, playlist_id)
-      VALUES (?, ?)
-      ON CONFLICT(game_id) DO UPDATE SET
+      INSERT INTO game_yt_playlists (game_id, user_id, playlist_id)
+      VALUES (?, '', ?)
+      ON CONFLICT(game_id, user_id) DO UPDATE SET
         playlist_id   = excluded.playlist_id,
         discovered_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
     `).run(gameId, playlistId);
   },
 
-  /** Removes the cached entry for a game, forcing re-discovery on next generation. */
-  clearForGame(gameId: string): void {
-    stmt("DELETE FROM game_yt_playlists WHERE game_id = ?").run(gameId);
+  /** Upserts a per-user playlist override. Does not affect other users. */
+  upsertForUser(gameId: string, userId: string, playlistId: string): void {
+    stmt(`
+      INSERT INTO game_yt_playlists (game_id, user_id, playlist_id)
+      VALUES (?, ?, ?)
+      ON CONFLICT(game_id, user_id) DO UPDATE SET
+        playlist_id   = excluded.playlist_id,
+        discovered_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+    `).run(gameId, userId, playlistId);
   },
 
-  /** Returns all cached entries joined with game title — used by dev panel. */
+  /** Clears the user's personal override, falling back to the global cache. */
+  clearForUser(gameId: string, userId: string): void {
+    stmt("DELETE FROM game_yt_playlists WHERE game_id = ? AND user_id = ?").run(gameId, userId);
+  },
+
+  /** Clears the global shared entry for a game (dev use). */
+  clearForGame(gameId: string): void {
+    stmt("DELETE FROM game_yt_playlists WHERE game_id = ? AND user_id = ''").run(gameId);
+  },
+
+  /**
+   * Returns a merged {game_id: playlist_id} map for a user.
+   * User overrides take precedence over global entries.
+   */
+  listAllAsMap(userId: string): Record<string, string> {
+    const rows = stmt(`
+      SELECT game_id, playlist_id FROM game_yt_playlists WHERE user_id = ?
+      UNION
+      SELECT game_id, playlist_id FROM game_yt_playlists
+      WHERE user_id = '' AND game_id NOT IN (
+        SELECT game_id FROM game_yt_playlists WHERE user_id = ?
+      )
+    `).all(userId, userId) as Array<{ game_id: string; playlist_id: string }>;
+    return Object.fromEntries(rows.map((r) => [r.game_id, r.playlist_id]));
+  },
+
+  /** Returns all global cached entries joined with game title — used for seed export. */
+  listAll(): Array<{ game_title: string; playlist_id: string }> {
+    return stmt(`
+      SELECT g.title AS game_title, yp.playlist_id
+      FROM game_yt_playlists yp
+      JOIN games g ON g.id = yp.game_id
+      WHERE yp.user_id = ''
+      ORDER BY g.title ASC
+    `).all() as Array<{ game_title: string; playlist_id: string }>;
+  },
+
+  /** Returns all entries (global + user overrides) for the dev panel. */
   loadRaw(): Array<{
     game_id: string;
     game_title: string;
     playlist_id: string;
     discovered_at: string;
+    user_id: string;
   }> {
     return stmt(`
-      SELECT yp.game_id, g.title AS game_title, yp.playlist_id, yp.discovered_at
+      SELECT yp.game_id, g.title AS game_title, yp.playlist_id, yp.discovered_at, yp.user_id
       FROM game_yt_playlists yp
       JOIN games g ON g.id = yp.game_id
       ORDER BY yp.discovered_at DESC
@@ -549,6 +656,7 @@ export const YtPlaylists = {
       game_title: string;
       playlist_id: string;
       discovered_at: string;
+      user_id: string;
     }>;
   },
 };

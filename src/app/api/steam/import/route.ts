@@ -1,10 +1,16 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { Games } from "@/lib/db/repo";
+import { Games, Users } from "@/lib/db/repo";
 import type { SteamGameInput } from "@/lib/db/repo";
 import { LIBRARY_MAX_GAMES } from "@/lib/constants";
+import { getOrCreateUserId } from "@/lib/services/session";
 
 export async function POST(request: Request) {
   try {
+    const cookieStore = await cookies();
+    const userId = await getOrCreateUserId(cookieStore);
+    Users.getOrCreate(userId);
+
     const body = (await request.json()) as { games?: unknown };
 
     if (!Array.isArray(body.games) || body.games.length === 0) {
@@ -28,7 +34,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No valid games provided" }, { status: 400 });
     }
 
-    const currentCount = Games.count();
+    const currentCount = Games.count(userId);
     const capacity = Math.max(0, LIBRARY_MAX_GAMES - currentCount);
     if (capacity === 0) {
       return NextResponse.json(
@@ -44,7 +50,7 @@ export async function POST(request: Request) {
     const gamesToImport = sorted.slice(0, capacity);
     const omitted = games.length - gamesToImport.length;
 
-    const result = Games.bulkImportSteam(gamesToImport);
+    const result = Games.bulkImportSteam(userId, gamesToImport);
     return NextResponse.json({ ...result, omitted }, { status: 201 });
   } catch (err) {
     console.error("[POST /api/steam/import]", err);

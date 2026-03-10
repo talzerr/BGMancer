@@ -48,8 +48,9 @@ export async function fetchGameCandidates(
   candidateCount: number,
   provider: LLMProvider,
   send: (e: GenerateEvent) => void,
+  userId: string,
 ): Promise<CandidateResult> {
-  let playlistId = YtPlaylists.get(game.id);
+  let playlistId = YtPlaylists.get(game.id, userId, game.title);
 
   if (playlistId) {
     send({

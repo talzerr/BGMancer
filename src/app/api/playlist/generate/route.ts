@@ -1,13 +1,12 @@
+import { cookies } from "next/headers";
 import { generatePlaylist, type GenerateEvent } from "@/lib/pipeline/index";
+import { Users } from "@/lib/db/repo";
+import { getOrCreateUserId } from "@/lib/services/session";
 import { YouTubeQuotaError, YouTubeInvalidKeyError } from "@/lib/services/youtube";
-import { GENERATION_COOLDOWN_MS } from "@/lib/constants";
+import { GENERATION_COOLDOWN_MS, DEFAULT_TRACK_COUNT } from "@/lib/constants";
+import type { AppConfig } from "@/types";
 
 export type { GenerateEvent };
-
-// TODO(multi-user): migrate to SQLite (sessions.is_generating + sessions.last_generated_at)
-// when per-user sessions launch — user context isn't available at the route layer yet.
-let isGenerating = false;
-let lastGeneratedAt = 0;
 
 function makeStream() {
   const encoder = new TextEncoder();
@@ -33,8 +32,9 @@ function makeStream() {
  *
  * Thin SSE wrapper around the generate pipeline.
  * Streams progress events while building the playlist.
+ * Expects JSON body with optional config overrides: { target_track_count?, allow_long_tracks? }
  */
-export async function POST() {
+export async function POST(request: Request) {
   if (!process.env.YOUTUBE_API_KEY) {
     return new Response(
       `data: ${JSON.stringify({ type: "error", message: "YouTube API key is not configured. Add YOUTUBE_API_KEY to .env.local and restart the server." })}\n\n`,
@@ -42,31 +42,37 @@ export async function POST() {
     );
   }
 
+  // Parse config from request body (sent by the client from localStorage).
+  let body: Record<string, unknown> = {};
+  try {
+    body = await request.json();
+  } catch {
+    // empty body is fine — use defaults
+  }
+
+  const config: AppConfig = {
+    target_track_count: Number(body.target_track_count) || DEFAULT_TRACK_COUNT,
+    allow_long_tracks: body.allow_long_tracks === true,
+    anti_spoiler_enabled: body.anti_spoiler_enabled === true,
+    youtube_playlist_id: "",
+  };
+
+  const cookieStore = await cookies();
+  const userId = await getOrCreateUserId(cookieStore);
+  Users.getOrCreate(userId);
+
+  const lock = Users.tryAcquireGenerationLock(userId, GENERATION_COOLDOWN_MS);
+  if (!lock.acquired) {
+    return new Response(`data: ${JSON.stringify({ type: "error", message: lock.reason })}\n\n`, {
+      headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+    });
+  }
+
   const { stream, send, close } = makeStream();
 
   (async () => {
-    let ran = false;
     try {
-      const now = Date.now();
-      if (isGenerating) {
-        send({
-          type: "error",
-          message: "A generation is already in progress. Please wait for it to finish.",
-        });
-        return;
-      }
-      const cooldownRemaining = GENERATION_COOLDOWN_MS - (now - lastGeneratedAt);
-      if (cooldownRemaining > 0) {
-        send({
-          type: "error",
-          message: `Please wait ${Math.ceil(cooldownRemaining / 1000)}s before generating again.`,
-        });
-        return;
-      }
-      isGenerating = true;
-      ran = true;
-
-      await generatePlaylist(send);
+      await generatePlaylist(send, userId, config);
     } catch (err) {
       if (err instanceof YouTubeQuotaError || err instanceof YouTubeInvalidKeyError) {
         console.error(`[generate] YouTube fatal error — ${err.name}`);
@@ -80,11 +86,7 @@ export async function POST() {
         });
       }
     } finally {
-      // Stamp after generation completes so the cooldown is measured from the END,
-      // not the start. Only update if generation actually ran (not if it was rejected
-      // by the isGenerating or cooldown guards above).
-      if (ran) lastGeneratedAt = Date.now();
-      isGenerating = false;
+      Users.releaseGenerationLock(userId);
       close();
     }
   })();

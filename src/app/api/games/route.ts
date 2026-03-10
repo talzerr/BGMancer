@@ -1,18 +1,24 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { Games } from "@/lib/db/repo";
+import { Games, Users } from "@/lib/db/repo";
 import { VALID_CURATIONS } from "@/lib/db/mappers";
 import { YT_IMPORT_GAME_ID, GAME_TITLE_MAX_LENGTH, LIBRARY_MAX_GAMES } from "@/lib/constants";
 import { newId } from "@/lib/uuid";
 import { CurationMode } from "@/types";
 import type { AddGamePayload } from "@/types";
+import { getOrCreateUserId } from "@/lib/services/session";
 
 export async function GET(request: Request) {
   try {
+    const cookieStore = await cookies();
+    const userId = await getOrCreateUserId(cookieStore);
+    Users.getOrCreate(userId);
+
     const { searchParams } = new URL(request.url);
     const includeDisabled = searchParams.get("includeDisabled") === "true";
     const games = includeDisabled
-      ? Games.listAllIncludingDisabled().filter((g) => g.id !== YT_IMPORT_GAME_ID)
-      : Games.listAll(YT_IMPORT_GAME_ID);
+      ? Games.listAllIncludingDisabled(userId).filter((g) => g.id !== YT_IMPORT_GAME_ID)
+      : Games.listAll(userId, YT_IMPORT_GAME_ID);
     return NextResponse.json(games);
   } catch (err) {
     console.error("[GET /api/games]", err);
@@ -22,6 +28,10 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const cookieStore = await cookies();
+    const userId = await getOrCreateUserId(cookieStore);
+    Users.getOrCreate(userId);
+
     const body: AddGamePayload = await request.json();
 
     if (!body.title?.trim()) {
@@ -33,7 +43,7 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    if (Games.count() >= LIBRARY_MAX_GAMES) {
+    if (Games.count(userId) >= LIBRARY_MAX_GAMES) {
       return NextResponse.json(
         { error: `Library limit reached (${LIBRARY_MAX_GAMES} games max)` },
         { status: 400 },
@@ -42,7 +52,7 @@ export async function POST(request: Request) {
 
     const id = newId();
     const steamAppid = typeof body.steam_appid === "number" ? body.steam_appid : null;
-    const game = Games.create(id, body.title.trim(), CurationMode.Include, steamAppid);
+    const game = Games.create(userId, id, body.title.trim(), CurationMode.Include, steamAppid);
     return NextResponse.json(game, { status: 201 });
   } catch (err) {
     console.error("[POST /api/games]", err);
@@ -83,6 +93,9 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const cookieStore = await cookies();
+    const userId = await getOrCreateUserId(cookieStore);
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
@@ -90,7 +103,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Game ID is required" }, { status: 400 });
     }
 
-    Games.remove(id);
+    Games.remove(userId, id);
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[DELETE /api/games]", err);

@@ -1,49 +1,50 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { DEFAULT_TRACK_COUNT } from "@/lib/constants";
+
+const KEYS = {
+  targetTrackCount: "bgm_target_track_count",
+  antiSpoilerEnabled: "bgm_anti_spoiler_enabled",
+  allowLongTracks: "bgm_allow_long_tracks",
+} as const;
+
+function lsGet<T>(key: string, fallback: T, parse: (v: string) => T): T {
+  if (typeof window === "undefined") return fallback;
+  const raw = localStorage.getItem(key);
+  return raw !== null ? parse(raw) : fallback;
+}
+
+function lsSet(key: string, value: string): void {
+  if (typeof window !== "undefined") localStorage.setItem(key, value);
+}
 
 export function useConfig() {
-  const [targetTrackCount, setTargetTrackCount] = useState(50);
+  const [targetTrackCount, setTargetTrackCount] = useState(DEFAULT_TRACK_COUNT);
   const [antiSpoilerEnabled, setAntiSpoilerEnabled] = useState(false);
   const [allowLongTracks, setAllowLongTracks] = useState(false);
 
   useEffect(() => {
-    fetch("/api/config")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((cfg) => {
-        if (cfg?.target_track_count) setTargetTrackCount(cfg.target_track_count);
-        if (cfg?.anti_spoiler_enabled !== undefined)
-          setAntiSpoilerEnabled(cfg.anti_spoiler_enabled);
-        if (cfg?.allow_long_tracks !== undefined) setAllowLongTracks(cfg.allow_long_tracks);
-      })
-      .catch(() => {});
+    Promise.resolve().then(() => {
+      setTargetTrackCount(lsGet(KEYS.targetTrackCount, DEFAULT_TRACK_COUNT, Number));
+      setAntiSpoilerEnabled(lsGet(KEYS.antiSpoilerEnabled, false, (v) => v === "1"));
+      setAllowLongTracks(lsGet(KEYS.allowLongTracks, false, (v) => v === "1"));
+    });
   }, []);
 
-  async function saveTrackCount(n: number) {
+  function saveTrackCount(n: number) {
     setTargetTrackCount(n);
-    await fetch("/api/config", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ target_track_count: n }),
-    }).catch(() => {});
+    lsSet(KEYS.targetTrackCount, String(n));
   }
 
-  async function saveAntiSpoiler(enabled: boolean) {
+  function saveAntiSpoiler(enabled: boolean) {
     setAntiSpoilerEnabled(enabled);
-    await fetch("/api/config", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ anti_spoiler_enabled: enabled }),
-    }).catch(() => {});
+    lsSet(KEYS.antiSpoilerEnabled, enabled ? "1" : "0");
   }
 
-  async function saveAllowLongTracks(enabled: boolean) {
+  function saveAllowLongTracks(enabled: boolean) {
     setAllowLongTracks(enabled);
-    await fetch("/api/config", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ allow_long_tracks: enabled }),
-    }).catch(() => {});
+    lsSet(KEYS.allowLongTracks, enabled ? "1" : "0");
   }
 
   return {

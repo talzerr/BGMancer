@@ -42,7 +42,11 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
 
   async function handleGenerate() {
     player.reset();
-    await playlist.handleGenerate(gameLibrary.games);
+    await playlist.handleGenerate(gameLibrary.games, {
+      target_track_count: config.targetTrackCount,
+      allow_long_tracks: config.allowLongTracks,
+      anti_spoiler_enabled: config.antiSpoilerEnabled,
+    });
     await fetchSessions();
   }
 

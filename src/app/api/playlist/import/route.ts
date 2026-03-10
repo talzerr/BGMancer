@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { Games, Playlist, Users, Sessions } from "@/lib/db/repo";
 import { YT_IMPORT_GAME_ID, YT_IMPORT_MAX_TRACKS } from "@/lib/constants";
@@ -9,6 +10,7 @@ import {
 import { newId } from "@/lib/uuid";
 import { TrackStatus } from "@/types";
 import type { PlaylistTrack } from "@/types";
+import { getOrCreateUserId } from "@/lib/services/session";
 
 function extractPlaylistId(input: string): string | null {
   const trimmed = input.trim();
@@ -31,6 +33,10 @@ function extractPlaylistId(input: string): string | null {
  */
 export async function POST(request: Request) {
   try {
+    const cookieStore = await cookies();
+    const userId = await getOrCreateUserId(cookieStore);
+    Users.getOrCreate(userId);
+
     const body = await request.json();
     const playlistId = extractPlaylistId(body.url ?? "");
 
@@ -55,10 +61,9 @@ export async function POST(request: Request) {
     const playlistTitle = metadata?.title ?? `YouTube Playlist (${playlistId.slice(0, 6)})`;
     const sessionName = `YouTube: ${playlistTitle}`;
 
-    Games.ensureExists(YT_IMPORT_GAME_ID, "YouTube Import");
+    Games.ensureExists(userId, YT_IMPORT_GAME_ID, "YouTube Import");
 
-    const user = Users.getOrCreateDefault();
-    const session = Sessions.create(user.id, sessionName);
+    const session = Sessions.create(userId, sessionName);
 
     const now = new Date().toISOString();
     const tracksToInsert = tracks.map((t) => ({

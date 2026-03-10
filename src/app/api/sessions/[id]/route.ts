@@ -1,5 +1,7 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { Sessions } from "@/lib/db/repo";
+import { getOrCreateUserId } from "@/lib/services/session";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -24,6 +26,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const cookieStore = await cookies();
+    const userId = await getOrCreateUserId(cookieStore);
+
     const { id } = await params;
 
     if (!Sessions.getById(id)) {
@@ -33,7 +38,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     Sessions.delete(id);
 
     // Return the next most recent session so the client can switch to it.
-    const next = Sessions.getActive();
+    const next = Sessions.getActive(userId);
     return NextResponse.json({ success: true, nextSessionId: next?.id ?? null });
   } catch (err) {
     console.error("[DELETE /api/sessions/[id]]", err);
