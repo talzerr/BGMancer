@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { CurationMode } from "@/types";
 import type { Game } from "@/types";
-import { TrashIcon, YouTubeLogo, CheckIcon, XIcon } from "@/components/Icons";
+import { TrashIcon, YouTubeLogo, CheckIcon, XIcon, InfoIcon } from "@/components/Icons";
 import { steamHeaderUrl } from "@/lib/constants";
 
 const CURATION_OPTIONS: {
@@ -37,6 +37,31 @@ const CURATION_OPTIONS: {
     activeClass: "bg-amber-600/30 text-amber-300",
   },
 ];
+
+export function CurationLegend() {
+  return (
+    <div className="group/info relative">
+      <InfoIcon className="h-3 w-3 cursor-default text-zinc-600 transition-colors group-hover/info:text-zinc-400" />
+      <div className="pointer-events-none absolute top-full right-0 z-20 mt-2 w-64 rounded-xl border border-white/[0.08] bg-zinc-900 p-3 opacity-0 shadow-xl shadow-black/50 transition-opacity group-hover/info:opacity-100">
+        <p className="mb-2 text-[10px] font-semibold tracking-widest text-zinc-500 uppercase">
+          Curation Modes
+        </p>
+        <div className="flex flex-col gap-1.5">
+          {CURATION_OPTIONS.map(({ mode, label, tooltip, activeClass }) => (
+            <div key={mode} className="flex items-start gap-2">
+              <span
+                className={`w-12 shrink-0 text-[11px] font-semibold ${activeClass.split(" ").find((c) => c.startsWith("text-")) ?? "text-zinc-400"}`}
+              >
+                {label}
+              </span>
+              <span className="text-[11px] leading-snug text-zinc-400">{tooltip}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function formatPlaytime(minutes: number | null): string | null {
   if (minutes == null) return null;
@@ -154,20 +179,21 @@ export function GameRow({
           {playtime && <p className="mt-0.5 text-[11px] leading-none text-zinc-500">{playtime}</p>}
         </div>
 
-        <div className="flex shrink-0 overflow-hidden rounded-lg border border-white/[0.07]">
-          {CURATION_OPTIONS.map(({ mode, label, tooltip, activeClass }) => (
-            <button
-              key={mode}
-              title={tooltip}
-              onClick={() => handleCurationChange(mode)}
-              disabled={toggling}
-              className={`cursor-pointer px-2 py-1 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed ${
-                game.curation === mode ? activeClass : "text-zinc-600 hover:text-zinc-300"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+        <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex overflow-hidden rounded-lg border border-white/[0.07]">
+            {CURATION_OPTIONS.map(({ mode, label, activeClass }) => (
+              <button
+                key={mode}
+                onClick={() => handleCurationChange(mode)}
+                disabled={toggling}
+                className={`cursor-pointer px-2 py-1 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed ${
+                  game.curation === mode ? activeClass : "text-zinc-600 hover:text-zinc-300"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {confirmDelete ? (

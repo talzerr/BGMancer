@@ -19,8 +19,8 @@ export const SESSION_NAME_MAX_GAMES = 3;
 /** Default number of tracks to generate. */
 export const DEFAULT_TRACK_COUNT = 50;
 
-/** Maximum number of tracks that can be requested in a single generation. */
-export const MAX_TRACK_COUNT = 200;
+/** Maximum number of tracks that can be requested in a single generation or import. */
+export const MAX_TRACK_COUNT = 150;
 
 // ─── Track duration filtering ─────────────────────────────────────────────────
 
@@ -48,7 +48,37 @@ export function steamHeaderUrl(appid: number): string {
   return `https://cdn.akamai.steamstatic.com/steam/apps/${appid}/header.jpg`;
 }
 
+// ─── Abuse limits ─────────────────────────────────────────────────────────────
+
+/** Maximum number of games allowed in a user's library. */
+export const LIBRARY_MAX_GAMES = 500;
+
+/** Maximum characters allowed for a game title. */
+export const GAME_TITLE_MAX_LENGTH = 200;
+
+/** Maximum tracks allowed from a single YouTube playlist import. Matches MAX_TRACK_COUNT. */
+export const YT_IMPORT_MAX_TRACKS = MAX_TRACK_COUNT;
+
+/** Minimum milliseconds between playlist generations. */
+export const GENERATION_COOLDOWN_MS = 30_000;
+
 // ─── UI timing ────────────────────────────────────────────────────────────────
 
 /** How long (ms) the undo toast stays visible before a track deletion is committed. */
 export const UNDO_TOAST_DURATION_MS = 4000;
+
+// ─── Cooldown quips ───────────────────────────────────────────────────────────
+
+/** Shown on the generate button while the post-generation cooldown is active. */
+export const COOLDOWN_QUIPS = [
+  "The spirits are arguing over BPM.",
+  "Low on mana. Altar recharging…",
+  "The Bard is at the Inn.",
+  "Your patience grants +2 Charisma.",
+  "Between sets. Band's at the bar.",
+  "The composer is taking five.",
+  "Even the mancer needs a breather.",
+  "Cauldron cooling between brews.",
+  "Resting the rhythm section.",
+  "The composer is stuck in a cutscene.",
+] as const;

@@ -1,16 +1,17 @@
 "use client";
 
-import { useRef, useState, type SyntheticEvent } from "react";
+import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { GameProgressStatus } from "@/types";
 import type { GameProgressEntry } from "@/hooks/usePlaylist";
 import { Spinner, CheckIcon, XIcon, ErrorCircle, MusicNote, PlayIcon } from "@/components/Icons";
-import { MAX_TRACK_COUNT } from "@/lib/constants";
+import { MAX_TRACK_COUNT, COOLDOWN_QUIPS } from "@/lib/constants";
 
 interface GenerateSectionProps {
   generating: boolean;
   genProgress: GameProgressEntry[];
   genGlobalMsg: string;
   genError: string | null;
+  cooldownUntil: number;
   targetTrackCount: number;
   onTargetChange: (n: number) => void;
   onTargetSave: (n: number) => void;
@@ -33,6 +34,7 @@ export function GenerateSection({
   genProgress,
   genGlobalMsg,
   genError,
+  cooldownUntil,
   targetTrackCount,
   onTargetChange,
   onTargetSave,
@@ -50,6 +52,25 @@ export function GenerateSection({
   const isPresetValue = (PRESETS as readonly number[]).includes(targetTrackCount);
   const [customActive, setCustomActive] = useState(!isPresetValue);
   const customInputRef = useRef<HTMLInputElement>(null);
+  const [secsLeft, setSecsLeft] = useState(0);
+  const [quip, setQuip] = useState("");
+  useEffect(() => {
+    const update = () => setSecsLeft(Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000)));
+    // A zero-delay timeout fires in the next task (not synchronously in the effect body),
+    // giving an immediate first tick without triggering the cascading-renders lint rule.
+    // We also pick a new quip here so both updates happen in the same scheduled task.
+    const timeout = setTimeout(() => {
+      update();
+      if (cooldownUntil > Date.now()) {
+        setQuip(COOLDOWN_QUIPS[Math.floor(Math.random() * COOLDOWN_QUIPS.length)]);
+      }
+    }, 0);
+    const interval = setInterval(update, 250);
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
+  }, [cooldownUntil]);
 
   function handlePresetClick(n: number) {
     setCustomActive(false);
@@ -225,11 +246,15 @@ export function GenerateSection({
               <div className="flex flex-col gap-2">
                 <button
                   onClick={onGenerate}
-                  disabled={gamesCount === 0}
+                  disabled={gamesCount === 0 || secsLeft > 0}
                   className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_0_20px_-4px] shadow-teal-500/30 transition-colors hover:bg-teal-500 active:bg-teal-700 disabled:cursor-not-allowed disabled:border disabled:border-white/[0.05] disabled:bg-zinc-800/80 disabled:text-zinc-500 disabled:shadow-none"
                 >
                   <MusicNote className="h-3.5 w-3.5" />
-                  Curate {targetTrackCount} Tracks
+                  {secsLeft > 0 ? (
+                    <span className="text-xs font-normal opacity-60">{quip}</span>
+                  ) : (
+                    `Curate ${targetTrackCount} Tracks`
+                  )}
                 </button>
                 <div className="flex items-center justify-between px-1">
                   <p className="text-[11px] leading-snug text-zinc-600">{summaryText}</p>
@@ -302,8 +327,8 @@ export function GenerateSection({
         </div>
       </div>
 
-      {/* Error messages */}
-      {mode === "generate" && genError && (
+      {/* Error messages — hidden while a cooldown is active (button shows the countdown instead) */}
+      {mode === "generate" && genError && secsLeft === 0 && (
         <div className="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-950/40 px-3 py-2.5 text-xs text-red-400">
           <ErrorCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           {genError}

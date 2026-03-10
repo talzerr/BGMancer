@@ -1,7 +1,13 @@
 import { generatePlaylist, type GenerateEvent } from "@/lib/pipeline/index";
 import { YouTubeQuotaError, YouTubeInvalidKeyError } from "@/lib/services/youtube";
+import { GENERATION_COOLDOWN_MS } from "@/lib/constants";
 
 export type { GenerateEvent };
+
+// TODO(multi-user): migrate to SQLite (sessions.is_generating + sessions.last_generated_at)
+// when per-user sessions launch — user context isn't available at the route layer yet.
+let isGenerating = false;
+let lastGeneratedAt = 0;
 
 function makeStream() {
   const encoder = new TextEncoder();
@@ -39,7 +45,27 @@ export async function POST() {
   const { stream, send, close } = makeStream();
 
   (async () => {
+    let ran = false;
     try {
+      const now = Date.now();
+      if (isGenerating) {
+        send({
+          type: "error",
+          message: "A generation is already in progress. Please wait for it to finish.",
+        });
+        return;
+      }
+      const cooldownRemaining = GENERATION_COOLDOWN_MS - (now - lastGeneratedAt);
+      if (cooldownRemaining > 0) {
+        send({
+          type: "error",
+          message: `Please wait ${Math.ceil(cooldownRemaining / 1000)}s before generating again.`,
+        });
+        return;
+      }
+      isGenerating = true;
+      ran = true;
+
       await generatePlaylist(send);
     } catch (err) {
       if (err instanceof YouTubeQuotaError || err instanceof YouTubeInvalidKeyError) {
@@ -54,6 +80,11 @@ export async function POST() {
         });
       }
     } finally {
+      // Stamp after generation completes so the cooldown is measured from the END,
+      // not the start. Only update if generation actually ran (not if it was rejected
+      // by the isGenerating or cooldown guards above).
+      if (ran) lastGeneratedAt = Date.now();
+      isGenerating = false;
       close();
     }
   })();

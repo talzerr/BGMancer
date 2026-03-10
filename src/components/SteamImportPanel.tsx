@@ -2,88 +2,29 @@
 
 import { useMemo, useState } from "react";
 import { Spinner, SearchIcon, ErrorCircle, CheckIcon } from "@/components/Icons";
-
-interface SteamGame {
-  appid: number;
-  name: string;
-  playtime_forever: number;
-}
+import { useSteamImport } from "@/hooks/useSteamImport";
 
 const MIN_PLAYTIME_OPTIONS = [0, 1, 5, 10, 20, 50, 100] as const;
 
 export function SteamImportPanel({ onImported }: { onImported: () => void }) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [importing, setImporting] = useState(false);
   const [minPlaytimeHrs, setMinPlaytimeHrs] = useState(10);
-  const [steamGames, setSteamGames] = useState<SteamGame[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ imported: number; skipped: number } | null>(null);
+
+  const { loading, importing, steamGames, error, result, findGames, importGames } =
+    useSteamImport();
 
   const filteredGames = useMemo(
     () => steamGames?.filter((g) => g.playtime_forever >= minPlaytimeHrs * 60) ?? null,
     [steamGames, minPlaytimeHrs],
   );
 
-  async function findGames() {
-    if (!input.trim()) return;
-    setLoading(true);
-    setError(null);
-    setSteamGames(null);
-    setResult(null);
-
-    try {
-      const res = await fetch(`/api/steam/games?input=${encodeURIComponent(input.trim())}`);
-      const data = (await res.json()) as { games?: SteamGame[]; error?: string };
-
-      if (!res.ok) {
-        if (data.error === "private") {
-          setError("private");
-        } else if (data.error === "not_found") {
-          setError("Your Steam profile URL or username wasn't found. Check the URL and try again.");
-        } else if (data.error === "missing_key") {
-          setError("STEAM_API_KEY is not configured on the server.");
-        } else {
-          setError("Something went wrong fetching your Steam library.");
-        }
-        return;
-      }
-
-      setSteamGames(data.games ?? []);
-    } catch {
-      setError("Network error. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   async function importFiltered() {
     if (!filteredGames || filteredGames.length === 0) return;
-    setImporting(true);
-    setError(null);
-
-    try {
-      const res = await fetch("/api/steam/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ games: filteredGames }),
-      });
-      const data = (await res.json()) as { imported?: number; skipped?: number; error?: string };
-
-      if (!res.ok) {
-        setError(data.error ?? "Import failed.");
-        return;
-      }
-
-      setResult({ imported: data.imported ?? 0, skipped: data.skipped ?? 0 });
-      setSteamGames(null);
+    const success = await importGames(filteredGames);
+    if (success) {
       setInput("");
       onImported();
-    } catch {
-      setError("Network error. Please try again.");
-    } finally {
-      setImporting(false);
     }
   }
 
@@ -117,14 +58,14 @@ export function SteamImportPanel({ onImported }: { onImported: () => void }) {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && findGames()}
+              onKeyDown={(e) => e.key === "Enter" && findGames(input)}
               placeholder="steamcommunity.com/id/yourname"
               disabled={loading}
               className="w-full rounded-lg border border-white/[0.07] bg-zinc-800/80 px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 focus:ring-2 focus:ring-teal-500/50 focus:outline-none disabled:opacity-50"
             />
             <button
               type="button"
-              onClick={findGames}
+              onClick={() => findGames(input)}
               disabled={loading || !input.trim()}
               className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-500 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-600"
             >
@@ -195,14 +136,22 @@ export function SteamImportPanel({ onImported }: { onImported: () => void }) {
           )}
 
           {result && (
-            <p className="flex items-center gap-1.5 text-sm text-teal-400">
-              <CheckIcon className="h-3.5 w-3.5 shrink-0" />
-              Imported {result.imported} game{result.imported !== 1 ? "s" : ""}
-              {result.skipped > 0 && (
-                <span className="text-zinc-500">(skipped {result.skipped} already in library)</span>
+            <div className="flex flex-col gap-1">
+              <p className="flex items-center gap-1.5 text-sm text-teal-400">
+                <CheckIcon className="h-3.5 w-3.5 shrink-0" />
+                Imported {result.imported} game{result.imported !== 1 ? "s" : ""}
+                {result.skipped > 0 && (
+                  <span className="text-zinc-500">({result.skipped} already in library)</span>
+                )}
+                . Sort by playtime below and enable the ones you want.
+              </p>
+              {result.omitted > 0 && (
+                <p className="flex items-center gap-1.5 pl-5 text-xs text-amber-400/80">
+                  {result.omitted} game{result.omitted !== 1 ? "s were" : " was"} skipped — library
+                  is at capacity. Remove some games to make room.
+                </p>
               )}
-              . Sort by playtime below and enable the ones you want.
-            </p>
+            </div>
           )}
 
           {filteredGames && filteredGames.length > 0 && (

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { Games, Playlist, Users, Sessions } from "@/lib/db/repo";
-import { YT_IMPORT_GAME_ID } from "@/lib/constants";
+import { YT_IMPORT_GAME_ID, YT_IMPORT_MAX_TRACKS } from "@/lib/constants";
 import {
   fetchPlaylistItems,
   fetchPlaylistMetadata,
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const tracks = await fetchPlaylistItems(playlistId);
+    const tracks = await fetchPlaylistItems(playlistId, YT_IMPORT_MAX_TRACKS);
 
     if (tracks.length === 0) {
       return NextResponse.json(

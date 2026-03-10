@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import type { SyntheticEvent } from "react";
 import { GameProgressStatus } from "@/types";
 import type { Game, PlaylistTrack } from "@/types";
+import { GENERATION_COOLDOWN_MS } from "@/lib/constants";
 
 export type GameProgressEntry = {
   id: string;
@@ -21,6 +22,8 @@ export function usePlaylist() {
   const [genError, setGenError] = useState<string | null>(null);
   const [genProgress, setGenProgress] = useState<GameProgressEntry[]>([]);
   const [genGlobalMsg, setGenGlobalMsg] = useState<string>("");
+  // Unix ms timestamp after which a new generation is allowed (0 = no cooldown active).
+  const [cooldownUntil, setCooldownUntil] = useState(0);
   const [confirmClear, setConfirmClear] = useState(false);
   const [importUrl, setImportUrl] = useState("");
   const [importing, setImporting] = useState(false);
@@ -120,17 +123,17 @@ export function usePlaylist() {
 
   async function handleGenerate(games: Game[]) {
     if (games.length === 0) return;
-    setGenProgress(
-      games.map((g) => ({
-        id: g.id,
-        title: g.title,
-        status: GameProgressStatus.Waiting,
-        message: "",
-      })),
-    );
-    setGenGlobalMsg("");
-    setGenerating(true);
+
+    // Client-side cooldown guard: skip the fetch entirely and let the UI countdown handle it.
+    if (Date.now() < cooldownUntil) return;
+
     setGenError(null);
+
+    // `started` gates the generating UI state: we don't enter it until we've confirmed
+    // the server is actually running the generation (first non-error SSE event).
+    // This prevents a visual jitter when the server rejects immediately (concurrent
+    // generation, server-side cooldown from another client, etc.).
+    let started = false;
 
     try {
       const response = await fetch("/api/playlist/generate", { method: "POST" });
@@ -152,6 +155,35 @@ export function usePlaylist() {
           if (!line.startsWith("data: ")) continue;
           try {
             const event = JSON.parse(line.slice(6));
+
+            if (event.type === "error") {
+              // Cooldown error from the server (another client hit the endpoint):
+              // parse remaining seconds and update the local cooldown so the
+              // countdown UI appears without showing a generic error message.
+              const cooldownMatch = (event.message as string)?.match(/wait (\d+)s/);
+              if (cooldownMatch) {
+                setCooldownUntil(Date.now() + parseInt(cooldownMatch[1], 10) * 1000);
+              } else {
+                setGenError(event.message ?? "Generation failed");
+              }
+              return;
+            }
+
+            // First non-error event — generation is real; enter generating state now.
+            if (!started) {
+              started = true;
+              setGenProgress(
+                games.map((g) => ({
+                  id: g.id,
+                  title: g.title,
+                  status: GameProgressStatus.Waiting,
+                  message: "",
+                })),
+              );
+              setGenGlobalMsg("");
+              setGenerating(true);
+            }
+
             if (event.type === "progress") {
               if (event.gameId) {
                 setGenProgress((prev) =>
@@ -171,8 +203,6 @@ export function usePlaylist() {
             } else if (event.type === "done") {
               setTracks(event.tracks ?? []);
               if (event.sessionId) setCurrentSessionId(event.sessionId);
-            } else if (event.type === "error") {
-              setGenError(event.message ?? "Generation failed");
             }
           } catch {
             // skip malformed SSE line
@@ -182,8 +212,11 @@ export function usePlaylist() {
     } catch (err) {
       setGenError(err instanceof Error ? err.message : "Network error");
     } finally {
-      setGenerating(false);
-      setGenGlobalMsg("");
+      if (started) {
+        setCooldownUntil(Date.now() + GENERATION_COOLDOWN_MS);
+        setGenerating(false);
+        setGenGlobalMsg("");
+      }
     }
   }
 
@@ -253,6 +286,7 @@ export function usePlaylist() {
     genError,
     genProgress,
     genGlobalMsg,
+    cooldownUntil,
     confirmClear,
     setConfirmClear,
     importUrl,

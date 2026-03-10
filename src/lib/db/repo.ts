@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 import { getDB, getSeedPlaylistId, LOCAL_USER_ID } from "@/lib/db";
-import { MAX_PLAYLIST_SESSIONS, DEFAULT_TRACK_COUNT } from "@/lib/constants";
+import { MAX_PLAYLIST_SESSIONS, DEFAULT_TRACK_COUNT, YT_IMPORT_GAME_ID } from "@/lib/constants";
 import {
   toGame,
   toGames,
@@ -64,6 +64,17 @@ export const Games = {
         ORDER BY lg.added_at ASC
       `).all(),
     );
+  },
+
+  /** Returns the number of real games in the local library, excluding the synthetic YT-import entry. */
+  count(): number {
+    const row = stmt(`
+      SELECT COUNT(*) AS cnt FROM games g
+      JOIN library_games lg ON lg.game_id = g.id
+      WHERE lg.library_id = ${LOCAL_LIBRARY_SQ}
+        AND g.id != '${YT_IMPORT_GAME_ID}'
+    `).get() as { cnt: number };
+    return row.cnt;
   },
 
   getById(id: string): Game | null {

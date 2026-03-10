@@ -1,5 +1,15 @@
 # What's Coming
 
+## Testing & Quality
+
+- **Vitest setup** — install Vitest with TypeScript support and path alias resolution for `@/`; add `test`, `test:watch`, and `test:coverage` scripts to package.json
+- **Pure function unit tests** — test the YouTube service (`parseDuration`, REJECT_KEYWORDS filtering), mappers (`parseSearchQueries`, `toGame`, `toPlaylistSession`), and extracted candidate slot math from the pipeline
+- **Repository integration tests** — spin up in-memory SQLite databases for each test suite; verify repo layer behavior: session FIFO eviction, game cascading removal, `bulkImportSteam` deduplication, and `ACTIVE_SESSION_SQ` correctness
+- **Pipeline unit tests** — refactor `generatePlaylist` to accept LLM and YouTube providers as parameters (dependency injection) instead of resolving them internally; mock providers to test orchestration logic, curation mode branching, and slot allocation math without touching real services
+- **LLM response parsing** — add unit tests for the curation and candidates services to verify they handle malformed JSON gracefully and apply fallback logic correctly
+
+**Rationale:** This is a foundational quality gate before multi-user and schema refactors. The repo layer and pipeline orchestration are high-risk, low-test areas. Achieving >80% coverage on `lib/` buys confidence for major architectural changes.
+
 ## Player
 
 - **Repeat modes** — off / repeat all / repeat one
@@ -91,23 +101,19 @@ A `/stats` page surfacing data already captured in the DB — no new tracking ne
 
 ## Abuse Prevention & Public Launch Safeguards
 
-### Rate Limiting & Request Throttling
+### Rate Limiting & Request Throttling (Tier 2 & Beyond)
 
-- **Generation request rate limiting** — add per-session cooldown on `/api/playlist/generate` (e.g., 1 generation per 30 seconds, or 10 per hour); enforce via token bucket or sliding window; return `429 Too Many Requests` with retry-after header
 - **YouTube API quota budgets** — assign per-session daily quota limits (e.g., Bard tier gets 500/day, Maestro gets 5000/day); track quota spend and reject requests once exceeded
 - **LLM token budgets** — cap tokens per generation and track cumulative spend per session to prevent runaway costs on Claude/Ollama
 
-### Storage & Data Limits
+### Storage & Data Limits (Tier 2 & Beyond)
 
-- **Library size cap** — add `MAX_LIBRARY_GAMES` constant (suggest 500–1000) and enforce at game-add endpoints; show friendly error when exceeded
 - **Per-session storage quota** — implement quota tracking (e.g., 50 MB per session) to prevent disk bloat; archive old playlists instead of deleting
-- **Concurrent generation limit** — allow only 1 active generation per session; queue subsequent requests and provide status feedback
 
 ### Input Validation & Security
 
-- **Game title length limits** — add `MAX_GAME_TITLE_LENGTH` constant (suggest 200 chars) to prevent XSS and UI rendering issues
-- **Input sanitization** — sanitize all user input (game titles, session names, search queries, mood hints) to prevent injection attacks
-- **YouTube playlist import caps** — max imported tracks per playlist (e.g., 500 tracks) and max games per Steam import (e.g., 100 games)
+- **Input sanitization** — sanitize all user input (game titles, session names, search queries, mood hints) to prevent injection attacks beyond basic constraints
+- **Steam import cap per batch** — consider bounding max games per single Steam import to prevent one-shot library flooding (e.g., 100 games per import, but library cap of 500 total is primary constraint)
 
 ### Active Games Limit During Curation
 

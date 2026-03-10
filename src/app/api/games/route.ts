@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { Games } from "@/lib/db/repo";
 import { VALID_CURATIONS } from "@/lib/db/mappers";
-import { YT_IMPORT_GAME_ID } from "@/lib/constants";
+import { YT_IMPORT_GAME_ID, GAME_TITLE_MAX_LENGTH, LIBRARY_MAX_GAMES } from "@/lib/constants";
 import { newId } from "@/lib/uuid";
 import { CurationMode } from "@/types";
 import type { AddGamePayload } from "@/types";
@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const includeDisabled = searchParams.get("includeDisabled") === "true";
     const games = includeDisabled
-      ? Games.listAllIncludingDisabled()
+      ? Games.listAllIncludingDisabled().filter((g) => g.id !== YT_IMPORT_GAME_ID)
       : Games.listAll(YT_IMPORT_GAME_ID);
     return NextResponse.json(games);
   } catch (err) {
@@ -26,6 +26,18 @@ export async function POST(request: Request) {
 
     if (!body.title?.trim()) {
       return NextResponse.json({ error: "Game title is required" }, { status: 400 });
+    }
+    if (body.title.trim().length > GAME_TITLE_MAX_LENGTH) {
+      return NextResponse.json(
+        { error: `Game title must be ${GAME_TITLE_MAX_LENGTH} characters or fewer` },
+        { status: 400 },
+      );
+    }
+    if (Games.count() >= LIBRARY_MAX_GAMES) {
+      return NextResponse.json(
+        { error: `Library limit reached (${LIBRARY_MAX_GAMES} games max)` },
+        { status: 400 },
+      );
     }
 
     const id = newId();

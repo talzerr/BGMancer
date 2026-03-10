@@ -27,7 +27,6 @@ import { PlaylistHeader } from "@/components/PlaylistHeader";
 import { SortableTrackItem } from "@/components/SortableTrackItem";
 import { PlaylistEmptyState } from "@/components/PlaylistEmptyState";
 import { UndoToast } from "@/components/UndoToast";
-import { DevPanel } from "@/components/DevPanel";
 
 interface FeedClientProps {
   isSignedIn: boolean;
@@ -95,6 +94,7 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
             genProgress={playlist.genProgress}
             genGlobalMsg={playlist.genGlobalMsg}
             genError={playlist.genError}
+            cooldownUntil={playlist.cooldownUntil}
             targetTrackCount={config.targetTrackCount}
             onTargetChange={config.setTargetTrackCount}
             onTargetSave={config.saveTrackCount}
@@ -204,8 +204,6 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
           )}
         </main>
       </div>
-
-      <DevPanel />
 
       {pendingDelete && <UndoToast track={pendingDelete.track} onUndo={undoRemove} />}
     </>

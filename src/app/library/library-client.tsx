@@ -6,7 +6,7 @@ import { CurationMode } from "@/types";
 import type { Game } from "@/types";
 import { Spinner, SearchIcon, CheckIcon } from "@/components/Icons";
 import { AddGameForm } from "@/components/AddGameForm";
-import { GameRow } from "@/components/GameRow";
+import { GameRow, CurationLegend } from "@/components/GameRow";
 import { SteamImportPanel } from "@/components/SteamImportPanel";
 import { SeedExportPanel } from "@/components/SeedExportPanel";
 type Filter = "all" | "skip" | "lite" | "include" | "focus";
@@ -227,6 +227,8 @@ export function LibraryClient() {
                     {label}
                   </button>
                 ))}
+
+                <CurationLegend />
 
                 {displayed.some((g) => g.curation === CurationMode.Skip) && (
                   <button

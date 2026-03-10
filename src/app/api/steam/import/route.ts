@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Games } from "@/lib/db/repo";
 import type { SteamGameInput } from "@/lib/db/repo";
+import { LIBRARY_MAX_GAMES } from "@/lib/constants";
 
 export async function POST(request: Request) {
   try {
@@ -27,8 +28,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No valid games provided" }, { status: 400 });
     }
 
-    const result = Games.bulkImportSteam(games);
-    return NextResponse.json(result, { status: 201 });
+    const currentCount = Games.count();
+    const capacity = Math.max(0, LIBRARY_MAX_GAMES - currentCount);
+    if (capacity === 0) {
+      return NextResponse.json(
+        {
+          error: `Library is full (${LIBRARY_MAX_GAMES} games max). Remove some games to import more.`,
+        },
+        { status: 400 },
+      );
+    }
+
+    // Sort by playtime desc so most-played games are prioritised when capacity is limited
+    const sorted = [...games].sort((a, b) => b.playtime_forever - a.playtime_forever);
+    const gamesToImport = sorted.slice(0, capacity);
+    const omitted = games.length - gamesToImport.length;
+
+    const result = Games.bulkImportSteam(gamesToImport);
+    return NextResponse.json({ ...result, omitted }, { status: 201 });
   } catch (err) {
     console.error("[POST /api/steam/import]", err);
     return NextResponse.json({ error: "Failed to import games" }, { status: 500 });
