@@ -2,7 +2,6 @@
 
 ## Player
 
-- **Seekbar** — click or drag to jump anywhere in the current track
 - **Repeat modes** — off / repeat all / repeat one
 - **Mini video view** — expand the player to show the actual YouTube video
 - **Chapter markers for Full OST videos** — when a long compilation is playing, parse the YouTube description for timestamps and render notches on the seekbar; hover to see the chapter name, click to jump there
@@ -23,7 +22,6 @@
 - **Curation mood hint** — a free-text field on the generate panel (e.g. "focus session", "driving late at night", "boss rush energy") that gets appended to the Phase 3 system prompt. Replaces the old rigid vibe enum with something open-ended, stored as a single `curation_hint` config value
 - **Cross-session uniqueness** — when generating a new session, bias against tracks that already appear in recent sessions so consecutive runs feel genuinely different
 - **Playlist preview before commit** — after Phase 3 returns, surface the ordered track list for review before saving; allow swapping or removing individual tracks in that moment
-- **Game priority hints** — mark a game as high/low priority, injected as a soft hint into the Phase 3 prompt ("favour more tracks from X", "keep Y minimal")
 - **MusicBrainz enrichment** — enrich track metadata (artist, mood tags) from MusicBrainz after each generation and cache it in `mb_track_cache`; feed cached tags into Phase 2 and Phase 3 prompts as structured energy/mood signal. Low hit-rate on game OSTs (~29% tags, ~55% artist in early testing) means it's a hint, not a hard requirement. Implementation was scaffolded but removed pending better coverage or an alternative metadata source
 
 ## Full OST mode
@@ -33,9 +31,8 @@ Re-expose the per-game toggle that makes BGMancer find a single long compilation
 ## YouTube
 
 - **YouTube quota indicator** — show estimated daily quota remaining or surface a warning at generation start; the hard quota limit is a real source of pain when generating often
-- **Sync to an existing playlist** — push to a YouTube playlist you already own instead of always creating a new one
-- **Multiple playlists** — maintain separate playlists for different moods or sessions
-- **Rework playlist import** — the current importer accepts a raw YouTube playlist URL and pulls all videos in as tracks, bypassing the AI pipeline entirely; this should be revisited: consider running imported tracks through Phase 3 curation for ordering, inferring game titles from video metadata so tracks land in the right library games, validating that videos are actually game OST content, and giving the user a preview before committing the import
+- **Revisit YouTube sync strategy** — the current "sync to YouTube playlist" and "multiple playlists" features were designed for single-user mode; with per-user libraries and multi-user sessions, the UX/infrastructure for YouTube sync needs rethinking to avoid coupling user libraries to shared YouTube accounts
+- **Per-user game OST cache** — the `game_yt_playlists` table is global and shared across all users/sessions; if one user overrides a game's YouTube playlist, it affects everyone. This needs to be scoped per-user or per-library to maintain isolation (consider adding user_id or library_id FK)
 
 ## Quality of Life
 
@@ -90,7 +87,7 @@ A `/stats` page surfacing data already captured in the DB — no new tracking ne
 
 - **Session data export** — let a user download their full library + config as a JSON bundle to back up or migrate before their session expires
 - **Optional Google sign-in for persistence** — link an anonymous session to a Google account so the library survives cookie clears and works across devices
-- **Admin dashboard** — a password-protected `/admin` route showing active session count, disk usage per session, and a manual purge button
+- **Rate limiting** — per-session limits on generation requests and YouTube API calls to prevent quota exhaustion
 
 ## Abuse Prevention & Public Launch Safeguards
 
