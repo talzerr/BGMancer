@@ -13,17 +13,26 @@ Start typing a game title and an autocomplete dropdown suggests matches from Ste
 Paste your Steam profile URL and click **Find Library**. BGMancer pulls your public collection, sorted by hours played.
 
 - A **minimum playtime filter** (default: 10 hours) cuts out demos and games you barely touched
-- Imported games start **disabled** — they won't appear in playlists until you turn them on, so you can cherry-pick instead of flooding your playlist with 400 games at once
+- Imported games start **skipped** — they won't appear in playlists until you activate them, so you can cherry-pick instead of flooding your playlist with 400 games at once
 
-### Enabling games
+### Curation modes
 
-Every game has an on/off toggle. Only enabled games contribute to the playlist. If things feel stale, toggle a few games in or out and regenerate.
+Each game has four modes, controlled by the **Skip / Lite / Include / Focus** buttons on its row:
 
-**Enable all shown** activates every game currently visible in your filtered view with one click.
+- **Skip** — excluded from all playlists entirely
+- **Lite** — enters curation with a smaller candidate pool; occasional representation
+- **Include** — standard (the default for manually added games); normal representation
+- **Focus** — guaranteed tracks in every playlist; bypasses the AI selection phase and always contributes its fair share
+
+**Include all shown** activates every skipped game currently visible in your filtered view with one click. Useful after Steam import.
 
 ### Filtering and searching
 
-Switch between **All**, **Active**, and **Disabled** views. Sort by playtime, name, or date added. Search by title.
+Filter by curation mode: **All**, **Focus**, **Include**, **Lite**, **Skip**. Sort by playtime, name, or date added. Search by title. Page size adjustable (15 / 25 / 50 / 100 per page).
+
+### YouTube playlist override
+
+Each game row shows its discovered YouTube OST playlist — or "Will discover on next run" if not yet cached. Hover the row and click **Set manually** to pin a specific playlist URL or ID. This overrides automatic discovery for your library only.
 
 ---
 
@@ -33,7 +42,7 @@ The left panel on the main feed is where you set things up before hitting genera
 
 ### How many tracks
 
-Pick **25**, **50**, or **100** from the preset buttons, or hit **Custom** to type any number up to 200.
+Pick **25**, **50**, or **100** from the preset buttons, or hit **Custom** to type any number up to 150.
 
 ### Options
 
@@ -52,6 +61,10 @@ Hit **Curate N Tracks** and watch a live progress panel as BGMancer works throug
 Because the candidate pools are shuffled before the AI sees them, regenerating the same games gives you a genuinely different playlist each time.
 
 Tracks that couldn't be matched automatically are marked **pending** — hit **Find Missing** to run another search pass on them.
+
+### Generation cooldown
+
+After each generation there's a 30-second cooldown before you can run another. The button shows a rotating quip while it recharges.
 
 ### Session history
 
@@ -75,21 +88,43 @@ Click anywhere on a track row to start playback. The player bar appears at the b
 
 **Controls:** Previous · Play/Pause · Next · time display · shuffle · volume slider
 
+**Seekbar** — the thin bar at the very top of the player spans the full width. Drag it to jump anywhere in the current track.
+
 The player shows your position as **N / Total** to the left of the album art, so you always know where you are in the session.
 
 **Dim** drops the volume to 20% with one click — handy when someone walks in. Click again to restore.
 
-**Up Next** shows the title of the following track.
+**Up Next** shows the title and game of the following track.
 
 While a track plays, an animated equalizer appears on its row, and a pulsing dot in the generate panel shows which game is currently playing.
 
 Each track row has a direct link to open the video on YouTube.
+
+**Minimize** — the chevron at the right edge of the player collapses it to a thin bar when you want to focus on the library. Click it again to expand.
+
+---
+
+## Rerolling a track
+
+Hover any track row to reveal a **reroll** button. This replaces the track with a different one from the same game's OST playlist — useful when a track doesn't fit the mood or you've heard it too many times.
+
+---
+
+## Reordering tracks
+
+Drag any track row by its handle to reorder the playlist. The new order is saved immediately.
 
 ---
 
 ## Playlist stats
 
 The sub-row below the session title shows: total tracks · tracks ready · **total runtime** (highlighted in orange) · pending · errors.
+
+---
+
+## Removing tracks
+
+Hover any track row to reveal a remove button (×) on the right. Clicking it immediately removes the track and shows an **Undo** toast at the bottom of the screen. You have 4 seconds to undo before the deletion is committed. If you remove another track while the window is open, the previous deletion commits immediately and a new undo window starts.
 
 ---
 
@@ -114,10 +149,6 @@ OST titles are notorious spoilers — _The Fate of Aerith_, _Burning Hometown_, 
 Toggle it off at any time to see the full list. Turning it on mid-session only hides tracks you haven't reached yet. Your preference is remembered between sessions.
 
 ---
-
-## Removing tracks
-
-Hover any track row to reveal a remove button (×) on the right. Clicking it immediately removes the track and shows an **Undo** toast at the bottom of the screen. You have 4 seconds to undo before the deletion is committed. If you remove another track while the window is open, the previous deletion commits immediately and a new undo window starts.
 
 ## Starting over
 
