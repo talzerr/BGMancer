@@ -1,4 +1,5 @@
 import { Games, Playlist, Users, Sessions, Config } from "@/lib/db/repo";
+import { CurationMode, GameProgressStatus, TrackStatus } from "@/types";
 import {
   getCandidatesProvider,
   getCurationProvider,
@@ -56,18 +57,18 @@ export async function generatePlaylist(send: (event: GenerateEvent) => void): Pr
   const config = Config.load();
   const targetCount = config.target_track_count;
 
-  // Phase 2 (per-game candidates) uses the candidates provider — Claude when
-  // available since game knowledge improves candidate quality. Phase 3 (global
-  // curation) uses the curation provider — Claude preferred for cross-game
-  // ordering and energy arc. Name cleaning uses a local model only (text
-  // processing; no game knowledge needed, not worth burning API quota).
-  const candidatesProvider = getCandidatesProvider();
-  const curationProvider = getCurationProvider();
+  // Phase 2 (per-game candidates) and Phase 3 (global curation) use providers
+  // determined by the user's tier — Maestro routes to Anthropic when a key is
+  // available, Bard always uses local Ollama. Name cleaning always uses Ollama
+  // (text processing only; no game knowledge needed, not worth burning quota).
+  const user = Users.getOrCreateDefault();
+  const candidatesProvider = getCandidatesProvider(user.tier);
+  const curationProvider = getCurationProvider(user.tier);
   const cleaningProvider = getCleaningProvider();
 
   const fullOSTGames = games.filter((g) => g.allow_full_ost);
   const allIndividualGames = games.filter((g) => !g.allow_full_ost);
-  const focusGames = allIndividualGames.filter((g) => g.curation === "focus");
+  const focusGames = allIndividualGames.filter((g) => g.curation === CurationMode.Focus);
 
   // ── Full OST games ────────────────────────────────────────────────────────
   const fullOSTResults = await Promise.all(
@@ -98,9 +99,9 @@ export async function generatePlaylist(send: (event: GenerateEvent) => void): Pr
   const candidateResults: CandidateResult[] = await Promise.all(
     allIndividualGames.map(async (game) => {
       const candidateCount =
-        game.curation === "focus"
+        game.curation === CurationMode.Focus
           ? perGameFairShare
-          : game.curation === "lite"
+          : game.curation === CurationMode.Lite
             ? Math.max(1, Math.round(perGameCandidateTarget * 0.5))
             : perGameCandidateTarget;
       try {
@@ -112,7 +113,7 @@ export async function generatePlaylist(send: (event: GenerateEvent) => void): Pr
           type: "progress",
           gameId: game.id,
           title: game.title,
-          status: "error",
+          status: GameProgressStatus.Error,
           message: err instanceof Error ? err.message : "Failed",
         });
         return {
@@ -120,7 +121,7 @@ export async function generatePlaylist(send: (event: GenerateEvent) => void): Pr
           game,
           pendingTracks: [
             makePendingTrack(game.id, game.title, {
-              status: "error",
+              status: TrackStatus.Error,
               error_message: err instanceof Error ? err.message : "Generation failed",
             }),
           ],
@@ -131,11 +132,11 @@ export async function generatePlaylist(send: (event: GenerateEvent) => void): Pr
 
   const focusTrackResults = candidateResults.filter(
     (r): r is Extract<CandidateResult, { kind: "tracks" }> =>
-      r.kind === "tracks" && r.game.curation === "focus" && r.tracks.length > 0,
+      r.kind === "tracks" && r.game.curation === CurationMode.Focus && r.tracks.length > 0,
   );
   const curationTrackResults = candidateResults.filter(
     (r): r is Extract<CandidateResult, { kind: "tracks" }> =>
-      r.kind === "tracks" && r.game.curation !== "focus" && r.tracks.length > 0,
+      r.kind === "tracks" && r.game.curation !== CurationMode.Focus && r.tracks.length > 0,
   );
   const fallbackTracks = candidateResults
     .filter((r): r is Extract<CandidateResult, { kind: "fallback" }> => r.kind === "fallback")
@@ -191,7 +192,6 @@ export async function generatePlaylist(send: (event: GenerateEvent) => void): Pr
   });
 
   send({ type: "progress", message: "Saving playlist…" });
-  const user = Users.getOrCreateDefault();
   const gameNames = [...new Set(allTracks.map((t) => t.game_title ?? t.game_id))];
   const nameList =
     gameNames.slice(0, SESSION_NAME_MAX_GAMES).join(", ") +
@@ -211,8 +211,8 @@ export async function generatePlaylist(send: (event: GenerateEvent) => void): Pr
   // ── Resolve pending slots (full-OST + fallback search queries) ────────────
   await resolvePendingSlots(inserted, config.allow_long_tracks);
 
-  const foundCount = inserted.filter((t) => t.status === "found").length;
-  const pendingCount = inserted.filter((t) => t.status === "pending").length;
+  const foundCount = inserted.filter((t) => t.status === TrackStatus.Found).length;
+  const pendingCount = inserted.filter((t) => t.status === TrackStatus.Pending).length;
 
   send({
     type: "done",
@@ -244,7 +244,7 @@ async function resolveDirectTracks(
       channel_title: track.channelTitle,
       thumbnail: track.thumbnail,
       duration_seconds: durations.get(track.videoId) ?? null,
-      status: "found",
+      status: TrackStatus.Found,
     }),
   );
 }
@@ -272,7 +272,7 @@ async function runCurationPhase(
         channel_title: t.channelTitle,
         thumbnail: t.thumbnail,
         duration_seconds: durations.get(t.videoId) ?? null,
-        status: "found",
+        status: TrackStatus.Found,
       }),
     );
   }
@@ -308,7 +308,7 @@ async function runCurationPhase(
         channel_title: track.channelTitle,
         thumbnail: track.thumbnail,
         duration_seconds: durations.get(track.videoId) ?? null,
-        status: "found",
+        status: TrackStatus.Found,
       }),
     ];
   });

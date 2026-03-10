@@ -3,8 +3,9 @@ import fs from "fs";
 import path from "path";
 import { DEFAULT_TRACK_COUNT } from "@/lib/constants";
 
-// Stable UUID for the single local user — burned in so INSERT OR IGNORE is idempotent.
+// Stable UUIDs burned in so INSERT OR IGNORE is idempotent.
 export const LOCAL_USER_ID = "01960000-0000-7000-8000-000000000001";
+export const LOCAL_LIBRARY_ID = "01960000-0000-7000-8000-000000000002";
 
 let _db: Database.Database | null = null;
 
@@ -27,6 +28,7 @@ function initSchema(db: Database.Database): void {
       id         TEXT NOT NULL PRIMARY KEY,
       email      TEXT NOT NULL UNIQUE,
       username   TEXT,
+      tier       TEXT NOT NULL DEFAULT 'bard',
       created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
     );
 
@@ -43,6 +45,26 @@ function initSchema(db: Database.Database): void {
 
     CREATE INDEX IF NOT EXISTS idx_games_created ON games(created_at);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_games_steam_appid ON games(steam_appid) WHERE steam_appid IS NOT NULL;
+
+    CREATE TABLE IF NOT EXISTS libraries (
+      id         TEXT NOT NULL PRIMARY KEY,
+      user_id    TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_libraries_user ON libraries(user_id);
+
+    CREATE TABLE IF NOT EXISTS library_games (
+      library_id TEXT NOT NULL,
+      game_id    TEXT NOT NULL,
+      added_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      PRIMARY KEY (library_id, game_id),
+      FOREIGN KEY (library_id) REFERENCES libraries(id) ON DELETE CASCADE,
+      FOREIGN KEY (game_id)    REFERENCES games(id)     ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_library_games_game ON library_games(game_id);
 
     CREATE TABLE IF NOT EXISTS playlists (
       id          TEXT NOT NULL PRIMARY KEY,
@@ -102,8 +124,12 @@ function initSchema(db: Database.Database): void {
 
 function seedDefaultUser(db: Database.Database): void {
   db.prepare(
-    "INSERT OR IGNORE INTO users (id, email, username) VALUES (?, 'local@bgmancer.app', 'Local')",
+    "INSERT OR IGNORE INTO users (id, email, username, tier) VALUES (?, 'local@bgmancer.app', 'Local', 'bard')",
   ).run(LOCAL_USER_ID);
+  db.prepare("INSERT OR IGNORE INTO libraries (id, user_id) VALUES (?, ?)").run(
+    LOCAL_LIBRARY_ID,
+    LOCAL_USER_ID,
+  );
 }
 
 type YtPlaylistEntry = { game_title: string; playlist_id: string };

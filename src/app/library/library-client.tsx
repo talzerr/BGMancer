@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import type { Game, CurationMode } from "@/types";
+import { CurationMode } from "@/types";
+import type { Game } from "@/types";
 import { Spinner, SearchIcon, CheckIcon } from "@/components/Icons";
 import { AddGameForm } from "@/components/AddGameForm";
 import { GameRow } from "@/components/GameRow";
@@ -101,19 +102,22 @@ export function LibraryClient() {
     }
   }
 
-  const activeCount = games.filter((g) => g.curation !== "skip").length;
-  const skipCount = games.filter((g) => g.curation === "skip").length;
-  const liteCount = games.filter((g) => g.curation === "lite").length;
-  const includeCount = games.filter((g) => g.curation === "include").length;
-  const focusCount = games.filter((g) => g.curation === "focus").length;
+  const activeCount = games.filter((g) => g.curation !== CurationMode.Skip).length;
+  const skipCount = games.filter((g) => g.curation === CurationMode.Skip).length;
+  const liteCount = games.filter((g) => g.curation === CurationMode.Lite).length;
+  const includeCount = games.filter((g) => g.curation === CurationMode.Include).length;
+  const focusCount = games.filter((g) => g.curation === CurationMode.Focus).length;
 
   const displayed = useMemo(() => {
     let list = [...games];
 
-    if (filter === "skip") list = list.filter((g) => g.curation === "skip");
-    else if (filter === "lite") list = list.filter((g) => g.curation === "lite");
-    else if (filter === "include") list = list.filter((g) => g.curation === "include");
-    else if (filter === "focus") list = list.filter((g) => g.curation === "focus");
+    if (filter === CurationMode.Skip) list = list.filter((g) => g.curation === CurationMode.Skip);
+    else if (filter === CurationMode.Lite)
+      list = list.filter((g) => g.curation === CurationMode.Lite);
+    else if (filter === CurationMode.Include)
+      list = list.filter((g) => g.curation === CurationMode.Include);
+    else if (filter === CurationMode.Focus)
+      list = list.filter((g) => g.curation === CurationMode.Focus);
 
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -140,11 +144,13 @@ export function LibraryClient() {
   const paginatedDisplayed = displayed.slice(pageStart, pageStart + pageSize);
 
   async function handleIncludeAllShown() {
-    const toInclude = displayed.filter((g) => g.curation === "skip");
+    const toInclude = displayed.filter((g) => g.curation === CurationMode.Skip);
     if (toInclude.length === 0) return;
     setEnablingAll(true);
     const ids = new Set(toInclude.map((g) => g.id));
-    setGames((list) => list.map((g) => (ids.has(g.id) ? { ...g, curation: "include" } : g)));
+    setGames((list) =>
+      list.map((g) => (ids.has(g.id) ? { ...g, curation: CurationMode.Include } : g)),
+    );
     await Promise.all(
       toInclude.map((g) =>
         fetch(`/api/games?id=${g.id}`, {
@@ -222,7 +228,7 @@ export function LibraryClient() {
                   </button>
                 ))}
 
-                {displayed.some((g) => g.curation === "skip") && (
+                {displayed.some((g) => g.curation === CurationMode.Skip) && (
                   <button
                     onClick={handleIncludeAllShown}
                     disabled={enablingAll}
@@ -233,7 +239,8 @@ export function LibraryClient() {
                     ) : (
                       <CheckIcon className="h-3 w-3" />
                     )}
-                    Include all shown ({displayed.filter((g) => g.curation === "skip").length})
+                    Include all shown (
+                    {displayed.filter((g) => g.curation === CurationMode.Skip).length})
                   </button>
                 )}
 

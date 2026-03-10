@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { Game, CurationMode } from "@/types";
+import { CurationMode } from "@/types";
+import type { Game } from "@/types";
 import { TrashIcon, YouTubeLogo, CheckIcon, XIcon } from "@/components/Icons";
 import { steamHeaderUrl } from "@/lib/constants";
 
@@ -12,25 +13,25 @@ const CURATION_OPTIONS: {
   activeClass: string;
 }[] = [
   {
-    mode: "skip",
+    mode: CurationMode.Skip,
     label: "Skip",
     tooltip: "Excluded from all playlists",
     activeClass: "bg-zinc-700 text-zinc-200",
   },
   {
-    mode: "lite",
+    mode: CurationMode.Lite,
     label: "Lite",
     tooltip: "Occasional tracks — enters curation with fewer candidates",
     activeClass: "bg-blue-600/30 text-blue-300",
   },
   {
-    mode: "include",
+    mode: CurationMode.Include,
     label: "Include",
     tooltip: "Standard inclusion — normal representation in playlists",
     activeClass: "bg-teal-600/30 text-teal-300",
   },
   {
-    mode: "focus",
+    mode: CurationMode.Focus,
     label: "Focus",
     tooltip: "Guaranteed tracks in every playlist — bypasses AI curation",
     activeClass: "bg-amber-600/30 text-amber-300",

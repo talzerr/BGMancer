@@ -1,19 +1,18 @@
-import type {
-  Game,
-  PlaylistTrack,
-  PlaylistSession,
-  TrackStatus,
-  User,
-  CurationMode,
-} from "@/types";
+import { CurationMode, TrackStatus, UserTier } from "@/types";
+import type { Game, PlaylistTrack, PlaylistSession, User } from "@/types";
 
-const VALID_STATUSES: Set<string> = new Set(["pending", "searching", "found", "error"]);
+const VALID_TIERS = new Set<string>(Object.values(UserTier));
+const VALID_STATUSES = new Set<string>(Object.values(TrackStatus));
+
+export const VALID_CURATIONS = new Set<CurationMode>(Object.values(CurationMode) as CurationMode[]);
 
 export function toUser(row: Record<string, unknown>): User {
+  const rawTier = String(row.tier ?? UserTier.Bard);
   return {
     id: String(row.id),
     email: String(row.email),
     username: row.username != null ? String(row.username) : null,
+    tier: VALID_TIERS.has(rawTier) ? (rawTier as UserTier) : UserTier.Bard,
     created_at: String(row.created_at ?? ""),
   };
 }
@@ -29,13 +28,11 @@ export function toPlaylistSession(row: Record<string, unknown>): PlaylistSession
   };
 }
 
-export const VALID_CURATIONS = new Set<CurationMode>(["skip", "lite", "include", "focus"]);
-
 export function toGame(row: Record<string, unknown>): Game {
-  const raw = String(row.curation ?? "include");
+  const raw = String(row.curation ?? CurationMode.Include);
   const curation: CurationMode = VALID_CURATIONS.has(raw as CurationMode)
     ? (raw as CurationMode)
-    : "include";
+    : CurationMode.Include;
   return {
     id: String(row.id),
     title: String(row.title),
@@ -80,7 +77,9 @@ export function toPlaylistTrack(row: Record<string, unknown>): PlaylistTrack {
     search_queries: parseSearchQueries(row.search_queries),
     duration_seconds: row.duration_seconds != null ? Number(row.duration_seconds) : null,
     position: Number(row.position ?? 0),
-    status: VALID_STATUSES.has(row.status as string) ? (row.status as TrackStatus) : "pending",
+    status: VALID_STATUSES.has(row.status as string)
+      ? (row.status as TrackStatus)
+      : TrackStatus.Pending,
     error_message: row.error_message != null ? String(row.error_message) : null,
     created_at: String(row.created_at ?? ""),
     synced_at: row.synced_at != null ? String(row.synced_at) : null,

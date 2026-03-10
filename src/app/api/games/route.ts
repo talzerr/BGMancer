@@ -3,7 +3,8 @@ import { Games } from "@/lib/db/repo";
 import { VALID_CURATIONS } from "@/lib/db/mappers";
 import { YT_IMPORT_GAME_ID } from "@/lib/constants";
 import { newId } from "@/lib/uuid";
-import type { AddGamePayload, CurationMode } from "@/types";
+import { CurationMode } from "@/types";
+import type { AddGamePayload } from "@/types";
 
 export async function GET(request: Request) {
   try {
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
 
     const id = newId();
     const steamAppid = typeof body.steam_appid === "number" ? body.steam_appid : null;
-    const game = Games.create(id, body.title.trim(), "include", steamAppid);
+    const game = Games.create(id, body.title.trim(), CurationMode.Include, steamAppid);
     return NextResponse.json(game, { status: 201 });
   } catch (err) {
     console.error("[POST /api/games]", err);
@@ -50,7 +51,7 @@ export async function PATCH(request: Request) {
     const fields: { curation?: CurationMode } = {};
 
     if (typeof body.curation === "string" && VALID_CURATIONS.has(body.curation as CurationMode)) {
-      fields.curation = body.curation as CurationMode;
+      fields.curation = body.curation as CurationMode; // validated against enum values
     }
 
     if (Object.keys(fields).length === 0) {

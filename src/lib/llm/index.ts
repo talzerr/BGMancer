@@ -1,6 +1,9 @@
 import type { LLMProvider } from "./provider";
 import { OllamaProvider } from "./ollama";
 import { AnthropicProvider } from "./anthropic";
+import { UserTier } from "@/types";
+
+export { UserTier };
 
 function makeAnthropicProvider(modelEnvVar: string): LLMProvider {
   const model = process.env[modelEnvVar] ?? process.env.ANTHROPIC_MODEL;
@@ -8,38 +11,41 @@ function makeAnthropicProvider(modelEnvVar: string): LLMProvider {
 }
 
 /**
+ * Resolves the provider based on user tier:
+ *   bard    — always Ollama (local, no API key required)
+ *   maestro — Anthropic if ANTHROPIC_API_KEY is set, otherwise falls back to Ollama
+ */
+function providerForTier(tier: UserTier, anthropicModelEnvVar: string): LLMProvider {
+  if (tier === UserTier.Maestro && process.env.ANTHROPIC_API_KEY) {
+    return makeAnthropicProvider(anthropicModelEnvVar);
+  }
+  return getLocalLLMProvider();
+}
+
+/**
  * Phase 2 provider — per-game candidate selection.
  *
- * Game knowledge matters here (knowing what makes a soundtrack stand out),
- * so we prefer Claude when available. Falls back to local (Ollama) if no key.
- *
- * Override the model independently of the curation model via:
+ * Override the Anthropic model independently via:
  *   ANTHROPIC_CANDIDATES_MODEL=claude-haiku-4-5-20251001
  */
-export function getCandidatesProvider(): LLMProvider {
-  if (process.env.ANTHROPIC_API_KEY) return makeAnthropicProvider("ANTHROPIC_CANDIDATES_MODEL");
-  return getLocalLLMProvider();
+export function getCandidatesProvider(tier: UserTier): LLMProvider {
+  return providerForTier(tier, "ANTHROPIC_CANDIDATES_MODEL");
 }
 
 /**
  * Phase 3 provider — global cross-game curation and ordering.
  *
- * Requires strong game and music knowledge to build a coherent playlist arc.
- * Falls back to local (Ollama) if no key.
- *
- * Set the model via:
+ * Set the Anthropic model via:
  *   ANTHROPIC_MODEL=claude-sonnet-4-5
  */
-export function getCurationProvider(): LLMProvider {
-  if (process.env.ANTHROPIC_API_KEY) return makeAnthropicProvider("ANTHROPIC_MODEL");
-  return getLocalLLMProvider();
+export function getCurationProvider(tier: UserTier): LLMProvider {
+  return providerForTier(tier, "ANTHROPIC_MODEL");
 }
 
 /**
- * Provider for lightweight text processing (track name cleaning etc).
+ * Provider for lightweight text processing (track name cleaning).
  *
- * No game knowledge required — always uses the local model to avoid
- * burning API quota on simple string operations.
+ * Always uses Ollama — no game knowledge required, not worth burning API quota.
  */
 export function getCleaningProvider(): LLMProvider {
   return getLocalLLMProvider();

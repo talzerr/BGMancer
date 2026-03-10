@@ -4,6 +4,7 @@ import { SyncButton } from "@/components/SyncButton";
 import { Spinner, SearchIcon, CheckIcon, EyeIcon, EyeOffIcon } from "@/components/Icons";
 import { SESSION_NAME_MAX_LENGTH } from "@/lib/constants";
 import { formatSessionName } from "@/components/SessionList";
+import { TrackStatus } from "@/types";
 import type { PlaylistSessionWithCount } from "@/types";
 
 interface PlaylistHeaderProps {
@@ -35,13 +36,13 @@ export function PlaylistHeader({
 
   if (!playlist.currentSessionId) return null;
 
-  const pendingCount = playlist.tracks.filter((t) => t.status === "pending").length;
-  const foundCount = playlist.tracks.filter((t) => t.status === "found").length;
-  const errorCount = playlist.tracks.filter((t) => t.status === "error").length;
+  const pendingCount = playlist.tracks.filter((t) => t.status === TrackStatus.Pending).length;
+  const foundCount = playlist.tracks.filter((t) => t.status === TrackStatus.Found).length;
+  const errorCount = playlist.tracks.filter((t) => t.status === TrackStatus.Error).length;
   const hasFoundTracks = foundCount > 0;
 
   const totalDurationSeconds = playlist.tracks
-    .filter((t) => t.status === "found")
+    .filter((t) => t.status === TrackStatus.Found)
     .reduce((sum, t) => sum + (t.duration_seconds ?? 0), 0);
 
   const currentSession = sessions.find((s) => s.id === playlist.currentSessionId);

@@ -1,4 +1,4 @@
-import type { Game, PlaylistTrack } from "@/types";
+import type { Game, PlaylistTrack, GameProgressStatus } from "@/types";
 import type { OSTTrack } from "@/lib/services/youtube";
 
 export type GenerateEvent =
@@ -6,7 +6,7 @@ export type GenerateEvent =
       type: "progress";
       gameId?: string;
       title?: string;
-      status?: "active" | "done" | "error";
+      status?: GameProgressStatus;
       message: string;
     }
   | {

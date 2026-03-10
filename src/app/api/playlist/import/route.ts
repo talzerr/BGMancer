@@ -3,6 +3,7 @@ import { Games, Playlist, Users, Sessions } from "@/lib/db/repo";
 import { YT_IMPORT_GAME_ID } from "@/lib/constants";
 import { fetchPlaylistItems, YouTubeQuotaError } from "@/lib/services/youtube";
 import { newId } from "@/lib/uuid";
+import { TrackStatus } from "@/types";
 import type { PlaylistTrack } from "@/types";
 
 function extractPlaylistId(input: string): string | null {
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
       thumbnail: t.thumbnail,
       search_queries: null,
       duration_seconds: null,
-      status: "found" as const,
+      status: TrackStatus.Found,
       error_message: null,
     }));
 

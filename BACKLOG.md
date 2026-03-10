@@ -35,6 +35,7 @@ Re-expose the per-game toggle that makes BGMancer find a single long compilation
 - **YouTube quota indicator** — show estimated daily quota remaining or surface a warning at generation start; the hard quota limit is a real source of pain when generating often
 - **Sync to an existing playlist** — push to a YouTube playlist you already own instead of always creating a new one
 - **Multiple playlists** — maintain separate playlists for different moods or sessions
+- **Rework playlist import** — the current importer accepts a raw YouTube playlist URL and pulls all videos in as tracks, bypassing the AI pipeline entirely; this should be revisited: consider running imported tracks through Phase 3 curation for ordering, inferring game titles from video metadata so tracks land in the right library games, validating that videos are actually game OST content, and giving the user a preview before committing the import
 
 ## Quality of Life
 
@@ -42,6 +43,19 @@ Re-expose the per-game toggle that makes BGMancer find a single long compilation
 - **Quick-Add suggestions** — based on your active games, show recommended games to add with one click
 - **Keyboard shortcuts** — space to play/pause, ← / → for previous/next, `m` to mute/dim; show a shortcuts cheat-sheet on `?`
 - **Player memory** — persist the last-used player state, including track playing, location and voltime
+
+## Stats & Insights
+
+A `/stats` page surfacing data already captured in the DB — no new tracking needed:
+
+- **Games breakdown** — which games appear most often across your sessions, and how many tracks each contributed on average
+- **Total listening time** — cumulative runtime across all saved sessions
+- **Reroll & error heatmap** — tracks most frequently rerolled or stuck in error state; surfaces games the LLM consistently misjudges or YouTube has poor coverage for
+- **Track status trends** — found vs. pending vs. error rates per session over time, useful for diagnosing YouTube quota pressure
+
+## New Pages
+
+- **`/share/[seed]`** — a landing page for shared playlists. Depends on the playlist seed export/import feature (see Playlist section above); a visitor who follows a share link sees a read-only playlist view and can clone it into their own library with one click
 
 ## Hosting
 

@@ -12,8 +12,12 @@ const db = new Database(dbPath);
 db.exec(`
   PRAGMA foreign_keys = OFF;
   DROP TABLE IF EXISTS playlist_tracks;
+  DROP TABLE IF EXISTS playlists;
+  DROP TABLE IF EXISTS library_games;
+  DROP TABLE IF EXISTS libraries;
   DROP TABLE IF EXISTS game_yt_playlists;
   DROP TABLE IF EXISTS games;
+  DROP TABLE IF EXISTS users;
   DROP TABLE IF EXISTS config;
   PRAGMA foreign_keys = ON;
 `);

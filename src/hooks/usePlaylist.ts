@@ -2,12 +2,13 @@
 
 import { useCallback, useState } from "react";
 import type { SyntheticEvent } from "react";
+import { GameProgressStatus } from "@/types";
 import type { Game, PlaylistTrack } from "@/types";
 
 export type GameProgressEntry = {
   id: string;
   title: string;
-  status: "waiting" | "active" | "done" | "error";
+  status: GameProgressStatus;
   message: string;
 };
 
@@ -120,7 +121,12 @@ export function usePlaylist() {
   async function handleGenerate(games: Game[]) {
     if (games.length === 0) return;
     setGenProgress(
-      games.map((g) => ({ id: g.id, title: g.title, status: "waiting", message: "" })),
+      games.map((g) => ({
+        id: g.id,
+        title: g.title,
+        status: GameProgressStatus.Waiting,
+        message: "",
+      })),
     );
     setGenGlobalMsg("");
     setGenerating(true);
@@ -151,7 +157,11 @@ export function usePlaylist() {
                 setGenProgress((prev) =>
                   prev.map((e) =>
                     e.id === event.gameId
-                      ? { ...e, status: event.status ?? "active", message: event.message }
+                      ? {
+                          ...e,
+                          status: (event.status as GameProgressStatus) ?? GameProgressStatus.Active,
+                          message: event.message,
+                        }
                       : e,
                   ),
                 );

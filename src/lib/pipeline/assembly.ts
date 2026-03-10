@@ -1,6 +1,7 @@
 import { Playlist, type InsertableTrack } from "@/lib/db/repo";
 import { findBestVideo, YouTubeQuotaError } from "@/lib/services/youtube";
 import { newId } from "@/lib/uuid";
+import { TrackStatus } from "@/types";
 import type { PlaylistTrack } from "@/types";
 import type { PendingTrack } from "@/lib/pipeline/types";
 import { MIN_TRACK_DURATION_SECONDS, MAX_TRACK_DURATION_SECONDS } from "@/lib/constants";
@@ -23,7 +24,7 @@ export function makePendingTrack(
     thumbnail: null,
     search_queries: null,
     duration_seconds: null,
-    status: "pending",
+    status: TrackStatus.Pending,
     error_message: null,
     ...overrides,
   };
@@ -57,7 +58,9 @@ export async function resolvePendingSlots(
   inserted: PlaylistTrack[],
   allowLongTracks = false,
 ): Promise<void> {
-  const pendingTracks = inserted.filter((t) => t.status === "pending" && t.search_queries);
+  const pendingTracks = inserted.filter(
+    (t) => t.status === TrackStatus.Pending && t.search_queries,
+  );
   const insertedIndexById = new Map(inserted.map((t, i) => [t.id, i]));
 
   for (const track of pendingTracks) {
@@ -84,7 +87,7 @@ export async function resolvePendingSlots(
         if (idx !== undefined) {
           inserted[idx] = {
             ...inserted[idx],
-            status: "found",
+            status: TrackStatus.Found,
             video_id: video.videoId,
             video_title: video.title,
             channel_title: video.channelTitle,

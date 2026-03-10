@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { TrackStatus } from "@/types";
 import type { PlaylistTrack } from "@/types";
 import {
   YouTubeLogo,
@@ -71,7 +72,7 @@ export function PlaylistTrackCard({
       } ${isDragging ? "opacity-50 shadow-lg shadow-black/40" : ""} ${
         isPlaying
           ? "border-violet-600/40 bg-violet-950/50 shadow-sm shadow-violet-900/20"
-          : track.status === "error"
+          : track.status === TrackStatus.Error
             ? "border-red-800/30 bg-red-950/20"
             : "border-white/[0.05] bg-zinc-900/60 hover:border-white/[0.10] hover:bg-zinc-900/80"
       }`}
@@ -162,7 +163,7 @@ export function PlaylistTrackCard({
               {track.track_name ?? track.video_title}
             </p>
           )
-        ) : track.status === "error" ? (
+        ) : track.status === TrackStatus.Error ? (
           <p className="line-clamp-1 text-xs leading-tight text-red-400/80">
             {track.error_message ?? "Search failed"}
           </p>

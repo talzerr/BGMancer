@@ -9,15 +9,8 @@ import {
   toUser,
   parseSearchQueries,
 } from "@/lib/db/mappers";
-import type {
-  Game,
-  PlaylistTrack,
-  PlaylistSession,
-  User,
-  AppConfig,
-  TrackStatus,
-  CurationMode,
-} from "@/types";
+import { CurationMode, UserTier } from "@/types";
+import type { Game, PlaylistTrack, PlaylistSession, User, AppConfig, TrackStatus } from "@/types";
 import { newId } from "@/lib/uuid";
 
 // Prepared statements cached by SQL string — avoids recompiling on every call.
@@ -43,24 +36,34 @@ export interface SteamGameInput {
   playtime_forever: number;
 }
 
+// Subquery that resolves the local user's library ID.
+const LOCAL_LIBRARY_SQ = `(SELECT id FROM libraries WHERE user_id = '${LOCAL_USER_ID}' LIMIT 1)`;
+
 export const Games = {
-  /** Returns all non-skip games — used for playlist generation. */
+  /** Returns all non-skip games in the local library — used for playlist generation. */
   listAll(excludeId?: string): Game[] {
+    const base = `
+      SELECT g.* FROM games g
+      JOIN library_games lg ON lg.game_id = g.id
+      WHERE lg.library_id = ${LOCAL_LIBRARY_SQ}
+        AND g.curation != 'skip'
+    `;
     if (excludeId) {
-      return toGames(
-        stmt(
-          "SELECT * FROM games WHERE curation != 'skip' AND id != ? ORDER BY created_at ASC",
-        ).all(excludeId),
-      );
+      return toGames(stmt(`${base} AND g.id != ? ORDER BY lg.added_at ASC`).all(excludeId));
     }
-    return toGames(
-      stmt("SELECT * FROM games WHERE curation != 'skip' ORDER BY created_at ASC").all(),
-    );
+    return toGames(stmt(`${base} ORDER BY lg.added_at ASC`).all());
   },
 
-  /** Returns all games regardless of enabled state — used by the library page. */
+  /** Returns all games in the local library regardless of curation — used by the library page. */
   listAllIncludingDisabled(): Game[] {
-    return toGames(stmt("SELECT * FROM games ORDER BY created_at ASC").all());
+    return toGames(
+      stmt(`
+        SELECT g.* FROM games g
+        JOIN library_games lg ON lg.game_id = g.id
+        WHERE lg.library_id = ${LOCAL_LIBRARY_SQ}
+        ORDER BY lg.added_at ASC
+      `).all(),
+    );
   },
 
   getById(id: string): Game | null {
@@ -73,21 +76,28 @@ export const Games = {
   create(
     id: string,
     title: string,
-    curation: CurationMode = "include",
+    curation: CurationMode = CurationMode.Include,
     steamAppid: number | null = null,
     playtimeMinutes: number | null = null,
   ): Game {
-    stmt(
-      "INSERT INTO games (id, title, allow_full_ost, curation, steam_appid, playtime_minutes) VALUES (?, ?, 0, ?, ?, ?)",
-    ).run(id, title, curation, steamAppid, playtimeMinutes);
+    const db = getDB();
+    db.transaction(() => {
+      stmt(
+        "INSERT INTO games (id, title, allow_full_ost, curation, steam_appid, playtime_minutes) VALUES (?, ?, 0, ?, ?, ?)",
+      ).run(id, title, curation, steamAppid, playtimeMinutes);
 
-    const seededPlaylistId = getSeedPlaylistId(title);
-    if (seededPlaylistId) {
-      stmt("INSERT OR IGNORE INTO game_yt_playlists (game_id, playlist_id) VALUES (?, ?)").run(
-        id,
-        seededPlaylistId,
-      );
-    }
+      stmt(
+        `INSERT OR IGNORE INTO library_games (library_id, game_id) VALUES (${LOCAL_LIBRARY_SQ}, ?)`,
+      ).run(id);
+
+      const seededPlaylistId = getSeedPlaylistId(title);
+      if (seededPlaylistId) {
+        stmt("INSERT OR IGNORE INTO game_yt_playlists (game_id, playlist_id) VALUES (?, ?)").run(
+          id,
+          seededPlaylistId,
+        );
+      }
+    })();
 
     const created = this.getById(id);
     if (!created) throw new Error(`[Games.create] game ${id} not found after INSERT`);
@@ -103,29 +113,42 @@ export const Games = {
     return this.getById(id);
   },
 
+  /** Removes the game from the local library (and deletes the game row if it has no other library entries). */
   remove(id: string): void {
-    stmt("DELETE FROM games WHERE id = ?").run(id);
+    const db = getDB();
+    db.transaction(() => {
+      stmt(`DELETE FROM library_games WHERE library_id = ${LOCAL_LIBRARY_SQ} AND game_id = ?`).run(
+        id,
+      );
+      const remaining = stmt("SELECT COUNT(*) AS cnt FROM library_games WHERE game_id = ?").get(
+        id,
+      ) as { cnt: number };
+      if (remaining.cnt === 0) {
+        stmt("DELETE FROM games WHERE id = ?").run(id);
+      }
+    })();
   },
 
   ensureExists(id: string, title: string): void {
     const exists = stmt("SELECT id FROM games WHERE id = ?").get(id);
     if (!exists) {
-      this.create(id, title, "skip");
+      this.create(id, title, CurationMode.Skip);
     }
   },
 
   /**
-   * Bulk-inserts Steam games as disabled (enabled=0).
+   * Bulk-inserts Steam games as disabled (curation='skip') into the local library.
    * Silently skips entries whose steam_appid already exists (via the unique index).
    * Returns the count of newly inserted and skipped rows.
    */
   bulkImportSteam(games: SteamGameInput[]): { imported: number; skipped: number } {
     const db = getDB();
-    const insertSQL = `
+    const insertGameSQL = `
       INSERT OR IGNORE INTO games
         (id, title, allow_full_ost, curation, steam_appid, playtime_minutes)
       VALUES (?, ?, 0, 'skip', ?, ?)
     `;
+    const insertLibrarySQL = `INSERT OR IGNORE INTO library_games (library_id, game_id) VALUES (${LOCAL_LIBRARY_SQ}, ?)`;
     const seedSQL = "INSERT OR IGNORE INTO game_yt_playlists (game_id, playlist_id) VALUES (?, ?)";
 
     let imported = 0;
@@ -134,9 +157,10 @@ export const Games = {
     db.transaction(() => {
       for (const g of games) {
         const id = newId();
-        const result = stmt(insertSQL).run(id, g.name, g.appid, Math.round(g.playtime_forever));
+        const result = stmt(insertGameSQL).run(id, g.name, g.appid, Math.round(g.playtime_forever));
         if (result.changes > 0) {
           imported++;
+          stmt(insertLibrarySQL).run(id);
           const seededPlaylistId = getSeedPlaylistId(g.name);
           if (seededPlaylistId) stmt(seedSQL).run(id, seededPlaylistId);
         } else {
@@ -174,6 +198,11 @@ export const Users = {
       | Record<string, unknown>
       | undefined;
     return row ? toUser(row) : null;
+  },
+
+  getTier(id: string): UserTier {
+    const row = stmt("SELECT tier FROM users WHERE id = ?").get(id) as { tier: string } | undefined;
+    return row?.tier === UserTier.Maestro ? UserTier.Maestro : UserTier.Bard;
   },
 };
 

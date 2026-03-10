@@ -1,9 +1,19 @@
 // ─── Users ────────────────────────────────────────────────────────────────────
 
+/** Determines which AI provider is used for playlist generation.
+ *  Bard    — all LLM calls use Ollama (local, no API key required)
+ *  Maestro — all LLM calls use Anthropic (falls back to Ollama if key absent)
+ */
+export enum UserTier {
+  Bard = "bard",
+  Maestro = "maestro",
+}
+
 export interface User {
   id: string;
   email: string;
   username: string | null;
+  tier: UserTier;
   created_at: string;
 }
 
@@ -25,12 +35,17 @@ export interface PlaylistSessionWithCount extends PlaylistSession {
 // ─── Game library ─────────────────────────────────────────────────────────────
 
 /** Controls how a game participates in playlist generation.
- *  skip    — excluded entirely
- *  lite    — enters curation with half as many candidates (appears occasionally)
- *  include — standard inclusion (default)
- *  focus   — guaranteed tracks in every playlist, bypasses AI curation
+ *  Skip    — excluded entirely
+ *  Lite    — enters curation with half as many candidates (appears occasionally)
+ *  Include — standard inclusion (default)
+ *  Focus   — guaranteed tracks in every playlist, bypasses AI curation
  */
-export type CurationMode = "skip" | "lite" | "include" | "focus";
+export enum CurationMode {
+  Skip = "skip",
+  Lite = "lite",
+  Include = "include",
+  Focus = "focus",
+}
 
 export interface Game {
   id: string;
@@ -50,7 +65,22 @@ export interface AddGamePayload {
 
 // ─── Playlist ─────────────────────────────────────────────────────────────────
 
-export type TrackStatus = "pending" | "searching" | "found" | "error";
+export enum TrackStatus {
+  Pending = "pending",
+  Searching = "searching",
+  Found = "found",
+  Error = "error",
+}
+
+// ─── Generation progress ──────────────────────────────────────────────────────
+
+/** Per-game UI status during playlist generation. */
+export enum GameProgressStatus {
+  Waiting = "waiting",
+  Active = "active",
+  Done = "done",
+  Error = "error",
+}
 
 export interface PlaylistTrack {
   id: string;

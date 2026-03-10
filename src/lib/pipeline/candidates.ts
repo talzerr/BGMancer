@@ -2,7 +2,7 @@ import { YtPlaylists } from "@/lib/db/repo";
 import { selectTracksFromList, compilationQueries } from "@/lib/services/curation";
 import { searchOSTPlaylist, fetchPlaylistItems } from "@/lib/services/youtube";
 import type { LLMProvider } from "@/lib/llm";
-import type { Game } from "@/types";
+import { type Game, GameProgressStatus } from "@/types";
 import { makePendingTrack } from "@/lib/pipeline/assembly";
 import type { GenerateEvent, GameTracks, CandidateResult } from "@/lib/pipeline/types";
 
@@ -16,7 +16,7 @@ export async function generateTracksForFullOST(
     type: "progress",
     gameId: game.id,
     title: game.title,
-    status: "active",
+    status: GameProgressStatus.Active,
     message: "Finding full OST compilation…",
   });
   const queries = compilationQueries(game.title);
@@ -24,7 +24,7 @@ export async function generateTracksForFullOST(
     type: "progress",
     gameId: game.id,
     title: game.title,
-    status: "done",
+    status: GameProgressStatus.Done,
     message: "Queued for YouTube search",
   });
   return {
@@ -56,7 +56,7 @@ export async function fetchGameCandidates(
       type: "progress",
       gameId: game.id,
       title: game.title,
-      status: "active",
+      status: GameProgressStatus.Active,
       message: "Using cached OST playlist…",
     });
   } else {
@@ -64,7 +64,7 @@ export async function fetchGameCandidates(
       type: "progress",
       gameId: game.id,
       title: game.title,
-      status: "active",
+      status: GameProgressStatus.Active,
       message: "Searching YouTube for OST playlist…",
     });
     playlistId = await searchOSTPlaylist(game.title);
@@ -77,7 +77,7 @@ export async function fetchGameCandidates(
       type: "progress",
       gameId: game.id,
       title: game.title,
-      status: "done",
+      status: GameProgressStatus.Done,
       message: "No playlist found — queued for search",
     });
     return {
@@ -96,7 +96,7 @@ export async function fetchGameCandidates(
     type: "progress",
     gameId: game.id,
     title: game.title,
-    status: "active",
+    status: GameProgressStatus.Active,
     message: "Fetching track list…",
   });
   const playlistTracks = await fetchPlaylistItems(playlistId);
@@ -106,7 +106,7 @@ export async function fetchGameCandidates(
       type: "progress",
       gameId: game.id,
       title: game.title,
-      status: "done",
+      status: GameProgressStatus.Done,
       message: "No tracks found",
     });
     return { kind: "tracks", game, tracks: [] };
@@ -116,7 +116,7 @@ export async function fetchGameCandidates(
     type: "progress",
     gameId: game.id,
     title: game.title,
-    status: "active",
+    status: GameProgressStatus.Active,
     message: `Selecting candidates from ${playlistTracks.length} tracks…`,
   });
 
@@ -133,7 +133,7 @@ export async function fetchGameCandidates(
     type: "progress",
     gameId: game.id,
     title: game.title,
-    status: "done",
+    status: GameProgressStatus.Done,
     message: `${candidates.length} candidates selected`,
   });
 

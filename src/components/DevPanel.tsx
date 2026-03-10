@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { usePlayerContext } from "@/context/player-context";
+import { TrackStatus } from "@/types";
 
 type Tab = "config" | "playlist" | "player" | "yt-playlists";
 
@@ -18,11 +19,11 @@ interface RawYtPlaylistRow {
   discovered_at: string;
 }
 
-const STATUS_BADGE: Record<string, string> = {
-  found: "bg-emerald-900/60 text-emerald-300 border-emerald-700/50",
-  pending: "bg-zinc-800 text-zinc-400 border-zinc-700",
-  searching: "bg-amber-900/60 text-amber-300 border-amber-700/50",
-  error: "bg-red-900/60 text-red-300 border-red-700/50",
+const STATUS_BADGE: Record<TrackStatus, string> = {
+  [TrackStatus.Found]: "bg-emerald-900/60 text-emerald-300 border-emerald-700/50",
+  [TrackStatus.Pending]: "bg-zinc-800 text-zinc-400 border-zinc-700",
+  [TrackStatus.Searching]: "bg-amber-900/60 text-amber-300 border-amber-700/50",
+  [TrackStatus.Error]: "bg-red-900/60 text-red-300 border-red-700/50",
 };
 
 export function DevPanel() {
@@ -53,10 +54,10 @@ export function DevPanel() {
 
   const tracks = playlist.tracks;
   const byStatus = {
-    found: tracks.filter((t) => t.status === "found").length,
-    pending: tracks.filter((t) => t.status === "pending").length,
-    searching: tracks.filter((t) => t.status === "searching").length,
-    error: tracks.filter((t) => t.status === "error").length,
+    found: tracks.filter((t) => t.status === TrackStatus.Found).length,
+    pending: tracks.filter((t) => t.status === TrackStatus.Pending).length,
+    searching: tracks.filter((t) => t.status === TrackStatus.Searching).length,
+    error: tracks.filter((t) => t.status === TrackStatus.Error).length,
   };
   const pct = tracks.length > 0 ? Math.round((byStatus.found / tracks.length) * 100) : 0;
 
@@ -137,7 +138,14 @@ export function DevPanel() {
             ) : (
               <>
                 <div className="mb-3 flex flex-wrap gap-2">
-                  {(["found", "pending", "searching", "error"] as const).map(
+                  {(
+                    [
+                      TrackStatus.Found,
+                      TrackStatus.Pending,
+                      TrackStatus.Searching,
+                      TrackStatus.Error,
+                    ] as const
+                  ).map(
                     (s) =>
                       byStatus[s] > 0 && (
                         <span
@@ -171,7 +179,7 @@ export function DevPanel() {
                           </td>
                           <td className="px-2 py-1">
                             <span
-                              className={`rounded-full border px-1.5 py-0.5 text-[10px] ${STATUS_BADGE[t.status] ?? STATUS_BADGE.pending}`}
+                              className={`rounded-full border px-1.5 py-0.5 text-[10px] ${STATUS_BADGE[t.status] ?? STATUS_BADGE[TrackStatus.Pending]}`}
                             >
                               {t.status}
                             </span>

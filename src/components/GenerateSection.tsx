@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { GameProgressStatus } from "@/types";
 import type { GameProgressEntry } from "@/hooks/usePlaylist";
 import { Spinner, CheckIcon, XIcon, ErrorCircle, MusicNote } from "@/components/Icons";
 import { MAX_TRACK_COUNT } from "@/lib/constants";
@@ -70,11 +71,11 @@ export function GenerateSection({
             {genProgress.map((entry) => (
               <div key={entry.id} className="flex min-w-0 items-start gap-2">
                 <div className="mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center">
-                  {entry.status === "active" ? (
+                  {entry.status === GameProgressStatus.Active ? (
                     <Spinner className="h-3 w-3 text-teal-400" />
-                  ) : entry.status === "done" ? (
+                  ) : entry.status === GameProgressStatus.Done ? (
                     <CheckIcon className="h-3 w-3 text-emerald-400" />
-                  ) : entry.status === "error" ? (
+                  ) : entry.status === GameProgressStatus.Error ? (
                     <XIcon className="h-3 w-3 text-red-400" />
                   ) : (
                     <span className="block h-1.5 w-1.5 rounded-full bg-zinc-600" />
@@ -83,18 +84,18 @@ export function GenerateSection({
                 <div className="min-w-0 flex-1">
                   <span
                     className={`truncate text-xs font-medium ${
-                      entry.status === "active"
+                      entry.status === GameProgressStatus.Active
                         ? "text-white"
-                        : entry.status === "done"
+                        : entry.status === GameProgressStatus.Done
                           ? "text-zinc-400"
-                          : entry.status === "error"
+                          : entry.status === GameProgressStatus.Error
                             ? "text-red-400"
                             : "text-zinc-600"
                     }`}
                   >
                     {entry.title}
                   </span>
-                  {entry.status !== "waiting" && entry.message && (
+                  {entry.status !== GameProgressStatus.Waiting && entry.message && (
                     <span className="ml-1.5 text-[11px] text-zinc-500">{entry.message}</span>
                   )}
                 </div>

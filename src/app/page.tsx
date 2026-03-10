@@ -1,9 +1,13 @@
 import Image from "next/image";
 import { auth, signIn, signOut, AUTH_CONFIGURED } from "@/lib/services/auth";
+import { Users } from "@/lib/db/repo";
+import { LOCAL_USER_ID } from "@/lib/db";
+import { UserTier } from "@/types";
 import { FeedClient } from "./feed-client";
 
 export default async function HomePage() {
   const session = AUTH_CONFIGURED ? await auth() : null;
+  const tier = Users.getTier(LOCAL_USER_ID);
 
   return (
     <div className="relative min-h-screen bg-zinc-950">
@@ -30,8 +34,17 @@ export default async function HomePage() {
             </div>
           </div>
 
-          {/* Auth — only shown when Google OAuth is configured */}
+          {/* Auth + tier badge */}
           <div className="flex items-center gap-3">
+            {tier === UserTier.Maestro ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-medium tracking-wide text-amber-400">
+                🎼 Maestro
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[11px] font-medium tracking-wide text-zinc-400">
+                🪕 Bard
+              </span>
+            )}
             {AUTH_CONFIGURED ? (
               session?.user ? (
                 <>
