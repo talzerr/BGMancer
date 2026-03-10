@@ -36,8 +36,17 @@ NEXTAUTH_SECRET=          # any random string
 npm run dev   # → http://localhost:6959
 ```
 
+## Built with
+
+- **Frontend:** Next.js 16, React, Tailwind CSS
+- **Backend:** Node.js, better-sqlite3, Next.js API routes
+- **AI:** Anthropic Claude (hosted) or Ollama (local)
+- **APIs:** YouTube Data v3, Steam
+- **Development:** human-led architecture & decisions, Claude-assisted implementation
+
 ## Docs
 
 - [FEATURES.md](FEATURES.md) — full feature breakdown
 - [BACKLOG.md](BACKLOG.md) — what's coming next
 - [LEGAL.md](LEGAL.md) — disclaimers and third-party terms
+- [LICENSE](LICENSE) — GNU Affero General Public License v3
