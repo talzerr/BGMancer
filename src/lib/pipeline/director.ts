@@ -1,4 +1,4 @@
-import type { TaggedTrack, TrackRole, Game } from "@/types";
+import type { TaggedTrack, TrackRole, Game, VibeScore } from "@/types";
 import { CurationMode } from "@/types";
 
 interface ArcSlot {
@@ -130,10 +130,16 @@ function computeGameBudgets(
   return budgets;
 }
 
-function scoreTrack(track: TaggedTrack, slot: ArcSlot): number {
-  let score = 0;
-  if (slot.energyPrefs.includes(track.energy)) score += 2;
-  if (slot.rolePrefs.includes(track.role)) score += 3;
+function scoreTrack(track: TaggedTrack, slot: ArcSlot, vibeScore?: VibeScore): number {
+  // Hard energy filter: reject tracks outside slot's energy range
+  if (!slot.energyPrefs.includes(track.energy)) return -Infinity;
+
+  // Fit-dominant: LLM fitScore is the primary signal (0-100 range)
+  let score = vibeScore?.fitScore ?? 50; // default 50 = neutral when no vibe check
+
+  // Soft role bonus: matching role gets a small boost but doesn't gate
+  if (slot.rolePrefs.includes(track.role)) score += 5;
+
   return score;
 }
 
@@ -145,6 +151,7 @@ export function assemblePlaylist(
   taggedPools: Map<string, TaggedTrack[]>,
   games: Game[],
   targetCount: number,
+  vibeScores?: Map<string, VibeScore>,
 ): TaggedTrack[] {
   const budgets = computeGameBudgets(games, taggedPools, targetCount);
   const slots = expandArc(targetCount);
@@ -181,7 +188,7 @@ export function assemblePlaylist(
         while (slotIdx < slots.length && focusSlotIndices.has(slotIdx)) slotIdx++;
         if (slotIdx >= slots.length) break;
 
-        const track = pickBestTrack(pool, slots[slotIdx], used, gameId, lastGameId);
+        const track = pickBestTrack(pool, slots[slotIdx], used, gameId, lastGameId, vibeScores);
         if (track) {
           result[slotIdx] = track;
           focusSlotIndices.add(slotIdx);
@@ -221,10 +228,10 @@ export function assemblePlaylist(
       if (currentUsed >= budget) continue;
 
       const pool = shuffledPools.get(gameId) ?? [];
-      const candidate = pickBestTrack(pool, slot, used, gameId, lastGameId);
+      const candidate = pickBestTrack(pool, slot, used, gameId, lastGameId, vibeScores);
       if (!candidate) continue;
 
-      let score = scoreTrack(candidate, slot);
+      let score = scoreTrack(candidate, slot, vibeScores?.get(candidate.videoId));
       // Penalize same game as previous
       if (gameId === lastGameId) score -= 5;
       // Bonus for under-represented games
@@ -244,7 +251,7 @@ export function assemblePlaylist(
       const allGameIds = [...nonFocusGameIds, ...focusGameIds];
       for (const gameId of allGameIds) {
         const pool = shuffledPools.get(gameId) ?? [];
-        const candidate = pickBestTrack(pool, slot, used, gameId, lastGameId);
+        const candidate = pickBestTrack(pool, slot, used, gameId, lastGameId, vibeScores);
         if (candidate) {
           bestTrack = candidate;
           break;
@@ -283,16 +290,17 @@ function pickBestTrack(
   used: Set<string>,
   _gameId: string,
   lastGameId: string | null,
+  vibeScores?: Map<string, VibeScore>,
 ): TaggedTrack | null {
   let best: TaggedTrack | null = null;
-  let bestScore = -1;
+  let bestScore = -Infinity;
 
   for (const track of pool) {
     if (used.has(track.videoId)) continue;
     // Avoid consecutive same-game
     if (track.gameId === lastGameId) continue;
 
-    const score = scoreTrack(track, slot);
+    const score = scoreTrack(track, slot, vibeScores?.get(track.videoId));
     if (score > bestScore) {
       bestScore = score;
       best = track;
@@ -303,7 +311,7 @@ function pickBestTrack(
   if (!best) {
     for (const track of pool) {
       if (used.has(track.videoId)) continue;
-      const score = scoreTrack(track, slot);
+      const score = scoreTrack(track, slot, vibeScores?.get(track.videoId));
       if (score > bestScore) {
         bestScore = score;
         best = track;

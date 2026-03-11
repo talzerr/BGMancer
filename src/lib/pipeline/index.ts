@@ -1,6 +1,6 @@
 import { Games, Playlist, Users, Sessions } from "@/lib/db/repo";
 import { GameProgressStatus, TrackStatus } from "@/types";
-import { getTaggingProvider } from "@/lib/llm";
+import { getTaggingProvider, getVibeCheckProvider } from "@/lib/llm";
 import { fetchVideoDurations, YouTubeQuotaError } from "@/lib/services/youtube";
 import { generateTracksForFullOST, fetchGameCandidates } from "@/lib/pipeline/candidates";
 import {
@@ -10,13 +10,16 @@ import {
   taggedTrackToPending,
 } from "@/lib/pipeline/assembly";
 import { assemblePlaylist } from "@/lib/pipeline/director";
+import { buildCandidatePool } from "@/lib/pipeline/casting";
+import { vibeCheckPool } from "@/lib/pipeline/vibe-check";
 import type { GenerateEvent, PendingTrack, CandidateResult } from "@/lib/pipeline/types";
-import type { AppConfig, PlaylistTrack, TaggedTrack } from "@/types";
+import type { AppConfig, PlaylistTrack, TaggedTrack, VibeScore } from "@/types";
 import {
   MIN_TRACK_DURATION_SECONDS,
   MAX_TRACK_DURATION_SECONDS,
   SESSION_NAME_MAX_GAMES,
   SESSION_NAME_MAX_LENGTH,
+  VIBE_RECENTLY_PLAYED_LIMIT,
 } from "@/lib/constants";
 
 export type { GenerateEvent };
@@ -113,11 +116,23 @@ export async function generatePlaylist(
 
   let individualTracks: PendingTrack[] = [];
   if (taggedPools.size > 0 && targetForIndividual > 0) {
-    send({ type: "progress", message: "Assembling playlist arc…" });
     const activeGames = allIndividualGames.filter((g) => taggedPools.has(g.id));
+
+    // ── Vibe Check (Maestro only) ──────────────────────────────────────────
+    let vibeScores: Map<string, VibeScore> | undefined;
+    const vibeProvider = getVibeCheckProvider(user.tier);
+    if (vibeProvider) {
+      send({ type: "progress", message: "Personalizing track selection…" });
+      const candidates = buildCandidatePool(taggedPools, activeGames, targetForIndividual);
+      const recentTracks = Playlist.getRecentTrackNames(userId, VIBE_RECENTLY_PLAYED_LIMIT);
+      vibeScores = await vibeCheckPool(candidates, null, recentTracks, vibeProvider);
+      if (vibeScores.size === 0) vibeScores = undefined;
+    }
+
+    send({ type: "progress", message: "Assembling playlist arc…" });
     // Request 15% extra so the duration filter has headroom without leaving gaps
     const assembleTarget = Math.ceil(targetForIndividual * 1.15);
-    const orderedTracks = assemblePlaylist(taggedPools, activeGames, assembleTarget);
+    const orderedTracks = assemblePlaylist(taggedPools, activeGames, assembleTarget, vibeScores);
 
     // Fetch durations for all selected tracks
     const durations = await fetchVideoDurations(orderedTracks.map((t) => t.videoId));
