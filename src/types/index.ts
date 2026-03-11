@@ -126,6 +126,10 @@ export interface TaggedTrack {
   isJunk: boolean;
 }
 
+export interface VibeScore {
+  fitScore: number; // 1-100, how well this track fits the session mood/context
+}
+
 export interface YouTubeSearchResult {
   videoId: string;
   title: string;

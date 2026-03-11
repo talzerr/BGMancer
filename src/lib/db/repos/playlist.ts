@@ -197,4 +197,21 @@ export const Playlist = {
       }
     })();
   },
+
+  getRecentTrackNames(
+    userId: string,
+    limit: number,
+  ): Array<{ cleanName: string; gameTitle: string }> {
+    return stmt(`
+      SELECT pt.track_name AS cleanName, g.title AS gameTitle
+      FROM playlist_tracks pt
+      JOIN playlists p ON p.id = pt.playlist_id
+      JOIN games g ON g.id = pt.game_id
+      WHERE p.user_id = ?
+        AND pt.track_name IS NOT NULL
+        AND pt.status = 'found'
+      ORDER BY p.created_at DESC, pt.position ASC
+      LIMIT ?
+    `).all(userId, limit) as Array<{ cleanName: string; gameTitle: string }>;
+  },
 };
