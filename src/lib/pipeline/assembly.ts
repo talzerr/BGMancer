@@ -2,7 +2,7 @@ import { Playlist, type InsertableTrack } from "@/lib/db/repo";
 import { findBestVideo, YouTubeQuotaError } from "@/lib/services/youtube";
 import { newId } from "@/lib/uuid";
 import { TrackStatus } from "@/types";
-import type { PlaylistTrack } from "@/types";
+import type { PlaylistTrack, TaggedTrack } from "@/types";
 import type { PendingTrack } from "@/lib/pipeline/types";
 import { MIN_TRACK_DURATION_SECONDS, MAX_TRACK_DURATION_SECONDS } from "@/lib/constants";
 
@@ -44,6 +44,33 @@ export function toInsertable(tracks: PendingTrack[]): InsertableTrack[] {
     status: t.status,
     error_message: t.error_message,
   }));
+}
+
+// ─── Compilation search queries ──────────────────────────────────────────────
+
+export function compilationQueries(gameTitle: string): string[] {
+  return [
+    `${gameTitle} full OST official soundtrack`,
+    `${gameTitle} complete official soundtrack`,
+    `${gameTitle} original game soundtrack`,
+  ];
+}
+
+// ─── Tagged → Pending conversion ─────────────────────────────────────────────
+
+export function taggedTrackToPending(
+  track: TaggedTrack,
+  durationSeconds: number | null,
+): PendingTrack {
+  return makePendingTrack(track.gameId, track.gameTitle, {
+    track_name: track.cleanName,
+    video_id: track.videoId,
+    video_title: track.title,
+    channel_title: track.channelTitle,
+    thumbnail: track.thumbnail,
+    duration_seconds: durationSeconds,
+    status: TrackStatus.Found,
+  });
 }
 
 // ─── Pending slot resolution ──────────────────────────────────────────────────

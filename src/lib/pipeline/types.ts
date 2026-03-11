@@ -1,5 +1,4 @@
-import type { Game, PlaylistTrack, GameProgressStatus } from "@/types";
-import type { OSTTrack } from "@/lib/services/youtube";
+import type { Game, PlaylistTrack, GameProgressStatus, TaggedTrack } from "@/types";
 
 export type GenerateEvent =
   | {
@@ -27,5 +26,5 @@ export type PendingTrack = Omit<
 export type GameTracks = { game: Game; tracks: PendingTrack[] };
 
 export type CandidateResult =
-  | { kind: "tracks"; game: Game; tracks: OSTTrack[] }
+  | { kind: "tagged"; game: Game; tracks: TaggedTrack[] }
   | { kind: "fallback"; game: Game; pendingTracks: PendingTrack[] };

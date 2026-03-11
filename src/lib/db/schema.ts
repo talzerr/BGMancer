@@ -84,6 +84,18 @@ export function initSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_tracks_position  ON playlist_tracks(position);
     CREATE INDEX IF NOT EXISTS idx_tracks_status    ON playlist_tracks(status);
 
+    CREATE TABLE IF NOT EXISTS track_tags (
+      video_id   TEXT    NOT NULL,
+      game_id    TEXT    NOT NULL,
+      clean_name TEXT    NOT NULL,
+      energy     INTEGER NOT NULL,
+      role       TEXT    NOT NULL,
+      is_junk    INTEGER NOT NULL DEFAULT 0,
+      tagged_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+      PRIMARY KEY (video_id, game_id),
+      FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS game_yt_playlists (
       game_id       TEXT NOT NULL,
       user_id       TEXT NOT NULL DEFAULT '',

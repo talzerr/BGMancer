@@ -111,6 +111,21 @@ export interface AppConfig {
 
 // ─── YouTube ──────────────────────────────────────────────────────────────────
 
+export type TrackRole = "opener" | "ambient" | "build" | "combat" | "closer" | "menu" | "cinematic";
+
+export interface TaggedTrack {
+  videoId: string;
+  title: string;
+  channelTitle: string;
+  thumbnail: string;
+  gameId: string;
+  gameTitle: string;
+  cleanName: string;
+  energy: 1 | 2 | 3;
+  role: TrackRole;
+  isJunk: boolean;
+}
+
 export interface YouTubeSearchResult {
   videoId: string;
   title: string;

@@ -30,23 +30,13 @@ export const MIN_TRACK_DURATION_SECONDS = 90; // 1.5 minutes
 /** Tracks longer than this (in seconds) are excluded when allow_long_tracks is off. */
 export const MAX_TRACK_DURATION_SECONDS = 600; // 10 minutes
 
-// ─── Pipeline candidate tuning ────────────────────────────────────────────────
+// ─── Pipeline tagging tuning ──────────────────────────────────────────────────
 
-/** Multiplier applied to per-game fair share to build the candidate pool (3× target). */
-export const CANDIDATES_MULTIPLIER = 3;
+/** Maximum tracks sent to the LLM in a single tagging call. */
+export const TAG_BATCH_SIZE = 25;
 
-/** Minimum candidates to request per game regardless of fair share. */
-export const CANDIDATES_MIN = 5;
-
-/** Maximum candidates to request per game (controls prompt size and API cost). */
-export const CANDIDATES_MAX = 30;
-
-/**
- * Phase 3 is asked for this many extra tracks beyond the target so the duration
- * filter has headroom to drop short stingers / long suites without leaving gaps.
- * All selected tracks are still LLM-curated; excess is truncated after filtering.
- */
-export const DURATION_FILTER_OVERHEAD = 1.2;
+/** Maximum tracks per game to tag (controls total LLM cost per game). */
+export const TAG_POOL_MAX = 80;
 
 // ─── Steam CDN ────────────────────────────────────────────────────────────────
 

@@ -6,7 +6,8 @@
 - **Pure function unit tests** — test the YouTube service (`parseDuration`, REJECT_KEYWORDS filtering), mappers (`parseSearchQueries`, `toGame`, `toPlaylistSession`), and extracted candidate slot math from the pipeline
 - **Repository integration tests** — spin up in-memory SQLite databases for each test suite; verify repo layer behavior: session FIFO eviction, game cascading removal, `bulkImportSteam` deduplication, and `ACTIVE_SESSION_SQ` correctness
 - **Pipeline unit tests** — refactor `generatePlaylist` to accept LLM and YouTube providers as parameters (dependency injection) instead of resolving them internally; mock providers to test orchestration logic, curation mode branching, and slot allocation math without touching real services
-- **LLM response parsing** — add unit tests for the curation and candidates services to verify they handle malformed JSON gracefully and apply fallback logic correctly
+- **Director unit tests** — `assemblePlaylist` in `src/lib/pipeline/director.ts` is pure TypeScript with no I/O; high-value test target. Verify arc shape (intro slots get energy≤2, climax slots get energy=3), per-game budget enforcement, no-consecutive-same-game constraint, and graceful pool exhaustion behavior
+- **Tagger response parsing** — add unit tests for `parseTagResponse` in `src/lib/pipeline/tagger.ts` to verify it handles malformed JSON, missing fields, out-of-range energy values, and unknown role strings gracefully
 
 **Rationale:** This is a foundational quality gate before schema refactors. The repo layer and pipeline orchestration are high-risk, low-test areas. Achieving >80% coverage on `lib/` buys confidence for major architectural changes.
 
@@ -18,11 +19,11 @@
 
 ## Playlist
 
-- **Better auto-generated session names** — the current name is just a comma-joined list of game titles (e.g. "Elden Ring, Hades, Celeste"). Consider having the LLM produce a short evocative title for the playlist based on the games and mood — something like "Soulsborne Descent" or "Indie Chill Mix" — generated as a cheap side-call at the end of Phase 3. Fallback to the game-list name if the call fails.
+- **Better auto-generated session names** — the current name is just a comma-joined list of game titles (e.g. "Elden Ring, Hades, Celeste"). Consider having the LLM produce a short evocative title based on the games and mood — something like "Soulsborne Descent" or "Indie Chill Mix" — as a cheap side-call at the end of generation. The tagged track pool (energy distribution, dominant roles) is already available and could be passed as structured input. Fallback to the game-list name if the call fails.
 
-- **Track rating** — Thumbs Up / Thumbs Down while a track plays; liked/disliked video IDs are stored and injected into the Phase 3 curation prompt as explicit keep/avoid hints on the next run
-- **Track blacklist** — permanently mark a video as "never include this again"; persisted to DB and filtered during Phase 2 candidate selection
-- **Playlist preview before commit** — after Phase 3 returns, surface the ordered track list for review before saving; allow swapping or removing individual tracks in that moment
+- **Track rating** — Thumbs Up / Thumbs Down while a track plays; liked/disliked video IDs stored in DB; on next generation pass them to `assemblePlaylist` as a boost/penalty weight on the tagged pool (liked tracks score +2, disliked are excluded from the pool before the Director sees it)
+- **Track blacklist** — permanently mark a video as "never include this again"; persisted to DB and filtered from `tagGameTracks` output before the Director sees the pool
+- **Playlist preview before commit** — after arc assembly returns, surface the ordered track list for review before saving; allow swapping or removing individual tracks in that moment
 - **Playlist text/CSV export** — export current playlist as plain text or CSV (distinct from YouTube sync); useful for copying tracklists or sharing outside the app
 - **Playlist seed export/import** — encode the current playlist as a compact string (video ID + game name per entry) and surface a share button; pasting a valid seed recreates the exact playlist instantly, no generation needed; depends on the `/share/[seed]` page
 - **Rethink track reroll** - do we want it? can we make sure its not abused?
@@ -33,51 +34,55 @@
 - **Bulk text import** — paste a list of game titles to add multiple games at once
 - **"The Essentials" empty state** — when the library is empty, show a curated starter set (e.g. Chrono Trigger, Halo, Doom, Persona 5) as one-click adds; a first-time user should hear music within 3 clicks
 
-## 🔴 Curation Overhaul [TOP PRIORITY]
-
-The current three-phase pipeline (Phase 2 per-game candidate selection → Phase 3 global curation) has a fundamental quality ceiling. The end result often feels inconsistent — curated tracks feel intentional but the tail of the playlist is uneven, and single-game sessions get no arc ordering at all. This needs a ground-up rethink before further incremental patches make the design harder to change.
-
-Key problems to solve:
-
-- **Phase 3 selects blind** — the LLM picks tracks by title only with no signal about duration, energy, or whether a track is a boss theme vs. ambient. Providing duration annotations (so the LLM avoids stingers and 20-minute suites) and game metadata (genre, platform) would give it real signal.
-- **Single-game has no arc** — for one-game sessions, Phase 3 is skipped entirely; the output is Phase 2's shuffled slice. A dedicated ordering step (even a lightweight re-ranking prompt) would make single-game playlists feel intentional.
-- **Fill tracks are uncurated** — when the duration filter drops tracks post-Phase 3, the reserve fills (unused Phase 2 candidates) are added mechanically in round-robin order, not curated. The seam between "curated" and "filled" is visible.
-- **CANDIDATES_MAX=30 is a hard ceiling** — for a single-game 50-track target, Phase 2 only provides 30 candidates. Phase 3 is then asked to fill 60 slots from 30 sources. More candidates are needed for large targets.
-- **No cross-session variety** — consecutive generations can produce very similar playlists because there's no signal about what was played before.
-- **Name cleaning stage** - improve, every generation has errors for example
-
-```exmp1
-game: Grand Theft Auto III – The Definitive Edition
-track: GTA III (GTA 3) - Game FM | Agallah + Sean Price - "Rising to the Top"
-result: The Definitive Edition
-expected: Rising to the Top
-```
-
-```exmp2
-game: Aeruta
-track: Elite Strategist - Aeruta (OST) | Red Eyes Studios
-result: Aeruta
-expected: Elite Strategist
-```
-
-Possible directions to explore before implementing anything:
-
-1. Redesign Phase 3 to receive duration + energy metadata per track (requires a pre-Phase-3 YouTube duration fetch or a metadata enrichment step)
-2. Collapse Phase 2 + Phase 3 into a single LLM call that receives the full candidate pool with metadata and returns an ordered playlist directly
-3. Give Phase 2 explicit "role" targets (e.g., "pick 2 openers, 3 mid-energy builds, 1 closer") so Phase 3 has structured variety to work with
-4. Add a post-Phase-3 re-ranking step that scores the draft playlist against diversity and arc criteria and swaps out weak spots
-
----
-
 ## Curation Intelligence
 
-- **Curation mood hint** — a free-text field on the generate panel (e.g. "focus session", "driving late at night", "boss rush energy") that gets appended to the Phase 3 system prompt; stored as a single `curation_hint` config value
-- **Cross-session uniqueness** — when generating a new session, bias against tracks that already appear in recent sessions so consecutive runs feel genuinely different
-- **MusicBrainz enrichment** — enrich track metadata (artist, mood tags) from MusicBrainz after each generation and cache it in `mb_track_cache`; feed cached tags into Phase 2 and Phase 3 prompts as structured energy/mood signal. Low hit-rate on game OSTs (~29% tags, ~55% artist in early testing) means it's a hint, not a hard requirement. Implementation was scaffolded but removed pending better coverage or an alternative metadata source
+- **Curation mood hint** — a free-text field on the generate panel (e.g. "focus session", "driving late at night", "boss rush energy") stored as `curation_hint` config value; would influence Director arc shape (e.g. "focus" boosts ambient/build weight, "boss rush" boosts combat/peak fraction) rather than going into an LLM prompt
+- **Cross-session uniqueness** — bias against tracks that already appear in recent sessions so consecutive runs feel different; `track_tags` table already has `video_id` + `game_id`, so recent session video IDs can be passed to `assemblePlaylist` as a soft-exclude set
+- **MusicBrainz enrichment** — enrich track metadata (artist, mood tags) from MusicBrainz after each generation and cache it alongside `track_tags`; could improve energy/role accuracy beyond what LLM title-reading achieves. Low hit-rate on game OSTs (~29% tags, ~55% artist in early testing) means it's a hint, not a hard requirement
+
+## Curation Tuning
+
+The Tagger + Director architecture replaced the old LLM Phase 2/Phase 3 pipeline. Most of the previous "Curation Overhaul" problems are solved: arc shaping applies to all games including single-game, pool size increased from 30 to 80, fill tracks are arc-curated, name cleaning is folded into tagging. Remaining improvement surface:
+
+**Tagger prompt quality**
+
+- `cleanName` still has edge cases — the current prompt handles most patterns but struggles with tracks where the game title appears mid-string or where the track is credited to a radio station (see examples below). Adding more few-shot examples to `TAGGER_SYSTEM` in `src/lib/pipeline/tagger.ts` is the fastest fix.
+- Energy/role classification by llama3.2 can be coarse for obscure OSTs — Maestro tier (Claude haiku) is noticeably more accurate. Could add a validation pass: if >50% of a game's tracks land on `role="ambient"`, re-tag with a different prompt that biases toward more specific roles.
+
+```
+game: Grand Theft Auto III – The Definitive Edition
+track: GTA III (GTA 3) - Game FM | Agallah + Sean Price - "Rising to the Top"
+expected cleanName: Rising to the Top   ← radio station format, title is the last segment
+```
+
+```
+game: Aeruta
+track: Elite Strategist - Aeruta (OST) | Red Eyes Studios
+expected cleanName: Elite Strategist   ← title appears before the game name
+```
+
+**Director arc tuning**
+
+- Arc phase fractions are hardcoded in `ARC_TEMPLATE` in `src/lib/pipeline/director.ts`. Could make them configurable per mood hint (above) or expose a "session shape" preset (e.g. "chill", "epic", "balanced").
+- The 40% per-game soft cap in `computeGameBudgets` can be too tight for single-game sessions — already handled by fallback but worth revisiting if users report thin pools.
+- Focus mode currently gets a 2× budget weight; old behavior was a hard guaranteed-slot bypass of curation entirely. If users want strict "always N tracks from this game" guarantees, the pre-assignment logic in `assemblePlaylist` needs to be hardened (remove the `if (track)` guard and error if pool is insufficient).
+
+**Tag cache invalidation**
+
+- `track_tags` rows are never invalidated. If a YouTube playlist is updated (new upload replaces a taken-down track), old tags linger. A `db:reset` clears them, but a per-game refresh button (already in Library backlog) should also call `TrackTags.deleteByGame(gameId)` to force re-tagging on next generation.
 
 ## Full OST mode
 
 Re-expose the per-game toggle that makes BGMancer find a single long compilation video for a game instead of individual tracks. The underlying pipeline logic is already in place (`allow_full_ost` column + generation path in `src/lib/pipeline/`) — the UI toggle was removed; just needs to be surfaced again.
+
+## Track Tag Database
+
+`track_tags` is quietly becoming a local metadata store for YouTube game OST videos (`video_id + game_id → cleanName, energy, role, isJunk`). Tags are game-universal — a combat theme is a combat theme regardless of who generated it. This has compounding value:
+
+- **Cache durations alongside tags** — add `duration_seconds` to `track_tags`; first generation pays the `fetchVideoDurations` API cost, subsequent re-generations of the same library skip it entirely. Duration could also feed the tagger as a signal (flag anything <60s as junk without an LLM call). Schema change: add `duration_seconds INTEGER` column to `track_tags`, populate it in `tagger.ts` after the duration fetch in `index.ts`.
+- **Shared tag cache across users** — the current schema has no user dimension (`PRIMARY KEY (video_id, game_id)`), so tags are already shareable. Today they're implicitly per-user because games are per-library, but in a multi-user deployment the first person to tag "Hollow Knight" pays the LLM cost and everyone else gets it free. No schema change needed — just stop scoping tag queries through the user's library.
+- **Seeded tag database** — pre-tag the 50 most common game OSTs and ship the data in `data/track-tags.json` alongside the existing `data/yt-playlists.json`. New installs get quality arc results on day one with zero LLM calls. The `syncYtPlaylistSeeds` pattern in `src/lib/db/seed.ts` is the model to follow.
+- **Tag export/import** — let power users export their accumulated tag DB and share it; a community-sourced tag corpus would eventually make the LLM tagging step optional for well-covered OSTs.
 
 ## YouTube
 

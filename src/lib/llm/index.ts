@@ -23,32 +23,18 @@ function providerForTier(tier: UserTier, anthropicModelEnvVar: string): LLMProvi
 }
 
 /**
- * Phase 2 provider — per-game candidate selection.
+ * Phase 2 provider — per-game track tagging (energy, role, cleanName, junk detection).
  *
  * Override the Anthropic model independently via:
- *   ANTHROPIC_CANDIDATES_MODEL=claude-haiku-4-5-20251001
+ *   ANTHROPIC_TAGGING_MODEL=claude-haiku-4-5-20251001
  */
+export function getTaggingProvider(tier: UserTier): LLMProvider {
+  return providerForTier(tier, "ANTHROPIC_TAGGING_MODEL");
+}
+
+/** @deprecated Use getTaggingProvider instead */
 export function getCandidatesProvider(tier: UserTier): LLMProvider {
-  return providerForTier(tier, "ANTHROPIC_CANDIDATES_MODEL");
-}
-
-/**
- * Phase 3 provider — global cross-game curation and ordering.
- *
- * Set the Anthropic model via:
- *   ANTHROPIC_MODEL=claude-sonnet-4-5
- */
-export function getCurationProvider(tier: UserTier): LLMProvider {
-  return providerForTier(tier, "ANTHROPIC_MODEL");
-}
-
-/**
- * Provider for lightweight text processing (track name cleaning).
- *
- * Always uses Ollama — no game knowledge required, not worth burning API quota.
- */
-export function getCleaningProvider(): LLMProvider {
-  return getLocalLLMProvider();
+  return getTaggingProvider(tier);
 }
 
 /**

@@ -1,9 +1,10 @@
 import { YtPlaylists } from "@/lib/db/repo";
-import { selectTracksFromList, compilationQueries } from "@/lib/services/curation";
+import { compilationQueries } from "@/lib/pipeline/assembly";
 import { searchOSTPlaylist, fetchPlaylistItems } from "@/lib/services/youtube";
 import type { LLMProvider } from "@/lib/llm";
 import { type Game, GameProgressStatus } from "@/types";
 import { makePendingTrack } from "@/lib/pipeline/assembly";
+import { tagGameTracks } from "@/lib/pipeline/tagger";
 import type { GenerateEvent, GameTracks, CandidateResult } from "@/lib/pipeline/types";
 
 // ─── Full-OST path (single compilation video per game) ───────────────────────
@@ -33,19 +34,17 @@ export async function generateTracksForFullOST(
   };
 }
 
-// ─── Phase 1 + 2: playlist discovery then per-game candidate selection ───────
+// ─── Phase 1 + 2: playlist discovery then per-game tagging ──────────────────
 
 /**
  * Phases 1 & 2 for a single game:
  *   Phase 1 — Playlist discovery: finds (or loads from cache) the YouTube OST
  *             playlist ID for the game.
- *   Phase 2 — Track selection: asks the LLM to pick `candidateCount` quality
- *             candidates from the playlist, filtering junk and ensuring
- *             within-game variety.
+ *   Phase 2 — Track tagging: asks the LLM to tag all tracks with metadata
+ *             (energy, role, cleanName, isJunk). Junk tracks are filtered out.
  */
 export async function fetchGameCandidates(
   game: Game,
-  candidateCount: number,
   provider: LLMProvider,
   send: (e: GenerateEvent) => void,
   userId: string,
@@ -110,7 +109,7 @@ export async function fetchGameCandidates(
       status: GameProgressStatus.Done,
       message: "No tracks found",
     });
-    return { kind: "tracks", game, tracks: [] };
+    return { kind: "tagged", game, tracks: [] };
   }
 
   send({
@@ -118,25 +117,18 @@ export async function fetchGameCandidates(
     gameId: game.id,
     title: game.title,
     status: GameProgressStatus.Active,
-    message: `Selecting candidates from ${playlistTracks.length} tracks…`,
+    message: `Tagging ${playlistTracks.length} tracks…`,
   });
 
-  const selectedIndices = await selectTracksFromList(
-    game.title,
-    playlistTracks,
-    Math.min(candidateCount, playlistTracks.length),
-    provider,
-  );
-
-  const candidates = selectedIndices.map((idx) => playlistTracks[idx]);
+  const taggedTracks = await tagGameTracks(game.id, game.title, playlistTracks, provider);
 
   send({
     type: "progress",
     gameId: game.id,
     title: game.title,
     status: GameProgressStatus.Done,
-    message: `${candidates.length} candidates selected`,
+    message: `${taggedTracks.length} tracks tagged`,
   });
 
-  return { kind: "tracks", game, tracks: candidates };
+  return { kind: "tagged", game, tracks: taggedTracks };
 }
