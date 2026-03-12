@@ -1,0 +1,39 @@
+name: Game / OST Request
+description: Request a game to be added to the BGMancer backfill (pre-tagged seed data)
+labels: ["game-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Requesting a game means you'd like its OST pre-tagged in the seed data so it works without needing your own LLM setup. Self-hosted users with an API key can already add any game themselves.
+
+  - type: input
+    id: title
+    attributes:
+      label: Game title
+      placeholder: "e.g. Hollow Knight"
+    validations:
+      required: true
+
+  - type: input
+    id: store
+    attributes:
+      label: Store / platform link
+      description: Steam, GOG, Nintendo, etc.
+      placeholder: "https://store.steampowered.com/app/367520/"
+
+  - type: input
+    id: ost
+    attributes:
+      label: YouTube OST playlist (optional)
+      description: Link to the official or most complete OST playlist on YouTube, if you know it.
+      placeholder: "https://www.youtube.com/playlist?list=..."
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why is this a good addition?
+      description: Briefly explain what makes this OST worth including (composer, style, iconic tracks, etc.).
+      placeholder: "Christopher Larkin's score is widely considered one of the best game OSTs of the decade — ambient, melancholic, great for focus sessions."
+    validations:
+      required: true

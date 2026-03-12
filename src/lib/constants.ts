@@ -28,7 +28,7 @@ export const MAX_TRACK_COUNT = 150;
 export const MIN_TRACK_DURATION_SECONDS = 90; // 1.5 minutes
 
 /** Tracks longer than this (in seconds) are excluded when allow_long_tracks is off. */
-export const MAX_TRACK_DURATION_SECONDS = 600; // 10 minutes
+export const MAX_TRACK_DURATION_SECONDS = 540; // 9 minutes
 
 // ─── Pipeline vibe check ─────────────────────────────────────────────────────
 

@@ -113,6 +113,7 @@ ALTER TABLE track_tags ADD COLUMN metadata_source TEXT DEFAULT 'llm';
 ## Quality of Life
 
 - **Keyboard shortcuts** — Space (play/pause), ←/→ (previous/next), `m` (mute); `?` shows a cheat-sheet.
+- **State retention** - Remeber the state of the user between usages, for example if the app was closed while track 17 was playing, on re-entry, track 17 should be selected.
 - **Mobile layout** — responsive pass for the feed and player bar.
 - **PWA install** — web app manifest + service worker for home screen install; pairs with mobile layout.
 - **Quick-add suggestions** — suggest related titles to add based on active library (Steam "players also play" or genre tags).
