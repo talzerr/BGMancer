@@ -1,6 +1,6 @@
 import { Games, Playlist, Users, Sessions } from "@/lib/db/repo";
 import { GameProgressStatus, TrackStatus } from "@/types";
-import { getTaggingProvider, getVibeCheckProvider } from "@/lib/llm";
+import { getVibeCheckProvider } from "@/lib/llm";
 import { fetchVideoDurations, YouTubeQuotaError } from "@/lib/services/youtube";
 import { generateTracksForFullOST, fetchGameCandidates } from "@/lib/pipeline/candidates";
 import {
@@ -28,14 +28,14 @@ export type { GenerateEvent };
  * Core playlist generation pipeline, decoupled from HTTP/SSE transport.
  *
  * Three-phase approach for individual-track games:
- *   Phase 1 — Playlist discovery: for each game, find (or load from cache)
- *             the YouTube OST playlist ID.
- *   Phase 2 — Per-game track tagging: the tagging provider enriches each track
- *             with metadata (energy, role, cleanName) and filters junk. Results
- *             are cached in the track_tags DB table.
- *   Phase 3 — Deterministic arc assembly: the TypeScript Director builds the
- *             final ordered playlist from the tagged pool, shaping energy flow
- *             and cross-game balance without LLM involvement.
+ *   Phase 1   — Playlist discovery: for each game, find (or load from cache)
+ *               the YouTube OST playlist ID.
+ *   Phase 1.5 — Audio alignment (TODO M5): map YouTube video titles to canonical
+ *               track names via the tracks + video_tracks tables.
+ *   Phase 2   — Vibe Profiler (TODO M8): LLM generates a ScoringRubric from
+ *               session history and optional mood hint.
+ *   Phase 3   — Deterministic arc assembly: the TypeScript Director builds the
+ *               final ordered playlist, shaping energy flow and cross-game balance.
  *
  * Curation modes affect pipeline behaviour:
  *   skip    — excluded entirely (Games.listAll() already filters these out)
@@ -59,7 +59,6 @@ export async function generatePlaylist(
 
   const targetCount = config.target_track_count;
   const user = Users.getOrCreate(userId);
-  const taggingProvider = getTaggingProvider(user.tier);
 
   const fullOSTGames = games.filter((g) => g.allow_full_ost);
   const allIndividualGames = games.filter((g) => !g.allow_full_ost);
@@ -73,7 +72,7 @@ export async function generatePlaylist(
   const candidateResults: CandidateResult[] = await Promise.all(
     allIndividualGames.map(async (game) => {
       try {
-        return await fetchGameCandidates(game, taggingProvider, send, userId);
+        return await fetchGameCandidates(game, send, userId);
       } catch (err) {
         if (err instanceof YouTubeQuotaError) throw err;
         console.error(`[generate] Phases 1/2 failed for game "${game.title}":`, err);

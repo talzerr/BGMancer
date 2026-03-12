@@ -47,6 +47,49 @@ export enum CurationMode {
   Focus = "focus",
 }
 
+export enum TaggingStatus {
+  Pending = "pending",
+  Indexing = "indexing",
+  Ready = "ready",
+  Failed = "failed",
+}
+
+export enum TrackMood {
+  Epic = "epic",
+  Tense = "tense",
+  Peaceful = "peaceful",
+  Melancholic = "melancholic",
+  Triumphant = "triumphant",
+  Mysterious = "mysterious",
+  Playful = "playful",
+  Dark = "dark",
+  Ethereal = "ethereal",
+  Heroic = "heroic",
+  Nostalgic = "nostalgic",
+  Ominous = "ominous",
+  Serene = "serene",
+  Chaotic = "chaotic",
+  Whimsical = "whimsical",
+}
+
+export enum TrackInstrumentation {
+  Orchestral = "orchestral",
+  Synth = "synth",
+  Acoustic = "acoustic",
+  Chiptune = "chiptune",
+  Piano = "piano",
+  Rock = "rock",
+  Metal = "metal",
+  Electronic = "electronic",
+  Choir = "choir",
+  Ambient = "ambient",
+  Jazz = "jazz",
+  Folk = "folk",
+  Strings = "strings",
+  Brass = "brass",
+  Percussion = "percussion",
+}
+
 export interface Game {
   id: string;
   title: string;
@@ -54,6 +97,8 @@ export interface Game {
   curation: CurationMode;
   steam_appid: number | null;
   playtime_minutes: number | null;
+  tagging_status: TaggingStatus;
+  mb_release_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -111,7 +156,15 @@ export interface AppConfig {
 
 // ─── YouTube ──────────────────────────────────────────────────────────────────
 
-export type TrackRole = "opener" | "ambient" | "build" | "combat" | "closer" | "menu" | "cinematic";
+export enum TrackRole {
+  Opener = "opener",
+  Ambient = "ambient",
+  Build = "build",
+  Combat = "combat",
+  Closer = "closer",
+  Menu = "menu",
+  Cinematic = "cinematic",
+}
 
 export interface TaggedTrack {
   videoId: string;
@@ -124,10 +177,26 @@ export interface TaggedTrack {
   energy: 1 | 2 | 3;
   role: TrackRole;
   isJunk: boolean;
+  moods: TrackMood[];
+  instrumentation: TrackInstrumentation[];
+  hasVocals: boolean;
 }
 
 export interface VibeScore {
   fitScore: number; // 1-100, how well this track fits the session mood/context
+}
+
+export interface Track {
+  gameId: string;
+  name: string;
+  position: number;
+  mbRecordingId: string | null;
+  energy: 1 | 2 | 3 | null;
+  role: TrackRole | null;
+  moods: TrackMood[];
+  instrumentation: TrackInstrumentation[];
+  hasVocals: boolean | null;
+  taggedAt: string | null;
 }
 
 export interface YouTubeSearchResult {

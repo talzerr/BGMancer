@@ -1,8 +1,9 @@
-import { CurationMode, TrackStatus, UserTier } from "@/types";
+import { CurationMode, TaggingStatus, TrackStatus, UserTier } from "@/types";
 import type { Game, PlaylistTrack, PlaylistSession, User } from "@/types";
 
 const VALID_TIERS = new Set<string>(Object.values(UserTier));
 const VALID_STATUSES = new Set<string>(Object.values(TrackStatus));
+const VALID_TAGGING_STATUSES = new Set<string>(Object.values(TaggingStatus));
 
 export const VALID_CURATIONS = new Set<CurationMode>(Object.values(CurationMode) as CurationMode[]);
 
@@ -33,6 +34,10 @@ export function toGame(row: Record<string, unknown>): Game {
   const curation: CurationMode = VALID_CURATIONS.has(raw as CurationMode)
     ? (raw as CurationMode)
     : CurationMode.Include;
+  const rawStatus = String(row.tagging_status ?? TaggingStatus.Pending);
+  const tagging_status: TaggingStatus = VALID_TAGGING_STATUSES.has(rawStatus)
+    ? (rawStatus as TaggingStatus)
+    : TaggingStatus.Pending;
   return {
     id: String(row.id),
     title: String(row.title),
@@ -40,6 +45,8 @@ export function toGame(row: Record<string, unknown>): Game {
     curation,
     steam_appid: row.steam_appid != null ? Number(row.steam_appid) : null,
     playtime_minutes: row.playtime_minutes != null ? Number(row.playtime_minutes) : null,
+    tagging_status,
+    mb_release_id: row.mb_release_id != null ? String(row.mb_release_id) : null,
     created_at: String(row.created_at ?? ""),
     updated_at: String(row.updated_at ?? ""),
   };

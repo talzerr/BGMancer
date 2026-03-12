@@ -166,148 +166,57 @@ Execute in order: **M0, M1, M2, M3, M4, M5, M6, M7, M8**
 
 ---
 
-### M0 — Schema Foundation
+### M0 — Schema Foundation ✅ DONE
 
-**What to build**
+**What was built**
 
-All new DB columns and tables. No logic changes. All additions are idempotent.
+All new DB tables and types. Several design decisions were made during implementation that deviate from the original spec — those are the authoritative decisions going forward.
 
-**`src/lib/db/schema.ts`**
+**Design decisions made**
 
-1. Add `tagging_status` to `games` via `ALTER TABLE` (idempotent try/catch):
+1. **`track_tags` eliminated entirely.** The original plan kept `track_tags` as a legacy fallback for games with no MusicBrainz data. Since there are no production users, we consolidated to a single track metadata table (`tracks`). All games use the same path — `mb_recording_id = NULL` simply indicates a non-MB-sourced entry. This removes the dual code path entirely.
 
-   ```sql
-   ALTER TABLE games ADD COLUMN tagging_status TEXT NOT NULL DEFAULT 'pending'
-   ```
+2. **No migration system.** No `ALTER TABLE`. All schema changes go directly in `CREATE TABLE` definitions in `schema.ts` and are applied with `npm run db:reset`. Documented in `CLAUDE.md`.
 
-   Valid values: `'pending'` | `'indexing'` | `'ready'` | `'failed'`
+3. **Naming cleaned up.** `canonical_tracks` → `tracks`. `track_alignment` → `video_tracks`. `canonical_name` column → `track_name`. `CanonicalTrack` type → `Track`. Removes the redundant "canonical" qualifier since there is only one track metadata table.
 
-2. Extend `track_tags` with three new columns (idempotent try/catch each):
+4. **`mb_release_id` moved to `games`.** It is a property of the game's MusicBrainz release, not of individual tracks. `tracks` retains only `mb_recording_id` (which is per-track).
 
-   ```sql
-   ALTER TABLE track_tags ADD COLUMN moods TEXT           -- JSON array, nullable
-   ALTER TABLE track_tags ADD COLUMN instrumentation TEXT -- JSON array, nullable
-   ALTER TABLE track_tags ADD COLUMN has_vocals INTEGER   -- 0/1, nullable
-   ```
+5. **FK constraint on `video_tracks.track_name`.** `FOREIGN KEY (game_id, track_name) REFERENCES tracks(game_id, name)` enforces that every alignment row points to a real track row. `NULL` track_name is still allowed (signals junk).
 
-3. Add new tables:
+6. **All named value sets are enums.** `TrackMood`, `TrackInstrumentation`, `TrackRole`, `TaggingStatus` are all TypeScript enums (not literal union types), consistent with `CurationMode` and `UserTier`. Documented in `CLAUDE.md`.
 
-   ```sql
-   CREATE TABLE IF NOT EXISTS canonical_tracks (
-     game_id          TEXT    NOT NULL,
-     name             TEXT    NOT NULL,
-     position         INTEGER NOT NULL,
-     mb_recording_id  TEXT,
-     mb_release_id    TEXT,
-     energy           INTEGER,
-     role             TEXT,
-     moods            TEXT,            -- JSON array
-     instrumentation  TEXT,            -- JSON array
-     has_vocals       INTEGER,
-     tagged_at        TEXT,
-     PRIMARY KEY (game_id, name),
-     FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
-   );
+7. **Legacy tagger deleted.** `src/lib/pipeline/tagger.ts` (YouTube-title-based tagger) and `src/lib/db/repos/track-tags.ts` are gone. `fetchGameCandidates` has a stub that passes YouTube tracks through with default tags (`TODO M2`) so generation remains functional. The reroll route is simplified to a random pick until M6 rebuilds it against the new repos.
 
-   CREATE TABLE IF NOT EXISTS track_alignment (
-     video_id      TEXT NOT NULL,
-     game_id       TEXT NOT NULL,
-     canonical_name TEXT,             -- NULL = junk (no canonical match)
-     aligned_at    TEXT NOT NULL,
-     PRIMARY KEY (video_id, game_id),
-     FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
-   );
-   ```
+**Actual schema (final)**
 
-**`src/types/index.ts`**
+```sql
+games          -- added: tagging_status, mb_release_id
+tracks         -- new: (game_id, name) PK, mb_recording_id, energy, role, moods, instrumentation, has_vocals, tagged_at
+video_tracks   -- new: (video_id, game_id) PK, track_name (FK → tracks), aligned_at
+```
 
-Add new types:
+**Types added / changed (`src/types/index.ts`)**
 
 ```typescript
-export type TaggingStatus = "pending" | "indexing" | "ready" | "failed";
+enum TaggingStatus { Pending, Indexing, Ready, Failed }
+enum TrackMood     { Epic, Tense, Peaceful, ... }        // 15 values
+enum TrackInstrumentation { Orchestral, Synth, ... }     // 15 values
+enum TrackRole     { Opener, Ambient, Build, ... }       // was a literal type, now enum
 
-// Extend Game interface:
-export interface Game {
-  // ... existing fields ...
-  tagging_status: TaggingStatus; // new
-}
-
-export type TrackMood =
-  | "epic"
-  | "tense"
-  | "peaceful"
-  | "melancholic"
-  | "triumphant"
-  | "mysterious"
-  | "playful"
-  | "dark"
-  | "ethereal"
-  | "heroic"
-  | "nostalgic"
-  | "ominous"
-  | "serene"
-  | "chaotic"
-  | "whimsical";
-
-export type TrackInstrumentation =
-  | "orchestral"
-  | "synth"
-  | "acoustic"
-  | "chiptune"
-  | "piano"
-  | "rock"
-  | "metal"
-  | "electronic"
-  | "choir"
-  | "ambient"
-  | "jazz"
-  | "folk"
-  | "strings"
-  | "brass"
-  | "percussion";
-
-export interface CanonicalTrack {
-  gameId: string;
-  name: string;
-  position: number;
-  mbRecordingId: string | null;
-  mbReleaseId: string | null;
-  energy: 1 | 2 | 3 | null;
-  role: TrackRole | null;
-  moods: TrackMood[];
-  instrumentation: TrackInstrumentation[];
-  hasVocals: boolean | null;
-  taggedAt: string | null;
-}
-
-// Extend TaggedTrack:
-export interface TaggedTrack {
-  // ... existing fields ...
-  moods: TrackMood[]; // new (empty array if untagged)
-  instrumentation: TrackInstrumentation[]; // new
-  hasVocals: boolean; // new (false if unknown)
-}
+interface Game     { ...existing + tagging_status, mb_release_id }
+interface Track    { gameId, name, position, mbRecordingId, energy, role, moods, instrumentation, hasVocals, taggedAt }
+interface TaggedTrack { ...existing + moods, instrumentation, hasVocals }
 ```
 
-Also add `tagging_status` to the DB mapper in `src/lib/db/mappers.ts` (wherever `Game` rows are mapped from SQLite rows).
+**Ready for M1 because**
 
-**Expected behavior after M0**
-
-- `npm run db:reset` produces tables with new columns.
-- Existing games get `tagging_status = 'pending'` by default.
-- `TaggedTrack` objects from the current tagger will have `moods: []`, `instrumentation: []`, `hasVocals: false` — the Director still works because it falls back to arc-only scoring when arrays are empty.
-
-**How to verify**
-
-```bash
-# After npm run db:reset, open the SQLite DB and confirm:
-sqlite3 bgmancer.db ".schema games"        # should show tagging_status column
-sqlite3 bgmancer.db ".schema canonical_tracks"
-sqlite3 bgmancer.db ".schema track_alignment"
-sqlite3 bgmancer.db "PRAGMA table_info(track_tags)"  # should show moods, instrumentation, has_vocals
-```
-
-Run `npm run build` — zero TypeScript errors.
+- `tracks` table exists and is ready to receive MusicBrainz data.
+- `video_tracks` table exists and is ready to receive alignment data.
+- `games.tagging_status` exists and is ready to be driven through its lifecycle.
+- `games.mb_release_id` exists and is ready to be written by the MusicBrainz service.
+- `TaggedTrack` already carries `moods`, `instrumentation`, `hasVocals` — the Director will use them as soon as M2 populates them.
+- `npm run build` and `npm run lint` pass.
 
 ---
 
@@ -664,10 +573,12 @@ Remove their imports from `src/lib/pipeline/index.ts`. Remove `VibeScore` type f
 2. Generate playlist.
 3. Inspect track names: Hollow Knight tracks should look like "Dirtmouth", "Forgotten Crossroads" — not YouTube-style titles.
 4. Inspect the DB:
+
    ```bash
    sqlite3 bgmancer.db "SELECT track_name, video_title FROM playlist_tracks LIMIT 10"
    # track_name should be the canonical name; video_title is the raw YouTube title
    ```
+
 5. Confirm `vibe-check.ts` and `casting.ts` are deleted and the build still passes.
 
 ---
@@ -939,9 +850,11 @@ Also update the doc comment at the top of `index.ts` to accurately describe the 
 
 1. Generate a first playlist. Note the dominant mood/instrument character.
 2. Generate again. Add a temporary log to `index.ts`:
+
    ```typescript
    console.log("[pipeline] Rubric:", JSON.stringify(rubric, null, 2));
    ```
+
 3. Confirm the rubric's `preferredMoods` and `preferredInstrumentation` reflect what you heard in the first playlist.
 4. The second playlist should feel similar in vibe to the first while selecting different tracks (weighted random in the Director ensures variety).
 5. Verify null fallback: temporarily break the LLM call (throw in `generateRubric`) — generation should still complete successfully, shaped by arc-implicit scoring only.

@@ -1,10 +1,8 @@
 import { YtPlaylists } from "@/lib/db/repo";
 import { compilationQueries } from "@/lib/pipeline/assembly";
 import { searchOSTPlaylist, fetchPlaylistItems } from "@/lib/services/youtube";
-import type { LLMProvider } from "@/lib/llm";
-import { type Game, GameProgressStatus } from "@/types";
+import { type Game, type TaggedTrack, GameProgressStatus, TrackRole } from "@/types";
 import { makePendingTrack } from "@/lib/pipeline/assembly";
-import { tagGameTracks } from "@/lib/pipeline/tagger";
 import type { GenerateEvent, GameTracks, CandidateResult } from "@/lib/pipeline/types";
 
 // ─── Full-OST path (single compilation video per game) ───────────────────────
@@ -45,7 +43,6 @@ export async function generateTracksForFullOST(
  */
 export async function fetchGameCandidates(
   game: Game,
-  provider: LLMProvider,
   send: (e: GenerateEvent) => void,
   userId: string,
 ): Promise<CandidateResult> {
@@ -112,22 +109,29 @@ export async function fetchGameCandidates(
     return { kind: "tagged", game, tracks: [] };
   }
 
-  send({
-    type: "progress",
+  // TODO M2: replace with canonical tagger (LLM tags pristine track names from tracks table)
+  const taggedTracks: TaggedTrack[] = playlistTracks.map((t) => ({
+    videoId: t.videoId,
+    title: t.title,
+    channelTitle: t.channelTitle,
+    thumbnail: t.thumbnail,
     gameId: game.id,
-    title: game.title,
-    status: GameProgressStatus.Active,
-    message: `Tagging ${playlistTracks.length} tracks…`,
-  });
-
-  const taggedTracks = await tagGameTracks(game.id, game.title, playlistTracks, provider);
+    gameTitle: game.title,
+    cleanName: t.title,
+    energy: 2,
+    role: TrackRole.Ambient,
+    isJunk: false,
+    moods: [],
+    instrumentation: [],
+    hasVocals: false,
+  }));
 
   send({
     type: "progress",
     gameId: game.id,
     title: game.title,
     status: GameProgressStatus.Done,
-    message: `${taggedTracks.length} tracks tagged`,
+    message: `${taggedTracks.length} tracks queued`,
   });
 
   return { kind: "tagged", game, tracks: taggedTracks };
