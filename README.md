@@ -49,12 +49,10 @@ npm run dev   # → http://localhost:6959
 - [FEATURES.md](FEATURES.md) — full feature breakdown
 - [BACKLOG.md](BACKLOG.md) — what's coming next
 - [LEGAL.md](LEGAL.md) — disclaimers and third-party terms
-- [LICENSE](LICENSE) — GNU Affero General Public License v3
+- [LICENSE](LICENSE) — MIT License
 
 ## License
 
-BGMancer is licensed under the **[GNU Affero General Public License v3.0](LICENSE)** (AGPL-3.0).
+BGMancer is licensed under the **[MIT License](LICENSE)**.
 
-Plain-English summary: you can use, modify, and distribute this code, but if you host a modified version publicly (on a server accessible to others), you must make your modified source code available to your users under the same license. This requirement applies to network-accessible deployments, not just distributed binaries.
-
-**Trademark:** The BGMancer™ name and logo are trademarks of Tal Koviazin. The AGPL license covers the code only — it does not grant rights to use the BGMancer™ brand.
+**Trademark:** The BGMancer™ name is a trademark of Tal Koviazin. The MIT license covers the code only — it does not grant rights to use the BGMancer™ name.
