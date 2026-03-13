@@ -30,9 +30,9 @@ export type { GenerateEvent };
  * Three-phase approach for individual-track games:
  *   Phase 1   — Playlist discovery: for each game, find (or load from cache)
  *               the YouTube OST playlist ID.
- *   Phase 1.5 — Audio alignment (TODO M5): map YouTube video titles to canonical
- *               track names via the tracks + video_tracks tables.
- *   Phase 2   — Vibe Profiler (TODO M8): LLM generates a ScoringRubric from
+ *   Phase 1.5 — Audio alignment (TODO): map YouTube video IDs to canonical
+ *               track names via video_tracks table; read real LLM tags from tracks table.
+ *   Phase 2   — Vibe Profiler (TODO): LLM generates a ScoringRubric from
  *               session history and optional mood hint.
  *   Phase 3   — Deterministic arc assembly: the TypeScript Director builds the
  *               final ordered playlist, shaping energy flow and cross-game balance.

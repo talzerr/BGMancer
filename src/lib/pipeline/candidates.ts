@@ -109,7 +109,10 @@ export async function fetchGameCandidates(
     return { kind: "tagged", game, tracks: [] };
   }
 
-  // TODO M2: replace with canonical tagger (LLM tags pristine track names from tracks table)
+  // TODO: Wire audio alignment (video_tracks) + canonical tagging (tracks table)
+  //   Phase 2 should: map each YouTube video ID → canonical track name via video_tracks,
+  //   then read real LLM tags (energy, role, moods, etc.) from the tracks table instead of stubbing.
+  //   Currently: YouTube videos are tagged with hardcoded stubs (energy: 2, role: Ambient).
   const taggedTracks: TaggedTrack[] = playlistTracks.map((t) => ({
     videoId: t.videoId,
     title: t.title,
