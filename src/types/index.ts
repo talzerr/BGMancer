@@ -54,6 +54,14 @@ export enum TaggingStatus {
   Failed = "failed",
 }
 
+export enum ReviewReason {
+  LlmCallFailed = "llm_call_failed",
+  LlmParseFailed = "llm_parse_failed",
+  LowConfidence = "low_confidence",
+  EmptyMetadata = "empty_metadata",
+  NoDiscogsData = "no_discogs_data",
+}
+
 export enum TrackMood {
   Epic = "epic",
   Tense = "tense",
@@ -196,6 +204,7 @@ export interface Track {
   moods: TrackMood[];
   instrumentation: TrackInstrumentation[];
   hasVocals: boolean | null;
+  active: boolean;
   taggedAt: string | null;
 }
 

@@ -1,6 +1,7 @@
 import type { Track, TrackRole, TrackMood, TrackInstrumentation } from "@/types";
+import { ReviewReason } from "@/types";
 import type { LLMProvider } from "@/lib/llm/provider";
-import { Tracks, Games } from "@/lib/db/repo";
+import { Tracks, ReviewFlags } from "@/lib/db/repo";
 import { TAG_BATCH_SIZE, TAG_POOL_MAX } from "@/lib/constants";
 
 const VALID_ROLES = new Set<string>([
@@ -80,10 +81,9 @@ export async function tagTracks(
   const untagged = tracks.filter((t) => t.taggedAt === null).slice(0, TAG_POOL_MAX);
   if (untagged.length === 0) return;
 
-  let needsReview = false;
-
   for (let i = 0; i < untagged.length; i += TAG_BATCH_SIZE) {
     const batch = untagged.slice(i, i + TAG_BATCH_SIZE);
+    const batchNum = i / TAG_BATCH_SIZE + 1;
     const userPrompt = buildUserPrompt(gameTitle, batch);
 
     let raw: string;
@@ -93,11 +93,12 @@ export async function tagTracks(
         maxTokens: 4096,
       });
     } catch (err) {
-      console.error(
-        `[tagger] LLM call failed for game "${gameTitle}" batch ${i / TAG_BATCH_SIZE + 1}:`,
-        err,
+      console.error(`[tagger] LLM call failed for game "${gameTitle}" batch ${batchNum}:`, err);
+      ReviewFlags.markAsNeedsReview(
+        gameId,
+        ReviewReason.LlmCallFailed,
+        `batch ${batchNum}: ${String(err)}`,
       );
-      needsReview = true;
       continue;
     }
 
@@ -108,10 +109,14 @@ export async function tagTracks(
       parsed = JSON.parse(jsonMatch[0]) as LLMTagItem[];
     } catch (err) {
       console.error(
-        `[tagger] Failed to parse LLM response for game "${gameTitle}" batch ${i / TAG_BATCH_SIZE + 1}:`,
+        `[tagger] Failed to parse LLM response for game "${gameTitle}" batch ${batchNum}:`,
         err,
       );
-      needsReview = true;
+      ReviewFlags.markAsNeedsReview(
+        gameId,
+        ReviewReason.LlmParseFailed,
+        `batch ${batchNum}: ${String(err)}`,
+      );
       continue;
     }
 
@@ -120,10 +125,24 @@ export async function tagTracks(
       if (!track) continue;
 
       const energy = item.energy;
-      if (energy !== 1 && energy !== 2 && energy !== 3) continue;
+      if (energy !== 1 && energy !== 2 && energy !== 3) {
+        ReviewFlags.markAsNeedsReview(
+          gameId,
+          ReviewReason.EmptyMetadata,
+          `invalid energy for "${track.name}": ${JSON.stringify(item.energy)}`,
+        );
+        continue;
+      }
 
       const role = typeof item.role === "string" ? item.role.toLowerCase() : "";
-      if (!VALID_ROLES.has(role)) continue;
+      if (!VALID_ROLES.has(role)) {
+        ReviewFlags.markAsNeedsReview(
+          gameId,
+          ReviewReason.EmptyMetadata,
+          `invalid role for "${track.name}": ${JSON.stringify(item.role)}`,
+        );
+        continue;
+      }
 
       const moods = Array.isArray(item.moods)
         ? (item.moods as unknown[])
@@ -143,9 +162,10 @@ export async function tagTracks(
         : [];
 
       const hasVocals = item.hasVocals === true;
-      const confident = item.confident !== false;
 
-      if (!confident) needsReview = true;
+      if (item.confident === false) {
+        ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LowConfidence, track.name);
+      }
 
       Tracks.updateTags(gameId, track.name, {
         energy,
@@ -155,10 +175,6 @@ export async function tagTracks(
         hasVocals,
       });
     }
-  }
-
-  if (needsReview) {
-    Games.update(gameId, { needs_review: true });
   }
 }
 

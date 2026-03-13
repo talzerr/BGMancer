@@ -4,12 +4,13 @@ import { Games, Users } from "@/lib/db/repo";
 import type { SteamGameInput } from "@/lib/db/repo";
 import { LIBRARY_MAX_GAMES } from "@/lib/constants";
 import { getOrCreateUserId } from "@/lib/services/session";
+import { onboardGame } from "@/lib/pipeline/onboarding";
 
 export async function POST(request: Request) {
   try {
     const cookieStore = await cookies();
     const userId = await getOrCreateUserId(cookieStore);
-    Users.getOrCreate(userId);
+    const user = Users.getOrCreate(userId);
 
     const body = (await request.json()) as { games?: unknown };
 
@@ -51,6 +52,15 @@ export async function POST(request: Request) {
     const omitted = games.length - gamesToImport.length;
 
     const result = Games.bulkImportSteam(userId, gamesToImport);
+
+    void (async () => {
+      for (const gameId of result.importedIds) {
+        const game = Games.getById(gameId);
+        if (!game) continue;
+        await onboardGame(game, user.tier);
+      }
+    })();
+
     return NextResponse.json({ ...result, omitted }, { status: 201 });
   } catch (err) {
     console.error("[POST /api/steam/import]", err);

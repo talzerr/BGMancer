@@ -48,9 +48,11 @@ function pickBestResult(results: DiscogsSearchResult[]): DiscogsSearchResult | n
   );
 }
 
-export async function searchGameSoundtrack(
-  gameTitle: string,
-): Promise<{ tracks: Array<{ name: string; position: number }>; releaseTitle: string } | null> {
+export async function searchGameSoundtrack(gameTitle: string): Promise<{
+  tracks: Array<{ name: string; position: number }>;
+  releaseTitle: string;
+  releaseId: number;
+} | null> {
   const searchUrl =
     `https://api.discogs.com/database/search?` +
     `q=${encodeURIComponent(gameTitle)}&genre=Stage+%26+Screen&style=Video+Game+Music` +
@@ -80,5 +82,5 @@ export async function searchGameSoundtrack(
 
   if (tracks.length === 0) return null;
 
-  return { tracks, releaseTitle: release.title ?? gameTitle };
+  return { tracks, releaseTitle: release.title ?? gameTitle, releaseId: best.id };
 }

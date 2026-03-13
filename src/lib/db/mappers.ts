@@ -145,6 +145,7 @@ export function toTrack(row: Record<string, unknown>): Track {
       VALID_INSTRUMENTATIONS,
     ),
     hasVocals: row.has_vocals != null ? !!row.has_vocals : null,
+    active: row.active !== 0,
     taggedAt: row.tagged_at != null ? String(row.tagged_at) : null,
   };
 }

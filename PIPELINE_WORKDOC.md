@@ -226,14 +226,14 @@ When Discogs finds no soundtrack for a game, `tagging_status` is set to `'ready'
 ### Dependencies
 
 ```
-M0 ✅ → M1 ✅ → M2 → M3 → M4
+M0 ✅ → M1 ✅ → M2 ✅ → M3 ✅ → M4
                  M3 → M5
                  M1 → M6 → M7
                         M7 → M8
                         M8 → M9
 ```
 
-Execute in order: **M0 ✅, M1 ✅, M2 (next), M3, M4, M5, M6, M7, M8, M9**
+Execute in order: **M0 ✅, M1 ✅, M2 ✅, M3 ✅, M4 (next), M5, M6, M7, M8, M9**
 
 ---
 
@@ -378,82 +378,38 @@ npm run build && npm run lint  # zero errors
 
 ---
 
-## Ready for M3 — Game Onboarding Pipeline
+### M3 — Game Onboarding Pipeline ✅ DONE
 
-The schema is now clean and source-agnostic. The Tracks repo is ready to receive batch inserts from Discogs. The Discogs client delivers pristine track names with positions. The LLM tagger enriches them with metadata. M3 builds the onboarding orchestrator that drives `tagging_status` through its lifecycle: pending → indexing → ready/failed.
+Fire-and-forget indexer triggered when a game is added. Drives `tagging_status` through `pending → indexing → ready/failed`. Fully implemented and building clean.
 
----
+**What was built**
 
-### M3 — Game Onboarding Pipeline
+- `src/lib/pipeline/onboarding.ts` — orchestrator: sets `indexing`, calls Discogs, upserts tracks, calls tagger, sets `tracklist_source`, sets `ready`. No-Discogs-data path flags `needs_review` and sets `ready`. Any throw sets `failed`.
+- `src/lib/db/repos/games.ts` — added `Games.setStatus()`, `bulkImportSteam` returns `importedIds`.
+- `src/lib/db/schema.ts` — `active INTEGER NOT NULL DEFAULT 1` on tracks; `game_review_flags` table (see below).
+- `src/lib/db/mappers.ts` — `active: row.active !== 0` in `toTrack()`.
+- `src/types/index.ts` — `active: boolean` on `Track`; `ReviewReason` enum.
+- `src/lib/db/repos/review-flags.ts` — new `ReviewFlags` repo with `markAsNeedsReview(gameId, reason, detail?)` and `listByGame(gameId)`.
+- `src/lib/db/repo.ts` — exports `review-flags`.
+- `src/app/api/games/route.ts` — POST captures `user`, fires `void onboardGame(game, user.tier)`.
+- `src/app/api/steam/import/route.ts` — sequential onboarding loop over `result.importedIds`.
 
-**What to build**
+**Review flag system**
 
-The fire-and-forget indexer triggered when a game is added. Drives `tagging_status` through its lifecycle. Never throws — errors are caught, status set to `'failed'`.
+Games accumulate rows in `game_review_flags` — one row per detected problem, so a game may have multiple reasons. `ReviewFlags.markAsNeedsReview()` atomically inserts a flag row and sets `games.needs_review = 1`.
 
-**`src/lib/pipeline/onboarding.ts`** (new file)
+| `ReviewReason`     | Trigger                                                                  |
+| ------------------ | ------------------------------------------------------------------------ |
+| `llm_call_failed`  | LLM request threw; detail = `"batch N: <error>"`                         |
+| `llm_parse_failed` | Response wasn't valid JSON; detail = `"batch N: <error>"`                |
+| `low_confidence`   | LLM returned `confident: false`; detail = track name                     |
+| `empty_metadata`   | LLM returned invalid energy or unrecognized role; detail = field + value |
+| `no_discogs_data`  | Discogs search returned null for the game                                |
 
-```typescript
-export async function onboardGame(game: Game, tier: UserTier): Promise<void> {
-  // 1. Set status → 'indexing'
-  // 2. searchGameSoundtrack(game.title)  // Discogs
-  // 3a. If found:
-  //     - Tracks.upsertBatch(tracks)  // pristine names + positions, active = 1 (default)
-  //     - tagTracks(game.id, game.title, tracks, provider)
-  //     - Games.update(id, { tracklist_source: 'discogs:<releaseId>', needs_review: <llm signal> })
-  //     - Games.setStatus(game.id, 'ready')
-  // 3b. If not found:
-  //     - Games.setStatus(game.id, 'ready')  ← legacy path at generation time
-  //     - log: "[onboard] No Discogs data for <title>, falling back to legacy path"
-  // On any throw:
-  //     - Games.setStatus(game.id, 'failed')
-  //     - console.error(...)
-}
-```
-
-**`src/lib/db/repos/games.ts`**
-
-Add: `Games.setStatus(gameId: string, status: TaggingStatus): void`
-
-**`src/app/api/games/route.ts`** — update POST handler
-
-```typescript
-const user = Users.getOrCreate(userId);
-const game = Games.create(userId, id, body.title.trim(), CurationMode.Include, steamAppid);
-void onboardGame(game, user.tier); // fire-and-forget
-return NextResponse.json(game, { status: 201 });
-```
-
-**`src/app/api/steam/import/route.ts`** — trigger `onboardGame` for each newly imported game, sequentially with delay to respect Discogs rate limiting.
-
-**Key files**
-
-| File                                | Action                                    |
-| ----------------------------------- | ----------------------------------------- |
-| `src/lib/pipeline/onboarding.ts`    | Create                                    |
-| `src/lib/db/repos/games.ts`         | Modify — add `setStatus`                  |
-| `src/lib/db/schema.ts`              | Modify — add `active` column to `tracks`  |
-| `src/lib/db/mappers.ts`             | Modify — parse `active` to boolean        |
-| `src/types/index.ts`                | Modify — add `active: boolean` to `Track` |
-| `src/app/api/games/route.ts`        | Modify — wire onboarding into POST        |
-| `src/app/api/steam/import/route.ts` | Modify — wire onboarding into bulk import |
-
-**How to verify**
+**Inspect flags**
 
 ```bash
-# Start dev server, add a game:
-curl -X POST http://localhost:6959/api/games \
-  -H 'Content-Type: application/json' \
-  -d '{"title": "Hollow Knight"}'
-
-# Poll the game status:
-watch -n 2 'sqlite3 bgmancer.db "SELECT title, tagging_status FROM games"'
-# Should see: pending → indexing → ready
-
-# Confirm tracks were created:
-sqlite3 bgmancer.db "SELECT COUNT(*) FROM tracks WHERE game_id = '<id>'"
-
-# Confirm tags were applied:
-sqlite3 bgmancer.db "SELECT name, energy, role, moods, source, needs_review FROM tracks WHERE game_id = '<id>' LIMIT 5"
+sqlite3 bgmancer.db "SELECT g.title, f.reason, f.detail, f.created_at FROM game_review_flags f JOIN games g ON g.id = f.game_id ORDER BY f.created_at DESC"
 ```
 
 ---

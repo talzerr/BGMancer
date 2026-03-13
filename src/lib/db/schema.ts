@@ -105,10 +105,22 @@ export function initSchema(db: Database.Database): void {
       moods           TEXT,
       instrumentation TEXT,
       has_vocals      INTEGER,
+      active          INTEGER NOT NULL DEFAULT 1,
       tagged_at       TEXT,
       PRIMARY KEY (game_id, name),
       FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS game_review_flags (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      game_id    TEXT    NOT NULL,
+      reason     TEXT    NOT NULL,
+      detail     TEXT,
+      created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_review_flags_game ON game_review_flags(game_id);
 
     CREATE TABLE IF NOT EXISTS video_tracks (
       video_id       TEXT NOT NULL,
