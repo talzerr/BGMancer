@@ -42,15 +42,15 @@ The Backstage has two levels: the **Game Index** (overview of all games) and the
 
 A dense table of all games in the library with aggregate metadata:
 
-| Column  | Content                                                                           |
-| ------- | --------------------------------------------------------------------------------- |
-| Title   | Game name                                                                         |
-| Status  | `tagging_status` badge (pending/indexing/ready/failed)                            |
-| Tracks  | Total track count                                                                 |
-| Tagged  | Count of tracks with `tagged_at IS NOT NULL`                                      |
-| Review  | Count of tracks with `needs_review = 1` (amber if > 0)                            |
-| Source  | Ingestion source (e.g. "discogs", "manual") — derived from first track's `source` |
-| Actions | Re-ingest, Re-tag, Delete tracks                                                  |
+| Column  | Content                                                                     |
+| ------- | --------------------------------------------------------------------------- |
+| Title   | Game name                                                                   |
+| Status  | `tagging_status` badge (pending/indexing/ready/failed)                      |
+| Tracks  | Total / active track count (e.g. "45 / 38")                                 |
+| Tagged  | Count of tracks with `tagged_at IS NOT NULL`                                |
+| Review  | `needs_review` badge (amber if game flagged)                                |
+| Source  | Ingestion source (e.g. "discogs", "manual") — from `games.tracklist_source` |
+| Actions | Re-ingest, Re-tag, Delete tracks                                            |
 
 **Sorting**: default sort by Review count descending (worst first — games that need the most attention float to the top).
 
@@ -77,7 +77,7 @@ Two sections: a **game header** and a **track table**.
 - Game title (large)
 - Status badge
 - Source info
-- Track stats: total / tagged / needs_review
+- Track stats: total / active / tagged / needs_review
 - Action buttons: **Re-tag All**, **Re-ingest**, **Add Track** (manual), **Mark All Reviewed**
 
 #### Track Table
@@ -87,6 +87,7 @@ High-density table with the following columns:
 | Column          | Type                        | Editable                     |
 | --------------- | --------------------------- | ---------------------------- |
 | #               | Position number             | No                           |
+| Active          | On/off toggle               | Yes (inline toggle)          |
 | Name            | Track name                  | Yes (inline)                 |
 | Energy          | 1 / 2 / 3 badge             | Yes (dropdown in drawer)     |
 | Role            | Role tag                    | Yes (dropdown in drawer)     |
@@ -106,11 +107,13 @@ High-density table with the following columns:
 
 **Row highlighting**:
 
+- `active = 0` → strikethrough track name, `text-zinc-600` (clearly inactive), energy/role badges hidden
 - `needs_review = 1` → amber left border + subtle amber background
 - `tagged_at IS NULL` (untagged) → grey text, dimmed row
 
 **Bulk selection**: Checkbox column on the left. When rows are selected, a floating action bar appears at the bottom:
 
+- "Activate Selected" / "Deactivate Selected"
 - "Set Energy to…" (dropdown)
 - "Set Role to…" (dropdown)
 - "Add Mood…" / "Remove Mood…"
@@ -121,6 +124,7 @@ High-density table with the following columns:
 
 - Search by track name
 - Energy filter (1/2/3/all)
+- Active filter: "All" / "Active only" / "Inactive only" (default: "All")
 - "Needs review only" toggle
 - "Untagged only" toggle
 
@@ -139,12 +143,12 @@ High-density table with the following columns:
 
 ### B. Orchestrator (Flow Triggers)
 
-| Feature       | Detail                                                                                                                                                              |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Re-ingest     | Clears all tracks for a game, re-fetches from Discogs, re-tags. Confirmation modal required (destructive). SSE progress stream.                                     |
-| Re-tag        | Clears tag columns (`energy`, `role`, `moods`, `instrumentation`, `has_vocals`, `tagged_at`) but keeps track names and positions. Re-runs LLM tagger. SSE progress. |
-| Add Track     | Manual form: enter track name, position. Inserted with `source: 'manual'`, `needs_review: 0`, no tags (untagged until next re-tag or manual edit).                  |
-| Delete Tracks | Remove selected tracks from the `tracks` table. Confirmation modal.                                                                                                 |
+| Feature       | Detail                                                                                                                                                                                |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Re-ingest     | Full reset: clears all tracks, re-fetches from Discogs, re-tags. Use sparingly — in most cases, Re-tag is sufficient. Confirmation modal required (destructive). SSE progress stream. |
+| Re-tag        | Clears tag columns (`energy`, `role`, `moods`, `instrumentation`, `has_vocals`, `tagged_at`) but keeps track names and positions. Re-runs LLM tagger. SSE progress.                   |
+| Add Track     | Manual form: enter track name, position. Inserted with `source: 'manual'`, `needs_review: 0`, no tags (untagged until next re-tag or manual edit).                                    |
+| Delete Tracks | Remove selected tracks from the `tracks` table. Confirmation modal.                                                                                                                   |
 
 **Destructive action safety**: All destructive operations (re-ingest, delete) require a confirmation modal with the game title displayed. The modal has a "Type game name to confirm" input for re-ingest (which wipes all existing tracks).
 
@@ -285,6 +289,7 @@ interface TrackPatch {
   name: string; // identifies the track (part of PK)
   updates: Partial<{
     name: string; // rename (updates PK — cascades to video_tracks FK)
+    active: boolean;
     energy: number;
     role: string;
     moods: string; // JSON array string

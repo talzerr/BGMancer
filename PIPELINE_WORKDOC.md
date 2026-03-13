@@ -85,6 +85,7 @@ interface Track {
   gameId: string;
   name: string;
   position: number;
+  active: boolean;                // 1 = curation-eligible, 0 = excluded until Backstage activation
   energy: 1 | 2 | 3 | null;
   role: TrackRole | null;
   moods: TrackMood[];
@@ -129,9 +130,10 @@ VIBE_RECENTLY_PLAYED_LIMIT      Max recent track names passed to Vibe Check (to 
 games (id, title, allow_full_ost, curation, steam_appid, playtime_minutes,
        tagging_status, tracklist_source, needs_review, created_at, updated_at)
 
-tracks (game_id, name, position, energy, role, moods,
+tracks (game_id, name, position, active, energy, role, moods,
         instrumentation, has_vocals, tagged_at)
 -- PK: (game_id, name)
+-- active: INTEGER NOT NULL DEFAULT 1 (1 = curation-eligible, 0 = excluded until Backstage activation)
 -- Notes: clean track names from source (Discogs, manual, etc); all metadata is nullable until tagged
 
 video_tracks (video_id, game_id, track_name, aligned_at)
@@ -159,15 +161,17 @@ game_yt_playlists (game_id, user_id, playlist_id, discovered_at)
 
 6. **Backstage = Manual Override Layer.** An admin page for reviewing tracks, editing names, correcting tags, and triggering re-tagging. Filtered by `needs_review`. This is the critical piece that makes the 70/30 split viable at scale.
 
+7. **DB Tracklist = Identity, YouTube = Audio Source.** A track in the `tracks` table (e.g. "Mantis Lords") is the entity that owns metadata. A YouTube video is a pointer to playable audio for that track (via `video_tracks`). When Discogs and YouTube disagree on the tracklist, the DB wins. YouTube videos that don't match any DB track are auto-discovered as disabled candidates for curator review — never silently injected into the active pool.
+
 ---
 
 ## 3. Target Architecture
 
 The system transitions from an LLM-as-assembler to a classical Recommendation System with strict separation of concerns:
 
-- **LLM** → only generates metadata (tagging), performs fuzzy matching (alignment), and session profiling (rubric). Never makes structural decisions.
+- **LLM** → only generates metadata (tagging), performs fuzzy matching (track resolution), and session profiling (rubric). Never makes structural decisions.
 - **Deterministic code** → all scoring, constraint enforcement, and playlist assembly.
-- **Music Identity** is decoupled from **Audio Source**: a track in the `tracks` table (e.g. "Mantis Lords") is the entity that owns metadata; a YouTube video ID is just a pointer to it via `video_tracks`.
+- **Music Identity** is decoupled from **Audio Source**: a track in the `tracks` table (e.g. "Mantis Lords") is the entity that owns metadata; a YouTube video ID is just a pointer to it via `video_tracks`. See Design Principle 7.
 
 ### Data flow
 
@@ -193,13 +197,22 @@ BACKSTAGE (manual, admin page at /backstage, UI added in M4)
 
 CURATION PIPELINE (on Generate)
   Phase 1:   YouTube playlist discovery (unchanged, cached)
-  Phase 1.5: Audio Alignment (LLM)
-               YouTube raw titles → track names (or null = junk)
-               cached in video_tracks
+  Phase 1.5: Track Resolution (replaces "Audio Alignment")
+               Only runs when active tracks exist without video_ids.
+               Two-step hybrid:
+               a) Playlist mapping — fetch OST playlist, LLM aligns video titles → DB track names
+               b) Per-track fallback — for active DB tracks still unmatched,
+                  search YouTube individually (targeted, not full playlist)
+               Auto-discovery (side effect of step a):
+                  Unmatched playlist videos → disabled tracks with video_id already set
+                  + game.needs_review = true
+                  Next run: existing disabled rows already have video_ids → playlist not fetched → noop
+               Cached in video_tracks
   Phase 2:   Vibe Profiler (LLM, optional)
                session history + mood hint → ScoringRubric
   Phase 3:   Heuristic Director (deterministic)
                arc template + rubric → weighted scoring → weighted-random top-N
+               Candidate pool filtered to active tracks only
 ```
 
 ### Legacy fallback (no Discogs match)
@@ -325,25 +338,13 @@ Added `DISCOGS_TOKEN` to `.env.local.example`.
 
 ---
 
-## Ready for M2 — LLM Tagger
+## M2 — LLM Tagger ✅ DONE
 
-The schema is now clean and source-agnostic. The Tracks repo is ready to receive batch inserts from Discogs. The Discogs client delivers pristine track names with positions. M2 builds the LLM tagger that consumes this data and populates `energy`, `role`, `moods`, `instrumentation`, `hasVocals`, and `tagged_at` on the `tracks` rows. The tagger will run as part of the onboarding pipeline (M3).
+**What was built**
 
----
+A new tagger (`src/lib/pipeline/tagger.ts`) that operates on pristine track names from the `tracks` table.
 
-### M2 — LLM Tagger
-
-**What to build**
-
-A new tagger that operates on pristine track names from the `tracks` table. Key differences from the deleted `tagger.ts`:
-
-- **Input**: clean names from `tracks` table — no cleaning needed
-- **Output**: energy, role, moods (1–3), instrumentation (1–3), hasVocals, needsReview — **no** `cleanName`, **no** `isJunk`
-- Tags stored directly on `tracks` rows via `Tracks.updateTags`
-- Batch + cache pattern: skip rows where `tagged_at IS NOT NULL`
-- Sets `needs_review = 1` when confidence is low (LLM signals this via a `confident` boolean, or heuristic: track name is very short/generic like "Track 01")
-
-**`src/lib/pipeline/tagger.ts`** (new file, replacing the deleted one)
+**Implementation**
 
 ```typescript
 export async function tagTracks(
@@ -352,48 +353,34 @@ export async function tagTracks(
   tracks: Track[],
   provider: LLMProvider,
 ): Promise<void>;
-// Persists energy, role, moods, instrumentation, hasVocals, needsReview
-// to tracks via Tracks.updateTags
 ```
 
-The LLM prompt:
+- **Input**: clean names from `tracks` table via `Tracks.getByGame()`
+- **Output**: energy (1/2/3), role, moods (1–3), instrumentation (1–3), hasVocals, needsReview
+- **Caching**: skips rows where `tagged_at IS NOT NULL`
+- **Batching**: splits tracks into `TAG_BATCH_SIZE` (25) batches, capped at `TAG_POOL_MAX` (80) per game
+- **Validation**: energy + role required; moods/instrumentation soft-filtered to valid enum values, sliced to 3; `hasVocals` defaults false, `confident` defaults true
+- **Error handling**: LLM failures, unparseable JSON, or low-confidence items set `games.needs_review = true`
+- **Persistence**: via `Tracks.updateTags` with moods/instrumentation as JSON strings
 
-```
-You are a Video Game Music metadata tagger. Given a game title and its official track names,
-return structured metadata for each track.
+**LLM prompt** (temperature 0.2, maxTokens 4096):
 
-Output ONLY a valid JSON array. Each element:
-{ "index": <1-based>, "energy": <1|2|3>, "role": "<role>", "moods": [...],
-  "instrumentation": [...], "hasVocals": <boolean>, "confident": <boolean> }
+- **System**: instructs LLM to return JSON array with index, energy, role, moods, instrumentation, hasVocals, confident. Lists all valid enum values inline.
+- **User**: `Game: <title>\n\nTracks:\n1. <name>\n2. <name>\n...`
+- **JSON extraction**: `raw.match(/\[[\s\S]*\]/)` handles markdown fences (same pattern as vibe-check.ts)
 
-Fields:
-- energy: 1=calm/ambient, 2=moderate/exploration, 3=intense/combat/boss
-- role: one of "opener", "ambient", "build", "combat", "closer", "menu", "cinematic"
-- moods: 1-3 from: epic, tense, peaceful, melancholic, triumphant, mysterious, playful, dark,
-         ethereal, heroic, nostalgic, ominous, serene, chaotic, whimsical
-- instrumentation: 1-3 from: orchestral, synth, acoustic, chiptune, piano, rock, metal,
-                   electronic, choir, ambient, jazz, folk, strings, brass, percussion
-- hasVocals: true if the track has singing/vocals
-- confident: false if you are guessing based on the name alone and cannot determine
-             the track's character with reasonable certainty
-```
-
-**Key files**
-
-| File                         | Action |
-| ---------------------------- | ------ |
-| `src/lib/pipeline/tagger.ts` | Create |
-
-**How to verify**
-
-After running the tagger on a game with Discogs data:
+**Verification** ✅ Passed
 
 ```bash
-sqlite3 bgmancer.db "SELECT name, energy, role, moods, needs_review FROM tracks WHERE game_id = '<id>' LIMIT 10"
+npm run build && npm run lint  # zero errors
+# Can be tested in isolation by calling tagTracks with real LLM provider
 ```
 
-Expect: `moods` = a JSON array like `["peaceful","mysterious"]`, `energy` 1/2/3, `needs_review` = 0 for obvious tracks (e.g. "Boss Battle"), 1 for ambiguous ones.
-Re-run on same game → no duplicate LLM calls (cache works via `tagged_at`).
+---
+
+## Ready for M3 — Game Onboarding Pipeline
+
+The schema is now clean and source-agnostic. The Tracks repo is ready to receive batch inserts from Discogs. The Discogs client delivers pristine track names with positions. The LLM tagger enriches them with metadata. M3 builds the onboarding orchestrator that drives `tagging_status` through its lifecycle: pending → indexing → ready/failed.
 
 ---
 
@@ -410,7 +397,7 @@ export async function onboardGame(game: Game, tier: UserTier): Promise<void> {
   // 1. Set status → 'indexing'
   // 2. searchGameSoundtrack(game.title)  // Discogs
   // 3a. If found:
-  //     - Tracks.upsertBatch(tracks)  // pristine names + positions
+  //     - Tracks.upsertBatch(tracks)  // pristine names + positions, active = 1 (default)
   //     - tagTracks(game.id, game.title, tracks, provider)
   //     - Games.update(id, { tracklist_source: 'discogs:<releaseId>', needs_review: <llm signal> })
   //     - Games.setStatus(game.id, 'ready')
@@ -444,6 +431,9 @@ return NextResponse.json(game, { status: 201 });
 | ----------------------------------- | ----------------------------------------- |
 | `src/lib/pipeline/onboarding.ts`    | Create                                    |
 | `src/lib/db/repos/games.ts`         | Modify — add `setStatus`                  |
+| `src/lib/db/schema.ts`              | Modify — add `active` column to `tracks`  |
+| `src/lib/db/mappers.ts`             | Modify — parse `active` to boolean        |
+| `src/types/index.ts`                | Modify — add `active: boolean` to `Track` |
 | `src/app/api/games/route.ts`        | Modify — wire onboarding into POST        |
 | `src/app/api/steam/import/route.ts` | Modify — wire onboarding into bulk import |
 
@@ -567,38 +557,52 @@ Decision: `'failed'` games are degraded (legacy path) but should not hard-block 
 
 ---
 
-### M6 — Audio Alignment
+### M6 — Track Resolution
 
 **What to build**
 
-A new pipeline step that maps raw YouTube video titles to track names in the `tracks` table. Replaces name-cleaning entirely. `null` alignment = junk. Results cached in `video_tracks`.
+A hybrid pipeline step that resolves DB tracks to YouTube videos. Replaces the old "Audio Alignment" concept with a directional flow: start from DB tracks, find videos for them. Auto-discovers new tracks from YouTube as a side effect.
 
-**`src/lib/pipeline/aligner.ts`** (new file)
+**`src/lib/pipeline/resolver.ts`** (new file)
 
 ```typescript
-export async function alignVideosToTracks(
-  videos: OSTTrack[],
-  tracks: Track[],
-  gameTitle: string,
+export async function resolveTracksToVideos(
+  game: Game,
+  tracks: Track[], // active DB tracks needing video IDs
   provider: LLMProvider,
-): Promise<Map<string, string | null>>;
-// Returns: Map<videoId, trackName | null>
-// null = junk (10-hour loops, interviews, duplicate variants, non-music)
+): Promise<ResolvedTrack[]>;
 ```
 
-LLM prompt structure: provide the tracklist as the "answer key" — the model's task is to match each raw YouTube title to the closest entry or `null`. This is fundamentally easier than open-ended name cleaning because the model has the correct answer set.
+**Flow:**
 
-Cache-first pattern:
+1. **Check if resolution is needed** — filter active tracks to those without a video_id (no `video_tracks` row). If all active tracks already have video_ids, return early — no playlist fetch, no discovery, no cost.
 
-1. Check `video_tracks` for all video IDs
-2. Only call LLM for uncached videos
-3. Upsert results to `video_tracks`
+2. **Playlist mapping** (bulk, cheap) — find the YouTube OST playlist (from `game_yt_playlists` cache or search). Fetch all playlist items. Use LLM to align video titles → DB track names (same "answer key" prompt as old aligner concept). Result: some DB tracks get a video, some don't, some playlist videos don't match any DB track.
+
+3. **Auto-discovery** (always-on, side effect of step 2) — for playlist videos that matched no DB track:
+   - Only runs because step 1 already required fetching the playlist. If all active tracks have video_ids, the playlist is never fetched and discovery never fires.
+   - Check if a disabled track with that name already exists → skip (idempotent)
+   - Otherwise: insert into `tracks` with `active = 0` **and its video_id already set** (from the playlist item), append to end of position sequence
+   - Set `game.needs_review = true` (new potential songs found)
+   - Do NOT tag these tracks (untagged + disabled until curator reviews in Backstage)
+   - When a curator activates a discovered track, it already has a video_id — no re-discovery triggered.
+
+4. **Per-track fallback** (targeted, expensive) — for active DB tracks that still have no video after playlist mapping:
+   - Search YouTube for `"<game title> <track name> OST"` individually
+   - Pick the best match (duration filter, channel heuristics)
+   - Insert into `video_tracks`
+   - This only runs for the gap — most tracks are covered by step 2
+
+5. **Persist** — upsert all new alignments to `video_tracks`.
+
+**YouTube quota note**: Step 2 costs 1 search + N list calls. Step 4 costs 1 search per unmatched track (100 quota units each). For well-known games where the playlist matches most tracks, step 4 fires for 0–3 tracks. The hybrid approach keeps quota reasonable.
 
 **`src/lib/db/repos/video-tracks.ts`** (new file)
 
 ```typescript
 export const VideoTracks = {
   getByVideoIds(videoIds: string[], gameId: string): Map<string, string | null>
+  getByGame(gameId: string): Map<string, string | null>  // all video→track mappings for a game
   upsertBatch(rows: Array<{ videoId: string; gameId: string; trackName: string | null }>): void
 }
 ```
@@ -607,18 +611,22 @@ export const VideoTracks = {
 
 | File                               | Action                          |
 | ---------------------------------- | ------------------------------- |
-| `src/lib/pipeline/aligner.ts`      | Create                          |
+| `src/lib/pipeline/resolver.ts`     | Create                          |
 | `src/lib/db/repos/video-tracks.ts` | Create                          |
 | `src/lib/db/repo.ts`               | Modify — add VideoTracks export |
 
 **How to verify**
 
 ```bash
-# After running alignment on a game with track data:
+# After running resolution on a game with track data:
 sqlite3 bgmancer.db "SELECT video_id, track_name FROM video_tracks WHERE game_id = '<id>' LIMIT 10"
 # Expect: real track names for music videos, NULL for junk
 
-# Second run on same videos = no LLM calls (cache hit)
+# Check auto-discovered tracks:
+sqlite3 bgmancer.db "SELECT name, active FROM tracks WHERE game_id = '<id>' AND active = 0"
+# Expect: tracks from YouTube playlist not in Discogs tracklist, with active = 0
+
+# Second run on same game (all active tracks have video_ids) = no playlist fetch, no LLM calls
 ```
 
 ---
@@ -633,12 +641,14 @@ Wire tracks + audio alignment into `fetchGameCandidates`. Delete old Vibe Check 
 
 ```
 if Tracks.hasData(gameId):
+  activeTracks = Tracks.getByGame(gameId).filter(t => t.active)  // only active tracks
   Phase 1: YouTube discovery (unchanged)
-  Phase 1.5: alignVideosToTracks(ytTracks, tracks, gameTitle, provider)
+  Phase 1.5: resolveTracksToVideos(game, activeTracks, provider)
+             → auto-discovers unmatched playlist videos as disabled tracks (side effect)
              → filter out null-aligned videos
   Build TaggedTrack[] by joining:
     - YouTube metadata (videoId, title, channelTitle, thumbnail)
-    - tracks row matched by alignment (cleanName=name, energy, role, moods, instrumentation, hasVocals)
+    - tracks row matched by resolution (cleanName=name, energy, role, moods, instrumentation, hasVocals)
   Return { kind: 'tagged', game, tracks: TaggedTrack[] }
 else:
   existing legacy stub (unchanged)
@@ -853,7 +863,8 @@ Across all milestones, these guarantees must hold:
 3. **All DB writes are idempotent.** `upsertBatch` everywhere. `CREATE TABLE IF NOT EXISTS`. Re-running onboarding on an already-ready game is a no-op.
 4. **LLM calls are always cached.** `tracks.tagged_at` caches tagging. `video_tracks` caches alignment. `game_yt_playlists` caches playlist discovery. No LLM call happens twice for the same input.
 5. **`npm run build` and `npm run lint` pass after each milestone** with zero errors.
-6. **The `tracks` table is source-agnostic.** All game-level metadata (`tracklist_source`, `needs_review`) lives on `games` row. Tracks are pure metadata (name, position, energy, role, moods, instrumentation, hasVocals, taggedAt).
+6. **The `tracks` table is source-agnostic.** All game-level metadata (`tracklist_source`, `needs_review`) lives on `games` row. Tracks are pure metadata (name, position, active, energy, role, moods, instrumentation, hasVocals, taggedAt).
+7. **Auto-discovered tracks start disabled.** Tracks created by the resolver's auto-discovery path are always `active = 0` and untagged. They never enter the curation pipeline until a curator activates them in the Backstage. This prevents YouTube noise (fan remixes, trailers, wrong game) from polluting playlists.
 
 ---
 
@@ -887,7 +898,7 @@ Also remove:
 | `src/app/backstage/**`              | M4        | Backstage pages (see BACKSTAGE_DESIGN.md)      |
 | `src/app/api/backstage/**`          | M4        | Backstage API routes (see BACKSTAGE_DESIGN.md) |
 | `src/components/backstage/**`       | M4        | Backstage UI components                        |
-| `src/lib/pipeline/aligner.ts`       | M6        | YouTube → track name alignment                 |
+| `src/lib/pipeline/resolver.ts`      | M6        | YouTube → DB track resolution (hybrid)         |
 | `src/lib/db/repos/video-tracks.ts`  | M6        | DB repo for video_tracks                       |
 | `src/lib/pipeline/vibe-profiler.ts` | M9        | LLM Vibe Profiler → ScoringRubric              |
 
