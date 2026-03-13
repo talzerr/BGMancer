@@ -4,15 +4,15 @@ This document is the single source of truth for rebuilding the BGMancer playlist
 
 ---
 
-## 1. Current State (Post-M1)
+## 1. Current State (Post-M6)
 
 ### What exists today
 
-M0 (Schema Foundation) and M1 (Schema Cleanup + Tracks Repo + Discogs Service) are committed. The generation pipeline (`src/lib/pipeline/index.ts`) has three phases plus an optional Vibe Check step, but Phase 2 is a stub (tags all tracks with defaults):
+M0–M3, M5, and M6 are committed. The generation pipeline (`src/lib/pipeline/index.ts`) has three phases plus an optional Vibe Check step. Phase 2 is still a stub pending M7.
 
-**Phase 1** — YouTube OST playlist discovery per game. Searches YouTube for the game's official OST playlist, stores the playlist ID in `game_yt_playlists` (cached). Then fetches all video items from that playlist.
+**Phase 1** — YouTube OST playlist discovery per game. Searches YouTube for the game's official OST playlist, stores the playlist ID in `games.yt_playlist_id`. Then fetches all video items from that playlist.
 
-**Phase 2 (stub)** — The old LLM tagger (`tagger.ts`) was deleted in M0. `candidates.ts` currently passes all YouTube tracks through with default tags (`energy: 2, role: ambient, moods: [], instrumentation: [], hasVocals: false`). Marked `TODO M2`.
+**Phase 2 (stub)** — `candidates.ts` currently passes all YouTube tracks through with default tags (`energy: 2, role: ambient, moods: [], instrumentation: [], hasVocals: false`). Real tag wiring from the `tracks` table is deferred to M7.
 
 **Vibe Check (optional, Maestro tier only)** — `casting.ts` builds a candidate pool of ~2.5× target count tracks, weighted by game curation mode. `vibe-check.ts` sends this pool to the LLM with the session context. The LLM scores each track 1–100 as `fitScore`. On parse failure or Bard tier, returns an empty map and the Director falls back to tag-only scoring. **To be replaced by Vibe Profiler (M9).**
 
@@ -62,7 +62,9 @@ M0 (Schema Foundation) and M1 (Schema Cleanup + Tracks Repo + Discogs Service) a
 ### Key types (current)
 
 ```typescript
-enum TaggingStatus { Pending, Indexing, Ready, Failed }
+enum TaggingStatus { Pending, Indexing, Ready, Limited, Failed }
+// Limited = onboarding completed but no Discogs data found (legacy YouTube-title path)
+// Failed  = onboarding threw (network error, crash) — not a data quality signal
 enum TrackMood     { Epic, Tense, Peaceful, ... }        // 15 values
 enum TrackInstrumentation { Orchestral, Synth, ... }     // 15 values
 enum TrackRole     { Opener, Ambient, Build, ... }       // 7 values
@@ -70,15 +72,22 @@ enum TrackRole     { Opener, Ambient, Build, ... }       // 7 values
 interface Game {
   id: string;
   title: string;
-  allow_full_ost: boolean;
   curation: CurationMode;
   steam_appid: number | null;
   playtime_minutes: number | null;
   tagging_status: TaggingStatus;
-  tracklist_source: string | null;   // ← M1: where tracklist was imported from (e.g. "discogs")
+  tracklist_source: string | null;   // ← M1: where tracklist was imported from (e.g. "discogs:12345")
+  yt_playlist_id: string | null;     // ← Phase 1 cache: YouTube OST playlist ID (replaces game_yt_playlists table)
   needs_review: boolean;             // ← M1: curator flag for manual review in Backstage
   created_at: string;
   updated_at: string;
+}
+
+interface AppConfig {
+  target_track_count: number;
+  anti_spoiler_enabled: boolean;
+  allow_long_tracks: boolean;
+  allow_short_tracks: boolean;       // ← default true; when false, tracks < 90s excluded
 }
 
 interface Track {
@@ -127,8 +136,10 @@ VIBE_RECENTLY_PLAYED_LIMIT      Max recent track names passed to Vibe Check (to 
 ### DB schema (current — relevant tables)
 
 ```sql
-games (id, title, allow_full_ost, curation, steam_appid, playtime_minutes,
-       tagging_status, tracklist_source, needs_review, created_at, updated_at)
+games (id, title, curation, steam_appid, playtime_minutes,
+       tagging_status, tracklist_source, yt_playlist_id, needs_review, created_at, updated_at)
+-- yt_playlist_id: Phase 1 cache — YouTube OST playlist ID (NULL until discovered or seeded)
+-- Seeded on startup from data/yt-playlists.json; set at runtime by fetchGameCandidates
 
 tracks (game_id, name, position, active, energy, role, moods,
         instrumentation, has_vocals, tagged_at)
@@ -140,9 +151,6 @@ video_tracks (video_id, game_id, track_name, aligned_at)
 -- PK: (video_id, game_id)
 -- FK: (game_id, track_name) → tracks(game_id, name)
 -- Notes: aligns raw YouTube videos to track names (null = junk)
-
-game_yt_playlists (game_id, user_id, playlist_id, discovered_at)
--- PK: (game_id, user_id)
 ```
 
 ---
@@ -162,6 +170,8 @@ game_yt_playlists (game_id, user_id, playlist_id, discovered_at)
 6. **Backstage = Manual Override Layer.** An admin page for reviewing tracks, editing names, correcting tags, and triggering re-tagging. Filtered by `needs_review`. This is the critical piece that makes the 70/30 split viable at scale.
 
 7. **DB Tracklist = Identity, YouTube = Audio Source.** A track in the `tracks` table (e.g. "Mantis Lords") is the entity that owns metadata. A YouTube video is a pointer to playable audio for that track (via `video_tracks`). When Discogs and YouTube disagree on the tracklist, the DB wins. YouTube videos that don't match any DB track are auto-discovered as disabled candidates for curator review — never silently injected into the active pool.
+
+8. **Quality over Coverage.** A game without a Discogs tracklist participates in generation at reduced quality — default tags, YouTube-title identity — not as a silent equal. The pipeline never hides this degradation from the user. Curation quality is the goal; the legacy path is a known, surfaced compromise.
 
 ---
 
@@ -184,8 +194,8 @@ GAME ONBOARDING (eager, on game-add, fires in M3)
   │                games.needs_review = 1 if LLM detects low confidence
   └─ games.tagging_status = 'ready'
 
-  Fallback: no Discogs match → tagging_status = 'ready' anyway
-            (legacy YouTube-title path at generation time)
+  Fallback: no Discogs match → tagging_status = 'limited'
+            (legacy YouTube-title path at generation time; surfaced to user in UI)
 
 BACKSTAGE (manual, admin page at /backstage, UI added in M4)
   ├─ View game tracklist + tags + tracklist_source
@@ -196,8 +206,8 @@ BACKSTAGE (manual, admin page at /backstage, UI added in M4)
   └─ Add/remove/edit tracks manually
 
 CURATION PIPELINE (on Generate)
-  Phase 1:   YouTube playlist discovery (unchanged, cached)
-  Phase 1.5: Track Resolution (replaces "Audio Alignment")
+  Phase 1:   YouTube playlist discovery (cached in games.yt_playlist_id)
+  Phase 1.5: Track Resolution (TODO M7)
                Only runs when active tracks exist without video_ids.
                Two-step hybrid:
                a) Playlist mapping — fetch OST playlist, LLM aligns video titles → DB track names
@@ -206,9 +216,9 @@ CURATION PIPELINE (on Generate)
                Auto-discovery (side effect of step a):
                   Unmatched playlist videos → disabled tracks with video_id already set
                   + game.needs_review = true
-                  Next run: existing disabled rows already have video_ids → playlist not fetched → noop
+                  Next run: existing disabled rows already have video_ids → noop
                Cached in video_tracks
-  Phase 2:   Vibe Profiler (LLM, optional)
+  Phase 2:   Vibe Profiler (TODO M9, LLM, optional)
                session history + mood hint → ScoringRubric
   Phase 3:   Heuristic Director (deterministic)
                arc template + rubric → weighted scoring → weighted-random top-N
@@ -217,7 +227,7 @@ CURATION PIPELINE (on Generate)
 
 ### Legacy fallback (no Discogs match)
 
-When Discogs finds no soundtrack for a game, `tagging_status` is set to `'ready'` anyway. During generation, `fetchGameCandidates` checks `Tracks.hasData(gameId)`. If false, it falls through to the existing YouTube-based stub path (default tags). The legacy path should be upgraded to produce `moods`, `instrumentation`, and `hasVocals` in a future milestone.
+When Discogs finds no soundtrack for a game, `tagging_status` is set to `'limited'`. During generation, `fetchGameCandidates` checks `Tracks.hasData(gameId)`. If false, it falls through to the existing YouTube-based stub path (default tags). The `limited` status is surfaced to the user in the GenerateSection as "X games have limited soundtrack data." The legacy path should be upgraded to produce `moods`, `instrumentation`, and `hasVocals` in a future milestone.
 
 ---
 
@@ -227,13 +237,13 @@ When Discogs finds no soundtrack for a game, `tagging_status` is set to `'ready'
 
 ```
 M0 ✅ → M1 ✅ → M2 ✅ → M3 ✅ → M4
-                 M3 → M5
-                 M1 → M6 → M7
-                        M7 → M8
-                        M8 → M9
+                 M3 → M5 ✅
+                 M1 → M6 ✅ → M7
+                              M7 → M8
+                              M8 → M9
 ```
 
-Execute in order: **M0 ✅, M1 ✅, M2 ✅, M3 ✅, M4 (next), M5, M6, M7, M8, M9**
+Execute in order: **M0 ✅, M1 ✅, M2 ✅, M3 ✅, M5 ✅, M6 ✅, M4 (parallel), M7 (next), M8, M9**
 
 ---
 
@@ -465,9 +475,9 @@ An admin control plane at `/backstage` for inspecting, editing, and correcting t
 
 ---
 
-### M5 — Game Status UI
+### M5 — Game Status UI ✅ DONE
 
-**What to build**
+**What was built**
 
 Visual per-game readiness indicator in the Library. The Generate button becomes context-aware.
 
@@ -513,9 +523,9 @@ Decision: `'failed'` games are degraded (legacy path) but should not hard-block 
 
 ---
 
-### M6 — Track Resolution
+### M6 — Track Resolution ✅ DONE
 
-**What to build**
+**What was built**
 
 A hybrid pipeline step that resolves DB tracks to YouTube videos. Replaces the old "Audio Alignment" concept with a directional flow: start from DB tracks, find videos for them. Auto-discovers new tracks from YouTube as a side effect.
 
@@ -533,7 +543,7 @@ export async function resolveTracksToVideos(
 
 1. **Check if resolution is needed** — filter active tracks to those without a video_id (no `video_tracks` row). If all active tracks already have video_ids, return early — no playlist fetch, no discovery, no cost.
 
-2. **Playlist mapping** (bulk, cheap) — find the YouTube OST playlist (from `game_yt_playlists` cache or search). Fetch all playlist items. Use LLM to align video titles → DB track names (same "answer key" prompt as old aligner concept). Result: some DB tracks get a video, some don't, some playlist videos don't match any DB track.
+2. **Playlist mapping** (bulk, cheap) — find the YouTube OST playlist (from `game.yt_playlist_id` or search). Fetch all playlist items. Use LLM to align video titles → DB track names (same "answer key" prompt as old aligner concept). Result: some DB tracks get a video, some don't, some playlist videos don't match any DB track.
 
 3. **Auto-discovery** (always-on, side effect of step 2) — for playlist videos that matched no DB track:
    - Only runs because step 1 already required fetching the playlist. If all active tracks have video_ids, the playlist is never fetched and discovery never fires.
@@ -604,10 +614,15 @@ if Tracks.hasData(gameId):
              → filter out null-aligned videos
   Build TaggedTrack[] by joining:
     - YouTube metadata (videoId, title, channelTitle, thumbnail)
-    - tracks row matched by resolution (cleanName=name, energy, role, moods, instrumentation, hasVocals)
+    - tracks row matched by resolution
+      cleanName = ResolvedTrack.trackName (the DB canonical name — never raw YouTube title)
+      energy, role, moods, instrumentation, hasVocals from tracks table
   Return { kind: 'tagged', game, tracks: TaggedTrack[] }
 else:
-  existing legacy stub (unchanged)
+  legacy stub: default tags, cleanName = YouTube title
+  tagging_status = 'limited' is the signal that this game is curated at reduced quality
+  these games are NOT silently equal — M7 should emit a distinct pipeline progress event
+  labelling them as "legacy path — limited quality"
 ```
 
 **Files to delete**
@@ -639,9 +654,9 @@ else:
 
 **How to verify**
 
-1. Generate a playlist for a game with track data → track names are pristine (no YouTube noise).
+1. Generate a playlist for a game with track data → track names are pristine DB canonical names (no YouTube noise).
 2. Junk videos absent from playlist.
-3. Generate for a game without track data → still works via legacy stub.
+3. Generate for a game without track data → still works via legacy stub; pipeline progress event labels it "limited quality".
 4. `npm run build && npm run lint` pass.
 
 ---
@@ -814,10 +829,10 @@ const orderedTracks = assemblePlaylist(
 
 Across all milestones, these guarantees must hold:
 
-1. **Generation never hard-fails due to onboarding state.** If `tagging_status = 'failed'`, the legacy path is used. If onboarding is mid-flight (`'indexing'`), the UI prevents generation, but the pipeline itself is still safe.
+1. **Generation never hard-fails due to onboarding state.** If `tagging_status = 'limited'` (no Discogs data) or `'failed'` (onboarding threw), the legacy YouTube-title path is used. If onboarding is mid-flight (`'indexing'`), the UI prevents generation, but the pipeline itself is still safe. `'limited'` and `'failed'` are distinct: `'limited'` is a data quality signal surfaced to the user; `'failed'` is an infrastructure error.
 2. **`TaggedTrack` is the unified representation.** The source of its data (`tracks` table or legacy stub) is an internal detail. The Director always receives the same type.
 3. **All DB writes are idempotent.** `upsertBatch` everywhere. `CREATE TABLE IF NOT EXISTS`. Re-running onboarding on an already-ready game is a no-op.
-4. **LLM calls are always cached.** `tracks.tagged_at` caches tagging. `video_tracks` caches alignment. `game_yt_playlists` caches playlist discovery. No LLM call happens twice for the same input.
+4. **LLM calls are always cached.** `tracks.tagged_at` caches tagging. `video_tracks` caches alignment. `games.yt_playlist_id` caches playlist discovery. No LLM call happens twice for the same input.
 5. **`npm run build` and `npm run lint` pass after each milestone** with zero errors.
 6. **The `tracks` table is source-agnostic.** All game-level metadata (`tracklist_source`, `needs_review`) lives on `games` row. Tracks are pure metadata (name, position, active, energy, role, moods, instrumentation, hasVocals, taggedAt).
 7. **Auto-discovered tracks start disabled.** Tracks created by the resolver's auto-discovery path are always `active = 0` and untagged. They never enter the curation pipeline until a curator activates them in the Backstage. This prevents YouTube noise (fan remixes, trailers, wrong game) from polluting playlists.
@@ -826,7 +841,15 @@ Across all milestones, these guarantees must hold:
 
 ## 6. Things to Delete
 
-As part of M7, the following should be removed cleanly:
+**Already removed** (done in the Quality Shift milestone prior to M7):
+
+- `allow_full_ost` column from `games` table — full-OST compilation path eliminated
+- `game_yt_playlists` table — replaced by `games.yt_playlist_id` column (1:1 relationship made a separate table unnecessary)
+- `src/lib/db/repos/yt-playlists.ts` + `YtPlaylists` repo export — replaced by `Games.setPlaylistId()`
+- `src/app/api/yt-cache/route.ts` — user playlist override API removed
+- `YtPlaylists.upsertForUser` / `clearForUser` methods — user override methods removed
+
+**As part of M7**, the following should be removed cleanly:
 
 | File                             | Reason                         |
 | -------------------------------- | ------------------------------ |

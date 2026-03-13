@@ -38,6 +38,14 @@ export const CASTING_POOL_MULTIPLIER = 2.5;
 /** Max recent tracks to pass as "recently played" context to the Vibe Check LLM. */
 export const VIBE_RECENTLY_PLAYED_LIMIT = 50;
 
+// ─── Pipeline resolver tuning ─────────────────────────────────────────────────
+
+/** Maximum YouTube playlist items sent to the LLM in a single alignment call. */
+export const RESOLVE_BATCH_SIZE = 50;
+
+/** Maximum per-track YouTube searches during the resolver fallback phase. */
+export const RESOLVE_FALLBACK_MAX = 10;
+
 // ─── Pipeline tagging tuning ──────────────────────────────────────────────────
 
 /** Maximum tracks sent to the LLM in a single tagging call. */

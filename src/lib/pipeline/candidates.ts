@@ -1,36 +1,9 @@
-import { YtPlaylists } from "@/lib/db/repo";
+import { Games } from "@/lib/db/repo";
 import { compilationQueries } from "@/lib/pipeline/assembly";
 import { searchOSTPlaylist, fetchPlaylistItems } from "@/lib/services/youtube";
 import { type Game, type TaggedTrack, GameProgressStatus, TrackRole } from "@/types";
 import { makePendingTrack } from "@/lib/pipeline/assembly";
-import type { GenerateEvent, GameTracks, CandidateResult } from "@/lib/pipeline/types";
-
-// ─── Full-OST path (single compilation video per game) ───────────────────────
-
-export async function generateTracksForFullOST(
-  game: Game,
-  send: (e: GenerateEvent) => void,
-): Promise<GameTracks> {
-  send({
-    type: "progress",
-    gameId: game.id,
-    title: game.title,
-    status: GameProgressStatus.Active,
-    message: "Finding full OST compilation…",
-  });
-  const queries = compilationQueries(game.title);
-  send({
-    type: "progress",
-    gameId: game.id,
-    title: game.title,
-    status: GameProgressStatus.Done,
-    message: "Queued for YouTube search",
-  });
-  return {
-    game,
-    tracks: [makePendingTrack(game.id, game.title, { search_queries: queries })],
-  };
-}
+import type { GenerateEvent, CandidateResult } from "@/lib/pipeline/types";
 
 // ─── Phase 1 + 2: playlist discovery then per-game tagging ──────────────────
 
@@ -44,9 +17,9 @@ export async function generateTracksForFullOST(
 export async function fetchGameCandidates(
   game: Game,
   send: (e: GenerateEvent) => void,
-  userId: string,
+  _userId: string,
 ): Promise<CandidateResult> {
-  let playlistId = YtPlaylists.get(game.id, userId, game.title);
+  let playlistId = game.yt_playlist_id;
 
   if (playlistId) {
     send({
@@ -65,7 +38,7 @@ export async function fetchGameCandidates(
       message: "Searching YouTube for OST playlist…",
     });
     playlistId = await searchOSTPlaylist(game.title);
-    if (playlistId) YtPlaylists.upsert(game.id, playlistId);
+    if (playlistId) Games.setPlaylistId(game.id, playlistId);
   }
 
   if (!playlistId) {

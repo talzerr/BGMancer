@@ -15,12 +15,12 @@ export function initSchema(db: Database.Database): void {
     CREATE TABLE IF NOT EXISTS games (
       id               TEXT    NOT NULL PRIMARY KEY,
       title            TEXT    NOT NULL,
-      allow_full_ost   INTEGER NOT NULL DEFAULT 0,
       curation         TEXT    NOT NULL DEFAULT 'include',
       steam_appid      INTEGER,
       playtime_minutes INTEGER,
       tagging_status   TEXT    NOT NULL DEFAULT 'pending',
       tracklist_source TEXT,
+      yt_playlist_id   TEXT,
       needs_review     INTEGER NOT NULL DEFAULT 0,
       created_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
       updated_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
@@ -86,15 +86,6 @@ export function initSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_tracks_game      ON playlist_tracks(game_id);
     CREATE INDEX IF NOT EXISTS idx_tracks_position  ON playlist_tracks(position);
     CREATE INDEX IF NOT EXISTS idx_tracks_status    ON playlist_tracks(status);
-
-    CREATE TABLE IF NOT EXISTS game_yt_playlists (
-      game_id       TEXT NOT NULL,
-      user_id       TEXT NOT NULL DEFAULT '',
-      playlist_id   TEXT NOT NULL,
-      discovered_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-      PRIMARY KEY (game_id, user_id),
-      FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
-    );
 
     CREATE TABLE IF NOT EXISTS tracks (
       game_id         TEXT    NOT NULL,

@@ -41,7 +41,7 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
       g.tagging_status === TaggingStatus.Indexing || g.tagging_status === TaggingStatus.Pending,
   ).length;
   const failedCount = gameLibrary.games.filter(
-    (g) => g.tagging_status === TaggingStatus.Failed,
+    (g) => g.tagging_status === TaggingStatus.Limited,
   ).length;
   const { sessions, fetchSessions, handleRenameSession, handleDeleteSession } = useSessionManager();
   const { pendingDelete, initiateRemove, undoRemove } = useTrackDeleteUndo();
@@ -53,6 +53,7 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
     await playlist.handleGenerate(gameLibrary.games, {
       target_track_count: config.targetTrackCount,
       allow_long_tracks: config.allowLongTracks,
+      allow_short_tracks: config.allowShortTracks,
       anti_spoiler_enabled: config.antiSpoilerEnabled,
     });
     await fetchSessions();
@@ -116,6 +117,8 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
             onGenerate={handleGenerate}
             allowLongTracks={config.allowLongTracks}
             onToggleLongTracks={config.saveAllowLongTracks}
+            allowShortTracks={config.allowShortTracks}
+            onToggleShortTracks={config.saveAllowShortTracks}
             importUrl={playlist.importUrl}
             onImportUrlChange={playlist.setImportUrl}
             importing={playlist.importing}

@@ -74,26 +74,24 @@ export const Games = {
     playtimeMinutes: number | null = null,
   ): Game {
     const db = getDB();
+    const seededPlaylistId = getSeedPlaylistId(title);
     db.transaction(() => {
       stmt(
-        "INSERT INTO games (id, title, allow_full_ost, curation, steam_appid, playtime_minutes) VALUES (?, ?, 0, ?, ?, ?)",
-      ).run(id, title, curation, steamAppid, playtimeMinutes);
+        "INSERT INTO games (id, title, curation, steam_appid, playtime_minutes, yt_playlist_id) VALUES (?, ?, ?, ?, ?, ?)",
+      ).run(id, title, curation, steamAppid, playtimeMinutes, seededPlaylistId ?? null);
 
       stmt(
         `INSERT OR IGNORE INTO library_games (library_id, game_id) VALUES (${LIBRARY_SQ}, ?)`,
       ).run(userId, id);
-
-      const seededPlaylistId = getSeedPlaylistId(title);
-      if (seededPlaylistId) {
-        stmt(
-          "INSERT OR IGNORE INTO game_yt_playlists (game_id, user_id, playlist_id) VALUES (?, '', ?)",
-        ).run(id, seededPlaylistId);
-      }
     })();
 
     const created = this.getById(id);
     if (!created) throw new Error(`[Games.create] game ${id} not found after INSERT`);
     return created;
+  },
+
+  setPlaylistId(id: string, playlistId: string): void {
+    stmt("UPDATE games SET yt_playlist_id = ? WHERE id = ?").run(playlistId, id);
   },
 
   setStatus(id: string, status: TaggingStatus): void {
@@ -162,12 +160,10 @@ export const Games = {
     const db = getDB();
     const insertGameSQL = `
       INSERT OR IGNORE INTO games
-        (id, title, allow_full_ost, curation, steam_appid, playtime_minutes)
-      VALUES (?, ?, 0, 'skip', ?, ?)
+        (id, title, curation, steam_appid, playtime_minutes, yt_playlist_id)
+      VALUES (?, ?, 'skip', ?, ?, ?)
     `;
     const insertLibrarySQL = `INSERT OR IGNORE INTO library_games (library_id, game_id) VALUES (${LIBRARY_SQ}, ?)`;
-    const seedSQL =
-      "INSERT OR IGNORE INTO game_yt_playlists (game_id, user_id, playlist_id) VALUES (?, '', ?)";
 
     let imported = 0;
     let skipped = 0;
@@ -176,13 +172,18 @@ export const Games = {
     db.transaction(() => {
       for (const g of games) {
         const id = newId();
-        const result = stmt(insertGameSQL).run(id, g.name, g.appid, Math.round(g.playtime_forever));
+        const seededPlaylistId = getSeedPlaylistId(g.name);
+        const result = stmt(insertGameSQL).run(
+          id,
+          g.name,
+          g.appid,
+          Math.round(g.playtime_forever),
+          seededPlaylistId ?? null,
+        );
         if (result.changes > 0) {
           imported++;
           importedIds.push(id);
           stmt(insertLibrarySQL).run(userId, id);
-          const seededPlaylistId = getSeedPlaylistId(g.name);
-          if (seededPlaylistId) stmt(seedSQL).run(id, seededPlaylistId);
         } else {
           skipped++;
         }

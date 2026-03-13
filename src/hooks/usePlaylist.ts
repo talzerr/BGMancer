@@ -9,6 +9,7 @@ import { GENERATION_COOLDOWN_MS } from "@/lib/constants";
 export interface GenerateConfig {
   target_track_count: number;
   allow_long_tracks: boolean;
+  allow_short_tracks: boolean;
   anti_spoiler_enabled: boolean;
 }
 

@@ -1,13 +1,8 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { Playlist, Games, YtPlaylists } from "@/lib/db/repo";
-import { getOrCreateUserId } from "@/lib/services/session";
+import { Playlist, Games } from "@/lib/db/repo";
 import { fetchPlaylistItems, fetchVideoDurations } from "@/lib/services/youtube";
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const cookieStore = await cookies();
-  const userId = await getOrCreateUserId(cookieStore);
-
   const { id } = await params;
 
   const track = Playlist.getById(id);
@@ -23,7 +18,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const existingIds = new Set(Playlist.getVideoIdsForGame(track.game_id));
   existingIds.delete(track.video_id ?? "");
 
-  const ytPlaylistId = YtPlaylists.get(track.game_id, userId, game.title);
+  const ytPlaylistId = game.yt_playlist_id;
   if (!ytPlaylistId) {
     return NextResponse.json(
       {

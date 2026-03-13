@@ -43,12 +43,11 @@ export async function POST() {
 
     await runConcurrent(pendingRows, SEARCH_CONCURRENCY, async (row) => {
       const queries = row.search_queries ?? [];
-      const allowShortVideo = !row.allow_full_ost;
 
       Playlist.setSearching(row.id);
 
       try {
-        const video = await findBestVideo(queries, allowShortVideo);
+        const video = await findBestVideo(queries, true);
 
         if (video) {
           Playlist.setFound(

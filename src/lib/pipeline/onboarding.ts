@@ -27,7 +27,7 @@ export async function onboardGame(game: Game, tier: UserTier): Promise<void> {
       console.warn(`[onboard] ${game.title}: ${tracks.length} tracks from Discogs, tagged`);
     } else {
       ReviewFlags.markAsNeedsReview(game.id, ReviewReason.NoDiscogsData);
-      Games.setStatus(game.id, TaggingStatus.Ready);
+      Games.setStatus(game.id, TaggingStatus.Limited);
       console.warn(`[onboard] No Discogs data for "${game.title}", falling back to legacy path`);
     }
   } catch (err) {

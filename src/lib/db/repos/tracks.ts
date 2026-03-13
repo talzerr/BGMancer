@@ -59,6 +59,17 @@ export const Tracks = {
     );
   },
 
+  /**
+   * Inserts a discovered track (active = 0, position = max+1).
+   * Uses INSERT OR IGNORE — safe to call multiple times for the same track.
+   */
+  insertDiscovered(gameId: string, name: string): void {
+    stmt(
+      `INSERT OR IGNORE INTO tracks (game_id, name, position, active)
+       VALUES (?, ?, (SELECT COALESCE(MAX(position), 0) + 1 FROM tracks WHERE game_id = ?), 0)`,
+    ).run(gameId, name, gameId);
+  },
+
   clearTags(gameId: string): void {
     stmt(
       `UPDATE tracks
