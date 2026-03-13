@@ -9,6 +9,8 @@ import { YT_IMPORT_GAME_ID } from "@/lib/constants";
 
 export interface GameUpdateFields {
   curation?: CurationMode;
+  tracklist_source?: string | null;
+  needs_review?: boolean;
 }
 
 export interface SteamGameInput {
@@ -98,6 +100,16 @@ export const Games = {
       stmt(
         `UPDATE games SET curation = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`,
       ).run(fields.curation, id);
+    }
+    if (fields.tracklist_source !== undefined) {
+      stmt(
+        `UPDATE games SET tracklist_source = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`,
+      ).run(fields.tracklist_source, id);
+    }
+    if (fields.needs_review !== undefined) {
+      stmt(
+        `UPDATE games SET needs_review = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`,
+      ).run(fields.needs_review ? 1 : 0, id);
     }
     return this.getById(id);
   },

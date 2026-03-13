@@ -98,7 +98,8 @@ export interface Game {
   steam_appid: number | null;
   playtime_minutes: number | null;
   tagging_status: TaggingStatus;
-  mb_release_id: string | null;
+  tracklist_source: string | null;
+  needs_review: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -190,7 +191,6 @@ export interface Track {
   gameId: string;
   name: string;
   position: number;
-  mbRecordingId: string | null;
   energy: 1 | 2 | 3 | null;
   role: TrackRole | null;
   moods: TrackMood[];

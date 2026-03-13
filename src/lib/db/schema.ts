@@ -20,7 +20,8 @@ export function initSchema(db: Database.Database): void {
       steam_appid      INTEGER,
       playtime_minutes INTEGER,
       tagging_status   TEXT    NOT NULL DEFAULT 'pending',
-      mb_release_id    TEXT,
+      tracklist_source TEXT,
+      needs_review     INTEGER NOT NULL DEFAULT 0,
       created_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
       updated_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
     );
@@ -99,7 +100,6 @@ export function initSchema(db: Database.Database): void {
       game_id         TEXT    NOT NULL,
       name            TEXT    NOT NULL,
       position        INTEGER NOT NULL,
-      mb_recording_id TEXT,
       energy          INTEGER,
       role            TEXT,
       moods           TEXT,
