@@ -16,6 +16,8 @@ interface GenerateSectionProps {
   onTargetChange: (n: number) => void;
   onTargetSave: (n: number) => void;
   gamesCount: number;
+  indexingCount: number;
+  failedCount: number;
   onGenerate: () => void;
   allowLongTracks: boolean;
   onToggleLongTracks: (enabled: boolean) => void;
@@ -39,6 +41,8 @@ export function GenerateSection({
   onTargetChange,
   onTargetSave,
   gamesCount,
+  indexingCount,
+  failedCount,
   onGenerate,
   allowLongTracks,
   onToggleLongTracks,
@@ -257,11 +261,15 @@ export function GenerateSection({
               <div className="flex flex-col gap-2">
                 <button
                   onClick={onGenerate}
-                  disabled={gamesCount === 0 || secsLeft > 0}
+                  disabled={gamesCount === 0 || secsLeft > 0 || indexingCount > 0}
                   className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_0_20px_-4px] shadow-teal-500/30 transition-colors hover:bg-teal-500 active:bg-teal-700 disabled:cursor-not-allowed disabled:border disabled:border-white/[0.05] disabled:bg-zinc-800/80 disabled:text-zinc-500 disabled:shadow-none"
                 >
                   <MusicNote className="h-3.5 w-3.5" />
-                  {secsLeft > 0 ? (
+                  {indexingCount > 0 ? (
+                    <span className="text-xs font-normal opacity-60">
+                      Getting your library ready…
+                    </span>
+                  ) : secsLeft > 0 ? (
                     <span className="text-xs font-normal opacity-60">{quip}</span>
                   ) : (
                     `Curate ${targetTrackCount} Tracks`
@@ -271,6 +279,12 @@ export function GenerateSection({
                   className={`flex px-1 ${gamesCount === 0 ? "flex-col gap-1" : "items-center justify-between"}`}
                 >
                   <p className="text-[11px] leading-snug text-zinc-600">{summaryText}</p>
+                  {failedCount > 0 && !generating && indexingCount === 0 && (
+                    <p className="text-[11px] leading-snug text-yellow-500/70">
+                      {failedCount} game{failedCount !== 1 ? "s have" : " has"} limited soundtrack
+                      data
+                    </p>
+                  )}
                   <button
                     onClick={() => setMode("import")}
                     className={`shrink-0 text-[11px] text-zinc-600 transition-colors hover:text-zinc-400 ${gamesCount === 0 ? "self-end" : ""}`}

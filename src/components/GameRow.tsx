@@ -1,9 +1,16 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { CurationMode } from "@/types";
+import { CurationMode, TaggingStatus } from "@/types";
 import type { Game } from "@/types";
-import { TrashIcon, YouTubeLogo, CheckIcon, XIcon, InfoIcon } from "@/components/Icons";
+import {
+  TrashIcon,
+  YouTubeLogo,
+  CheckIcon,
+  XIcon,
+  InfoIcon,
+  ErrorCircle,
+} from "@/components/Icons";
 import { steamHeaderUrl } from "@/lib/constants";
 
 const CURATION_OPTIONS: {
@@ -177,6 +184,11 @@ export function GameRow({
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm leading-tight font-medium text-zinc-100">{game.title}</p>
           {playtime && <p className="mt-0.5 text-[11px] leading-none text-zinc-500">{playtime}</p>}
+          {game.tagging_status === TaggingStatus.Failed && (
+            <span className="mt-0.5 inline-block text-yellow-500" title="Limited soundtrack data">
+              <ErrorCircle className="h-2.5 w-2.5" />
+            </span>
+          )}
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
