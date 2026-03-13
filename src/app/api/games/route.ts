@@ -7,6 +7,7 @@ import { newId } from "@/lib/uuid";
 import { CurationMode } from "@/types";
 import type { AddGamePayload } from "@/types";
 import { getOrCreateUserId } from "@/lib/services/session";
+import { onboardGame } from "@/lib/pipeline/onboarding";
 
 export async function GET(request: Request) {
   try {
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
   try {
     const cookieStore = await cookies();
     const userId = await getOrCreateUserId(cookieStore);
-    Users.getOrCreate(userId);
+    const user = Users.getOrCreate(userId);
 
     const body: AddGamePayload = await request.json();
 
@@ -53,6 +54,7 @@ export async function POST(request: Request) {
     const id = newId();
     const steamAppid = typeof body.steam_appid === "number" ? body.steam_appid : null;
     const game = Games.create(userId, id, body.title.trim(), CurationMode.Include, steamAppid);
+    void onboardGame(game, user.tier);
     return NextResponse.json(game, { status: 201 });
   } catch (err) {
     console.error("[POST /api/games]", err);

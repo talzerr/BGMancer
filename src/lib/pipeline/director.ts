@@ -1,5 +1,5 @@
-import type { TaggedTrack, TrackRole, Game, VibeScore } from "@/types";
-import { CurationMode } from "@/types";
+import type { TaggedTrack, Game, VibeScore } from "@/types";
+import { CurationMode, TrackRole } from "@/types";
 
 interface ArcSlot {
   phase: string;
@@ -13,36 +13,41 @@ const ARC_TEMPLATE: Array<{
   energyPrefs: Array<1 | 2 | 3>;
   rolePrefs: TrackRole[];
 }> = [
-  { phase: "intro", fraction: 0.15, energyPrefs: [1, 2], rolePrefs: ["opener", "menu", "ambient"] },
+  {
+    phase: "intro",
+    fraction: 0.15,
+    energyPrefs: [1, 2],
+    rolePrefs: [TrackRole.Opener, TrackRole.Menu, TrackRole.Ambient],
+  },
   {
     phase: "rising",
     fraction: 0.25,
     energyPrefs: [2],
-    rolePrefs: ["build", "ambient", "cinematic"],
+    rolePrefs: [TrackRole.Build, TrackRole.Ambient, TrackRole.Cinematic],
   },
   {
     phase: "peak",
     fraction: 0.25,
     energyPrefs: [2, 3],
-    rolePrefs: ["combat", "build", "cinematic"],
+    rolePrefs: [TrackRole.Combat, TrackRole.Build, TrackRole.Cinematic],
   },
   {
     phase: "valley",
     fraction: 0.15,
     energyPrefs: [1, 2],
-    rolePrefs: ["ambient", "cinematic"],
+    rolePrefs: [TrackRole.Ambient, TrackRole.Cinematic],
   },
   {
     phase: "climax",
     fraction: 0.1,
     energyPrefs: [3],
-    rolePrefs: ["combat", "cinematic"],
+    rolePrefs: [TrackRole.Combat, TrackRole.Cinematic],
   },
   {
     phase: "outro",
     fraction: 0.1,
     energyPrefs: [1],
-    rolePrefs: ["closer", "ambient", "menu"],
+    rolePrefs: [TrackRole.Closer, TrackRole.Ambient, TrackRole.Menu],
   },
 ];
 

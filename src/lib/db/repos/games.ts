@@ -3,12 +3,15 @@ import { getSeedPlaylistId } from "@/lib/db/seed";
 import { stmt, LIBRARY_SQ } from "./_shared";
 import { toGame, toGames } from "@/lib/db/mappers";
 import { CurationMode } from "@/types";
+import type { TaggingStatus } from "@/types";
 import type { Game } from "@/types";
 import { newId } from "@/lib/uuid";
 import { YT_IMPORT_GAME_ID } from "@/lib/constants";
 
 export interface GameUpdateFields {
   curation?: CurationMode;
+  tracklist_source?: string | null;
+  needs_review?: boolean;
 }
 
 export interface SteamGameInput {
@@ -93,11 +96,27 @@ export const Games = {
     return created;
   },
 
+  setStatus(id: string, status: TaggingStatus): void {
+    stmt(
+      `UPDATE games SET tagging_status = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`,
+    ).run(status, id);
+  },
+
   update(id: string, fields: GameUpdateFields): Game | null {
     if (fields.curation !== undefined) {
       stmt(
         `UPDATE games SET curation = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`,
       ).run(fields.curation, id);
+    }
+    if (fields.tracklist_source !== undefined) {
+      stmt(
+        `UPDATE games SET tracklist_source = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`,
+      ).run(fields.tracklist_source, id);
+    }
+    if (fields.needs_review !== undefined) {
+      stmt(
+        `UPDATE games SET needs_review = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`,
+      ).run(fields.needs_review ? 1 : 0, id);
     }
     return this.getById(id);
   },
@@ -136,7 +155,10 @@ export const Games = {
    * Silently skips entries whose steam_appid already exists (via the unique index).
    * Returns the count of newly inserted and skipped rows.
    */
-  bulkImportSteam(userId: string, games: SteamGameInput[]): { imported: number; skipped: number } {
+  bulkImportSteam(
+    userId: string,
+    games: SteamGameInput[],
+  ): { imported: number; skipped: number; importedIds: string[] } {
     const db = getDB();
     const insertGameSQL = `
       INSERT OR IGNORE INTO games
@@ -149,6 +171,7 @@ export const Games = {
 
     let imported = 0;
     let skipped = 0;
+    const importedIds: string[] = [];
 
     db.transaction(() => {
       for (const g of games) {
@@ -156,6 +179,7 @@ export const Games = {
         const result = stmt(insertGameSQL).run(id, g.name, g.appid, Math.round(g.playtime_forever));
         if (result.changes > 0) {
           imported++;
+          importedIds.push(id);
           stmt(insertLibrarySQL).run(userId, id);
           const seededPlaylistId = getSeedPlaylistId(g.name);
           if (seededPlaylistId) stmt(seedSQL).run(id, seededPlaylistId);
@@ -165,6 +189,6 @@ export const Games = {
       }
     })();
 
-    return { imported, skipped };
+    return { imported, skipped, importedIds };
   },
 };

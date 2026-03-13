@@ -1,8 +1,17 @@
-import { CurationMode, TrackStatus, UserTier } from "@/types";
-import type { Game, PlaylistTrack, PlaylistSession, User } from "@/types";
+import {
+  CurationMode,
+  TaggingStatus,
+  TrackMood,
+  TrackInstrumentation,
+  TrackRole,
+  TrackStatus,
+  UserTier,
+} from "@/types";
+import type { Game, PlaylistTrack, PlaylistSession, Track, User } from "@/types";
 
 const VALID_TIERS = new Set<string>(Object.values(UserTier));
 const VALID_STATUSES = new Set<string>(Object.values(TrackStatus));
+const VALID_TAGGING_STATUSES = new Set<string>(Object.values(TaggingStatus));
 
 export const VALID_CURATIONS = new Set<CurationMode>(Object.values(CurationMode) as CurationMode[]);
 
@@ -33,6 +42,10 @@ export function toGame(row: Record<string, unknown>): Game {
   const curation: CurationMode = VALID_CURATIONS.has(raw as CurationMode)
     ? (raw as CurationMode)
     : CurationMode.Include;
+  const rawStatus = String(row.tagging_status ?? TaggingStatus.Pending);
+  const tagging_status: TaggingStatus = VALID_TAGGING_STATUSES.has(rawStatus)
+    ? (rawStatus as TaggingStatus)
+    : TaggingStatus.Pending;
   return {
     id: String(row.id),
     title: String(row.title),
@@ -40,6 +53,9 @@ export function toGame(row: Record<string, unknown>): Game {
     curation,
     steam_appid: row.steam_appid != null ? Number(row.steam_appid) : null,
     playtime_minutes: row.playtime_minutes != null ? Number(row.playtime_minutes) : null,
+    tagging_status,
+    tracklist_source: row.tracklist_source != null ? String(row.tracklist_source) : null,
+    needs_review: !!row.needs_review,
     created_at: String(row.created_at ?? ""),
     updated_at: String(row.updated_at ?? ""),
   };
@@ -88,4 +104,52 @@ export function toPlaylistTrack(row: Record<string, unknown>): PlaylistTrack {
 
 export function toPlaylistTracks(rows: unknown[]): PlaylistTrack[] {
   return (rows as Record<string, unknown>[]).map(toPlaylistTrack);
+}
+
+const VALID_MOODS = new Set<string>(Object.values(TrackMood));
+const VALID_INSTRUMENTATIONS = new Set<string>(Object.values(TrackInstrumentation));
+const VALID_ROLES = new Set<string>(Object.values(TrackRole));
+
+function parseJsonArray<T>(raw: unknown, validSet: Set<string>): T[] {
+  if (raw == null) return [];
+  let arr: unknown[];
+  if (Array.isArray(raw)) {
+    arr = raw;
+  } else if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      arr = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  } else {
+    return [];
+  }
+  return arr.filter((v) => typeof v === "string" && validSet.has(v)) as T[];
+}
+
+export function toTrack(row: Record<string, unknown>): Track {
+  const rawEnergy = row.energy != null ? Number(row.energy) : null;
+  const energy = rawEnergy === 1 || rawEnergy === 2 || rawEnergy === 3 ? rawEnergy : null;
+  const rawRole = row.role != null ? String(row.role) : null;
+  const role = rawRole != null && VALID_ROLES.has(rawRole) ? (rawRole as TrackRole) : null;
+  return {
+    gameId: String(row.game_id),
+    name: String(row.name),
+    position: Number(row.position ?? 0),
+    energy,
+    role,
+    moods: parseJsonArray<TrackMood>(row.moods, VALID_MOODS),
+    instrumentation: parseJsonArray<TrackInstrumentation>(
+      row.instrumentation,
+      VALID_INSTRUMENTATIONS,
+    ),
+    hasVocals: row.has_vocals != null ? !!row.has_vocals : null,
+    active: row.active !== 0,
+    taggedAt: row.tagged_at != null ? String(row.tagged_at) : null,
+  };
+}
+
+export function toTracks(rows: unknown[]): Track[] {
+  return (rows as Record<string, unknown>[]).map(toTrack);
 }

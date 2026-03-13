@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { TaggingStatus } from "@/types";
 import type { Game } from "@/types";
 
 export function useGameLibrary() {
@@ -35,6 +36,19 @@ export function useGameLibrary() {
     }
     return false;
   }
+
+  const hasIndexing = games.some(
+    (g) =>
+      g.tagging_status === TaggingStatus.Indexing || g.tagging_status === TaggingStatus.Pending,
+  );
+
+  useEffect(() => {
+    if (!hasIndexing) return;
+    const id = setInterval(() => {
+      fetchGames();
+    }, 3000);
+    return () => clearInterval(id);
+  }, [hasIndexing, fetchGames]);
 
   return { games, gamesLoading, fetchGames, handleGameAdded, deleteGame };
 }

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CurationMode } from "@/types";
+import { CurationMode, TaggingStatus } from "@/types";
 import type { Game } from "@/types";
 import { Spinner, SearchIcon, CheckIcon } from "@/components/Icons";
 import { AddGameForm } from "@/components/AddGameForm";
@@ -46,6 +46,19 @@ export function LibraryClient() {
   useEffect(() => {
     fetchGames();
   }, [fetchGames]);
+
+  const hasIndexing = games.some(
+    (g) =>
+      g.tagging_status === TaggingStatus.Indexing || g.tagging_status === TaggingStatus.Pending,
+  );
+
+  useEffect(() => {
+    if (!hasIndexing) return;
+    const id = setInterval(() => {
+      fetchGames();
+    }, 3000);
+    return () => clearInterval(id);
+  }, [hasIndexing, fetchGames]);
 
   async function handleCurationChange(id: string, newCuration: CurationMode) {
     const prevCuration = games.find((g) => g.id === id)?.curation;
