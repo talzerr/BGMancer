@@ -1,52 +1,12 @@
-import type { Track, TrackRole, TrackMood, TrackInstrumentation } from "@/types";
-import { ReviewReason } from "@/types";
+import type { Track } from "@/types";
+import { ReviewReason, TrackRole, TrackMood, TrackInstrumentation } from "@/types";
 import type { LLMProvider } from "@/lib/llm/provider";
 import { Tracks, ReviewFlags } from "@/lib/db/repo";
 import { TAG_BATCH_SIZE, TAG_POOL_MAX } from "@/lib/constants";
 
-const VALID_ROLES = new Set<string>([
-  "opener",
-  "ambient",
-  "build",
-  "combat",
-  "closer",
-  "menu",
-  "cinematic",
-]);
-const VALID_MOODS = new Set<string>([
-  "epic",
-  "tense",
-  "peaceful",
-  "melancholic",
-  "triumphant",
-  "mysterious",
-  "playful",
-  "dark",
-  "ethereal",
-  "heroic",
-  "nostalgic",
-  "ominous",
-  "serene",
-  "chaotic",
-  "whimsical",
-]);
-const VALID_INSTRUMENTATION = new Set<string>([
-  "orchestral",
-  "synth",
-  "acoustic",
-  "chiptune",
-  "piano",
-  "rock",
-  "metal",
-  "electronic",
-  "choir",
-  "ambient",
-  "jazz",
-  "folk",
-  "strings",
-  "brass",
-  "percussion",
-]);
+const VALID_ROLES = new Set<string>(Object.values(TrackRole));
+const VALID_MOODS = new Set<string>(Object.values(TrackMood));
+const VALID_INSTRUMENTATION = new Set<string>(Object.values(TrackInstrumentation));
 
 const SYSTEM_PROMPT = `You are a music metadata classifier for a game soundtrack tagging system.
 Given a list of game soundtrack tracks, return a JSON array with one entry per track.

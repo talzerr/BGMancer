@@ -198,7 +198,11 @@ export async function fetchVideoDurations(videoIds: string[]): Promise<Map<strin
 
     const res = await fetch(url.toString());
     if (!res.ok) {
+      // throwIfFatalError re-throws on quota/auth errors; for other failures, skip this chunk
       await throwIfFatalError(res);
+      console.warn(
+        `[YouTube] fetchVideoDurations chunk ${i}–${i + YT_VIDEOS_PAGE_SIZE - 1} failed (${res.status}), skipping`,
+      );
       continue; // best-effort: skip this chunk, keep results so far
     }
 

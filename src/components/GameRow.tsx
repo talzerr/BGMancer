@@ -106,6 +106,9 @@ export function GameRow({
     setToggling(false);
   }
 
+  const isLimited =
+    game.tagging_status === TaggingStatus.Limited || game.tagging_status === TaggingStatus.Failed;
+
   const rowClass = {
     skip: "border-white/[0.03] bg-zinc-950/60 opacity-50",
     lite: "border-white/[0.05] bg-zinc-900/40",
@@ -114,7 +117,9 @@ export function GameRow({
   }[game.curation];
 
   return (
-    <div className={`group rounded-xl border px-3.5 pt-2.5 pb-2 transition-colors ${rowClass}`}>
+    <div
+      className={`group rounded-xl border px-3.5 pt-2.5 pb-2 transition-colors ${rowClass} ${isLimited ? "border-l-2 border-l-yellow-500/50" : ""}`}
+    >
       {/* Main row */}
       <div className="flex items-center gap-3">
         {game.steam_appid ? (
@@ -128,9 +133,16 @@ export function GameRow({
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm leading-tight font-medium text-zinc-100">{game.title}</p>
           {playtime && <p className="mt-0.5 text-[11px] leading-none text-zinc-500">{playtime}</p>}
+          {game.tagging_status === TaggingStatus.Limited && (
+            <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-yellow-500/80">
+              <ErrorCircle className="h-2.5 w-2.5 shrink-0" />
+              Limited soundtrack data
+            </span>
+          )}
           {game.tagging_status === TaggingStatus.Failed && (
-            <span className="mt-0.5 inline-block text-yellow-500" title="Limited soundtrack data">
-              <ErrorCircle className="h-2.5 w-2.5" />
+            <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-yellow-500/80">
+              <ErrorCircle className="h-2.5 w-2.5 shrink-0" />
+              Limited soundtrack data
             </span>
           )}
         </div>

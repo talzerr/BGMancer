@@ -2,7 +2,14 @@ import { Games, Tracks, VideoTracks } from "@/lib/db/repo";
 import { compilationQueries, makePendingTrack } from "@/lib/pipeline/assembly";
 import { searchOSTPlaylist, fetchPlaylistItems, fetchVideoDurations } from "@/lib/services/youtube";
 import type { OSTTrack } from "@/lib/services/youtube";
-import { type Game, type TaggedTrack, type UserTier, GameProgressStatus, TrackRole } from "@/types";
+import {
+  type Game,
+  type TaggedTrack,
+  type UserTier,
+  GameProgressStatus,
+  TaggingStatus,
+  TrackRole,
+} from "@/types";
 import type { GenerateEvent, CandidateResult } from "@/lib/pipeline/types";
 import { resolveTracksToVideos } from "@/lib/pipeline/resolver";
 import { getTaggingProvider } from "@/lib/llm";
@@ -92,10 +99,14 @@ async function resolveCurated(
       r.energy !== null && r.roles.length > 0,
   );
 
-  const durations = await ensureDurations(
-    filtered.map((r) => r.videoId),
-    game.id,
+  // Prefer Discogs durations stored during onboarding; only call YouTube for tracks missing one.
+  const discogsDurations = new Map<string, number>(
+    filtered.flatMap((r) => (r.durationSeconds != null ? [[r.videoId, r.durationSeconds]] : [])),
   );
+  const missingDurationIds = filtered
+    .filter((r) => r.durationSeconds == null)
+    .map((r) => r.videoId);
+  const durations = await ensureDurations(missingDurationIds, game.id);
 
   const tracks: TaggedTrack[] = filtered.map((r) => ({
     videoId: r.videoId,
@@ -111,7 +122,7 @@ async function resolveCurated(
     moods: r.moods,
     instrumentation: r.instrumentation,
     hasVocals: r.hasVocals ?? false,
-    durationSeconds: durations.get(r.videoId) ?? 0,
+    durationSeconds: durations.get(r.videoId) ?? discogsDurations.get(r.videoId) ?? 0,
   }));
 
   send({
@@ -228,7 +239,13 @@ export async function fetchGameCandidates(
     return { kind: "tagged", game, tracks: [] };
   }
 
-  return Tracks.hasData(game.id)
-    ? resolveCurated(game, playlistTracks, tier, send)
-    : resolveLegacy(game, playlistTracks, send);
+  if (Tracks.hasData(game.id)) {
+    if (Tracks.isTagged(game.id)) {
+      return resolveCurated(game, playlistTracks, tier, send);
+    }
+    // Tracks exist but tagging never completed (e.g. LLM was unavailable during onboarding).
+    // Treat as limited so the game still contributes tracks and the UI shows the yellow indicator.
+    Games.setStatus(game.id, TaggingStatus.Limited);
+  }
+  return resolveLegacy(game, playlistTracks, send);
 }

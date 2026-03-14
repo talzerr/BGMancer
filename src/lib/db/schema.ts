@@ -88,16 +88,17 @@ export function initSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_tracks_status    ON playlist_tracks(status);
 
     CREATE TABLE IF NOT EXISTS tracks (
-      game_id         TEXT    NOT NULL,
-      name            TEXT    NOT NULL,
-      position        INTEGER NOT NULL,
-      energy          INTEGER,
-      role            TEXT,
-      moods           TEXT,
-      instrumentation TEXT,
-      has_vocals      INTEGER,
-      active          INTEGER NOT NULL DEFAULT 1,
-      tagged_at       TEXT,
+      game_id          TEXT    NOT NULL,
+      name             TEXT    NOT NULL,
+      position         INTEGER NOT NULL,
+      duration_seconds INTEGER,
+      energy           INTEGER,
+      role             TEXT,
+      moods            TEXT,
+      instrumentation  TEXT,
+      has_vocals       INTEGER,
+      active           INTEGER NOT NULL DEFAULT 1,
+      tagged_at        TEXT,
       PRIMARY KEY (game_id, name),
       FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
     );

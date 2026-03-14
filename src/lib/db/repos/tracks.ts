@@ -8,12 +8,25 @@ export const Tracks = {
     return toTracks(stmt("SELECT * FROM tracks WHERE game_id = ? ORDER BY position").all(gameId));
   },
 
-  upsertBatch(tracks: Array<{ gameId: string; name: string; position: number }>): void {
+  upsertBatch(
+    tracks: Array<{
+      gameId: string;
+      name: string;
+      position: number;
+      durationSeconds?: number | null;
+    }>,
+  ): void {
     const db = getDB();
-    const insert = stmt("INSERT OR REPLACE INTO tracks (game_id, name, position) VALUES (?, ?, ?)");
+    const insert = stmt(
+      `INSERT INTO tracks (game_id, name, position, duration_seconds)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(game_id, name) DO UPDATE SET
+         position = excluded.position,
+         duration_seconds = COALESCE(excluded.duration_seconds, duration_seconds)`,
+    );
     db.transaction(() => {
       for (const t of tracks) {
-        insert.run(t.gameId, t.name, t.position);
+        insert.run(t.gameId, t.name, t.position, t.durationSeconds ?? null);
       }
     })();
   },

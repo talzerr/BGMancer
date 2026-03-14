@@ -2,7 +2,7 @@ import type { Game, Track, ResolvedTrack } from "@/types";
 import { ReviewReason } from "@/types";
 import type { LLMProvider } from "@/lib/llm/provider";
 import type { OSTTrack } from "@/lib/services/youtube";
-import { searchYouTube } from "@/lib/services/youtube";
+import { searchYouTube, YouTubeQuotaError, YouTubeInvalidKeyError } from "@/lib/services/youtube";
 import { Tracks, VideoTracks, ReviewFlags } from "@/lib/db/repo";
 import { RESOLVE_BATCH_SIZE, RESOLVE_FALLBACK_MAX } from "@/lib/constants";
 
@@ -71,6 +71,7 @@ function toResolvedTrack(video: OSTTrack, track: Track): ResolvedTrack {
     thumbnail: video.thumbnail,
     gameId: track.gameId,
     trackName: track.name,
+    durationSeconds: track.durationSeconds,
     energy: track.energy,
     roles: track.roles,
     moods: track.moods,
@@ -103,6 +104,9 @@ export async function resolveTracksToVideos(
   if (unresolvedTracks.length === 0) {
     return buildResults(activeTracks, existingTrackToVideo, videoMap);
   }
+
+  // Snapshot existing track names before auto-discovery adds new ones (used for discoveredCount below)
+  const existingTrackNames = new Set(tracks.map((t) => t.name.toLowerCase()));
 
   // ── 2. LLM playlist alignment ──────────────────────────────────────────────
   // Track which video_ids have already been matched to avoid double-assigning
@@ -229,6 +233,7 @@ export async function resolveTracksToVideos(
         gameId: game.id,
         name: candidateName,
         position: 0,
+        durationSeconds: null,
         energy: null,
         roles: [],
         moods: [],
@@ -243,7 +248,7 @@ export async function resolveTracksToVideos(
 
   // Flag game for review if auto-discovery created new tracks
   const discoveredCount = newRows.filter(
-    (r) => r.trackName !== null && !trackByName.has(r.trackName),
+    (r) => r.trackName !== null && !existingTrackNames.has(r.trackName.toLowerCase()),
   ).length;
   if (discoveredCount > 0) {
     ReviewFlags.markAsNeedsReview(
@@ -262,6 +267,7 @@ export async function resolveTracksToVideos(
     if (fallbackCount >= RESOLVE_FALLBACK_MAX) break;
 
     const query = `${game.title} ${track.name} OST`;
+    fallbackCount++;
     try {
       const results = await searchYouTube(query, true);
       if (results.length > 0) {
@@ -279,10 +285,9 @@ export async function resolveTracksToVideos(
         newRows.push({ videoId: result.videoId, gameId: game.id, trackName: track.name });
       }
     } catch (err) {
+      if (err instanceof YouTubeQuotaError || err instanceof YouTubeInvalidKeyError) throw err;
       console.error(`[resolver] Fallback search failed for "${track.name}":`, err);
     }
-
-    fallbackCount++;
   }
 
   // ── 5. Persist ─────────────────────────────────────────────────────────────

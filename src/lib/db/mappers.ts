@@ -136,6 +136,7 @@ export function toTrack(row: Record<string, unknown>): Track {
     gameId: String(row.game_id),
     name: String(row.name),
     position: Number(row.position ?? 0),
+    durationSeconds: row.duration_seconds != null ? Number(row.duration_seconds) : null,
     energy,
     roles,
     moods: parseJsonArray<TrackMood>(row.moods, VALID_MOODS),

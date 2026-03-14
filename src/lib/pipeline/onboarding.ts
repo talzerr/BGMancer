@@ -15,7 +15,12 @@ export async function onboardGame(game: Game, tier: UserTier): Promise<void> {
       const { tracks, releaseId } = result;
 
       Tracks.upsertBatch(
-        tracks.map((t) => ({ gameId: game.id, name: t.name, position: t.position })),
+        tracks.map((t) => ({
+          gameId: game.id,
+          name: t.name,
+          position: t.position,
+          durationSeconds: t.durationSeconds,
+        })),
       );
 
       const dbTracks = Tracks.getByGame(game.id);

@@ -58,7 +58,6 @@ export function PlaylistTrackCard({
   isDragging = false,
 }: PlaylistTrackCardProps) {
   const hasVideo = !!track.video_id;
-  const isFullOST = track.track_name === null;
   const isImported = track.game_title === "YouTube Import";
   const statusCfg = STATUS_CONFIG[track.status] ?? STATUS_CONFIG.pending;
   const thumbnailSrc = gameThumbnail ?? track.thumbnail;
@@ -144,11 +143,6 @@ export function PlaylistTrackCard({
           >
             {track.game_title}
           </span>
-          {isFullOST && !spoilerHidden && (
-            <span className="shrink-0 rounded-full border border-violet-500/20 bg-violet-500/15 px-1.5 py-0.5 text-[10px] leading-none font-semibold text-violet-400">
-              Full OST
-            </span>
-          )}
         </div>
         {hasVideo && track.video_title ? (
           spoilerHidden ? (
@@ -165,12 +159,10 @@ export function PlaylistTrackCard({
             </p>
           )
         ) : track.status === TrackStatus.Error ? (
-          <p className="line-clamp-1 text-xs leading-tight text-red-400/80">
-            {track.error_message ?? "Search failed"}
-          </p>
+          <p className="line-clamp-1 text-xs leading-tight text-red-400/80">Something went wrong</p>
         ) : (
           <p className="line-clamp-1 text-sm leading-tight text-zinc-400">
-            {track.track_name ?? (isFullOST ? "Finding compilation…" : "Pending search")}
+            {track.track_name ?? "Pending search"}
           </p>
         )}
         {hasVideo && track.channel_title && !spoilerHidden && (

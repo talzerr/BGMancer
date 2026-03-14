@@ -1,4 +1,5 @@
 import { stmt } from "./_shared";
+import { getDB } from "@/lib/db";
 import type { ReviewReason } from "@/types";
 
 export interface ReviewFlag {
@@ -22,14 +23,16 @@ function toReviewFlag(row: Record<string, unknown>): ReviewFlag {
 export const ReviewFlags = {
   /** Inserts a review flag and atomically marks the game as needs_review. A game may accumulate multiple flags. */
   markAsNeedsReview(gameId: string, reason: ReviewReason, detail?: string): void {
-    stmt("INSERT INTO game_review_flags (game_id, reason, detail) VALUES (?, ?, ?)").run(
-      gameId,
-      reason,
-      detail ?? null,
-    );
-    stmt(
-      `UPDATE games SET needs_review = 1, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`,
-    ).run(gameId);
+    getDB().transaction(() => {
+      stmt("INSERT INTO game_review_flags (game_id, reason, detail) VALUES (?, ?, ?)").run(
+        gameId,
+        reason,
+        detail ?? null,
+      );
+      stmt(
+        `UPDATE games SET needs_review = 1, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`,
+      ).run(gameId);
+    })();
   },
 
   listByGame(gameId: string): ReviewFlag[] {

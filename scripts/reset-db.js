@@ -1,27 +1,18 @@
-// Drops all tables and lets the app recreate the schema on next server start.
+// Deletes the database file so the app recreates the full schema on next server start.
 // Usage: npm run db:reset
 // WARNING: All data will be lost.
 
-const Database = require("better-sqlite3");
+const fs = require("fs");
 const path = require("path");
 
 const dbPath = process.env.SQLITE_PATH ?? path.join(process.cwd(), "bgmancer.db");
 
-const db = new Database(dbPath);
+for (const suffix of ["", "-wal", "-shm"]) {
+  const file = dbPath + suffix;
+  if (fs.existsSync(file)) {
+    fs.unlinkSync(file);
+    console.log(`Deleted ${file}`);
+  }
+}
 
-db.exec(`
-  PRAGMA foreign_keys = OFF;
-  DROP TABLE IF EXISTS playlist_tracks;
-  DROP TABLE IF EXISTS playlists;
-  DROP TABLE IF EXISTS library_games;
-  DROP TABLE IF EXISTS libraries;
-  DROP TABLE IF EXISTS game_yt_playlists;
-  DROP TABLE IF EXISTS games;
-  DROP TABLE IF EXISTS users;
-  DROP TABLE IF EXISTS config;
-  PRAGMA foreign_keys = ON;
-`);
-
-db.close();
-
-console.log("Database reset. Tables will be recreated on next server start.");
+console.log("Database reset. Schema will be recreated on next server start.");

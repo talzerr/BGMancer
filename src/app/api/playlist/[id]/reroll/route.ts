@@ -51,8 +51,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   try {
     const durations = await fetchVideoDurations([picked.videoId]);
     durationSeconds = durations.get(picked.videoId) ?? null;
-  } catch {
-    // Duration is optional
+  } catch (err) {
+    // Duration is optional — log but don't fail the reroll
+    console.warn("[reroll] fetchVideoDurations failed (non-fatal):", err);
   }
 
   try {

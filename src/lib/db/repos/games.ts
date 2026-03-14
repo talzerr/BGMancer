@@ -58,6 +58,13 @@ export const Games = {
     return row.cnt;
   },
 
+  findByTitle(title: string): Game | null {
+    const row = stmt("SELECT * FROM games WHERE lower(title) = lower(?)").get(title) as
+      | Record<string, unknown>
+      | undefined;
+    return row ? toGame(row) : null;
+  },
+
   getById(id: string): Game | null {
     const row = stmt("SELECT * FROM games WHERE id = ?").get(id) as
       | Record<string, unknown>
@@ -88,6 +95,13 @@ export const Games = {
     const created = this.getById(id);
     if (!created) throw new Error(`[Games.create] game ${id} not found after INSERT`);
     return created;
+  },
+
+  linkToLibrary(userId: string, gameId: string): void {
+    stmt(`INSERT OR IGNORE INTO library_games (library_id, game_id) VALUES (${LIBRARY_SQ}, ?)`).run(
+      userId,
+      gameId,
+    );
   },
 
   setPlaylistId(id: string, playlistId: string): void {

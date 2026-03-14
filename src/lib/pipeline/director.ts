@@ -114,7 +114,7 @@ function expandArc(targetCount: number): ArcSlot[] {
   for (let i = 0; i < ARC_TEMPLATE.length; i++) {
     const template = ARC_TEMPLATE[i];
     const isLast = i === ARC_TEMPLATE.length - 1;
-    const count = isLast ? remaining : Math.max(1, Math.round(targetCount * template.fraction));
+    const count = isLast ? remaining : Math.max(1, Math.floor(targetCount * template.fraction));
     remaining -= count;
 
     for (let j = 0; j < count; j++) {
