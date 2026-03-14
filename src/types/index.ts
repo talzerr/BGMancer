@@ -62,6 +62,7 @@ export enum ReviewReason {
   EmptyMetadata = "empty_metadata",
   NoDiscogsData = "no_discogs_data",
   AlignmentFailed = "alignment_failed",
+  TrackCapReached = "track_cap_reached",
 }
 
 export enum TrackMood {

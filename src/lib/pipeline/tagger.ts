@@ -38,8 +38,18 @@ export async function tagTracks(
   tracks: Track[],
   provider: LLMProvider,
 ): Promise<void> {
-  const untagged = tracks.filter((t) => t.taggedAt === null).slice(0, TAG_POOL_MAX);
-  if (untagged.length === 0) return;
+  const allUntagged = tracks.filter((t) => t.taggedAt === null);
+  if (allUntagged.length === 0) return;
+
+  if (allUntagged.length > TAG_POOL_MAX) {
+    ReviewFlags.markAsNeedsReview(
+      gameId,
+      ReviewReason.TrackCapReached,
+      `${allUntagged.length} untagged tracks, cap is ${TAG_POOL_MAX}`,
+    );
+  }
+
+  const untagged = allUntagged.slice(0, TAG_POOL_MAX);
 
   for (let i = 0; i < untagged.length; i += TAG_BATCH_SIZE) {
     const batch = untagged.slice(i, i + TAG_BATCH_SIZE);
