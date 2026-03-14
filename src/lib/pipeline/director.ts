@@ -1,10 +1,21 @@
-import type { TaggedTrack, Game } from "@/types";
-import { CurationMode, TrackRole } from "@/types";
+import type { TaggedTrack, Game, ScoringRubric } from "@/types";
+import { CurationMode, TrackRole, TrackMood, TrackInstrumentation } from "@/types";
+import {
+  SCORE_WEIGHT_ROLE,
+  SCORE_WEIGHT_MOOD,
+  SCORE_WEIGHT_INSTRUMENT,
+  SCORE_PENALTY_MULTIPLIER,
+  SCORE_VOCALS_PENALTY_MULTIPLIER,
+  DIRECTOR_TOP_N_POOL,
+} from "@/lib/constants";
 
 interface ArcSlot {
   phase: string;
   energyPrefs: Array<1 | 2 | 3>;
   rolePrefs: TrackRole[];
+  preferredMoods: TrackMood[];
+  penalizedMoods: TrackMood[];
+  preferredInstrumentation: TrackInstrumentation[];
 }
 
 const ARC_TEMPLATE: Array<{
@@ -12,42 +23,87 @@ const ARC_TEMPLATE: Array<{
   fraction: number;
   energyPrefs: Array<1 | 2 | 3>;
   rolePrefs: TrackRole[];
+  preferredMoods: TrackMood[];
+  penalizedMoods: TrackMood[];
+  preferredInstrumentation: TrackInstrumentation[];
 }> = [
   {
     phase: "intro",
     fraction: 0.15,
     energyPrefs: [1, 2],
     rolePrefs: [TrackRole.Opener, TrackRole.Menu, TrackRole.Ambient],
+    preferredMoods: [TrackMood.Peaceful, TrackMood.Mysterious, TrackMood.Nostalgic],
+    penalizedMoods: [TrackMood.Chaotic, TrackMood.Epic],
+    preferredInstrumentation: [
+      TrackInstrumentation.Piano,
+      TrackInstrumentation.Ambient,
+      TrackInstrumentation.Strings,
+    ],
   },
   {
     phase: "rising",
     fraction: 0.25,
     energyPrefs: [2],
     rolePrefs: [TrackRole.Build, TrackRole.Ambient, TrackRole.Cinematic],
+    preferredMoods: [TrackMood.Mysterious, TrackMood.Tense, TrackMood.Melancholic],
+    penalizedMoods: [TrackMood.Playful, TrackMood.Whimsical],
+    preferredInstrumentation: [
+      TrackInstrumentation.Orchestral,
+      TrackInstrumentation.Strings,
+      TrackInstrumentation.Synth,
+    ],
   },
   {
     phase: "peak",
     fraction: 0.25,
     energyPrefs: [2, 3],
     rolePrefs: [TrackRole.Combat, TrackRole.Build, TrackRole.Cinematic],
+    preferredMoods: [TrackMood.Epic, TrackMood.Tense, TrackMood.Heroic],
+    penalizedMoods: [TrackMood.Peaceful, TrackMood.Serene, TrackMood.Whimsical],
+    preferredInstrumentation: [
+      TrackInstrumentation.Orchestral,
+      TrackInstrumentation.Rock,
+      TrackInstrumentation.Metal,
+    ],
   },
   {
     phase: "valley",
     fraction: 0.15,
     energyPrefs: [1, 2],
     rolePrefs: [TrackRole.Ambient, TrackRole.Cinematic],
+    preferredMoods: [TrackMood.Peaceful, TrackMood.Serene, TrackMood.Melancholic],
+    penalizedMoods: [TrackMood.Epic, TrackMood.Chaotic, TrackMood.Heroic],
+    preferredInstrumentation: [
+      TrackInstrumentation.Ambient,
+      TrackInstrumentation.Piano,
+      TrackInstrumentation.Acoustic,
+    ],
   },
   {
     phase: "climax",
     fraction: 0.1,
     energyPrefs: [3],
     rolePrefs: [TrackRole.Combat, TrackRole.Cinematic],
+    preferredMoods: [TrackMood.Epic, TrackMood.Heroic, TrackMood.Triumphant, TrackMood.Chaotic],
+    penalizedMoods: [TrackMood.Peaceful, TrackMood.Playful],
+    preferredInstrumentation: [
+      TrackInstrumentation.Orchestral,
+      TrackInstrumentation.Metal,
+      TrackInstrumentation.Choir,
+    ],
   },
   {
     phase: "outro",
     fraction: 0.1,
     energyPrefs: [1],
     rolePrefs: [TrackRole.Closer, TrackRole.Ambient, TrackRole.Menu],
+    preferredMoods: [TrackMood.Melancholic, TrackMood.Nostalgic, TrackMood.Peaceful],
+    penalizedMoods: [TrackMood.Chaotic, TrackMood.Tense],
+    preferredInstrumentation: [
+      TrackInstrumentation.Piano,
+      TrackInstrumentation.Acoustic,
+      TrackInstrumentation.Strings,
+    ],
   },
 ];
 
@@ -66,6 +122,9 @@ function expandArc(targetCount: number): ArcSlot[] {
         phase: template.phase,
         energyPrefs: template.energyPrefs,
         rolePrefs: template.rolePrefs,
+        preferredMoods: template.preferredMoods,
+        penalizedMoods: template.penalizedMoods,
+        preferredInstrumentation: template.preferredInstrumentation,
       });
     }
   }
@@ -80,6 +139,16 @@ function shuffle<T>(arr: T[]): T[] {
     [out[i], out[j]] = [out[j], out[i]];
   }
   return out;
+}
+
+function jaccard(a: string[], b: string[]): number {
+  if (a.length === 0 && b.length === 0) return 0;
+  const setA = new Set(a);
+  const setB = new Set(b);
+  let intersection = 0;
+  for (const x of setA) if (setB.has(x)) intersection++;
+  const union = new Set([...setA, ...setB]).size;
+  return union === 0 ? 0 : intersection / union;
 }
 
 function computeGameBudgets(
@@ -135,10 +204,35 @@ function computeGameBudgets(
   return budgets;
 }
 
-function scoreTrack(track: TaggedTrack, slot: ArcSlot): number {
+function scoreTrack(track: TaggedTrack, slot: ArcSlot, rubric?: ScoringRubric): number {
+  // Hard gate: energy must be in slot's energy prefs
   if (!slot.energyPrefs.includes(track.energy)) return -Infinity;
-  let score = 50;
-  if (slot.rolePrefs.includes(track.role)) score += 5;
+
+  // Dimension 1: Role (binary match)
+  let roleScore = slot.rolePrefs.includes(track.role) ? 1.0 : 0.0;
+  if (rubric?.preferredRoles.includes(track.role)) roleScore = 1.0;
+
+  // Dimension 2: Mood Jaccard
+  const targetMoods = rubric?.preferredMoods ?? slot.preferredMoods;
+  const moodScore = jaccard(track.moods, targetMoods);
+
+  // Dimension 3: Instrumentation Jaccard
+  const targetInst = rubric?.preferredInstrumentation ?? slot.preferredInstrumentation;
+  const instScore = jaccard(track.instrumentation, targetInst);
+
+  // Weighted combination (0.0–1.0)
+  let score =
+    roleScore * SCORE_WEIGHT_ROLE +
+    moodScore * SCORE_WEIGHT_MOOD +
+    instScore * SCORE_WEIGHT_INSTRUMENT;
+
+  // Penalty multiplier: penalized moods (arc + rubric combined)
+  const allPenalized = new Set([...slot.penalizedMoods, ...(rubric?.penalizedMoods ?? [])]);
+  if (track.moods.some((m) => allPenalized.has(m))) score *= SCORE_PENALTY_MULTIPLIER;
+
+  // Vocals penalty
+  if (rubric?.allowVocals === false && track.hasVocals) score *= SCORE_VOCALS_PENALTY_MULTIPLIER;
+
   return score;
 }
 
@@ -150,6 +244,7 @@ export function assemblePlaylist(
   taggedPools: Map<string, TaggedTrack[]>,
   games: Game[],
   targetCount: number,
+  rubric?: ScoringRubric,
 ): TaggedTrack[] {
   const budgets = computeGameBudgets(games, taggedPools, targetCount);
   const slots = expandArc(targetCount);
@@ -186,7 +281,7 @@ export function assemblePlaylist(
         while (slotIdx < slots.length && focusSlotIndices.has(slotIdx)) slotIdx++;
         if (slotIdx >= slots.length) break;
 
-        const track = pickBestTrack(pool, slots[slotIdx], used, gameId, lastGameId);
+        const track = pickBestTrack(pool, slots[slotIdx], used, gameId, lastGameId, rubric);
         if (track) {
           result[slotIdx] = track;
           focusSlotIndices.add(slotIdx);
@@ -226,17 +321,17 @@ export function assemblePlaylist(
       if (currentUsed >= budget) continue;
 
       const pool = shuffledPools.get(gameId) ?? [];
-      const candidate = pickBestTrack(pool, slot, used, gameId, lastGameId);
+      const candidate = pickBestTrack(pool, slot, used, gameId, lastGameId, rubric);
       if (!candidate) continue;
 
-      let score = scoreTrack(candidate, slot);
+      let score = scoreTrack(candidate, slot, rubric);
       // Penalize same game as previous
-      if (gameId === lastGameId) score -= 5;
+      if (gameId === lastGameId) score -= 0.05;
       // Bonus for under-represented games
-      score += Math.max(0, budget - currentUsed);
+      score += Math.max(0, budget - currentUsed) * 0.01;
       // Small random noise to break ties between equally-scored games;
-      // stays below the smallest meaningful score gap (1 point)
-      score += Math.random() * 0.5;
+      // stays below the smallest meaningful score gap
+      score += Math.random() * 0.005;
 
       if (score > bestScore) {
         bestScore = score;
@@ -249,7 +344,7 @@ export function assemblePlaylist(
       const allGameIds = [...nonFocusGameIds, ...focusGameIds];
       for (const gameId of allGameIds) {
         const pool = shuffledPools.get(gameId) ?? [];
-        const candidate = pickBestTrack(pool, slot, used, gameId, lastGameId);
+        const candidate = pickBestTrack(pool, slot, used, gameId, lastGameId, rubric);
         if (candidate) {
           bestTrack = candidate;
           break;
@@ -288,33 +383,47 @@ function pickBestTrack(
   used: Set<string>,
   _gameId: string,
   lastGameId: string | null,
+  rubric?: ScoringRubric,
 ): TaggedTrack | null {
-  let best: TaggedTrack | null = null;
-  let bestScore = -Infinity;
-
+  // Pass 1: avoid consecutive same-game
+  const candidates: Array<{ track: TaggedTrack; score: number }> = [];
   for (const track of pool) {
     if (used.has(track.videoId)) continue;
-    // Avoid consecutive same-game
     if (track.gameId === lastGameId) continue;
-
-    const score = scoreTrack(track, slot);
-    if (score > bestScore) {
-      bestScore = score;
-      best = track;
-    }
+    const score = scoreTrack(track, slot, rubric);
+    if (score > -Infinity) candidates.push({ track, score });
   }
 
-  // If no match found avoiding same game, relax that constraint
-  if (!best) {
-    for (const track of pool) {
-      if (used.has(track.videoId)) continue;
-      const score = scoreTrack(track, slot);
-      if (score > bestScore) {
-        bestScore = score;
-        best = track;
-      }
-    }
+  const picked = weightedTopN(candidates);
+  if (picked) return picked;
+
+  // Pass 2: relax same-game constraint
+  const relaxed: Array<{ track: TaggedTrack; score: number }> = [];
+  for (const track of pool) {
+    if (used.has(track.videoId)) continue;
+    const score = scoreTrack(track, slot, rubric);
+    if (score > -Infinity) relaxed.push({ track, score });
   }
 
-  return best;
+  return weightedTopN(relaxed);
+}
+
+function weightedTopN(
+  candidates: Array<{ track: TaggedTrack; score: number }>,
+): TaggedTrack | null {
+  if (candidates.length === 0) return null;
+
+  candidates.sort((a, b) => b.score - a.score);
+  const pool = candidates.slice(0, DIRECTOR_TOP_N_POOL);
+
+  // Weighted random: probability proportional to score + epsilon
+  const epsilon = 0.01;
+  const totalWeight = pool.reduce((sum, c) => sum + c.score + epsilon, 0);
+  let rand = Math.random() * totalWeight;
+  for (const c of pool) {
+    rand -= c.score + epsilon;
+    if (rand <= 0) return c.track;
+  }
+
+  return pool[pool.length - 1].track;
 }

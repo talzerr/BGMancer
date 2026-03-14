@@ -67,6 +67,26 @@ export const YT_IMPORT_MAX_TRACKS = MAX_TRACK_COUNT;
 /** Minimum milliseconds between playlist generations. */
 export const GENERATION_COOLDOWN_MS = 30_000;
 
+// ─── Director scoring weights ────────────────────────────────────────────────
+
+/** Dimension weight for role match (binary: 1.0 if match, 0.0 if not). */
+export const SCORE_WEIGHT_ROLE = 0.4;
+
+/** Dimension weight for mood Jaccard similarity. */
+export const SCORE_WEIGHT_MOOD = 0.35;
+
+/** Dimension weight for instrumentation Jaccard similarity. */
+export const SCORE_WEIGHT_INSTRUMENT = 0.25;
+
+/** Multiplier applied when a track contains a penalized mood. */
+export const SCORE_PENALTY_MULTIPLIER = 0.5;
+
+/** Multiplier applied when rubric.allowVocals is false and track has vocals. */
+export const SCORE_VOCALS_PENALTY_MULTIPLIER = 0.5;
+
+/** Number of top candidates for weighted random selection. */
+export const DIRECTOR_TOP_N_POOL = 5;
+
 // ─── UI timing ────────────────────────────────────────────────────────────────
 
 /** How long (ms) the undo toast stays visible before a track deletion is committed. */

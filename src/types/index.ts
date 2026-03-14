@@ -221,6 +221,16 @@ export interface ResolvedTrack {
   hasVocals: boolean | null;
 }
 
+export interface ScoringRubric {
+  targetEnergy: Array<1 | 2 | 3>;
+  preferredMoods: TrackMood[];
+  penalizedMoods: TrackMood[];
+  preferredInstrumentation: TrackInstrumentation[];
+  penalizedInstrumentation: TrackInstrumentation[];
+  allowVocals: boolean | null;
+  preferredRoles: TrackRole[];
+}
+
 export interface YouTubeSearchResult {
   videoId: string;
   title: string;
