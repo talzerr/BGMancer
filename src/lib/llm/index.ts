@@ -33,6 +33,17 @@ export function getTaggingProvider(tier: UserTier): LLMProvider {
 }
 
 /**
+ * Vibe Profiler provider — generates a ScoringRubric from game context.
+ * Maestro-only: Bard tier skips the profiler entirely at the pipeline level.
+ *
+ * Override the Anthropic model independently via:
+ *   ANTHROPIC_VIBE_MODEL=claude-haiku-4-5-20251001
+ */
+export function getVibeProfilerProvider(tier: UserTier): LLMProvider {
+  return providerForTier(tier, "ANTHROPIC_VIBE_MODEL");
+}
+
+/**
  * Returns a local Ollama provider.
  *
  * Configure via:

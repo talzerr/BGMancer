@@ -1,30 +1,18 @@
-import { Games, Tracks } from "@/lib/db/repo";
-import { compilationQueries } from "@/lib/pipeline/assembly";
-import { searchOSTPlaylist, fetchPlaylistItems } from "@/lib/services/youtube";
+import { Games, Tracks, VideoTracks } from "@/lib/db/repo";
+import { compilationQueries, makePendingTrack } from "@/lib/pipeline/assembly";
+import { searchOSTPlaylist, fetchPlaylistItems, fetchVideoDurations } from "@/lib/services/youtube";
+import type { OSTTrack } from "@/lib/services/youtube";
 import { type Game, type TaggedTrack, type UserTier, GameProgressStatus, TrackRole } from "@/types";
-import { makePendingTrack } from "@/lib/pipeline/assembly";
 import type { GenerateEvent, CandidateResult } from "@/lib/pipeline/types";
 import { resolveTracksToVideos } from "@/lib/pipeline/resolver";
 import { getTaggingProvider } from "@/lib/llm";
 
-// ─── Phase 1 + 2: playlist discovery then per-game tagging ──────────────────
+type Send = (e: GenerateEvent) => void;
 
-/**
- * Phases 1 & 2 for a single game:
- *   Phase 1 — Playlist discovery: finds (or loads from cache) the YouTube OST
- *             playlist ID for the game.
- *   Phase 2 — Track tagging: asks the LLM to tag all tracks with metadata
- *             (energy, role, cleanName, isJunk). Junk tracks are filtered out.
- */
-export async function fetchGameCandidates(
-  game: Game,
-  send: (e: GenerateEvent) => void,
-  _userId: string,
-  tier: UserTier,
-): Promise<CandidateResult> {
-  let playlistId = game.yt_playlist_id;
+// ─── Private helpers ─────────────────────────────────────────────────────────
 
-  if (playlistId) {
+async function discoverOSTPlaylist(game: Game, send: Send): Promise<string | null> {
+  if (game.yt_playlist_id) {
     send({
       type: "progress",
       gameId: game.id,
@@ -32,20 +20,175 @@ export async function fetchGameCandidates(
       status: GameProgressStatus.Active,
       message: "Using cached OST playlist…",
     });
-  } else {
+    return game.yt_playlist_id;
+  }
+
+  send({
+    type: "progress",
+    gameId: game.id,
+    title: game.title,
+    status: GameProgressStatus.Active,
+    message: "Searching YouTube for OST playlist…",
+  });
+  const playlistId = await searchOSTPlaylist(game.title);
+  if (playlistId) Games.setPlaylistId(game.id, playlistId);
+  return playlistId;
+}
+
+/** Fetches durations for any video IDs not yet in video_tracks, stores them, and returns the full map. */
+async function ensureDurations(videoIds: string[], gameId: string): Promise<Map<string, number>> {
+  const stored = VideoTracks.getByGame(gameId);
+  const missing = videoIds.filter((id) => stored.get(id)?.durationSeconds == null);
+
+  const fetched =
+    missing.length > 0 ? await fetchVideoDurations(missing) : new Map<string, number>();
+
+  VideoTracks.storeDurations(
+    missing.flatMap((id) => {
+      const d = fetched.get(id);
+      return d != null ? [{ videoId: id, gameId, durationSeconds: d }] : [];
+    }),
+  );
+
+  const result = new Map<string, number>();
+  for (const [id, meta] of stored) {
+    if (meta.durationSeconds != null) result.set(id, meta.durationSeconds);
+  }
+  for (const [id, d] of fetched) result.set(id, d);
+  return result;
+}
+
+async function resolveCurated(
+  game: Game,
+  playlistTracks: OSTTrack[],
+  tier: UserTier,
+  send: Send,
+): Promise<CandidateResult> {
+  const allTracks = Tracks.getByGame(game.id);
+
+  if (!allTracks.some((t) => t.active)) {
     send({
       type: "progress",
       gameId: game.id,
       title: game.title,
-      status: GameProgressStatus.Active,
-      message: "Searching YouTube for OST playlist…",
+      status: GameProgressStatus.Done,
+      message: "No active tracks",
     });
-    playlistId = await searchOSTPlaylist(game.title);
-    if (playlistId) Games.setPlaylistId(game.id, playlistId);
+    return { kind: "tagged", game, tracks: [] };
   }
 
+  send({
+    type: "progress",
+    gameId: game.id,
+    title: game.title,
+    status: GameProgressStatus.Active,
+    message: "Resolving tracks to videos…",
+  });
+
+  const provider = getTaggingProvider(tier);
+  const resolved = await resolveTracksToVideos(game, allTracks, playlistTracks, provider);
+  const filtered = resolved.filter(
+    (r): r is typeof r & { energy: NonNullable<typeof r.energy> } =>
+      r.energy !== null && r.roles.length > 0,
+  );
+
+  const durations = await ensureDurations(
+    filtered.map((r) => r.videoId),
+    game.id,
+  );
+
+  const tracks: TaggedTrack[] = filtered.map((r) => ({
+    videoId: r.videoId,
+    title: r.videoTitle,
+    channelTitle: r.channelTitle,
+    thumbnail: r.thumbnail,
+    gameId: game.id,
+    gameTitle: game.title,
+    cleanName: r.trackName,
+    energy: r.energy,
+    roles: r.roles,
+    isJunk: false,
+    moods: r.moods,
+    instrumentation: r.instrumentation,
+    hasVocals: r.hasVocals ?? false,
+    durationSeconds: durations.get(r.videoId) ?? 0,
+  }));
+
+  send({
+    type: "progress",
+    gameId: game.id,
+    title: game.title,
+    status: GameProgressStatus.Done,
+    message: `${tracks.length} tracks resolved`,
+  });
+
+  return { kind: "tagged", game, tracks };
+}
+
+async function resolveLegacy(
+  game: Game,
+  playlistTracks: OSTTrack[],
+  send: Send,
+): Promise<CandidateResult> {
+  send({
+    type: "progress",
+    gameId: game.id,
+    title: game.title,
+    status: GameProgressStatus.Active,
+    message: "Legacy path — limited quality",
+  });
+
+  const durations = await ensureDurations(
+    playlistTracks.map((t) => t.videoId),
+    game.id,
+  );
+
+  const tracks: TaggedTrack[] = playlistTracks.map((t) => ({
+    videoId: t.videoId,
+    title: t.title,
+    channelTitle: t.channelTitle,
+    thumbnail: t.thumbnail,
+    gameId: game.id,
+    gameTitle: game.title,
+    cleanName: t.title,
+    energy: 2,
+    roles: [TrackRole.Ambient],
+    isJunk: false,
+    moods: [],
+    instrumentation: [],
+    hasVocals: false,
+    durationSeconds: durations.get(t.videoId) ?? 0,
+  }));
+
+  send({
+    type: "progress",
+    gameId: game.id,
+    title: game.title,
+    status: GameProgressStatus.Done,
+    message: `${tracks.length} tracks queued (limited quality)`,
+  });
+
+  return { kind: "tagged", game, tracks };
+}
+
+// ─── Phase 1 + 1.5 orchestrator ──────────────────────────────────────────────
+
+/**
+ * Phases 1 & 1.5 for a single game:
+ *   Phase 1   — Discovers the YouTube OST playlist ID (searches if not cached).
+ *   Phase 1.5 — Resolves tracks: curated games align DB tags to video IDs;
+ *               legacy games receive static stubs. Durations are fetched and
+ *               stored for all resolved tracks.
+ */
+export async function fetchGameCandidates(
+  game: Game,
+  send: Send,
+  _userId: string,
+  tier: UserTier,
+): Promise<CandidateResult> {
+  const playlistId = await discoverOSTPlaylist(game, send);
+
   if (!playlistId) {
-    const queries = compilationQueries(game.title);
     send({
       type: "progress",
       gameId: game.id,
@@ -58,7 +201,7 @@ export async function fetchGameCandidates(
       game,
       pendingTracks: [
         makePendingTrack(game.id, game.title, {
-          search_queries: queries,
+          search_queries: compilationQueries(game.title),
           error_message: "No OST playlist found on YouTube — will search individually.",
         }),
       ],
@@ -85,96 +228,7 @@ export async function fetchGameCandidates(
     return { kind: "tagged", game, tracks: [] };
   }
 
-  if (Tracks.hasData(game.id)) {
-    const allTracks = Tracks.getByGame(game.id);
-    const activeTracks = allTracks.filter((t) => t.active);
-
-    if (activeTracks.length === 0) {
-      send({
-        type: "progress",
-        gameId: game.id,
-        title: game.title,
-        status: GameProgressStatus.Done,
-        message: "No active tracks",
-      });
-      return { kind: "tagged", game, tracks: [] };
-    }
-
-    send({
-      type: "progress",
-      gameId: game.id,
-      title: game.title,
-      status: GameProgressStatus.Active,
-      message: "Resolving tracks to videos…",
-    });
-
-    const provider = getTaggingProvider(tier);
-    const resolved = await resolveTracksToVideos(game, allTracks, playlistTracks, provider);
-
-    const taggedTracks: TaggedTrack[] = resolved
-      .filter(
-        (r): r is typeof r & { energy: NonNullable<typeof r.energy> } =>
-          r.energy !== null && r.roles.length > 0,
-      )
-      .map((r) => ({
-        videoId: r.videoId,
-        title: r.videoTitle,
-        channelTitle: r.channelTitle,
-        thumbnail: r.thumbnail,
-        gameId: game.id,
-        gameTitle: game.title,
-        cleanName: r.trackName,
-        energy: r.energy,
-        roles: r.roles,
-        isJunk: false,
-        moods: r.moods,
-        instrumentation: r.instrumentation,
-        hasVocals: r.hasVocals ?? false,
-      }));
-
-    send({
-      type: "progress",
-      gameId: game.id,
-      title: game.title,
-      status: GameProgressStatus.Done,
-      message: `${taggedTracks.length} tracks resolved`,
-    });
-
-    return { kind: "tagged", game, tracks: taggedTracks };
-  }
-
-  // Legacy path — no curated track data for this game
-  send({
-    type: "progress",
-    gameId: game.id,
-    title: game.title,
-    status: GameProgressStatus.Active,
-    message: "Legacy path — limited quality",
-  });
-
-  const taggedTracks: TaggedTrack[] = playlistTracks.map((t) => ({
-    videoId: t.videoId,
-    title: t.title,
-    channelTitle: t.channelTitle,
-    thumbnail: t.thumbnail,
-    gameId: game.id,
-    gameTitle: game.title,
-    cleanName: t.title,
-    energy: 2,
-    roles: [TrackRole.Ambient],
-    isJunk: false,
-    moods: [],
-    instrumentation: [],
-    hasVocals: false,
-  }));
-
-  send({
-    type: "progress",
-    gameId: game.id,
-    title: game.title,
-    status: GameProgressStatus.Done,
-    message: `${taggedTracks.length} tracks queued (limited quality)`,
-  });
-
-  return { kind: "tagged", game, tracks: taggedTracks };
+  return Tracks.hasData(game.id)
+    ? resolveCurated(game, playlistTracks, tier, send)
+    : resolveLegacy(game, playlistTracks, send);
 }

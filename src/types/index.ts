@@ -192,6 +192,7 @@ export interface TaggedTrack {
   moods: TrackMood[];
   instrumentation: TrackInstrumentation[];
   hasVocals: boolean;
+  durationSeconds: number;
 }
 
 export interface Track {

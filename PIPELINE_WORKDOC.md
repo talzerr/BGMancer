@@ -4,17 +4,19 @@ This document is the single source of truth for rebuilding the BGMancer playlist
 
 ---
 
-## 1. Current State (Post-M8)
+## 1. Current State (Post-M9 — branch ready to merge)
 
 ### What exists today
 
-M0–M3, M5, M6, M7, and M8 are committed. The generation pipeline (`src/lib/pipeline/index.ts`) is clean: three deterministic phases with no per-track LLM scoring.
+M0–M3, M5, M6, M7, M8, and M9 are committed. The generation pipeline (`src/lib/pipeline/index.ts`) has four phases.
 
-**Phase 1 — YouTube OST Playlist Discovery** — Searches YouTube for the game's official OST playlist, stores the playlist ID in `games.yt_playlist_id`. Then fetches all video items from that playlist.
+**Phase 1 — YouTube OST Playlist Discovery** (`discoverOSTPlaylist`) — Uses the cached `yt_playlist_id` if present, otherwise searches YouTube and stores the result. Fetches all video items from the playlist.
 
-**Phase 1.5 — Track Resolution** — Maps YouTube videos to canonical tracks via the `resolveTracksToVideos` resolver. Reads real LLM tags (`energy`, `roles`, `moods`, `instrumentation`, `hasVocals`) from the `tracks` table. Filters out untagged tracks. On Bard tier or if the game has no curated tracks, falls back to legacy stubs. SSE progress events label legacy games as "limited quality."
+**Phase 1.5 — Track Resolution + Duration Fetching** (`resolveCurated` / `resolveLegacy`) — For curated games: aligns DB track names to YouTube video IDs via the LLM resolver, reads pre-existing tags (`energy`, `roles`, `moods`, `instrumentation`, `hasVocals`), filters untagged tracks. For legacy games (no DB tags): assigns static stubs. Both paths call `ensureDurations` — fetches `duration_seconds` from YouTube for any video IDs not yet stored in `video_tracks`, stores them, returns a complete duration map. Every `TaggedTrack` exits this phase with `durationSeconds: number` (never null). Duration filter (`filterByDuration`) runs after candidate gathering, before the Director, so the Director only sees tracks that satisfy `allow_short_tracks` / `allow_long_tracks` config.
 
-**Phase 3 — Deterministic Arc Assembly** — TypeScript Director (`director.ts`). Assembles the final playlist:
+**Phase 2 — Vibe Profiler (Maestro only)** (`profileVibe`) — Single LLM call via `generateRubric()`. Takes active game titles, returns a `ScoringRubric` JSON. Skipped for Bard tier. On any failure generation continues without a rubric.
+
+**Phase 3 — Deterministic Arc Assembly** (`runDirector`) — TypeScript Director (`director.ts`). Assembles the final playlist:
 
 - Expands the arc template into per-slot requirements (6 phases: intro/rising/peak/valley/climax/outro). Each slot carries `energyPrefs`, `rolePrefs`, `preferredMoods`, `penalizedMoods`, `preferredInstrumentation`.
 - For each slot: `scoreTrack(track, slot, rubric?)`:
@@ -28,13 +30,14 @@ M0–M3, M5, M6, M7, and M8 are committed. The generation pipeline (`src/lib/pip
 - `pickBestTrack` → **top-N weighted random** (`DIRECTOR_TOP_N_POOL = 5`). Probability proportional to `score + 0.01`.
 - Game budgets, same-game avoidance, and focus game guarantees handled by `assemblePlaylist`.
 
-**Vibe Check removed.** The old `casting.ts` and `vibe-check.ts` are deleted. Session-level LLM rubric generation is Phase 2 (M9 — Vibe Profiler). `ScoringRubric` type and `assemblePlaylist(rubric?)` are already wired; M9 only needs to generate and pass the rubric.
+**Post-phase — Pending slot resolution** (`resolvePendingSlots`) — After the session is saved to DB, searches YouTube for any fallback tracks (full-OST games, games with no playlist found) that were saved as `pending` with `search_queries`. Updates DB and in-memory state in place.
 
 ### LLM providers
 
 `src/lib/llm/index.ts` exports:
 
 - `getTaggingProvider(tier)` → Anthropic (Maestro) or Ollama (Bard). Used by Phase 1.5 resolver for track alignment and auto-discovery.
+- `getVibeProfilerProvider(tier)` → Anthropic (Maestro) or Ollama (Bard). Used by Phase 2 Vibe Profiler. Override model via `ANTHROPIC_VIBE_MODEL`.
 - `getLocalLLMProvider()` → always Ollama.
 
 ### Current problems
@@ -42,21 +45,22 @@ M0–M3, M5, M6, M7, and M8 are committed. The generation pipeline (`src/lib/pip
 - **No onboarding flow.** Games are added with `tagging_status: 'pending'` but nothing drives them to `'ready'` or invokes the resolver.
 - **Legacy games with no curated tracks are second-class.** They use stubs and are labeled "limited quality" in progress events. No UI indication.
 - **No admin surface** for reviewing or correcting track metadata, resolver confidence, or auto-discovered tracks.
-- **Scoring is purely deterministic.** M7 removes per-track LLM scoring; M9 will re-add session-level rubric generation.
+- **Scoring is game-aware (Maestro) or arc-default (Bard).** M9 added session-level rubric generation via the Vibe Profiler.
 
 ### Files to understand before starting
 
-| File                             | Role                                                                     |
-| -------------------------------- | ------------------------------------------------------------------------ |
-| `src/lib/pipeline/index.ts`      | Entry point — orchestrates all phases + Vibe Check                       |
-| `src/lib/pipeline/candidates.ts` | Phase 1 (YouTube discovery) + Phase 1.5 (track resolution)               |
-| `src/lib/pipeline/resolver.ts`   | Phase 1.5: LLM batch alignment, auto-discovery, fallback search          |
-| `src/lib/pipeline/director.ts`   | Phase 3: arc assembly, `assemblePlaylist`, `scoreTrack`, `pickBestTrack` |
-| `src/lib/db/schema.ts`           | All table definitions (includes `tracks`, `video_tracks` from M0)        |
-| `src/app/api/games/route.ts`     | CRUD for game library                                                    |
-| `src/types/index.ts`             | All shared types incl. `TaggedTrack`, `Track`, `ResolvedTrack`           |
-| `src/lib/constants.ts`           | All tuning constants                                                     |
-| `src/lib/llm/index.ts`           | Provider resolution (Bard → Ollama, Maestro → Anthropic)                 |
+| File                                | Role                                                                                                  |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `src/lib/pipeline/index.ts`         | Orchestrator — `gatherCandidates`, `filterByDuration`, `profileVibe`, `runDirector`, `persistSession` |
+| `src/lib/pipeline/candidates.ts`    | Phase 1 + 1.5 — `discoverOSTPlaylist`, `ensureDurations`, `resolveCurated`, `resolveLegacy`           |
+| `src/lib/pipeline/vibe-profiler.ts` | Phase 2 — `generateRubric()`, LLM prompt, validation                                                  |
+| `src/lib/pipeline/resolver.ts`      | Phase 1.5: LLM batch alignment, auto-discovery, fallback search                                       |
+| `src/lib/pipeline/director.ts`      | Phase 3: arc assembly, `assemblePlaylist`, `scoreTrack`, `pickBestTrack`                              |
+| `src/lib/db/schema.ts`              | All table definitions                                                                                 |
+| `src/lib/db/repos/video-tracks.ts`  | `getByGame`, `upsertBatch`, `storeDurations`                                                          |
+| `src/types/index.ts`                | All shared types incl. `TaggedTrack`, `Track`, `ResolvedTrack`, `ScoringRubric`                       |
+| `src/lib/constants.ts`              | All tuning constants                                                                                  |
+| `src/lib/llm/index.ts`              | Provider resolution — `getTaggingProvider`, `getVibeProfilerProvider`, `getLocalLLMProvider`          |
 
 ### Key types (current)
 
@@ -116,6 +120,7 @@ interface TaggedTrack {
   moods: TrackMood[];
   instrumentation: TrackInstrumentation[];
   hasVocals: boolean;
+  durationSeconds: number;        // always set — ensureDurations fetches from YouTube if missing
 }
 
 interface ResolvedTrack {
@@ -173,10 +178,11 @@ tracks (game_id, name, position, active, energy, role, moods,
 --        Parsed by toTrack() via parseJsonArray. Tagger writes JSON.stringify(roles).
 -- Notes: clean track names from source (Discogs, manual, etc); all metadata is nullable until tagged
 
-video_tracks (video_id, game_id, track_name, aligned_at)
+video_tracks (video_id, game_id, track_name, duration_seconds, aligned_at)
 -- PK: (video_id, game_id)
 -- FK: (game_id, track_name) → tracks(game_id, name)
--- Notes: aligns raw YouTube videos to track names (null = junk)
+-- duration_seconds: INTEGER, populated by ensureDurations on first generation; NULL until fetched
+-- track_name: NULL = unaligned (junk or legacy); populated by resolver
 ```
 
 ---
@@ -244,7 +250,7 @@ CURATION PIPELINE (on Generate)
                   + game.needs_review = true
                   Next run: existing disabled rows already have video_ids → noop
                Cached in video_tracks
-  Phase 2:   Vibe Profiler (TODO M9, LLM, optional)
+  Phase 2:   Vibe Profiler (M9 ✅, LLM, optional)
                session history + mood hint → ScoringRubric
   Phase 3:   Heuristic Director (deterministic)
                arc template + rubric → weighted scoring → weighted-random top-N
@@ -267,7 +273,7 @@ M0 ✅ → M1 ✅ → M2 ✅ → M3 ✅ → M4
                  M1 → M6 ✅ → M7 ✅ → M8 ✅ → M9
 ```
 
-Execute in order: **M0 ✅, M1 ✅, M2 ✅, M3 ✅, M5 ✅, M6 ✅, M7 ✅, M8 ✅, M4 (parallel), M9 (next)**
+Execute in order: **M0 ✅, M1 ✅, M2 ✅, M3 ✅, M5 ✅, M6 ✅, M7 ✅, M8 ✅, M9 ✅, M4 (parallel)**
 
 ---
 
@@ -733,7 +739,7 @@ npm run build && npm run lint  # zero errors
 
 ---
 
-### M9 — Vibe Profiler (LLM Rubric Generator)
+### M9 — Vibe Profiler (LLM Rubric Generator) ✅ DONE
 
 **What to build**
 
@@ -879,3 +885,63 @@ npm run db:restore   # restore from snapshot
 ```
 
 SQLite DB file: `bgmancer.db` at project root. Connect with `sqlite3 bgmancer.db` for inspection.
+
+---
+
+## 9. QA — Branch `refactor/curation-hueristic-pipleine`
+
+This section is a handoff for a QA agent. The branch covers two subsystems: **Game Onboarding** (M0–M3, M5) and **Heuristic Pipeline** (M6–M9 + post-M9 refactors). The QA agent should produce a concrete plan — specific files to read, behaviours to exercise, and design questions to answer — then execute it.
+
+### Pre-flight
+
+```bash
+npm run db:reset   # required — video_tracks now has duration_seconds column
+npm run build      # must pass clean
+npm run lint       # must pass clean
+```
+
+---
+
+### Part 1: Game Onboarding (M0–M3, M5)
+
+**Functional — exercise these flows:**
+
+- Add a game that exists on Discogs → verify `tagging_status` transitions `pending → indexing → ready`, tracks appear in DB with energy/mood/instrumentation set, `tracklist_source` is populated
+- Add a game with no Discogs match → `tagging_status = ready`, `needs_review = true`, a `no_discogs_data` review flag row exists in `game_review_flags`
+- Add a game and kill Ollama mid-tagging → `tagging_status = failed`, appropriate review flag written
+- Steam import → each imported game is onboarded sequentially; verify status progression in UI
+- Game status UI (M5): add a game and watch the status badge update via polling; verify failed badge shows on failure
+
+**Design / architecture review:**
+
+- `src/lib/pipeline/onboarding.ts` — is the status state machine correct? Are all exit paths (success, no-Discogs, throw) handled? Does a retry path exist or is failed terminal?
+- `src/lib/db/repos/review-flags.ts` — does `markAsNeedsReview` correctly accumulate multiple reasons for the same game (not overwrite)?
+- `src/lib/services/discogs.ts` — is rate-limit handling robust? Is best-result selection logic (format preference + community.have) defensible?
+- `src/lib/pipeline/tagger.ts` — are the validation rules consistent with the enums in `src/types/index.ts`? Is the batch/pool cap logic correct (`TAG_BATCH_SIZE=25`, `TAG_POOL_MAX=80`)?
+- `src/app/api/games/route.ts` and `src/app/api/steam/import/route.ts` — is onboarding correctly fire-and-forget (non-blocking)? Does a Steam import onboard sequentially or in parallel, and is that the right call?
+
+---
+
+### Part 2: Heuristic Pipeline (M6–M9 + refactors)
+
+**Functional — exercise these flows:**
+
+- **Bard tier**: generate → no "Generating vibe profile…" event; playlist produces with arc defaults
+- **Maestro tier**: generate → "Generating vibe profile…" event visible; temporarily log the rubric in `profileVibe` to verify it reflects the games' aesthetics (e.g. Dark Souls → dark/orchestral, Stardew → peaceful/acoustic)
+- **Maestro with LLM unavailable**: unset `ANTHROPIC_API_KEY` or stop Ollama → generation completes without rubric, no crash
+- **Duration storage**: first generation for a game populates `video_tracks.duration_seconds`; second generation produces no YouTube duration API calls in server logs
+- **Short track filter**: enable filter, generate → confirm tracks under 90s are absent; check they were excluded before the Director (not after)
+- **Long track filter**: same as above for tracks over 8 min
+- **Legacy game** (no rows in `tracks` table): progress event reads "Legacy path — limited quality"; tracks appear with stub tags (energy 2, role Ambient)
+- **Curated game**: progress event reads "X tracks resolved"; tracks carry real tags from `tracks` table
+- **No playlist found**: game with unmatchable title → fallback pending track in playlist; rest of generation unaffected
+
+**Design / architecture review:**
+
+- `src/lib/pipeline/index.ts` — is `generatePlaylist` a pure orchestrator with no inline logic? Do the five step functions (`gatherCandidates`, `filterByDuration`, `profileVibe`, `runDirector`, `persistSession`) have clean, single responsibilities?
+- `src/lib/pipeline/candidates.ts` — is `ensureDurations` the right abstraction? Is it correct that both curated and legacy paths share it? Does `resolveCurated` vs `resolveLegacy` split make the branching logic clear?
+- `src/lib/pipeline/vibe-profiler.ts` — is the validation logic consistent with enums? Is the null-return-on-degraded-rubric threshold (`preferredMoods` empty) the right call?
+- `src/lib/pipeline/director.ts` — review the Weighted Jaccard Resonance implementation: are weights (role 0.40, mood 0.35, instrumentation 0.25) applied correctly? Is the rubric override (XOR, not merge) behaving as described? Is top-N weighted random correct?
+- `src/lib/db/repos/video-tracks.ts` — `storeDurations` uses an upsert that inserts new rows for legacy tracks and updates existing NULL durations. Verify the `WHERE duration_seconds IS NULL` guard in the conflict clause is correct SQL and won't silently skip rows.
+- **Type integrity**: `TaggedTrack.durationSeconds` is `number` (not `| null`) — trace the full path from `ensureDurations` through `resolveCurated`/`resolveLegacy` to `filterByDuration` to confirm no null can slip through. The `?? 0` fallback in candidates is the last line of defence — is 0 the right sentinel or should it be handled differently?
+- **Code conventions**: all named value sets are enums (not string literal unions); no "cache" terminology; comments in pipeline files are accurate and not stale (the refactor removed Vibe Check — verify no dead references remain)
