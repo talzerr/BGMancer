@@ -16,7 +16,7 @@ BGMancer's Director solves this by treating playlist assembly as a **constrained
 
 ## The Heuristic Hierarchy
 
-The Director applies three layers of logic in sequence. Each layer narrows the candidate space or reorders it. Together they ensure both macro-level narrative coherence and micro-level track-to-track feel.
+The Director applies four layers of logic in sequence. Each layer narrows the candidate space or reorders it. Together they ensure both macro-level narrative coherence and micro-level track-to-track feel.
 
 ---
 
@@ -113,7 +113,26 @@ $$R'' = R' \times 0.5$$
 
 ---
 
-### III. The Texture Bridge — Transition Smoothing
+### III. The Scoring Rubric — External Override Layer
+
+The **Scoring Rubric** is an optional parameter passed into `assemblePlaylist` that lets an external caller bend the Director's decisions without rewriting the arc template. It carries six scoring signals: a target energy range, preferred and penalized mood sets, preferred instrumentation, a vocals constraint, and a set of promoted roles. Where present, it interacts with the arc slot defaults through three distinct override modes — not a single merge strategy:
+
+| Field                      | Interaction with Arc Slot                                                                         |
+| -------------------------- | ------------------------------------------------------------------------------------------------- |
+| `preferredMoods`           | **Replaces** `slot.preferredMoods` as the Jaccard target                                          |
+| `preferredInstrumentation` | **Replaces** `slot.preferredInstrumentation` as the Jaccard target                                |
+| `preferredRoles`           | **Promotes** matching tracks to full role score (`1.0`), even when role isn't in `slot.rolePrefs` |
+| `penalizedMoods`           | **Unioned** with `slot.penalizedMoods` — arc penalties always apply, rubric adds to them          |
+| `allowVocals`              | **Applies globally** — `null` means no constraint, `false` triggers the 0.5× vocals penalty       |
+| `targetEnergy`             | Currently informational — energy gating is still defined by the arc slot                          |
+
+The asymmetry is deliberate. Preference targets (moods, instrumentation) are replaced by the rubric because they represent a global aesthetic intent that should override the arc's generic profile — if the caller specifies a rubric, it knows more about the desired feel than the template does. Penalized moods are unioned rather than replaced because the arc's structural prohibitions (no `chaotic` in outro, no `peaceful` in climax) are safety rails that no external caller should be able to lift.
+
+**The rubric is the integration point for pipeline signals.** It is what allows a future Vibe Check phase, a user preference layer, or any other upstream signal to influence the Director without touching the arc logic. The Director remains fully deterministic given identical inputs — the rubric simply changes what "identical inputs" means.
+
+---
+
+### IV. The Texture Bridge — Transition Smoothing
 
 Resonance scoring determines fitness within a slot. The Texture Bridge layer handles **inter-slot transitions** — specifically, avoiding the jarring effect of hearing the same game's OST twice in a row.
 
@@ -147,14 +166,16 @@ $$S_{\text{mood}} = J\!\left(t.\text{moods},\ \rho.\text{preferredMoods} \text{ 
 
 $$S_{\text{inst}} = J\!\left(t.\text{instrumentation},\ \rho.\text{preferredInstrumentation} \text{ if } \rho \text{ else } s.\text{preferredInstrumentation}\right)$$
 
+The rubric target sets are **exclusive-or**: when $\rho$ is present, it fully replaces the arc slot's preference targets for those dimensions. The two sources are never merged — the rubric either owns the target or it doesn't. This prevents a dilution effect where a general arc preference and a specific rubric preference average each other out into something neither caller intended.
+
 **5. Weighted Sum**
 
 $$R = 0.40 \cdot S_{\text{role}} + 0.35 \cdot S_{\text{mood}} + 0.25 \cdot S_{\text{inst}}$$
 
 **6. Penalty Application**
 
-$$R \mathrel{*}= 0.5 \quad \text{if } t.\text{moods} \cap \text{penalized}(s, \rho) \neq \emptyset$$
-$$R \mathrel{*}= 0.5 \quad \text{if } \rho.\text{allowVocals} = \text{false} \text{ and } t.\text{hasVocals} = \text{true}$$
+$$R \leftarrow R \times 0.5 \quad \text{if } t.\text{moods} \cap \text{penalized}(s, \rho) \neq \emptyset$$
+$$R \leftarrow R \times 0.5 \quad \text{if } \rho.\text{allowVocals} = \text{false} \text{ and } t.\text{hasVocals} = \text{true}$$
 
 Score range: $R \in [0.0, 1.0]$, reducible to $[0.0, 0.25]$ when both penalties apply.
 
