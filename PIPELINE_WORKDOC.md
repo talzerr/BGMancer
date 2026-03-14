@@ -4,58 +4,53 @@ This document is the single source of truth for rebuilding the BGMancer playlist
 
 ---
 
-## 1. Current State (Post-M6)
+## 1. Current State (Post-M7)
 
 ### What exists today
 
-M0–M3, M5, and M6 are committed. The generation pipeline (`src/lib/pipeline/index.ts`) has three phases plus an optional Vibe Check step. Phase 2 is still a stub pending M7.
+M0–M3, M5, M6, and M7 are committed. The generation pipeline (`src/lib/pipeline/index.ts`) is now clean: three deterministic phases with no per-track LLM scoring.
 
-**Phase 1** — YouTube OST playlist discovery per game. Searches YouTube for the game's official OST playlist, stores the playlist ID in `games.yt_playlist_id`. Then fetches all video items from that playlist.
+**Phase 1 — YouTube OST Playlist Discovery** — Searches YouTube for the game's official OST playlist, stores the playlist ID in `games.yt_playlist_id`. Then fetches all video items from that playlist.
 
-**Phase 2 (stub)** — `candidates.ts` currently passes all YouTube tracks through with default tags (`energy: 2, role: ambient, moods: [], instrumentation: [], hasVocals: false`). Real tag wiring from the `tracks` table is deferred to M7.
+**Phase 1.5 — Track Resolution (NEW in M7)** — Maps YouTube videos to canonical tracks via the `resolveTracksToVideos` resolver. Reads real LLM tags (`energy`, `role`, `moods`, `instrumentation`, `hasVocals`) from the `tracks` table. Filters out untagged tracks (those awaiting tagger review). On Bard tier or if the game has no curated tracks, falls back to legacy stubs (`energy: 2, role: ambient, moods: [], instrumentation: [], hasVocals: false`). SSE progress events label legacy games as "limited quality."
 
-**Vibe Check (optional, Maestro tier only)** — `casting.ts` builds a candidate pool of ~2.5× target count tracks, weighted by game curation mode. `vibe-check.ts` sends this pool to the LLM with the session context. The LLM scores each track 1–100 as `fitScore`. On parse failure or Bard tier, returns an empty map and the Director falls back to tag-only scoring. **To be replaced by Vibe Profiler (M9).**
-
-**Phase 3** — TypeScript Director (`director.ts`). Assembles the final playlist:
+**Phase 3 — Deterministic Arc Assembly** — TypeScript Director (`director.ts`). Assembles the final playlist:
 
 - Expands the arc template into per-slot requirements (6 phases: intro/rising/peak/valley/climax/outro)
-- For each slot: `scoreTrack(track, slot, vibeScore?)`:
+- For each slot: `scoreTrack(track, slot)`:
   - Hard energy filter: rejects tracks outside slot's energy range → `-Infinity`
-  - **When vibeScore present**: `score = fitScore` (1–100) + 5 if role matches slot — fitScore is the PRIMARY signal
-  - **When no vibeScore**: `score = 50` (neutral) + 5 if role matches slot
+  - **Baseline score: 50** (neutral) + 5 if role matches slot
+  - No per-track LLM involvement
 - `pickBestTrack` → **pure greedy** — picks the single highest-scoring track. No randomisation at this level.
 - Game budgets, back-to-back avoidance, and focus game guarantees are all handled by `assemblePlaylist`.
+
+**Vibe Check removed.** The old `casting.ts` and `vibe-check.ts` are deleted. Session-level LLM rubric generation is deferred to M9 (Vibe Profiler).
 
 ### LLM providers
 
 `src/lib/llm/index.ts` exports:
 
-- `getTaggingProvider(tier)` → Anthropic (Maestro) or Ollama (Bard)
-- `getVibeCheckProvider(tier)` → Anthropic if Maestro + `ANTHROPIC_API_KEY` set, otherwise `null` (signals orchestrator to skip Vibe Check entirely)
-- `getCandidatesProvider` → deprecated alias for `getTaggingProvider`
+- `getTaggingProvider(tier)` → Anthropic (Maestro) or Ollama (Bard). Used by Phase 1.5 resolver for track alignment and auto-discovery.
+- `getLocalLLMProvider()` → always Ollama.
 
 ### Current problems
 
-- **No track metadata at all.** The tagger stub in `candidates.ts` assigns every track `energy: 2, role: ambient` — the Director has zero signal to work with.
-- **Junk filtering is gone.** Without the tagger, 10-hour loops and compilation videos pass through unfiltered.
-- **No onboarding.** Games are added with `tagging_status: 'pending'` but nothing drives them to `'ready'`.
-- The Vibe Check is Maestro-only and produces opaque `fitScore` integers that cannot be inspected or tuned.
-- `moodHint` is hardcoded `null` — the Vibe Check always runs in "no specific mood" mode.
-- No visual indication in the UI that a game's tracks have been indexed and are ready to use.
-- No admin surface for reviewing or correcting track metadata.
+- **No onboarding flow.** Games are added with `tagging_status: 'pending'` but nothing drives them to `'ready'` or invokes the resolver.
+- **Legacy games with no curated tracks are second-class.** They use stubs and are labeled "limited quality" in progress events. No UI indication.
+- **No admin surface** for reviewing or correcting track metadata, resolver confidence, or auto-discovered tracks.
+- **Scoring is purely deterministic.** M7 removes per-track LLM scoring; M9 will re-add session-level rubric generation.
 
 ### Files to understand before starting
 
 | File                             | Role                                                                     |
 | -------------------------------- | ------------------------------------------------------------------------ |
 | `src/lib/pipeline/index.ts`      | Entry point — orchestrates all phases + Vibe Check                       |
-| `src/lib/pipeline/candidates.ts` | Phase 1 (YouTube discovery) + Phase 2 stub (default tags, TODO M2)       |
+| `src/lib/pipeline/candidates.ts` | Phase 1 (YouTube discovery) + Phase 1.5 (track resolution)               |
+| `src/lib/pipeline/resolver.ts`   | Phase 1.5: LLM batch alignment, auto-discovery, fallback search          |
 | `src/lib/pipeline/director.ts`   | Phase 3: arc assembly, `assemblePlaylist`, `scoreTrack`, `pickBestTrack` |
-| `src/lib/pipeline/vibe-check.ts` | LLM session scorer → `Map<videoId, VibeScore>` (to be replaced by M9)    |
-| `src/lib/pipeline/casting.ts`    | Builds vibe check candidate pool at ~2.5× target (to be deleted in M7)   |
 | `src/lib/db/schema.ts`           | All table definitions (includes `tracks`, `video_tracks` from M0)        |
 | `src/app/api/games/route.ts`     | CRUD for game library                                                    |
-| `src/types/index.ts`             | All shared types incl. `TaggedTrack`, `Track`, `VibeScore`               |
+| `src/types/index.ts`             | All shared types incl. `TaggedTrack`, `Track`, `ResolvedTrack`           |
 | `src/lib/constants.ts`           | All tuning constants                                                     |
 | `src/lib/llm/index.ts`           | Provider resolution (Bard → Ollama, Maestro → Anthropic)                 |
 

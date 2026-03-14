@@ -194,10 +194,6 @@ export interface TaggedTrack {
   hasVocals: boolean;
 }
 
-export interface VibeScore {
-  fitScore: number; // 1-100, how well this track fits the session mood/context
-}
-
 export interface Track {
   gameId: string;
   name: string;

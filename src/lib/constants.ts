@@ -30,14 +30,6 @@ export const MIN_TRACK_DURATION_SECONDS = 90; // 1.5 minutes
 /** Tracks longer than this (in seconds) are excluded when allow_long_tracks is off. */
 export const MAX_TRACK_DURATION_SECONDS = 540; // 9 minutes
 
-// ─── Pipeline vibe check ─────────────────────────────────────────────────────
-
-/** Multiplier for the candidate pool size relative to target count (before LLM scoring). */
-export const CASTING_POOL_MULTIPLIER = 2.5;
-
-/** Max recent tracks to pass as "recently played" context to the Vibe Check LLM. */
-export const VIBE_RECENTLY_PLAYED_LIMIT = 50;
-
 // ─── Pipeline resolver tuning ─────────────────────────────────────────────────
 
 /** Maximum YouTube playlist items sent to the LLM in a single alignment call. */

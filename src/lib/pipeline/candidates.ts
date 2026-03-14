@@ -1,9 +1,11 @@
-import { Games } from "@/lib/db/repo";
+import { Games, Tracks } from "@/lib/db/repo";
 import { compilationQueries } from "@/lib/pipeline/assembly";
 import { searchOSTPlaylist, fetchPlaylistItems } from "@/lib/services/youtube";
-import { type Game, type TaggedTrack, GameProgressStatus, TrackRole } from "@/types";
+import { type Game, type TaggedTrack, type UserTier, GameProgressStatus, TrackRole } from "@/types";
 import { makePendingTrack } from "@/lib/pipeline/assembly";
 import type { GenerateEvent, CandidateResult } from "@/lib/pipeline/types";
+import { resolveTracksToVideos } from "@/lib/pipeline/resolver";
+import { getTaggingProvider } from "@/lib/llm";
 
 // ─── Phase 1 + 2: playlist discovery then per-game tagging ──────────────────
 
@@ -18,6 +20,7 @@ export async function fetchGameCandidates(
   game: Game,
   send: (e: GenerateEvent) => void,
   _userId: string,
+  tier: UserTier,
 ): Promise<CandidateResult> {
   let playlistId = game.yt_playlist_id;
 
@@ -82,10 +85,77 @@ export async function fetchGameCandidates(
     return { kind: "tagged", game, tracks: [] };
   }
 
-  // TODO: Wire audio alignment (video_tracks) + canonical tagging (tracks table)
-  //   Phase 2 should: map each YouTube video ID → canonical track name via video_tracks,
-  //   then read real LLM tags (energy, role, moods, etc.) from the tracks table instead of stubbing.
-  //   Currently: YouTube videos are tagged with hardcoded stubs (energy: 2, role: Ambient).
+  if (Tracks.hasData(game.id)) {
+    const allTracks = Tracks.getByGame(game.id);
+    const activeTracks = allTracks.filter((t) => t.active);
+
+    if (activeTracks.length === 0) {
+      send({
+        type: "progress",
+        gameId: game.id,
+        title: game.title,
+        status: GameProgressStatus.Done,
+        message: "No active tracks",
+      });
+      return { kind: "tagged", game, tracks: [] };
+    }
+
+    send({
+      type: "progress",
+      gameId: game.id,
+      title: game.title,
+      status: GameProgressStatus.Active,
+      message: "Resolving tracks to videos…",
+    });
+
+    const provider = getTaggingProvider(tier);
+    const resolved = await resolveTracksToVideos(game, allTracks, playlistTracks, provider);
+
+    const taggedTracks: TaggedTrack[] = resolved
+      .filter(
+        (
+          r,
+        ): r is typeof r & {
+          energy: NonNullable<typeof r.energy>;
+          role: NonNullable<typeof r.role>;
+        } => r.energy !== null && r.role !== null,
+      )
+      .map((r) => ({
+        videoId: r.videoId,
+        title: r.videoTitle,
+        channelTitle: r.channelTitle,
+        thumbnail: r.thumbnail,
+        gameId: game.id,
+        gameTitle: game.title,
+        cleanName: r.trackName,
+        energy: r.energy,
+        role: r.role,
+        isJunk: false,
+        moods: r.moods,
+        instrumentation: r.instrumentation,
+        hasVocals: r.hasVocals ?? false,
+      }));
+
+    send({
+      type: "progress",
+      gameId: game.id,
+      title: game.title,
+      status: GameProgressStatus.Done,
+      message: `${taggedTracks.length} tracks resolved`,
+    });
+
+    return { kind: "tagged", game, tracks: taggedTracks };
+  }
+
+  // Legacy path — no curated track data for this game
+  send({
+    type: "progress",
+    gameId: game.id,
+    title: game.title,
+    status: GameProgressStatus.Active,
+    message: "Legacy path — limited quality",
+  });
+
   const taggedTracks: TaggedTrack[] = playlistTracks.map((t) => ({
     videoId: t.videoId,
     title: t.title,
@@ -107,7 +177,7 @@ export async function fetchGameCandidates(
     gameId: game.id,
     title: game.title,
     status: GameProgressStatus.Done,
-    message: `${taggedTracks.length} tracks queued`,
+    message: `${taggedTracks.length} tracks queued (limited quality)`,
   });
 
   return { kind: "tagged", game, tracks: taggedTracks };

@@ -32,11 +32,6 @@ export function getTaggingProvider(tier: UserTier): LLMProvider {
   return providerForTier(tier, "ANTHROPIC_TAGGING_MODEL");
 }
 
-/** @deprecated Use getTaggingProvider instead */
-export function getCandidatesProvider(tier: UserTier): LLMProvider {
-  return getTaggingProvider(tier);
-}
-
 /**
  * Returns a local Ollama provider.
  *
@@ -48,20 +43,6 @@ export function getLocalLLMProvider(): LLMProvider {
   const ollamaHost = process.env.OLLAMA_HOST ?? "http://localhost:11434";
   const ollamaModel = process.env.OLLAMA_MODEL ?? "llama3.2";
   return new OllamaProvider(ollamaHost, ollamaModel);
-}
-
-/**
- * Vibe Check provider — session-specific LLM scoring (Maestro only).
- *
- * Returns null for Bard tier (signals the orchestrator to skip the Vibe Check).
- * Override the Anthropic model via:
- *   ANTHROPIC_VIBE_MODEL=claude-haiku-4-5-20251001
- */
-export function getVibeCheckProvider(tier: UserTier): LLMProvider | null {
-  if (tier === UserTier.Maestro && process.env.ANTHROPIC_API_KEY) {
-    return makeAnthropicProvider("ANTHROPIC_VIBE_MODEL");
-  }
-  return null;
 }
 
 export type { LLMProvider } from "./provider";
