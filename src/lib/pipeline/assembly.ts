@@ -84,6 +84,7 @@ export function taggedTrackToPending(
 export async function resolvePendingSlots(
   inserted: PlaylistTrack[],
   allowLongTracks = false,
+  allowShortTracks = false,
 ): Promise<void> {
   const pendingTracks = inserted.filter(
     (t) => t.status === TrackStatus.Pending && t.search_queries,
@@ -94,7 +95,7 @@ export async function resolvePendingSlots(
     try {
       const video = await findBestVideo(track.search_queries ?? [], false);
       if (video) {
-        if (video.durationSeconds < MIN_TRACK_DURATION_SECONDS) {
+        if (!allowShortTracks && video.durationSeconds < MIN_TRACK_DURATION_SECONDS) {
           Playlist.setError(track.id, "Track is too short (intro or stinger).");
           continue;
         }

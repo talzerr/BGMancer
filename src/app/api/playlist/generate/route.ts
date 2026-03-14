@@ -53,6 +53,7 @@ export async function POST(request: Request) {
   const config: AppConfig = {
     target_track_count: Number(body.target_track_count) || DEFAULT_TRACK_COUNT,
     allow_long_tracks: body.allow_long_tracks === true,
+    allow_short_tracks: body.allow_short_tracks === true,
     anti_spoiler_enabled: body.anti_spoiler_enabled === true,
   };
 

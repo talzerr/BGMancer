@@ -1,8 +1,7 @@
 import { Games, Playlist, Users, Sessions } from "@/lib/db/repo";
-import { GameProgressStatus, TrackStatus } from "@/types";
-import { getVibeCheckProvider } from "@/lib/llm";
-import { fetchVideoDurations, YouTubeQuotaError } from "@/lib/services/youtube";
-import { generateTracksForFullOST, fetchGameCandidates } from "@/lib/pipeline/candidates";
+import { GameProgressStatus, TrackStatus, UserTier } from "@/types";
+import { YouTubeQuotaError } from "@/lib/services/youtube";
+import { fetchGameCandidates } from "@/lib/pipeline/candidates";
 import {
   makePendingTrack,
   toInsertable,
@@ -10,72 +9,35 @@ import {
   taggedTrackToPending,
 } from "@/lib/pipeline/assembly";
 import { assemblePlaylist } from "@/lib/pipeline/director";
-import { buildCandidatePool } from "@/lib/pipeline/casting";
-import { vibeCheckPool } from "@/lib/pipeline/vibe-check";
+import { generateRubric } from "@/lib/pipeline/vibe-profiler";
+import { getVibeProfilerProvider } from "@/lib/llm";
 import type { GenerateEvent, PendingTrack, CandidateResult } from "@/lib/pipeline/types";
-import type { AppConfig, PlaylistTrack, TaggedTrack, VibeScore } from "@/types";
+import type { AppConfig, Game, PlaylistTrack, TaggedTrack, ScoringRubric, User } from "@/types";
 import {
   MIN_TRACK_DURATION_SECONDS,
   MAX_TRACK_DURATION_SECONDS,
   SESSION_NAME_MAX_GAMES,
   SESSION_NAME_MAX_LENGTH,
-  VIBE_RECENTLY_PLAYED_LIMIT,
 } from "@/lib/constants";
 
 export type { GenerateEvent };
 
-/**
- * Core playlist generation pipeline, decoupled from HTTP/SSE transport.
- *
- * Three-phase approach for individual-track games:
- *   Phase 1   — Playlist discovery: for each game, find (or load from cache)
- *               the YouTube OST playlist ID.
- *   Phase 1.5 — Audio alignment (TODO): map YouTube video IDs to canonical
- *               track names via video_tracks table; read real LLM tags from tracks table.
- *   Phase 2   — Vibe Profiler (TODO): LLM generates a ScoringRubric from
- *               session history and optional mood hint.
- *   Phase 3   — Deterministic arc assembly: the TypeScript Director builds the
- *               final ordered playlist, shaping energy flow and cross-game balance.
- *
- * Curation modes affect pipeline behaviour:
- *   skip    — excluded entirely (Games.listAll() already filters these out)
- *   lite    — phases 1/2; half-weighted budget in phase 3
- *   include — standard phases 1/2/3 (default)
- *   focus   — phases 1/2; guaranteed double-weighted budget in phase 3
- *
- * Full-OST games bypass all three phases (one compilation video per game).
- */
-export async function generatePlaylist(
-  send: (event: GenerateEvent) => void,
-  userId: string,
-  config: AppConfig,
-): Promise<void> {
-  const games = Games.listAll(userId);
+type Send = (event: GenerateEvent) => void;
 
-  if (games.length === 0) {
-    send({ type: "error", message: "Add at least one game before generating a playlist." });
-    return;
-  }
+// ─── Pipeline steps ───────────────────────────────────────────────────────────
 
-  const targetCount = config.target_track_count;
-  const user = Users.getOrCreate(userId);
-
-  const fullOSTGames = games.filter((g) => g.allow_full_ost);
-  const allIndividualGames = games.filter((g) => !g.allow_full_ost);
-
-  // ── Full OST games ────────────────────────────────────────────────────────
-  const fullOSTResults = await Promise.all(
-    fullOSTGames.map((game) => generateTracksForFullOST(game, send)),
-  );
-
-  // ── Phases 1 & 2: playlist discovery + per-game track tagging ─────────
-  const candidateResults: CandidateResult[] = await Promise.all(
-    allIndividualGames.map(async (game) => {
+async function gatherCandidates(
+  games: Game[],
+  user: User,
+  send: Send,
+): Promise<{ taggedPools: Map<string, TaggedTrack[]>; fallbackTracks: PendingTrack[] }> {
+  const results: CandidateResult[] = await Promise.all(
+    games.map(async (game) => {
       try {
-        return await fetchGameCandidates(game, send, userId);
+        return await fetchGameCandidates(game, send, user.id, user.tier);
       } catch (err) {
         if (err instanceof YouTubeQuotaError) throw err;
-        console.error(`[generate] Phases 1/2 failed for game "${game.title}":`, err);
+        console.error(`[generate] Phases 1/1.5 failed for game "${game.title}":`, err);
         send({
           type: "progress",
           gameId: game.id,
@@ -97,72 +59,88 @@ export async function generatePlaylist(
     }),
   );
 
-  const taggedResults = candidateResults.filter(
+  const taggedPools = new Map<string, TaggedTrack[]>();
+  for (const r of results.filter(
     (r): r is Extract<CandidateResult, { kind: "tagged" }> =>
       r.kind === "tagged" && r.tracks.length > 0,
-  );
-  const fallbackTracks = candidateResults
-    .filter((r): r is Extract<CandidateResult, { kind: "fallback" }> => r.kind === "fallback")
-    .flatMap((r) => r.pendingTracks);
-
-  // ── Phase 3: deterministic arc assembly ───────────────────────────────
-  const targetForIndividual = Math.max(0, targetCount - fullOSTGames.length);
-
-  const taggedPools = new Map<string, TaggedTrack[]>();
-  for (const r of taggedResults) {
+  )) {
     taggedPools.set(r.game.id, r.tracks);
   }
 
-  let individualTracks: PendingTrack[] = [];
-  if (taggedPools.size > 0 && targetForIndividual > 0) {
-    const activeGames = allIndividualGames.filter((g) => taggedPools.has(g.id));
+  const fallbackTracks = results
+    .filter((r): r is Extract<CandidateResult, { kind: "fallback" }> => r.kind === "fallback")
+    .flatMap((r) => r.pendingTracks);
 
-    // ── Vibe Check (Maestro only) ──────────────────────────────────────────
-    let vibeScores: Map<string, VibeScore> | undefined;
-    const vibeProvider = getVibeCheckProvider(user.tier);
-    if (vibeProvider) {
-      send({ type: "progress", message: "Personalizing track selection…" });
-      const candidates = buildCandidatePool(taggedPools, activeGames, targetForIndividual);
-      const recentTracks = Playlist.getRecentTrackNames(userId, VIBE_RECENTLY_PLAYED_LIMIT);
-      vibeScores = await vibeCheckPool(candidates, null, recentTracks, vibeProvider);
-      if (vibeScores.size === 0) vibeScores = undefined;
-    }
+  return { taggedPools, fallbackTracks };
+}
 
-    send({ type: "progress", message: "Assembling playlist arc…" });
-    // Request 15% extra so the duration filter has headroom without leaving gaps
-    const assembleTarget = Math.ceil(targetForIndividual * 1.15);
-    const orderedTracks = assemblePlaylist(taggedPools, activeGames, assembleTarget, vibeScores);
+function filterByDuration(
+  taggedPools: Map<string, TaggedTrack[]>,
+  config: AppConfig,
+): Map<string, TaggedTrack[]> {
+  if (config.allow_short_tracks && config.allow_long_tracks) return taggedPools;
 
-    // Fetch durations for all selected tracks
-    const durations = await fetchVideoDurations(orderedTracks.map((t) => t.videoId));
-    individualTracks = orderedTracks.map((t) =>
-      taggedTrackToPending(t, durations.get(t.videoId) ?? null),
+  const filtered = new Map<string, TaggedTrack[]>();
+  for (const [gameId, tracks] of taggedPools) {
+    filtered.set(
+      gameId,
+      tracks.filter((t) => {
+        if (!config.allow_short_tracks && t.durationSeconds < MIN_TRACK_DURATION_SECONDS)
+          return false;
+        if (!config.allow_long_tracks && t.durationSeconds > MAX_TRACK_DURATION_SECONDS)
+          return false;
+        return true;
+      }),
     );
   }
+  return filtered;
+}
 
-  // ── Assemble final track list ─────────────────────────────────────────────
-  const fullOSTTracks = fullOSTResults.flatMap((r) => r.tracks);
-  const allTracks = [...individualTracks, ...fallbackTracks, ...fullOSTTracks]
-    .filter((t) => {
-      if (t.duration_seconds == null) return true;
-      if (t.duration_seconds < MIN_TRACK_DURATION_SECONDS) return false;
-      if (!config.allow_long_tracks && t.duration_seconds > MAX_TRACK_DURATION_SECONDS)
-        return false;
-      return true;
-    })
-    .slice(0, targetCount);
+async function profileVibe(
+  activeGames: Game[],
+  user: User,
+  send: Send,
+): Promise<ScoringRubric | undefined> {
+  if (user.tier !== UserTier.Maestro) return undefined;
+  try {
+    send({ type: "progress", message: "Generating vibe profile…" });
+    const result = await generateRubric(
+      { gameTitles: activeGames.map((g) => g.title) },
+      getVibeProfilerProvider(user.tier),
+    );
+    return result ?? undefined;
+  } catch (err) {
+    console.error("[generate] Vibe Profiler failed, continuing without rubric:", err);
+    return undefined;
+  }
+}
 
-  send({ type: "progress", message: "Saving playlist…" });
+function runDirector(
+  taggedPools: Map<string, TaggedTrack[]>,
+  activeGames: Game[],
+  targetCount: number,
+  rubric: ScoringRubric | undefined,
+): PendingTrack[] {
+  const assembleTarget = Math.ceil(targetCount * 1.15);
+  return assemblePlaylist(taggedPools, activeGames, assembleTarget, rubric).map((t) =>
+    taggedTrackToPending(t, t.durationSeconds),
+  );
+}
+
+function persistSession(
+  userId: string,
+  allTracks: PendingTrack[],
+): { session: { id: string }; inserted: PlaylistTrack[] } {
   const gameNames = [...new Set(allTracks.map((t) => t.game_title ?? t.game_id))];
   const rawNameList =
     gameNames.slice(0, SESSION_NAME_MAX_GAMES).join(", ") +
     (gameNames.length > SESSION_NAME_MAX_GAMES ? " and more" : "");
-  const nameList =
+  const sessionName =
     rawNameList.length > SESSION_NAME_MAX_LENGTH
       ? `${rawNameList.slice(0, SESSION_NAME_MAX_LENGTH - 1).trimEnd()}…`
       : rawNameList;
-  const sessionName = nameList;
-  const session = Sessions.create(user.id, sessionName);
+
+  const session = Sessions.create(userId, sessionName);
   Playlist.replaceAll(session.id, toInsertable(allTracks));
 
   const inserted: PlaylistTrack[] = allTracks.map((t, position) => ({
@@ -173,18 +151,58 @@ export async function generatePlaylist(
     synced_at: null,
   }));
 
-  // ── Resolve pending slots (full-OST + fallback search queries) ────────────
-  await resolvePendingSlots(inserted, config.allow_long_tracks);
+  return { session, inserted };
+}
 
-  const foundCount = inserted.filter((t) => t.status === TrackStatus.Found).length;
-  const pendingCount = inserted.filter((t) => t.status === TrackStatus.Pending).length;
+// ─── Pipeline orchestrator ────────────────────────────────────────────────────
+
+/**
+ * Core playlist generation pipeline, decoupled from HTTP/SSE transport.
+ *
+ * Four phases:
+ *   1   — Playlist discovery: find (or search) the YouTube OST playlist per game.
+ *   1.5 — Track resolution: align DB tags to video IDs; fetch and store durations.
+ *   2   — Vibe Profiler (Maestro only): LLM produces a ScoringRubric from game titles.
+ *   3   — Arc assembly: the Director builds the final ordered playlist.
+ */
+export async function generatePlaylist(
+  send: Send,
+  userId: string,
+  config: AppConfig,
+): Promise<void> {
+  const games = Games.listAll(userId);
+  if (games.length === 0) {
+    send({ type: "error", message: "Add at least one game before generating a playlist." });
+    return;
+  }
+
+  const user = Users.getOrCreate(userId);
+  const targetCount = config.target_track_count;
+
+  const { taggedPools, fallbackTracks } = await gatherCandidates(games, user, send);
+  const filteredPools = filterByDuration(taggedPools, config);
+
+  let individualTracks: PendingTrack[] = [];
+  if (filteredPools.size > 0 && targetCount > 0) {
+    const activeGames = games.filter((g) => filteredPools.has(g.id));
+    const rubric = await profileVibe(activeGames, user, send);
+    send({ type: "progress", message: "Assembling playlist arc…" });
+    individualTracks = runDirector(filteredPools, activeGames, targetCount, rubric);
+  }
+
+  const allTracks = [...individualTracks, ...fallbackTracks].slice(0, targetCount);
+
+  send({ type: "progress", message: "Saving playlist…" });
+  const { session, inserted } = persistSession(user.id, allTracks);
+
+  await resolvePendingSlots(inserted, config.allow_long_tracks, config.allow_short_tracks);
 
   send({
     type: "done",
     sessionId: session.id,
     tracks: inserted,
     count: inserted.length,
-    found: foundCount,
-    pending: pendingCount,
+    found: inserted.filter((t) => t.status === TrackStatus.Found).length,
+    pending: inserted.filter((t) => t.status === TrackStatus.Pending).length,
   });
 }

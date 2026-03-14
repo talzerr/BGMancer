@@ -24,28 +24,19 @@ export function seedDefaultUser(db: Database.Database): void {
 }
 
 /**
- * On every startup, upserts all yt-playlists.json entries into game_yt_playlists
- * for any games that already exist in the DB. This ensures the table stays in sync
- * whenever new entries are added to the seed file without requiring a game re-import.
+ * On every startup, seeds yt_playlist_id on games that match titles in yt-playlists.json.
+ * Only sets the column if it is not already set, so runtime-discovered values are preserved.
  */
 export function syncYtPlaylistSeeds(db: Database.Database): void {
   const entries = loadYtPlaylistSeedFile();
   if (entries.length === 0) return;
 
-  const upsertSQL = `
-    INSERT INTO game_yt_playlists (game_id, user_id, playlist_id)
-    SELECT g.id, '', ?
-    FROM games g
-    WHERE g.title = ?
-    ON CONFLICT(game_id, user_id) DO UPDATE SET
-      playlist_id   = excluded.playlist_id,
-      discovered_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-  `;
-
   db.transaction(() => {
-    const upsert = db.prepare(upsertSQL);
+    const update = db.prepare(
+      "UPDATE games SET yt_playlist_id = ? WHERE title = ? AND yt_playlist_id IS NULL",
+    );
     for (const { game_title, playlist_id } of entries) {
-      upsert.run(playlist_id, game_title);
+      update.run(playlist_id, game_title);
     }
   })();
 }

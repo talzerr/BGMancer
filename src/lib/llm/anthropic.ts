@@ -23,7 +23,9 @@ export class AnthropicProvider implements LLMProvider {
     });
 
     const block = message.content[0];
-    if (!block) return "";
-    return block.type === "text" ? block.text.trim() : "";
+    if (!block || block.type !== "text" || !block.text.trim()) {
+      throw new Error(`Anthropic returned an empty response (stop_reason: ${message.stop_reason})`);
+    }
+    return block.text.trim();
   }
 }

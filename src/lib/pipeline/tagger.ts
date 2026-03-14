@@ -1,52 +1,12 @@
-import type { Track, TrackRole, TrackMood, TrackInstrumentation } from "@/types";
-import { ReviewReason } from "@/types";
+import type { Track } from "@/types";
+import { ReviewReason, TrackRole, TrackMood, TrackInstrumentation } from "@/types";
 import type { LLMProvider } from "@/lib/llm/provider";
 import { Tracks, ReviewFlags } from "@/lib/db/repo";
 import { TAG_BATCH_SIZE, TAG_POOL_MAX } from "@/lib/constants";
 
-const VALID_ROLES = new Set<string>([
-  "opener",
-  "ambient",
-  "build",
-  "combat",
-  "closer",
-  "menu",
-  "cinematic",
-]);
-const VALID_MOODS = new Set<string>([
-  "epic",
-  "tense",
-  "peaceful",
-  "melancholic",
-  "triumphant",
-  "mysterious",
-  "playful",
-  "dark",
-  "ethereal",
-  "heroic",
-  "nostalgic",
-  "ominous",
-  "serene",
-  "chaotic",
-  "whimsical",
-]);
-const VALID_INSTRUMENTATION = new Set<string>([
-  "orchestral",
-  "synth",
-  "acoustic",
-  "chiptune",
-  "piano",
-  "rock",
-  "metal",
-  "electronic",
-  "choir",
-  "ambient",
-  "jazz",
-  "folk",
-  "strings",
-  "brass",
-  "percussion",
-]);
+const VALID_ROLES = new Set<string>(Object.values(TrackRole));
+const VALID_MOODS = new Set<string>(Object.values(TrackMood));
+const VALID_INSTRUMENTATION = new Set<string>(Object.values(TrackInstrumentation));
 
 const SYSTEM_PROMPT = `You are a music metadata classifier for a game soundtrack tagging system.
 Given a list of game soundtrack tracks, return a JSON array with one entry per track.
@@ -54,7 +14,7 @@ Given a list of game soundtrack tracks, return a JSON array with one entry per t
 Each entry must have:
 - "index": the track number (1-based, matching the input list)
 - "energy": 1 (calm/ambient/background), 2 (moderate/building), or 3 (high-intensity/combat/climactic)
-- "role": one of: opener, ambient, build, combat, closer, menu, cinematic
+- "roles": array of 1-2 values from: opener, ambient, build, combat, closer, menu, cinematic
 - "moods": array of up to 3 values from: epic, tense, peaceful, melancholic, triumphant, mysterious, playful, dark, ethereal, heroic, nostalgic, ominous, serene, chaotic, whimsical
 - "instrumentation": array of up to 3 values from: orchestral, synth, acoustic, chiptune, piano, rock, metal, electronic, choir, ambient, jazz, folk, strings, brass, percussion
 - "hasVocals": true if the track has significant sung vocals, false otherwise
@@ -65,7 +25,7 @@ Return ONLY a JSON array. Do not include markdown fences or any other text.`;
 interface LLMTagItem {
   index: number;
   energy: number;
-  role: string;
+  roles: unknown[];
   moods: unknown[];
   instrumentation: unknown[];
   hasVocals: unknown;
@@ -78,8 +38,18 @@ export async function tagTracks(
   tracks: Track[],
   provider: LLMProvider,
 ): Promise<void> {
-  const untagged = tracks.filter((t) => t.taggedAt === null).slice(0, TAG_POOL_MAX);
-  if (untagged.length === 0) return;
+  const allUntagged = tracks.filter((t) => t.taggedAt === null);
+  if (allUntagged.length === 0) return;
+
+  if (allUntagged.length > TAG_POOL_MAX) {
+    ReviewFlags.markAsNeedsReview(
+      gameId,
+      ReviewReason.TrackCapReached,
+      `${allUntagged.length} untagged tracks, cap is ${TAG_POOL_MAX}`,
+    );
+  }
+
+  const untagged = allUntagged.slice(0, TAG_POOL_MAX);
 
   for (let i = 0; i < untagged.length; i += TAG_BATCH_SIZE) {
     const batch = untagged.slice(i, i + TAG_BATCH_SIZE);
@@ -134,12 +104,17 @@ export async function tagTracks(
         continue;
       }
 
-      const role = typeof item.role === "string" ? item.role.toLowerCase() : "";
-      if (!VALID_ROLES.has(role)) {
+      const roles = Array.isArray(item.roles)
+        ? (item.roles as unknown[])
+            .filter((r): r is string => typeof r === "string" && VALID_ROLES.has(r.toLowerCase()))
+            .map((r) => r.toLowerCase() as TrackRole)
+            .slice(0, 2)
+        : [];
+      if (roles.length === 0) {
         ReviewFlags.markAsNeedsReview(
           gameId,
           ReviewReason.EmptyMetadata,
-          `invalid role for "${track.name}": ${JSON.stringify(item.role)}`,
+          `invalid roles for "${track.name}": ${JSON.stringify(item.roles)}`,
         );
         continue;
       }
@@ -169,7 +144,7 @@ export async function tagTracks(
 
       Tracks.updateTags(gameId, track.name, {
         energy,
-        role: role as TrackRole,
+        roles: JSON.stringify(roles),
         moods: JSON.stringify(moods),
         instrumentation: JSON.stringify(instrumentation),
         hasVocals,

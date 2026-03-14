@@ -19,7 +19,6 @@ type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 export function LibraryClient() {
   const { gameLibrary } = usePlayerContext();
   const [games, setGames] = useState<Game[]>([]);
-  const [ytCache, setYtCache] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
   const [sort, setSort] = useState<SortKey>("playtime");
@@ -30,12 +29,8 @@ export function LibraryClient() {
 
   const fetchGames = useCallback(async () => {
     try {
-      const [gamesRes, cacheRes] = await Promise.all([
-        fetch("/api/games?includeDisabled=true"),
-        fetch("/api/yt-cache"),
-      ]);
-      if (gamesRes.ok) setGames(await gamesRes.json());
-      if (cacheRes.ok) setYtCache(await cacheRes.json());
+      const res = await fetch("/api/games?includeDisabled=true");
+      if (res.ok) setGames(await res.json());
     } catch (err) {
       console.error("Failed to fetch games:", err);
     } finally {
@@ -73,38 +68,6 @@ export function LibraryClient() {
     } catch {
       if (prevCuration !== undefined) {
         setGames((list) => list.map((g) => (g.id === id ? { ...g, curation: prevCuration } : g)));
-      }
-    }
-  }
-
-  async function handlePlaylistChange(gameId: string, playlistId: string | null) {
-    const prev = ytCache[gameId] ?? null;
-    if (playlistId) {
-      setYtCache((c) => ({ ...c, [gameId]: playlistId }));
-      try {
-        await fetch("/api/yt-cache", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ game_id: gameId, playlist_id: playlistId }),
-        });
-      } catch {
-        setYtCache((c) => {
-          const next = { ...c };
-          if (prev) next[gameId] = prev;
-          else delete next[gameId];
-          return next;
-        });
-      }
-    } else {
-      setYtCache((c) => {
-        const next = { ...c };
-        delete next[gameId];
-        return next;
-      });
-      try {
-        await fetch(`/api/yt-cache?game_id=${gameId}`, { method: "DELETE" });
-      } catch {
-        setYtCache((c) => (prev ? { ...c, [gameId]: prev } : c));
       }
     }
   }
@@ -334,10 +297,8 @@ export function LibraryClient() {
                   <GameRow
                     key={game.id}
                     game={game}
-                    ytPlaylistId={ytCache[game.id] ?? null}
                     onCurationChange={handleCurationChange}
                     onDelete={handleDelete}
-                    onPlaylistChange={handlePlaylistChange}
                   />
                 ))}
               </div>

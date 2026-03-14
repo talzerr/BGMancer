@@ -31,9 +31,14 @@ export function SeedExportPanel() {
     <section className="rounded-2xl border border-white/[0.07] bg-zinc-900/70 px-5 py-4 shadow-lg shadow-black/40 backdrop-blur-sm">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="mb-0.5 text-[11px] font-bold tracking-widest text-zinc-500 uppercase">
-            Playlist Seed
-          </h2>
+          <div className="mb-1 flex items-center gap-2">
+            <h2 className="text-[11px] font-bold tracking-widest text-zinc-500 uppercase">
+              Playlist Seed
+            </h2>
+            <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-amber-400/80 uppercase">
+              Dev
+            </span>
+          </div>
           <p className="text-xs text-zinc-500">
             Snapshot discovered playlists so they survive a DB reset.
           </p>

@@ -51,6 +51,7 @@ export enum TaggingStatus {
   Pending = "pending",
   Indexing = "indexing",
   Ready = "ready",
+  Limited = "limited",
   Failed = "failed",
 }
 
@@ -60,6 +61,8 @@ export enum ReviewReason {
   LowConfidence = "low_confidence",
   EmptyMetadata = "empty_metadata",
   NoDiscogsData = "no_discogs_data",
+  AlignmentFailed = "alignment_failed",
+  TrackCapReached = "track_cap_reached",
 }
 
 export enum TrackMood {
@@ -101,12 +104,12 @@ export enum TrackInstrumentation {
 export interface Game {
   id: string;
   title: string;
-  allow_full_ost: boolean;
   curation: CurationMode;
   steam_appid: number | null;
   playtime_minutes: number | null;
   tagging_status: TaggingStatus;
   tracklist_source: string | null;
+  yt_playlist_id: string | null;
   needs_review: boolean;
   created_at: string;
   updated_at: string;
@@ -141,7 +144,7 @@ export interface PlaylistTrack {
   playlist_id: string;
   game_id: string;
   game_title?: string; // populated via JOIN in API responses
-  track_name: string | null; // null for full-OST compilation slots
+  track_name: string | null;
   video_id: string | null;
   video_title: string | null;
   channel_title: string | null;
@@ -161,6 +164,7 @@ export interface AppConfig {
   target_track_count: number;
   anti_spoiler_enabled: boolean;
   allow_long_tracks: boolean;
+  allow_short_tracks: boolean;
 }
 
 // ─── YouTube ──────────────────────────────────────────────────────────────────
@@ -184,28 +188,51 @@ export interface TaggedTrack {
   gameTitle: string;
   cleanName: string;
   energy: 1 | 2 | 3;
-  role: TrackRole;
+  roles: TrackRole[];
   isJunk: boolean;
   moods: TrackMood[];
   instrumentation: TrackInstrumentation[];
   hasVocals: boolean;
-}
-
-export interface VibeScore {
-  fitScore: number; // 1-100, how well this track fits the session mood/context
+  durationSeconds: number;
 }
 
 export interface Track {
   gameId: string;
   name: string;
   position: number;
+  durationSeconds: number | null;
   energy: 1 | 2 | 3 | null;
-  role: TrackRole | null;
+  roles: TrackRole[];
   moods: TrackMood[];
   instrumentation: TrackInstrumentation[];
   hasVocals: boolean | null;
   active: boolean;
   taggedAt: string | null;
+}
+
+export interface ResolvedTrack {
+  videoId: string;
+  videoTitle: string;
+  channelTitle: string;
+  thumbnail: string;
+  gameId: string;
+  trackName: string;
+  durationSeconds: number | null;
+  energy: 1 | 2 | 3 | null;
+  roles: TrackRole[];
+  moods: TrackMood[];
+  instrumentation: TrackInstrumentation[];
+  hasVocals: boolean | null;
+}
+
+export interface ScoringRubric {
+  targetEnergy: Array<1 | 2 | 3>;
+  preferredMoods: TrackMood[];
+  penalizedMoods: TrackMood[];
+  preferredInstrumentation: TrackInstrumentation[];
+  penalizedInstrumentation: TrackInstrumentation[];
+  allowVocals: boolean | null;
+  preferredRoles: TrackRole[];
 }
 
 export interface YouTubeSearchResult {

@@ -51,9 +51,16 @@ export async function POST(request: Request) {
       );
     }
 
-    const id = newId();
+    const title = body.title.trim();
     const steamAppid = typeof body.steam_appid === "number" ? body.steam_appid : null;
-    const game = Games.create(userId, id, body.title.trim(), CurationMode.Include, steamAppid);
+
+    const existing = Games.findByTitle(title);
+    if (existing) {
+      Games.linkToLibrary(userId, existing.id);
+      return NextResponse.json(existing, { status: 201 });
+    }
+
+    const game = Games.create(userId, newId(), title, CurationMode.Include, steamAppid);
     void onboardGame(game, user.tier);
     return NextResponse.json(game, { status: 201 });
   } catch (err) {

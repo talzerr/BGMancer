@@ -4,65 +4,70 @@ This document is the single source of truth for rebuilding the BGMancer playlist
 
 ---
 
-## 1. Current State (Post-M1)
+## 1. Current State (Post-M9 — branch ready to merge)
 
 ### What exists today
 
-M0 (Schema Foundation) and M1 (Schema Cleanup + Tracks Repo + Discogs Service) are committed. The generation pipeline (`src/lib/pipeline/index.ts`) has three phases plus an optional Vibe Check step, but Phase 2 is a stub (tags all tracks with defaults):
+M0–M3, M5, M6, M7, M8, and M9 are committed. The generation pipeline (`src/lib/pipeline/index.ts`) has four phases.
 
-**Phase 1** — YouTube OST playlist discovery per game. Searches YouTube for the game's official OST playlist, stores the playlist ID in `game_yt_playlists` (cached). Then fetches all video items from that playlist.
+**Phase 1 — YouTube OST Playlist Discovery** (`discoverOSTPlaylist`) — Uses the cached `yt_playlist_id` if present, otherwise searches YouTube and stores the result. Fetches all video items from the playlist.
 
-**Phase 2 (stub)** — The old LLM tagger (`tagger.ts`) was deleted in M0. `candidates.ts` currently passes all YouTube tracks through with default tags (`energy: 2, role: ambient, moods: [], instrumentation: [], hasVocals: false`). Marked `TODO M2`.
+**Phase 1.5 — Track Resolution + Duration Fetching** (`resolveCurated` / `resolveLegacy`) — For curated games: aligns DB track names to YouTube video IDs via the LLM resolver, reads pre-existing tags (`energy`, `roles`, `moods`, `instrumentation`, `hasVocals`), filters untagged tracks. For legacy games (no DB tags): assigns static stubs. Both paths call `ensureDurations` — fetches `duration_seconds` from YouTube for any video IDs not yet stored in `video_tracks`, stores them, returns a complete duration map. Every `TaggedTrack` exits this phase with `durationSeconds: number` (never null). Duration filter (`filterByDuration`) runs after candidate gathering, before the Director, so the Director only sees tracks that satisfy `allow_short_tracks` / `allow_long_tracks` config.
 
-**Vibe Check (optional, Maestro tier only)** — `casting.ts` builds a candidate pool of ~2.5× target count tracks, weighted by game curation mode. `vibe-check.ts` sends this pool to the LLM with the session context. The LLM scores each track 1–100 as `fitScore`. On parse failure or Bard tier, returns an empty map and the Director falls back to tag-only scoring. **To be replaced by Vibe Profiler (M9).**
+**Phase 2 — Vibe Profiler (Maestro only)** (`profileVibe`) — Single LLM call via `generateRubric()`. Takes active game titles, returns a `ScoringRubric` JSON. Skipped for Bard tier. On any failure generation continues without a rubric.
 
-**Phase 3** — TypeScript Director (`director.ts`). Assembles the final playlist:
+**Phase 3 — Deterministic Arc Assembly** (`runDirector`) — TypeScript Director (`director.ts`). Assembles the final playlist:
 
-- Expands the arc template into per-slot requirements (6 phases: intro/rising/peak/valley/climax/outro)
-- For each slot: `scoreTrack(track, slot, vibeScore?)`:
+- Expands the arc template into per-slot requirements (6 phases: intro/rising/peak/valley/climax/outro). Each slot carries `energyPrefs`, `rolePrefs`, `preferredMoods`, `penalizedMoods`, `preferredInstrumentation`.
+- For each slot: `scoreTrack(track, slot, rubric?)`:
   - Hard energy filter: rejects tracks outside slot's energy range → `-Infinity`
-  - **When vibeScore present**: `score = fitScore` (1–100) + 5 if role matches slot — fitScore is the PRIMARY signal
-  - **When no vibeScore**: `score = 50` (neutral) + 5 if role matches slot
-- `pickBestTrack` → **pure greedy** — picks the single highest-scoring track. No randomisation at this level.
-- Game budgets, back-to-back avoidance, and focus game guarantees are all handled by `assemblePlaylist`.
+  - **Weighted Jaccard Resonance** across three dimensions:
+    - Role (binary intersection): `track.roles ∩ slot.rolePrefs ≠ ∅` → 1.0, else 0.0. Weight: 0.40
+    - Mood: Jaccard similarity between track moods and target moods. Weight: 0.35
+    - Instrumentation: Jaccard similarity between track instruments and target instruments. Weight: 0.25
+  - Penalty multipliers: 0.5× for penalized moods, 0.5× for vocals when `allowVocals: false`
+  - Rubric (optional `ScoringRubric`) overrides mood/instrumentation targets exclusively (XOR, not merge); promotes extra preferred roles; adds to penalized mood set
+- `pickBestTrack` → **top-N weighted random** (`DIRECTOR_TOP_N_POOL = 5`). Probability proportional to `score + 0.01`.
+- Game budgets, same-game avoidance, and focus game guarantees handled by `assemblePlaylist`.
+
+**Post-phase — Pending slot resolution** (`resolvePendingSlots`) — After the session is saved to DB, searches YouTube for any fallback tracks (full-OST games, games with no playlist found) that were saved as `pending` with `search_queries`. Updates DB and in-memory state in place.
 
 ### LLM providers
 
 `src/lib/llm/index.ts` exports:
 
-- `getTaggingProvider(tier)` → Anthropic (Maestro) or Ollama (Bard)
-- `getVibeCheckProvider(tier)` → Anthropic if Maestro + `ANTHROPIC_API_KEY` set, otherwise `null` (signals orchestrator to skip Vibe Check entirely)
-- `getCandidatesProvider` → deprecated alias for `getTaggingProvider`
+- `getTaggingProvider(tier)` → Anthropic (Maestro) or Ollama (Bard). Used by Phase 1.5 resolver for track alignment and auto-discovery.
+- `getVibeProfilerProvider(tier)` → Anthropic (Maestro) or Ollama (Bard). Used by Phase 2 Vibe Profiler. Override model via `ANTHROPIC_VIBE_MODEL`.
+- `getLocalLLMProvider()` → always Ollama.
 
 ### Current problems
 
-- **No track metadata at all.** The tagger stub in `candidates.ts` assigns every track `energy: 2, role: ambient` — the Director has zero signal to work with.
-- **Junk filtering is gone.** Without the tagger, 10-hour loops and compilation videos pass through unfiltered.
-- **No onboarding.** Games are added with `tagging_status: 'pending'` but nothing drives them to `'ready'`.
-- The Vibe Check is Maestro-only and produces opaque `fitScore` integers that cannot be inspected or tuned.
-- `moodHint` is hardcoded `null` — the Vibe Check always runs in "no specific mood" mode.
-- No visual indication in the UI that a game's tracks have been indexed and are ready to use.
-- No admin surface for reviewing or correcting track metadata.
+- **No onboarding flow.** Games are added with `tagging_status: 'pending'` but nothing drives them to `'ready'` or invokes the resolver.
+- **Legacy games with no curated tracks are second-class.** They use stubs and are labeled "limited quality" in progress events. No UI indication.
+- **No admin surface** for reviewing or correcting track metadata, resolver confidence, or auto-discovered tracks.
+- **Scoring is game-aware (Maestro) or arc-default (Bard).** M9 added session-level rubric generation via the Vibe Profiler.
 
 ### Files to understand before starting
 
-| File                             | Role                                                                     |
-| -------------------------------- | ------------------------------------------------------------------------ |
-| `src/lib/pipeline/index.ts`      | Entry point — orchestrates all phases + Vibe Check                       |
-| `src/lib/pipeline/candidates.ts` | Phase 1 (YouTube discovery) + Phase 2 stub (default tags, TODO M2)       |
-| `src/lib/pipeline/director.ts`   | Phase 3: arc assembly, `assemblePlaylist`, `scoreTrack`, `pickBestTrack` |
-| `src/lib/pipeline/vibe-check.ts` | LLM session scorer → `Map<videoId, VibeScore>` (to be replaced by M9)    |
-| `src/lib/pipeline/casting.ts`    | Builds vibe check candidate pool at ~2.5× target (to be deleted in M7)   |
-| `src/lib/db/schema.ts`           | All table definitions (includes `tracks`, `video_tracks` from M0)        |
-| `src/app/api/games/route.ts`     | CRUD for game library                                                    |
-| `src/types/index.ts`             | All shared types incl. `TaggedTrack`, `Track`, `VibeScore`               |
-| `src/lib/constants.ts`           | All tuning constants                                                     |
-| `src/lib/llm/index.ts`           | Provider resolution (Bard → Ollama, Maestro → Anthropic)                 |
+| File                                | Role                                                                                                  |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `src/lib/pipeline/index.ts`         | Orchestrator — `gatherCandidates`, `filterByDuration`, `profileVibe`, `runDirector`, `persistSession` |
+| `src/lib/pipeline/candidates.ts`    | Phase 1 + 1.5 — `discoverOSTPlaylist`, `ensureDurations`, `resolveCurated`, `resolveLegacy`           |
+| `src/lib/pipeline/vibe-profiler.ts` | Phase 2 — `generateRubric()`, LLM prompt, validation                                                  |
+| `src/lib/pipeline/resolver.ts`      | Phase 1.5: LLM batch alignment, auto-discovery, fallback search                                       |
+| `src/lib/pipeline/director.ts`      | Phase 3: arc assembly, `assemblePlaylist`, `scoreTrack`, `pickBestTrack`                              |
+| `src/lib/db/schema.ts`              | All table definitions                                                                                 |
+| `src/lib/db/repos/video-tracks.ts`  | `getByGame`, `upsertBatch`, `storeDurations`                                                          |
+| `src/types/index.ts`                | All shared types incl. `TaggedTrack`, `Track`, `ResolvedTrack`, `ScoringRubric`                       |
+| `src/lib/constants.ts`              | All tuning constants                                                                                  |
+| `src/lib/llm/index.ts`              | Provider resolution — `getTaggingProvider`, `getVibeProfilerProvider`, `getLocalLLMProvider`          |
 
 ### Key types (current)
 
 ```typescript
-enum TaggingStatus { Pending, Indexing, Ready, Failed }
+enum TaggingStatus { Pending, Indexing, Ready, Limited, Failed }
+// Limited = onboarding completed but no Discogs data found (legacy YouTube-title path)
+// Failed  = onboarding threw (network error, crash) — not a data quality signal
 enum TrackMood     { Epic, Tense, Peaceful, ... }        // 15 values
 enum TrackInstrumentation { Orchestral, Synth, ... }     // 15 values
 enum TrackRole     { Opener, Ambient, Build, ... }       // 7 values
@@ -70,15 +75,22 @@ enum TrackRole     { Opener, Ambient, Build, ... }       // 7 values
 interface Game {
   id: string;
   title: string;
-  allow_full_ost: boolean;
   curation: CurationMode;
   steam_appid: number | null;
   playtime_minutes: number | null;
   tagging_status: TaggingStatus;
-  tracklist_source: string | null;   // ← M1: where tracklist was imported from (e.g. "discogs")
+  tracklist_source: string | null;   // ← M1: where tracklist was imported from (e.g. "discogs:12345")
+  yt_playlist_id: string | null;     // ← Phase 1 cache: YouTube OST playlist ID (replaces game_yt_playlists table)
   needs_review: boolean;             // ← M1: curator flag for manual review in Backstage
   created_at: string;
   updated_at: string;
+}
+
+interface AppConfig {
+  target_track_count: number;
+  anti_spoiler_enabled: boolean;
+  allow_long_tracks: boolean;
+  allow_short_tracks: boolean;       // ← default true; when false, tracks < 90s excluded
 }
 
 interface Track {
@@ -87,7 +99,7 @@ interface Track {
   position: number;
   active: boolean;                // 1 = curation-eligible, 0 = excluded until Backstage activation
   energy: 1 | 2 | 3 | null;
-  role: TrackRole | null;
+  roles: TrackRole[];             // multi-role: up to 2 values, stored as JSON array in tracks.role column
   moods: TrackMood[];
   instrumentation: TrackInstrumentation[];
   hasVocals: boolean | null;
@@ -103,46 +115,74 @@ interface TaggedTrack {
   gameTitle: string;
   cleanName: string;
   energy: 1 | 2 | 3;
-  role: TrackRole;
+  roles: TrackRole[];             // intersection-checked against slot.rolePrefs in Director
   isJunk: boolean;
   moods: TrackMood[];
   instrumentation: TrackInstrumentation[];
   hasVocals: boolean;
+  durationSeconds: number;        // always set — ensureDurations fetches from YouTube if missing
 }
 
-interface VibeScore {
-  fitScore: number; // 1–100 — to be removed in M7
+interface ResolvedTrack {
+  videoId: string;
+  videoTitle: string;
+  channelTitle: string;
+  thumbnail: string;
+  gameId: string;
+  trackName: string;
+  energy: 1 | 2 | 3 | null;
+  roles: TrackRole[];
+  moods: TrackMood[];
+  instrumentation: TrackInstrumentation[];
+  hasVocals: boolean | null;
+}
+
+interface ScoringRubric {
+  targetEnergy: Array<1 | 2 | 3>;
+  preferredMoods: TrackMood[];
+  penalizedMoods: TrackMood[];
+  preferredInstrumentation: TrackInstrumentation[];
+  penalizedInstrumentation: TrackInstrumentation[];
+  allowVocals: boolean | null;
+  preferredRoles: TrackRole[];
 }
 ```
 
 ### Key constants (current)
 
 ```
-TAG_BATCH_SIZE          = 25    LLM tagging batch size
-TAG_POOL_MAX            = 80    Max tracks per game sent to tagger
-CASTING_POOL_MULTIPLIER = 2.5   Vibe Check candidate pool multiplier (to be removed M7)
-VIBE_RECENTLY_PLAYED_LIMIT      Max recent track names passed to Vibe Check (to be removed M7)
+TAG_BATCH_SIZE             = 25    LLM tagging batch size
+TAG_POOL_MAX               = 80    Max tracks per game sent to tagger
+
+SCORE_WEIGHT_ROLE          = 0.40  Director: weight for role dimension (binary intersection)
+SCORE_WEIGHT_MOOD          = 0.35  Director: weight for mood Jaccard similarity
+SCORE_WEIGHT_INSTRUMENT    = 0.25  Director: weight for instrumentation Jaccard similarity
+SCORE_PENALTY_MULTIPLIER   = 0.5   Director: score multiplier when penalized mood present
+SCORE_VOCALS_PENALTY_MULTIPLIER = 0.5  Director: score multiplier when vocals disallowed
+DIRECTOR_TOP_N_POOL        = 5     Director: pool size for weighted random pick
 ```
 
 ### DB schema (current — relevant tables)
 
 ```sql
-games (id, title, allow_full_ost, curation, steam_appid, playtime_minutes,
-       tagging_status, tracklist_source, needs_review, created_at, updated_at)
+games (id, title, curation, steam_appid, playtime_minutes,
+       tagging_status, tracklist_source, yt_playlist_id, needs_review, created_at, updated_at)
+-- yt_playlist_id: Phase 1 cache — YouTube OST playlist ID (NULL until discovered or seeded)
+-- Seeded on startup from data/yt-playlists.json; set at runtime by fetchGameCandidates
 
 tracks (game_id, name, position, active, energy, role, moods,
         instrumentation, has_vocals, tagged_at)
 -- PK: (game_id, name)
 -- active: INTEGER NOT NULL DEFAULT 1 (1 = curation-eligible, 0 = excluded until Backstage activation)
+-- role: TEXT — stores JSON array of TrackRole values (e.g. '["combat","cinematic"]'). Up to 2 values.
+--        Parsed by toTrack() via parseJsonArray. Tagger writes JSON.stringify(roles).
 -- Notes: clean track names from source (Discogs, manual, etc); all metadata is nullable until tagged
 
-video_tracks (video_id, game_id, track_name, aligned_at)
+video_tracks (video_id, game_id, track_name, duration_seconds, aligned_at)
 -- PK: (video_id, game_id)
 -- FK: (game_id, track_name) → tracks(game_id, name)
--- Notes: aligns raw YouTube videos to track names (null = junk)
-
-game_yt_playlists (game_id, user_id, playlist_id, discovered_at)
--- PK: (game_id, user_id)
+-- duration_seconds: INTEGER, populated by ensureDurations on first generation; NULL until fetched
+-- track_name: NULL = unaligned (junk or legacy); populated by resolver
 ```
 
 ---
@@ -162,6 +202,8 @@ game_yt_playlists (game_id, user_id, playlist_id, discovered_at)
 6. **Backstage = Manual Override Layer.** An admin page for reviewing tracks, editing names, correcting tags, and triggering re-tagging. Filtered by `needs_review`. This is the critical piece that makes the 70/30 split viable at scale.
 
 7. **DB Tracklist = Identity, YouTube = Audio Source.** A track in the `tracks` table (e.g. "Mantis Lords") is the entity that owns metadata. A YouTube video is a pointer to playable audio for that track (via `video_tracks`). When Discogs and YouTube disagree on the tracklist, the DB wins. YouTube videos that don't match any DB track are auto-discovered as disabled candidates for curator review — never silently injected into the active pool.
+
+8. **Quality over Coverage.** A game without a Discogs tracklist participates in generation at reduced quality — default tags, YouTube-title identity — not as a silent equal. The pipeline never hides this degradation from the user. Curation quality is the goal; the legacy path is a known, surfaced compromise.
 
 ---
 
@@ -184,8 +226,8 @@ GAME ONBOARDING (eager, on game-add, fires in M3)
   │                games.needs_review = 1 if LLM detects low confidence
   └─ games.tagging_status = 'ready'
 
-  Fallback: no Discogs match → tagging_status = 'ready' anyway
-            (legacy YouTube-title path at generation time)
+  Fallback: no Discogs match → tagging_status = 'limited'
+            (legacy YouTube-title path at generation time; surfaced to user in UI)
 
 BACKSTAGE (manual, admin page at /backstage, UI added in M4)
   ├─ View game tracklist + tags + tracklist_source
@@ -196,8 +238,8 @@ BACKSTAGE (manual, admin page at /backstage, UI added in M4)
   └─ Add/remove/edit tracks manually
 
 CURATION PIPELINE (on Generate)
-  Phase 1:   YouTube playlist discovery (unchanged, cached)
-  Phase 1.5: Track Resolution (replaces "Audio Alignment")
+  Phase 1:   YouTube playlist discovery (cached in games.yt_playlist_id)
+  Phase 1.5: Track Resolution (TODO M7)
                Only runs when active tracks exist without video_ids.
                Two-step hybrid:
                a) Playlist mapping — fetch OST playlist, LLM aligns video titles → DB track names
@@ -206,9 +248,9 @@ CURATION PIPELINE (on Generate)
                Auto-discovery (side effect of step a):
                   Unmatched playlist videos → disabled tracks with video_id already set
                   + game.needs_review = true
-                  Next run: existing disabled rows already have video_ids → playlist not fetched → noop
+                  Next run: existing disabled rows already have video_ids → noop
                Cached in video_tracks
-  Phase 2:   Vibe Profiler (LLM, optional)
+  Phase 2:   Vibe Profiler (M9 ✅, LLM, optional)
                session history + mood hint → ScoringRubric
   Phase 3:   Heuristic Director (deterministic)
                arc template + rubric → weighted scoring → weighted-random top-N
@@ -217,7 +259,7 @@ CURATION PIPELINE (on Generate)
 
 ### Legacy fallback (no Discogs match)
 
-When Discogs finds no soundtrack for a game, `tagging_status` is set to `'ready'` anyway. During generation, `fetchGameCandidates` checks `Tracks.hasData(gameId)`. If false, it falls through to the existing YouTube-based stub path (default tags). The legacy path should be upgraded to produce `moods`, `instrumentation`, and `hasVocals` in a future milestone.
+When Discogs finds no soundtrack for a game, `tagging_status` is set to `'limited'`. During generation, `fetchGameCandidates` checks `Tracks.hasData(gameId)`. If false, it falls through to the existing YouTube-based stub path (default tags). The `limited` status is surfaced to the user in the GenerateSection as "X games have limited soundtrack data." The legacy path should be upgraded to produce `moods`, `instrumentation`, and `hasVocals` in a future milestone.
 
 ---
 
@@ -227,13 +269,11 @@ When Discogs finds no soundtrack for a game, `tagging_status` is set to `'ready'
 
 ```
 M0 ✅ → M1 ✅ → M2 ✅ → M3 ✅ → M4
-                 M3 → M5
-                 M1 → M6 → M7
-                        M7 → M8
-                        M8 → M9
+                 M3 → M5 ✅
+                 M1 → M6 ✅ → M7 ✅ → M8 ✅ → M9
 ```
 
-Execute in order: **M0 ✅, M1 ✅, M2 ✅, M3 ✅, M4 (next), M5, M6, M7, M8, M9**
+Execute in order: **M0 ✅, M1 ✅, M2 ✅, M3 ✅, M5 ✅, M6 ✅, M7 ✅, M8 ✅, M9 ✅, M4 (parallel)**
 
 ---
 
@@ -305,7 +345,8 @@ export const Tracks = {
   hasData(gameId: string): boolean
   isTagged(gameId: string): boolean
   updateTags(gameId: string, name: string, tags: {
-    energy: number; role: string; moods: string; instrumentation: string; hasVocals: boolean;
+    energy: number; roles: string; moods: string; instrumentation: string; hasVocals: boolean;
+    // roles: JSON.stringify(TrackRole[]) — stored in tracks.role column as JSON array
   }): void
   clearTags(gameId: string): void
 }
@@ -465,9 +506,9 @@ An admin control plane at `/backstage` for inspecting, editing, and correcting t
 
 ---
 
-### M5 — Game Status UI
+### M5 — Game Status UI ✅ DONE
 
-**What to build**
+**What was built**
 
 Visual per-game readiness indicator in the Library. The Generate button becomes context-aware.
 
@@ -513,9 +554,9 @@ Decision: `'failed'` games are degraded (legacy path) but should not hard-block 
 
 ---
 
-### M6 — Track Resolution
+### M6 — Track Resolution ✅ DONE
 
-**What to build**
+**What was built**
 
 A hybrid pipeline step that resolves DB tracks to YouTube videos. Replaces the old "Audio Alignment" concept with a directional flow: start from DB tracks, find videos for them. Auto-discovers new tracks from YouTube as a side effect.
 
@@ -533,7 +574,7 @@ export async function resolveTracksToVideos(
 
 1. **Check if resolution is needed** — filter active tracks to those without a video_id (no `video_tracks` row). If all active tracks already have video_ids, return early — no playlist fetch, no discovery, no cost.
 
-2. **Playlist mapping** (bulk, cheap) — find the YouTube OST playlist (from `game_yt_playlists` cache or search). Fetch all playlist items. Use LLM to align video titles → DB track names (same "answer key" prompt as old aligner concept). Result: some DB tracks get a video, some don't, some playlist videos don't match any DB track.
+2. **Playlist mapping** (bulk, cheap) — find the YouTube OST playlist (from `game.yt_playlist_id` or search). Fetch all playlist items. Use LLM to align video titles → DB track names (same "answer key" prompt as old aligner concept). Result: some DB tracks get a video, some don't, some playlist videos don't match any DB track.
 
 3. **Auto-discovery** (always-on, side effect of step 2) — for playlist videos that matched no DB track:
    - Only runs because step 1 already required fetching the playlist. If all active tracks have video_ids, the playlist is never fetched and discovery never fires.
@@ -604,10 +645,15 @@ if Tracks.hasData(gameId):
              → filter out null-aligned videos
   Build TaggedTrack[] by joining:
     - YouTube metadata (videoId, title, channelTitle, thumbnail)
-    - tracks row matched by resolution (cleanName=name, energy, role, moods, instrumentation, hasVocals)
+    - tracks row matched by resolution
+      cleanName = ResolvedTrack.trackName (the DB canonical name — never raw YouTube title)
+      energy, role, moods, instrumentation, hasVocals from tracks table
   Return { kind: 'tagged', game, tracks: TaggedTrack[] }
 else:
-  existing legacy stub (unchanged)
+  legacy stub: default tags, cleanName = YouTube title
+  tagging_status = 'limited' is the signal that this game is curated at reduced quality
+  these games are NOT silently equal — M7 should emit a distinct pipeline progress event
+  labelling them as "legacy path — limited quality"
 ```
 
 **Files to delete**
@@ -639,103 +685,61 @@ else:
 
 **How to verify**
 
-1. Generate a playlist for a game with track data → track names are pristine (no YouTube noise).
+1. Generate a playlist for a game with track data → track names are pristine DB canonical names (no YouTube noise).
 2. Junk videos absent from playlist.
-3. Generate for a game without track data → still works via legacy stub.
+3. Generate for a game without track data → still works via legacy stub; pipeline progress event labels it "limited quality".
 4. `npm run build && npm run lint` pass.
 
 ---
 
-### M8 — Enhanced Director Scoring
+### M8 — Enhanced Director Scoring ✅ DONE
 
-**What to build**
+**What was built**
 
-Upgrade `scoreTrack` from a trivial placeholder to a full weighted additive scorer. The arc template gains per-phase emotional profiles used as a fallback rubric when no session rubric is available.
+Replaced the additive placeholder scorer with a Weighted Jaccard Resonance model. Arc template extended with full emotional profiles per phase. Multi-role support added across the full stack.
 
-**`src/lib/constants.ts`** — add scoring weight constants
+**Scoring model** (`src/lib/pipeline/director.ts`)
 
-```typescript
-export const SCORE_BASELINE = 50;
-export const SCORE_ROLE_MATCH = 10;
-export const SCORE_MOOD_MATCH = 8; // per mood (up to 3 = max +24)
-export const SCORE_MOOD_PENALTY = 12; // per penalized mood
-export const SCORE_INSTRUMENT_MATCH = 5; // per instrument (up to 2 = max +10)
-export const SCORE_VOCALS_PENALTY = 15;
-export const DIRECTOR_TOP_N_POOL = 5;
+- `ArcSlot` extended: `preferredMoods`, `penalizedMoods`, `preferredInstrumentation` added to all 6 phases
+- `scoreTrack(track, slot, rubric?)` rewritten with Weighted Jaccard:
+  - Energy gate: `-Infinity` if not in `slot.energyPrefs`
+  - Role: binary intersection — `track.roles ∩ slot.rolePrefs ≠ ∅` → 1.0, else 0.0. Weight: 0.40
+  - Mood: `jaccard(track.moods, targetMoods)`. Weight: 0.35
+  - Instrumentation: `jaccard(track.instrumentation, targetInst)`. Weight: 0.25
+  - Penalty: 0.5× multiplier if any penalized mood present (arc + rubric unioned)
+  - Vocals penalty: 0.5× if `rubric.allowVocals === false && track.hasVocals`
+- `pickBestTrack` → `weightedTopN()`: sort by score, take top 5, weighted random draw (`P ∝ score + 0.01`)
+- `assemblePlaylist(taggedPools, games, targetCount, rubric?)` — rubric is optional, Director falls back to arc slot defaults when absent
+
+**Multi-role refactor**
+
+`role: TrackRole` → `roles: TrackRole[]` across the full stack:
+
+| File                             | Change                                                                                  |
+| -------------------------------- | --------------------------------------------------------------------------------------- |
+| `src/types/index.ts`             | `Track.roles`, `TaggedTrack.roles`, `ResolvedTrack.roles`                               |
+| `src/lib/db/mappers.ts`          | `toTrack` uses `parseJsonArray` on `tracks.role` column                                 |
+| `src/lib/db/repos/tracks.ts`     | `updateTags` payload: `roles: string` (JSON array)                                      |
+| `src/lib/pipeline/tagger.ts`     | Prompt asks for `roles` array (1–2 values); parses and writes `JSON.stringify(roles)`   |
+| `src/lib/pipeline/resolver.ts`   | `toResolvedTrack` passes `roles`; discovered stub uses `roles: []`                      |
+| `src/lib/pipeline/candidates.ts` | Filter: `roles.length > 0`; map: `roles: r.roles`; legacy: `roles: [TrackRole.Ambient]` |
+| `src/lib/pipeline/director.ts`   | `scoreTrack` checks `track.roles.some(r => slot.rolePrefs.includes(r))`                 |
+
+**Other additions**
+
+- `ScoringRubric` interface in `src/types/index.ts`
+- Scoring weight constants in `src/lib/constants.ts` (`SCORE_WEIGHT_ROLE`, `SCORE_WEIGHT_MOOD`, `SCORE_WEIGHT_INSTRUMENT`, `SCORE_PENALTY_MULTIPLIER`, `SCORE_VOCALS_PENALTY_MULTIPLIER`, `DIRECTOR_TOP_N_POOL`)
+- `DIRECTOR.md` — full architectural deep dive: arc visualization, Weighted Jaccard math spec, rubric interaction model, worked example ($R = 0.917$ for "The Last of Us Main Theme" in outro slot), edge cases, performance ($O(T \cdot S)$, <50ms)
+
+**Verification** ✅ Passed
+
+```bash
+npm run build && npm run lint  # zero errors
 ```
-
-**`src/lib/pipeline/director.ts`** — extend `ArcSlot` and rewrite `scoreTrack`
-
-Extend `ArcSlot` with `preferredMoods`, `penalizedMoods`, `preferredInstrumentation`.
-
-Update `ARC_TEMPLATE` with per-phase emotional profiles:
-
-| Phase  | Preferred Moods                   | Penalized Moods             | Preferred Instruments      |
-| ------ | --------------------------------- | --------------------------- | -------------------------- |
-| intro  | peaceful, mysterious, nostalgic   | chaotic, epic               | piano, ambient, strings    |
-| rising | mysterious, tense, melancholic    | playful, whimsical          | orchestral, strings, synth |
-| peak   | epic, tense, heroic               | peaceful, serene, whimsical | orchestral, rock, metal    |
-| valley | peaceful, serene, melancholic     | epic, chaotic, heroic       | ambient, piano, acoustic   |
-| climax | epic, heroic, triumphant, chaotic | peaceful, playful           | orchestral, metal, choir   |
-| outro  | melancholic, nostalgic, peaceful  | chaotic, tense              | piano, acoustic, strings   |
-
-Rewrite `scoreTrack(track, slot, rubric?)`:
-
-```
-score = SCORE_BASELINE
-if track.energy not in slot.energyPrefs → return -Infinity
-
-if track.role in slot.rolePrefs → score += SCORE_ROLE_MATCH
-if rubric?.preferredRoles includes track.role → score += SCORE_ROLE_MATCH  // stacks
-
-activeMoods    = rubric?.preferredMoods  ?? slot.preferredMoods
-penalizedMoods = rubric?.penalizedMoods  ?? slot.penalizedMoods
-for each mood in track.moods:
-  if mood in activeMoods    → score += SCORE_MOOD_MATCH
-  if mood in penalizedMoods → score -= SCORE_MOOD_PENALTY
-
-activeInstruments = rubric?.preferredInstrumentation ?? slot.preferredInstrumentation
-for each inst in track.instrumentation:
-  if inst in activeInstruments → score += SCORE_INSTRUMENT_MATCH
-
-if rubric?.allowVocals === false and track.hasVocals → score -= SCORE_VOCALS_PENALTY
-```
-
-Update `assemblePlaylist` signature to accept `rubric?: ScoringRubric` instead of `vibeScores`.
-
-Replace greedy pick with top-N weighted random in `pickBestTrack`.
-
-**`src/types/index.ts`** — add `ScoringRubric`
-
-```typescript
-export interface ScoringRubric {
-  targetEnergy: Array<1 | 2 | 3>;
-  preferredMoods: TrackMood[];
-  penalizedMoods: TrackMood[];
-  preferredInstrumentation: TrackInstrumentation[];
-  penalizedInstrumentation: TrackInstrumentation[];
-  allowVocals: boolean | null;
-  preferredRoles: TrackRole[];
-}
-```
-
-**Key files**
-
-| File                           | Action                       |
-| ------------------------------ | ---------------------------- |
-| `src/lib/pipeline/director.ts` | Modify — rewrite scoring     |
-| `src/lib/constants.ts`         | Modify — add scoring weights |
-| `src/types/index.ts`           | Modify — add ScoringRubric   |
-
-**How to verify**
-
-1. Generate a 50-track playlist. Intro tracks should be calm/atmospheric; peak/climax should be intense.
-2. Generate again → different playlist (weighted random).
-3. Debug log `scoreTrack` to confirm score distribution.
 
 ---
 
-### M9 — Vibe Profiler (LLM Rubric Generator)
+### M9 — Vibe Profiler (LLM Rubric Generator) ✅ DONE
 
 **What to build**
 
@@ -814,10 +818,10 @@ const orderedTracks = assemblePlaylist(
 
 Across all milestones, these guarantees must hold:
 
-1. **Generation never hard-fails due to onboarding state.** If `tagging_status = 'failed'`, the legacy path is used. If onboarding is mid-flight (`'indexing'`), the UI prevents generation, but the pipeline itself is still safe.
+1. **Generation never hard-fails due to onboarding state.** If `tagging_status = 'limited'` (no Discogs data) or `'failed'` (onboarding threw), the legacy YouTube-title path is used. If onboarding is mid-flight (`'indexing'`), the UI prevents generation, but the pipeline itself is still safe. `'limited'` and `'failed'` are distinct: `'limited'` is a data quality signal surfaced to the user; `'failed'` is an infrastructure error.
 2. **`TaggedTrack` is the unified representation.** The source of its data (`tracks` table or legacy stub) is an internal detail. The Director always receives the same type.
 3. **All DB writes are idempotent.** `upsertBatch` everywhere. `CREATE TABLE IF NOT EXISTS`. Re-running onboarding on an already-ready game is a no-op.
-4. **LLM calls are always cached.** `tracks.tagged_at` caches tagging. `video_tracks` caches alignment. `game_yt_playlists` caches playlist discovery. No LLM call happens twice for the same input.
+4. **LLM calls are always cached.** `tracks.tagged_at` caches tagging. `video_tracks` caches alignment. `games.yt_playlist_id` caches playlist discovery. No LLM call happens twice for the same input.
 5. **`npm run build` and `npm run lint` pass after each milestone** with zero errors.
 6. **The `tracks` table is source-agnostic.** All game-level metadata (`tracklist_source`, `needs_review`) lives on `games` row. Tracks are pure metadata (name, position, active, energy, role, moods, instrumentation, hasVocals, taggedAt).
 7. **Auto-discovered tracks start disabled.** Tracks created by the resolver's auto-discovery path are always `active = 0` and untagged. They never enter the curation pipeline until a curator activates them in the Backstage. This prevents YouTube noise (fan remixes, trailers, wrong game) from polluting playlists.
@@ -826,7 +830,15 @@ Across all milestones, these guarantees must hold:
 
 ## 6. Things to Delete
 
-As part of M7, the following should be removed cleanly:
+**Already removed** (done in the Quality Shift milestone prior to M7):
+
+- `allow_full_ost` column from `games` table — full-OST compilation path eliminated
+- `game_yt_playlists` table — replaced by `games.yt_playlist_id` column (1:1 relationship made a separate table unnecessary)
+- `src/lib/db/repos/yt-playlists.ts` + `YtPlaylists` repo export — replaced by `Games.setPlaylistId()`
+- `src/app/api/yt-cache/route.ts` — user playlist override API removed
+- `YtPlaylists.upsertForUser` / `clearForUser` methods — user override methods removed
+
+**As part of M7**, the following should be removed cleanly:
 
 | File                             | Reason                         |
 | -------------------------------- | ------------------------------ |
@@ -845,18 +857,19 @@ Also remove:
 
 ## 7. Quick Reference — New Files
 
-| File                                | Milestone | Purpose                                        |
-| ----------------------------------- | --------- | ---------------------------------------------- |
-| `src/lib/services/discogs.ts`       | M1        | Discogs API client                             |
-| `src/lib/db/repos/tracks.ts`        | M1        | DB repo for tracks table                       |
-| `src/lib/pipeline/tagger.ts`        | M2        | LLM tagger for clean track names               |
-| `src/lib/pipeline/onboarding.ts`    | M3        | Game indexing orchestrator                     |
-| `src/app/backstage/**`              | M4        | Backstage pages (see BACKSTAGE_DESIGN.md)      |
-| `src/app/api/backstage/**`          | M4        | Backstage API routes (see BACKSTAGE_DESIGN.md) |
-| `src/components/backstage/**`       | M4        | Backstage UI components                        |
-| `src/lib/pipeline/resolver.ts`      | M6        | YouTube → DB track resolution (hybrid)         |
-| `src/lib/db/repos/video-tracks.ts`  | M6        | DB repo for video_tracks                       |
-| `src/lib/pipeline/vibe-profiler.ts` | M9        | LLM Vibe Profiler → ScoringRubric              |
+| File                                | Milestone | Purpose                                                |
+| ----------------------------------- | --------- | ------------------------------------------------------ |
+| `src/lib/services/discogs.ts`       | M1        | Discogs API client                                     |
+| `src/lib/db/repos/tracks.ts`        | M1        | DB repo for tracks table                               |
+| `src/lib/pipeline/tagger.ts`        | M2        | LLM tagger for clean track names                       |
+| `src/lib/pipeline/onboarding.ts`    | M3        | Game indexing orchestrator                             |
+| `src/app/backstage/**`              | M4        | Backstage pages (see BACKSTAGE_DESIGN.md)              |
+| `src/app/api/backstage/**`          | M4        | Backstage API routes (see BACKSTAGE_DESIGN.md)         |
+| `src/components/backstage/**`       | M4        | Backstage UI components                                |
+| `src/lib/pipeline/resolver.ts`      | M6        | YouTube → DB track resolution (hybrid)                 |
+| `src/lib/db/repos/video-tracks.ts`  | M6        | DB repo for video_tracks                               |
+| `src/lib/pipeline/vibe-profiler.ts` | M9        | LLM Vibe Profiler → ScoringRubric                      |
+| `DIRECTOR.md`                       | M8        | Architectural deep dive: scoring model, arc, math spec |
 
 ---
 
@@ -872,3 +885,63 @@ npm run db:restore   # restore from snapshot
 ```
 
 SQLite DB file: `bgmancer.db` at project root. Connect with `sqlite3 bgmancer.db` for inspection.
+
+---
+
+## 9. QA — Branch `refactor/curation-hueristic-pipleine`
+
+This section is a handoff for a QA agent. The branch covers two subsystems: **Game Onboarding** (M0–M3, M5) and **Heuristic Pipeline** (M6–M9 + post-M9 refactors). The QA agent should produce a concrete plan — specific files to read, behaviours to exercise, and design questions to answer — then execute it.
+
+### Pre-flight
+
+```bash
+npm run db:reset   # required — video_tracks now has duration_seconds column
+npm run build      # must pass clean
+npm run lint       # must pass clean
+```
+
+---
+
+### Part 1: Game Onboarding (M0–M3, M5)
+
+**Functional — exercise these flows:**
+
+- Add a game that exists on Discogs → verify `tagging_status` transitions `pending → indexing → ready`, tracks appear in DB with energy/mood/instrumentation set, `tracklist_source` is populated
+- Add a game with no Discogs match → `tagging_status = ready`, `needs_review = true`, a `no_discogs_data` review flag row exists in `game_review_flags`
+- Add a game and kill Ollama mid-tagging → `tagging_status = failed`, appropriate review flag written
+- Steam import → each imported game is onboarded sequentially; verify status progression in UI
+- Game status UI (M5): add a game and watch the status badge update via polling; verify failed badge shows on failure
+
+**Design / architecture review:**
+
+- `src/lib/pipeline/onboarding.ts` — is the status state machine correct? Are all exit paths (success, no-Discogs, throw) handled? Does a retry path exist or is failed terminal?
+- `src/lib/db/repos/review-flags.ts` — does `markAsNeedsReview` correctly accumulate multiple reasons for the same game (not overwrite)?
+- `src/lib/services/discogs.ts` — is rate-limit handling robust? Is best-result selection logic (format preference + community.have) defensible?
+- `src/lib/pipeline/tagger.ts` — are the validation rules consistent with the enums in `src/types/index.ts`? Is the batch/pool cap logic correct (`TAG_BATCH_SIZE=25`, `TAG_POOL_MAX=80`)?
+- `src/app/api/games/route.ts` and `src/app/api/steam/import/route.ts` — is onboarding correctly fire-and-forget (non-blocking)? Does a Steam import onboard sequentially or in parallel, and is that the right call?
+
+---
+
+### Part 2: Heuristic Pipeline (M6–M9 + refactors)
+
+**Functional — exercise these flows:**
+
+- **Bard tier**: generate → no "Generating vibe profile…" event; playlist produces with arc defaults
+- **Maestro tier**: generate → "Generating vibe profile…" event visible; temporarily log the rubric in `profileVibe` to verify it reflects the games' aesthetics (e.g. Dark Souls → dark/orchestral, Stardew → peaceful/acoustic)
+- **Maestro with LLM unavailable**: unset `ANTHROPIC_API_KEY` or stop Ollama → generation completes without rubric, no crash
+- **Duration storage**: first generation for a game populates `video_tracks.duration_seconds`; second generation produces no YouTube duration API calls in server logs
+- **Short track filter**: enable filter, generate → confirm tracks under 90s are absent; check they were excluded before the Director (not after)
+- **Long track filter**: same as above for tracks over 8 min
+- **Legacy game** (no rows in `tracks` table): progress event reads "Legacy path — limited quality"; tracks appear with stub tags (energy 2, role Ambient)
+- **Curated game**: progress event reads "X tracks resolved"; tracks carry real tags from `tracks` table
+- **No playlist found**: game with unmatchable title → fallback pending track in playlist; rest of generation unaffected
+
+**Design / architecture review:**
+
+- `src/lib/pipeline/index.ts` — is `generatePlaylist` a pure orchestrator with no inline logic? Do the five step functions (`gatherCandidates`, `filterByDuration`, `profileVibe`, `runDirector`, `persistSession`) have clean, single responsibilities?
+- `src/lib/pipeline/candidates.ts` — is `ensureDurations` the right abstraction? Is it correct that both curated and legacy paths share it? Does `resolveCurated` vs `resolveLegacy` split make the branching logic clear?
+- `src/lib/pipeline/vibe-profiler.ts` — is the validation logic consistent with enums? Is the null-return-on-degraded-rubric threshold (`preferredMoods` empty) the right call?
+- `src/lib/pipeline/director.ts` — review the Weighted Jaccard Resonance implementation: are weights (role 0.40, mood 0.35, instrumentation 0.25) applied correctly? Is the rubric override (XOR, not merge) behaving as described? Is top-N weighted random correct?
+- `src/lib/db/repos/video-tracks.ts` — `storeDurations` uses an upsert that inserts new rows for legacy tracks and updates existing NULL durations. Verify the `WHERE duration_seconds IS NULL` guard in the conflict clause is correct SQL and won't silently skip rows.
+- **Type integrity**: `TaggedTrack.durationSeconds` is `number` (not `| null`) — trace the full path from `ensureDurations` through `resolveCurated`/`resolveLegacy` to `filterByDuration` to confirm no null can slip through. The `?? 0` fallback in candidates is the last line of defence — is 0 the right sentinel or should it be handled differently?
+- **Code conventions**: all named value sets are enums (not string literal unions); no "cache" terminology; comments in pipeline files are accurate and not stale (the refactor removed Vibe Check — verify no dead references remain)

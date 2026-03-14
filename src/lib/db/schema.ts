@@ -15,12 +15,12 @@ export function initSchema(db: Database.Database): void {
     CREATE TABLE IF NOT EXISTS games (
       id               TEXT    NOT NULL PRIMARY KEY,
       title            TEXT    NOT NULL,
-      allow_full_ost   INTEGER NOT NULL DEFAULT 0,
       curation         TEXT    NOT NULL DEFAULT 'include',
       steam_appid      INTEGER,
       playtime_minutes INTEGER,
       tagging_status   TEXT    NOT NULL DEFAULT 'pending',
       tracklist_source TEXT,
+      yt_playlist_id   TEXT,
       needs_review     INTEGER NOT NULL DEFAULT 0,
       created_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
       updated_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
@@ -87,26 +87,18 @@ export function initSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_tracks_position  ON playlist_tracks(position);
     CREATE INDEX IF NOT EXISTS idx_tracks_status    ON playlist_tracks(status);
 
-    CREATE TABLE IF NOT EXISTS game_yt_playlists (
-      game_id       TEXT NOT NULL,
-      user_id       TEXT NOT NULL DEFAULT '',
-      playlist_id   TEXT NOT NULL,
-      discovered_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-      PRIMARY KEY (game_id, user_id),
-      FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
-    );
-
     CREATE TABLE IF NOT EXISTS tracks (
-      game_id         TEXT    NOT NULL,
-      name            TEXT    NOT NULL,
-      position        INTEGER NOT NULL,
-      energy          INTEGER,
-      role            TEXT,
-      moods           TEXT,
-      instrumentation TEXT,
-      has_vocals      INTEGER,
-      active          INTEGER NOT NULL DEFAULT 1,
-      tagged_at       TEXT,
+      game_id          TEXT    NOT NULL,
+      name             TEXT    NOT NULL,
+      position         INTEGER NOT NULL,
+      duration_seconds INTEGER,
+      energy           INTEGER,
+      role             TEXT,
+      moods            TEXT,
+      instrumentation  TEXT,
+      has_vocals       INTEGER,
+      active           INTEGER NOT NULL DEFAULT 1,
+      tagged_at        TEXT,
       PRIMARY KEY (game_id, name),
       FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
     );
@@ -123,10 +115,11 @@ export function initSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_review_flags_game ON game_review_flags(game_id);
 
     CREATE TABLE IF NOT EXISTS video_tracks (
-      video_id       TEXT NOT NULL,
-      game_id        TEXT NOT NULL,
-      track_name     TEXT,
-      aligned_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      video_id         TEXT    NOT NULL,
+      game_id          TEXT    NOT NULL,
+      track_name       TEXT,
+      duration_seconds INTEGER,
+      aligned_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
       PRIMARY KEY (video_id, game_id),
       FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
       FOREIGN KEY (game_id, track_name) REFERENCES tracks(game_id, name)
