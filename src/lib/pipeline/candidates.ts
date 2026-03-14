@@ -113,12 +113,8 @@ export async function fetchGameCandidates(
 
     const taggedTracks: TaggedTrack[] = resolved
       .filter(
-        (
-          r,
-        ): r is typeof r & {
-          energy: NonNullable<typeof r.energy>;
-          role: NonNullable<typeof r.role>;
-        } => r.energy !== null && r.role !== null,
+        (r): r is typeof r & { energy: NonNullable<typeof r.energy> } =>
+          r.energy !== null && r.roles.length > 0,
       )
       .map((r) => ({
         videoId: r.videoId,
@@ -129,7 +125,7 @@ export async function fetchGameCandidates(
         gameTitle: game.title,
         cleanName: r.trackName,
         energy: r.energy,
-        role: r.role,
+        roles: r.roles,
         isJunk: false,
         moods: r.moods,
         instrumentation: r.instrumentation,
@@ -165,7 +161,7 @@ export async function fetchGameCandidates(
     gameTitle: game.title,
     cleanName: t.title,
     energy: 2,
-    role: TrackRole.Ambient,
+    roles: [TrackRole.Ambient],
     isJunk: false,
     moods: [],
     instrumentation: [],

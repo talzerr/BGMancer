@@ -37,7 +37,7 @@ export const Tracks = {
     name: string,
     tags: {
       energy: number;
-      role: string;
+      roles: string;
       moods: string;
       instrumentation: string;
       hasVocals: boolean;
@@ -50,7 +50,7 @@ export const Tracks = {
        WHERE game_id = ? AND name = ?`,
     ).run(
       tags.energy,
-      tags.role,
+      tags.roles,
       tags.moods,
       tags.instrumentation,
       tags.hasVocals ? 1 : 0,

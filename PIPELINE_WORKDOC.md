@@ -4,27 +4,31 @@ This document is the single source of truth for rebuilding the BGMancer playlist
 
 ---
 
-## 1. Current State (Post-M7)
+## 1. Current State (Post-M8)
 
 ### What exists today
 
-M0–M3, M5, M6, and M7 are committed. The generation pipeline (`src/lib/pipeline/index.ts`) is now clean: three deterministic phases with no per-track LLM scoring.
+M0–M3, M5, M6, M7, and M8 are committed. The generation pipeline (`src/lib/pipeline/index.ts`) is clean: three deterministic phases with no per-track LLM scoring.
 
 **Phase 1 — YouTube OST Playlist Discovery** — Searches YouTube for the game's official OST playlist, stores the playlist ID in `games.yt_playlist_id`. Then fetches all video items from that playlist.
 
-**Phase 1.5 — Track Resolution (NEW in M7)** — Maps YouTube videos to canonical tracks via the `resolveTracksToVideos` resolver. Reads real LLM tags (`energy`, `role`, `moods`, `instrumentation`, `hasVocals`) from the `tracks` table. Filters out untagged tracks (those awaiting tagger review). On Bard tier or if the game has no curated tracks, falls back to legacy stubs (`energy: 2, role: ambient, moods: [], instrumentation: [], hasVocals: false`). SSE progress events label legacy games as "limited quality."
+**Phase 1.5 — Track Resolution** — Maps YouTube videos to canonical tracks via the `resolveTracksToVideos` resolver. Reads real LLM tags (`energy`, `roles`, `moods`, `instrumentation`, `hasVocals`) from the `tracks` table. Filters out untagged tracks. On Bard tier or if the game has no curated tracks, falls back to legacy stubs. SSE progress events label legacy games as "limited quality."
 
 **Phase 3 — Deterministic Arc Assembly** — TypeScript Director (`director.ts`). Assembles the final playlist:
 
-- Expands the arc template into per-slot requirements (6 phases: intro/rising/peak/valley/climax/outro)
-- For each slot: `scoreTrack(track, slot)`:
+- Expands the arc template into per-slot requirements (6 phases: intro/rising/peak/valley/climax/outro). Each slot carries `energyPrefs`, `rolePrefs`, `preferredMoods`, `penalizedMoods`, `preferredInstrumentation`.
+- For each slot: `scoreTrack(track, slot, rubric?)`:
   - Hard energy filter: rejects tracks outside slot's energy range → `-Infinity`
-  - **Baseline score: 50** (neutral) + 5 if role matches slot
-  - No per-track LLM involvement
-- `pickBestTrack` → **pure greedy** — picks the single highest-scoring track. No randomisation at this level.
-- Game budgets, back-to-back avoidance, and focus game guarantees are all handled by `assemblePlaylist`.
+  - **Weighted Jaccard Resonance** across three dimensions:
+    - Role (binary intersection): `track.roles ∩ slot.rolePrefs ≠ ∅` → 1.0, else 0.0. Weight: 0.40
+    - Mood: Jaccard similarity between track moods and target moods. Weight: 0.35
+    - Instrumentation: Jaccard similarity between track instruments and target instruments. Weight: 0.25
+  - Penalty multipliers: 0.5× for penalized moods, 0.5× for vocals when `allowVocals: false`
+  - Rubric (optional `ScoringRubric`) overrides mood/instrumentation targets exclusively (XOR, not merge); promotes extra preferred roles; adds to penalized mood set
+- `pickBestTrack` → **top-N weighted random** (`DIRECTOR_TOP_N_POOL = 5`). Probability proportional to `score + 0.01`.
+- Game budgets, same-game avoidance, and focus game guarantees handled by `assemblePlaylist`.
 
-**Vibe Check removed.** The old `casting.ts` and `vibe-check.ts` are deleted. Session-level LLM rubric generation is deferred to M9 (Vibe Profiler).
+**Vibe Check removed.** The old `casting.ts` and `vibe-check.ts` are deleted. Session-level LLM rubric generation is Phase 2 (M9 — Vibe Profiler). `ScoringRubric` type and `assemblePlaylist(rubric?)` are already wired; M9 only needs to generate and pass the rubric.
 
 ### LLM providers
 
@@ -91,7 +95,7 @@ interface Track {
   position: number;
   active: boolean;                // 1 = curation-eligible, 0 = excluded until Backstage activation
   energy: 1 | 2 | 3 | null;
-  role: TrackRole | null;
+  roles: TrackRole[];             // multi-role: up to 2 values, stored as JSON array in tracks.role column
   moods: TrackMood[];
   instrumentation: TrackInstrumentation[];
   hasVocals: boolean | null;
@@ -107,25 +111,50 @@ interface TaggedTrack {
   gameTitle: string;
   cleanName: string;
   energy: 1 | 2 | 3;
-  role: TrackRole;
+  roles: TrackRole[];             // intersection-checked against slot.rolePrefs in Director
   isJunk: boolean;
   moods: TrackMood[];
   instrumentation: TrackInstrumentation[];
   hasVocals: boolean;
 }
 
-interface VibeScore {
-  fitScore: number; // 1–100 — to be removed in M7
+interface ResolvedTrack {
+  videoId: string;
+  videoTitle: string;
+  channelTitle: string;
+  thumbnail: string;
+  gameId: string;
+  trackName: string;
+  energy: 1 | 2 | 3 | null;
+  roles: TrackRole[];
+  moods: TrackMood[];
+  instrumentation: TrackInstrumentation[];
+  hasVocals: boolean | null;
+}
+
+interface ScoringRubric {
+  targetEnergy: Array<1 | 2 | 3>;
+  preferredMoods: TrackMood[];
+  penalizedMoods: TrackMood[];
+  preferredInstrumentation: TrackInstrumentation[];
+  penalizedInstrumentation: TrackInstrumentation[];
+  allowVocals: boolean | null;
+  preferredRoles: TrackRole[];
 }
 ```
 
 ### Key constants (current)
 
 ```
-TAG_BATCH_SIZE          = 25    LLM tagging batch size
-TAG_POOL_MAX            = 80    Max tracks per game sent to tagger
-CASTING_POOL_MULTIPLIER = 2.5   Vibe Check candidate pool multiplier (to be removed M7)
-VIBE_RECENTLY_PLAYED_LIMIT      Max recent track names passed to Vibe Check (to be removed M7)
+TAG_BATCH_SIZE             = 25    LLM tagging batch size
+TAG_POOL_MAX               = 80    Max tracks per game sent to tagger
+
+SCORE_WEIGHT_ROLE          = 0.40  Director: weight for role dimension (binary intersection)
+SCORE_WEIGHT_MOOD          = 0.35  Director: weight for mood Jaccard similarity
+SCORE_WEIGHT_INSTRUMENT    = 0.25  Director: weight for instrumentation Jaccard similarity
+SCORE_PENALTY_MULTIPLIER   = 0.5   Director: score multiplier when penalized mood present
+SCORE_VOCALS_PENALTY_MULTIPLIER = 0.5  Director: score multiplier when vocals disallowed
+DIRECTOR_TOP_N_POOL        = 5     Director: pool size for weighted random pick
 ```
 
 ### DB schema (current — relevant tables)
@@ -140,6 +169,8 @@ tracks (game_id, name, position, active, energy, role, moods,
         instrumentation, has_vocals, tagged_at)
 -- PK: (game_id, name)
 -- active: INTEGER NOT NULL DEFAULT 1 (1 = curation-eligible, 0 = excluded until Backstage activation)
+-- role: TEXT — stores JSON array of TrackRole values (e.g. '["combat","cinematic"]'). Up to 2 values.
+--        Parsed by toTrack() via parseJsonArray. Tagger writes JSON.stringify(roles).
 -- Notes: clean track names from source (Discogs, manual, etc); all metadata is nullable until tagged
 
 video_tracks (video_id, game_id, track_name, aligned_at)
@@ -233,12 +264,10 @@ When Discogs finds no soundtrack for a game, `tagging_status` is set to `'limite
 ```
 M0 ✅ → M1 ✅ → M2 ✅ → M3 ✅ → M4
                  M3 → M5 ✅
-                 M1 → M6 ✅ → M7
-                              M7 → M8
-                              M8 → M9
+                 M1 → M6 ✅ → M7 ✅ → M8 ✅ → M9
 ```
 
-Execute in order: **M0 ✅, M1 ✅, M2 ✅, M3 ✅, M5 ✅, M6 ✅, M4 (parallel), M7 (next), M8, M9**
+Execute in order: **M0 ✅, M1 ✅, M2 ✅, M3 ✅, M5 ✅, M6 ✅, M7 ✅, M8 ✅, M4 (parallel), M9 (next)**
 
 ---
 
@@ -310,7 +339,8 @@ export const Tracks = {
   hasData(gameId: string): boolean
   isTagged(gameId: string): boolean
   updateTags(gameId: string, name: string, tags: {
-    energy: number; role: string; moods: string; instrumentation: string; hasVocals: boolean;
+    energy: number; roles: string; moods: string; instrumentation: string; hasVocals: boolean;
+    // roles: JSON.stringify(TrackRole[]) — stored in tracks.role column as JSON array
   }): void
   clearTags(gameId: string): void
 }
@@ -656,92 +686,50 @@ else:
 
 ---
 
-### M8 — Enhanced Director Scoring
+### M8 — Enhanced Director Scoring ✅ DONE
 
-**What to build**
+**What was built**
 
-Upgrade `scoreTrack` from a trivial placeholder to a full weighted additive scorer. The arc template gains per-phase emotional profiles used as a fallback rubric when no session rubric is available.
+Replaced the additive placeholder scorer with a Weighted Jaccard Resonance model. Arc template extended with full emotional profiles per phase. Multi-role support added across the full stack.
 
-**`src/lib/constants.ts`** — add scoring weight constants
+**Scoring model** (`src/lib/pipeline/director.ts`)
 
-```typescript
-export const SCORE_BASELINE = 50;
-export const SCORE_ROLE_MATCH = 10;
-export const SCORE_MOOD_MATCH = 8; // per mood (up to 3 = max +24)
-export const SCORE_MOOD_PENALTY = 12; // per penalized mood
-export const SCORE_INSTRUMENT_MATCH = 5; // per instrument (up to 2 = max +10)
-export const SCORE_VOCALS_PENALTY = 15;
-export const DIRECTOR_TOP_N_POOL = 5;
+- `ArcSlot` extended: `preferredMoods`, `penalizedMoods`, `preferredInstrumentation` added to all 6 phases
+- `scoreTrack(track, slot, rubric?)` rewritten with Weighted Jaccard:
+  - Energy gate: `-Infinity` if not in `slot.energyPrefs`
+  - Role: binary intersection — `track.roles ∩ slot.rolePrefs ≠ ∅` → 1.0, else 0.0. Weight: 0.40
+  - Mood: `jaccard(track.moods, targetMoods)`. Weight: 0.35
+  - Instrumentation: `jaccard(track.instrumentation, targetInst)`. Weight: 0.25
+  - Penalty: 0.5× multiplier if any penalized mood present (arc + rubric unioned)
+  - Vocals penalty: 0.5× if `rubric.allowVocals === false && track.hasVocals`
+- `pickBestTrack` → `weightedTopN()`: sort by score, take top 5, weighted random draw (`P ∝ score + 0.01`)
+- `assemblePlaylist(taggedPools, games, targetCount, rubric?)` — rubric is optional, Director falls back to arc slot defaults when absent
+
+**Multi-role refactor**
+
+`role: TrackRole` → `roles: TrackRole[]` across the full stack:
+
+| File                             | Change                                                                                  |
+| -------------------------------- | --------------------------------------------------------------------------------------- |
+| `src/types/index.ts`             | `Track.roles`, `TaggedTrack.roles`, `ResolvedTrack.roles`                               |
+| `src/lib/db/mappers.ts`          | `toTrack` uses `parseJsonArray` on `tracks.role` column                                 |
+| `src/lib/db/repos/tracks.ts`     | `updateTags` payload: `roles: string` (JSON array)                                      |
+| `src/lib/pipeline/tagger.ts`     | Prompt asks for `roles` array (1–2 values); parses and writes `JSON.stringify(roles)`   |
+| `src/lib/pipeline/resolver.ts`   | `toResolvedTrack` passes `roles`; discovered stub uses `roles: []`                      |
+| `src/lib/pipeline/candidates.ts` | Filter: `roles.length > 0`; map: `roles: r.roles`; legacy: `roles: [TrackRole.Ambient]` |
+| `src/lib/pipeline/director.ts`   | `scoreTrack` checks `track.roles.some(r => slot.rolePrefs.includes(r))`                 |
+
+**Other additions**
+
+- `ScoringRubric` interface in `src/types/index.ts`
+- Scoring weight constants in `src/lib/constants.ts` (`SCORE_WEIGHT_ROLE`, `SCORE_WEIGHT_MOOD`, `SCORE_WEIGHT_INSTRUMENT`, `SCORE_PENALTY_MULTIPLIER`, `SCORE_VOCALS_PENALTY_MULTIPLIER`, `DIRECTOR_TOP_N_POOL`)
+- `DIRECTOR.md` — full architectural deep dive: arc visualization, Weighted Jaccard math spec, rubric interaction model, worked example ($R = 0.917$ for "The Last of Us Main Theme" in outro slot), edge cases, performance ($O(T \cdot S)$, <50ms)
+
+**Verification** ✅ Passed
+
+```bash
+npm run build && npm run lint  # zero errors
 ```
-
-**`src/lib/pipeline/director.ts`** — extend `ArcSlot` and rewrite `scoreTrack`
-
-Extend `ArcSlot` with `preferredMoods`, `penalizedMoods`, `preferredInstrumentation`.
-
-Update `ARC_TEMPLATE` with per-phase emotional profiles:
-
-| Phase  | Preferred Moods                   | Penalized Moods             | Preferred Instruments      |
-| ------ | --------------------------------- | --------------------------- | -------------------------- |
-| intro  | peaceful, mysterious, nostalgic   | chaotic, epic               | piano, ambient, strings    |
-| rising | mysterious, tense, melancholic    | playful, whimsical          | orchestral, strings, synth |
-| peak   | epic, tense, heroic               | peaceful, serene, whimsical | orchestral, rock, metal    |
-| valley | peaceful, serene, melancholic     | epic, chaotic, heroic       | ambient, piano, acoustic   |
-| climax | epic, heroic, triumphant, chaotic | peaceful, playful           | orchestral, metal, choir   |
-| outro  | melancholic, nostalgic, peaceful  | chaotic, tense              | piano, acoustic, strings   |
-
-Rewrite `scoreTrack(track, slot, rubric?)`:
-
-```
-score = SCORE_BASELINE
-if track.energy not in slot.energyPrefs → return -Infinity
-
-if track.role in slot.rolePrefs → score += SCORE_ROLE_MATCH
-if rubric?.preferredRoles includes track.role → score += SCORE_ROLE_MATCH  // stacks
-
-activeMoods    = rubric?.preferredMoods  ?? slot.preferredMoods
-penalizedMoods = rubric?.penalizedMoods  ?? slot.penalizedMoods
-for each mood in track.moods:
-  if mood in activeMoods    → score += SCORE_MOOD_MATCH
-  if mood in penalizedMoods → score -= SCORE_MOOD_PENALTY
-
-activeInstruments = rubric?.preferredInstrumentation ?? slot.preferredInstrumentation
-for each inst in track.instrumentation:
-  if inst in activeInstruments → score += SCORE_INSTRUMENT_MATCH
-
-if rubric?.allowVocals === false and track.hasVocals → score -= SCORE_VOCALS_PENALTY
-```
-
-Update `assemblePlaylist` signature to accept `rubric?: ScoringRubric` instead of `vibeScores`.
-
-Replace greedy pick with top-N weighted random in `pickBestTrack`.
-
-**`src/types/index.ts`** — add `ScoringRubric`
-
-```typescript
-export interface ScoringRubric {
-  targetEnergy: Array<1 | 2 | 3>;
-  preferredMoods: TrackMood[];
-  penalizedMoods: TrackMood[];
-  preferredInstrumentation: TrackInstrumentation[];
-  penalizedInstrumentation: TrackInstrumentation[];
-  allowVocals: boolean | null;
-  preferredRoles: TrackRole[];
-}
-```
-
-**Key files**
-
-| File                           | Action                       |
-| ------------------------------ | ---------------------------- |
-| `src/lib/pipeline/director.ts` | Modify — rewrite scoring     |
-| `src/lib/constants.ts`         | Modify — add scoring weights |
-| `src/types/index.ts`           | Modify — add ScoringRubric   |
-
-**How to verify**
-
-1. Generate a 50-track playlist. Intro tracks should be calm/atmospheric; peak/climax should be intense.
-2. Generate again → different playlist (weighted random).
-3. Debug log `scoreTrack` to confirm score distribution.
 
 ---
 
@@ -863,18 +851,19 @@ Also remove:
 
 ## 7. Quick Reference — New Files
 
-| File                                | Milestone | Purpose                                        |
-| ----------------------------------- | --------- | ---------------------------------------------- |
-| `src/lib/services/discogs.ts`       | M1        | Discogs API client                             |
-| `src/lib/db/repos/tracks.ts`        | M1        | DB repo for tracks table                       |
-| `src/lib/pipeline/tagger.ts`        | M2        | LLM tagger for clean track names               |
-| `src/lib/pipeline/onboarding.ts`    | M3        | Game indexing orchestrator                     |
-| `src/app/backstage/**`              | M4        | Backstage pages (see BACKSTAGE_DESIGN.md)      |
-| `src/app/api/backstage/**`          | M4        | Backstage API routes (see BACKSTAGE_DESIGN.md) |
-| `src/components/backstage/**`       | M4        | Backstage UI components                        |
-| `src/lib/pipeline/resolver.ts`      | M6        | YouTube → DB track resolution (hybrid)         |
-| `src/lib/db/repos/video-tracks.ts`  | M6        | DB repo for video_tracks                       |
-| `src/lib/pipeline/vibe-profiler.ts` | M9        | LLM Vibe Profiler → ScoringRubric              |
+| File                                | Milestone | Purpose                                                |
+| ----------------------------------- | --------- | ------------------------------------------------------ |
+| `src/lib/services/discogs.ts`       | M1        | Discogs API client                                     |
+| `src/lib/db/repos/tracks.ts`        | M1        | DB repo for tracks table                               |
+| `src/lib/pipeline/tagger.ts`        | M2        | LLM tagger for clean track names                       |
+| `src/lib/pipeline/onboarding.ts`    | M3        | Game indexing orchestrator                             |
+| `src/app/backstage/**`              | M4        | Backstage pages (see BACKSTAGE_DESIGN.md)              |
+| `src/app/api/backstage/**`          | M4        | Backstage API routes (see BACKSTAGE_DESIGN.md)         |
+| `src/components/backstage/**`       | M4        | Backstage UI components                                |
+| `src/lib/pipeline/resolver.ts`      | M6        | YouTube → DB track resolution (hybrid)                 |
+| `src/lib/db/repos/video-tracks.ts`  | M6        | DB repo for video_tracks                               |
+| `src/lib/pipeline/vibe-profiler.ts` | M9        | LLM Vibe Profiler → ScoringRubric                      |
+| `DIRECTOR.md`                       | M8        | Architectural deep dive: scoring model, arc, math spec |
 
 ---
 

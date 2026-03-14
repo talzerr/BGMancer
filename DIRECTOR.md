@@ -91,11 +91,13 @@ With weights:
 | Mood            | 0.35       | Jaccard similarity |
 | Instrumentation | 0.25       | Jaccard similarity |
 
-#### Why Role Is Binary, Not Jaccard
+#### Why Role Is an Intersection Check, Not Jaccard
 
-Role is not scored with Jaccard even though it could be (each track has a single role, each slot has a preferred role set). The reason is **semantic precision**: a track's role (`Combat`, `Ambient`, `Closer`, etc.) is a categorical classification, not a fuzzy membership. A `Combat` track in an intro slot isn't "somewhat wrong" — it's categorically wrong. Treating it as a partial Jaccard match would introduce an artificial "flexibility penalty" that obscures the distinction between good-fit and bad-fit tracks.
+Tracks carry an array of roles (e.g., `[Combat, Cinematic]`) and slots carry a preferred role set. The scoring is a **pass/fail membership test**: if any of the track's roles overlaps with the slot's preferred roles, the full `1.0` is awarded. If the intersection is empty, the score is `0.0`.
 
-The binary model also means role carries its full `0.40` weight only when it matches. A role mismatch floors that dimension to `0.0` — a strong signal, not a soft nudge.
+Jaccard is deliberately avoided here. Jaccard would penalize a track for having _more_ roles than the slot expects — a track tagged `[Combat, Cinematic]` would score lower than a track tagged only `[Combat]` in a Combat slot, even though the multi-role track is at least as good a fit. The intersection check removes this "flexibility penalty" entirely: extra roles never hurt, they only help.
+
+The binary outcome also means role carries its full `0.40` weight only when any match exists. A role mismatch floors that dimension to `0.0` — a strong signal, not a soft nudge. Role is a categorical classification, not a fuzzy one: a `Closer` track in a climax slot isn't "somewhat wrong," it's categorically wrong.
 
 #### Penalty Multipliers
 
@@ -156,7 +158,7 @@ $$\text{if } t.\text{energy} \notin s.\text{energyPrefs} \Rightarrow R = -\infty
 
 **2. Role Score**
 
-$$S_{\text{role}} = \begin{cases} 1.0 & \text{if } t.\text{role} \in s.\text{rolePrefs} \text{ or } t.\text{role} \in \rho.\text{preferredRoles} \\ 0.0 & \text{otherwise} \end{cases}$$
+$$S_{\text{role}} = \begin{cases} 1.0 & \text{if } t.\text{roles} \cap s.\text{rolePrefs} \neq \emptyset \text{ or } t.\text{roles} \cap \rho.\text{preferredRoles} \neq \emptyset \\ 0.0 & \text{otherwise} \end{cases}$$
 
 **3. Mood Score**
 
@@ -199,7 +201,7 @@ This introduces controlled non-determinism: two generation runs with the same li
 
 ```
 energy:          1
-role:            Closer
+roles:           [Closer, Ambient]
 moods:           [melancholic, nostalgic, peaceful]
 instrumentation: [acoustic, strings]
 hasVocals:       false
@@ -218,7 +220,7 @@ preferredInstrumentation: [piano, acoustic, strings]
 **Step 1 — Energy Gate:** Energy `1` ∈ `[1]`. Passes.
 
 **Step 2 — Role Score:**
-`Closer` ∈ `[Closer, Ambient, Menu]` → $S_{\text{role}} = 1.0$
+$\{Closer, Ambient\} \cap \{Closer, Ambient, Menu\} = \{Closer, Ambient\} \neq \emptyset$ → $S_{\text{role}} = 1.0$
 
 **Step 3 — Mood Score:**
 

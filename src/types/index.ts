@@ -187,7 +187,7 @@ export interface TaggedTrack {
   gameTitle: string;
   cleanName: string;
   energy: 1 | 2 | 3;
-  role: TrackRole;
+  roles: TrackRole[];
   isJunk: boolean;
   moods: TrackMood[];
   instrumentation: TrackInstrumentation[];
@@ -199,7 +199,7 @@ export interface Track {
   name: string;
   position: number;
   energy: 1 | 2 | 3 | null;
-  role: TrackRole | null;
+  roles: TrackRole[];
   moods: TrackMood[];
   instrumentation: TrackInstrumentation[];
   hasVocals: boolean | null;
@@ -215,7 +215,7 @@ export interface ResolvedTrack {
   gameId: string;
   trackName: string;
   energy: 1 | 2 | 3 | null;
-  role: TrackRole | null;
+  roles: TrackRole[];
   moods: TrackMood[];
   instrumentation: TrackInstrumentation[];
   hasVocals: boolean | null;

@@ -54,7 +54,7 @@ Given a list of game soundtrack tracks, return a JSON array with one entry per t
 Each entry must have:
 - "index": the track number (1-based, matching the input list)
 - "energy": 1 (calm/ambient/background), 2 (moderate/building), or 3 (high-intensity/combat/climactic)
-- "role": one of: opener, ambient, build, combat, closer, menu, cinematic
+- "roles": array of 1-2 values from: opener, ambient, build, combat, closer, menu, cinematic
 - "moods": array of up to 3 values from: epic, tense, peaceful, melancholic, triumphant, mysterious, playful, dark, ethereal, heroic, nostalgic, ominous, serene, chaotic, whimsical
 - "instrumentation": array of up to 3 values from: orchestral, synth, acoustic, chiptune, piano, rock, metal, electronic, choir, ambient, jazz, folk, strings, brass, percussion
 - "hasVocals": true if the track has significant sung vocals, false otherwise
@@ -65,7 +65,7 @@ Return ONLY a JSON array. Do not include markdown fences or any other text.`;
 interface LLMTagItem {
   index: number;
   energy: number;
-  role: string;
+  roles: unknown[];
   moods: unknown[];
   instrumentation: unknown[];
   hasVocals: unknown;
@@ -134,12 +134,17 @@ export async function tagTracks(
         continue;
       }
 
-      const role = typeof item.role === "string" ? item.role.toLowerCase() : "";
-      if (!VALID_ROLES.has(role)) {
+      const roles = Array.isArray(item.roles)
+        ? (item.roles as unknown[])
+            .filter((r): r is string => typeof r === "string" && VALID_ROLES.has(r.toLowerCase()))
+            .map((r) => r.toLowerCase() as TrackRole)
+            .slice(0, 2)
+        : [];
+      if (roles.length === 0) {
         ReviewFlags.markAsNeedsReview(
           gameId,
           ReviewReason.EmptyMetadata,
-          `invalid role for "${track.name}": ${JSON.stringify(item.role)}`,
+          `invalid roles for "${track.name}": ${JSON.stringify(item.roles)}`,
         );
         continue;
       }
@@ -169,7 +174,7 @@ export async function tagTracks(
 
       Tracks.updateTags(gameId, track.name, {
         energy,
-        role: role as TrackRole,
+        roles: JSON.stringify(roles),
         moods: JSON.stringify(moods),
         instrumentation: JSON.stringify(instrumentation),
         hasVocals,

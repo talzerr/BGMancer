@@ -208,9 +208,11 @@ function scoreTrack(track: TaggedTrack, slot: ArcSlot, rubric?: ScoringRubric): 
   // Hard gate: energy must be in slot's energy prefs
   if (!slot.energyPrefs.includes(track.energy)) return -Infinity;
 
-  // Dimension 1: Role (binary match)
-  let roleScore = slot.rolePrefs.includes(track.role) ? 1.0 : 0.0;
-  if (rubric?.preferredRoles.includes(track.role)) roleScore = 1.0;
+  // Dimension 1: Role (intersection: any overlap with slot or rubric preferred roles → 1.0)
+  const slotRoleMatch = track.roles.some((r) => slot.rolePrefs.includes(r));
+  const rubricRoleMatch =
+    rubric != null && track.roles.some((r) => rubric.preferredRoles.includes(r));
+  const roleScore = slotRoleMatch || rubricRoleMatch ? 1.0 : 0.0;
 
   // Dimension 2: Mood Jaccard
   const targetMoods = rubric?.preferredMoods ?? slot.preferredMoods;
