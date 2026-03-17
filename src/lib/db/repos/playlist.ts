@@ -20,7 +20,6 @@ export interface InsertableTrack {
 export interface PendingTrackRow {
   id: string;
   search_queries: string[] | null;
-  allow_full_ost: boolean;
 }
 
 export interface SyncableTrackRow {
@@ -34,7 +33,7 @@ export const Playlist = {
     if (sessionId) {
       return toPlaylistTracks(
         stmt(`
-          SELECT pt.*, g.title AS game_title
+          SELECT pt.*, g.title AS game_title, g.steam_appid AS game_steam_appid
           FROM playlist_tracks pt
           JOIN games g ON g.id = pt.game_id
           WHERE pt.playlist_id = ?
@@ -44,7 +43,7 @@ export const Playlist = {
     }
     return toPlaylistTracks(
       stmt(`
-        SELECT pt.*, g.title AS game_title
+        SELECT pt.*, g.title AS game_title, g.steam_appid AS game_steam_appid
         FROM playlist_tracks pt
         JOIN games g ON g.id = pt.game_id
         WHERE pt.playlist_id = ${ACTIVE_SESSION_SQ}
@@ -55,9 +54,8 @@ export const Playlist = {
 
   listPending(userId: string): PendingTrackRow[] {
     const rows = stmt(`
-      SELECT pt.id, pt.search_queries, g.allow_full_ost
+      SELECT pt.id, pt.search_queries
       FROM playlist_tracks pt
-      JOIN games g ON g.id = pt.game_id
       WHERE pt.status = 'pending'
         AND pt.playlist_id = ${ACTIVE_SESSION_SQ}
       ORDER BY pt.position ASC
@@ -66,7 +64,6 @@ export const Playlist = {
     return rows.map((r) => ({
       id: String(r.id),
       search_queries: parseSearchQueries(r.search_queries),
-      allow_full_ost: !!r.allow_full_ost,
     }));
   },
 

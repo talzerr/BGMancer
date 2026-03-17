@@ -5,6 +5,7 @@ import { UserTier } from "@/types";
 import { getOrCreateUserId } from "@/lib/services/session";
 
 // TODO: clean up — dev-only tier toggle; remove or gate behind env flag before any public deploy
+/** POST /api/user/tier — Toggle the current user's tier between Bard and Maestro. Dev-only. */
 export async function POST() {
   try {
     const cookieStore = await cookies();

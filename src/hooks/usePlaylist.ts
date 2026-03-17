@@ -9,6 +9,7 @@ import { GENERATION_COOLDOWN_MS } from "@/lib/constants";
 export interface GenerateConfig {
   target_track_count: number;
   allow_long_tracks: boolean;
+  allow_short_tracks: boolean;
   anti_spoiler_enabled: boolean;
 }
 
@@ -96,10 +97,14 @@ export function usePlaylist() {
     }
   }
 
-  async function rerollTrack(id: string) {
+  async function rerollTrack(id: string, allowLongTracks = false, allowShortTracks = false) {
     setRerollingIds((prev) => new Set(prev).add(id));
     try {
-      const res = await fetch(`/api/playlist/${id}/reroll`, { method: "POST" });
+      const res = await fetch(`/api/playlist/${id}/reroll`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ allowLongTracks, allowShortTracks }),
+      });
       if (res.ok) {
         const { track } = (await res.json()) as { track: PlaylistTrack };
         setTracks((prev) => prev.map((t) => (t.id === id ? track : t)));

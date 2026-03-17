@@ -49,12 +49,12 @@ export function toGame(row: Record<string, unknown>): Game {
   return {
     id: String(row.id),
     title: String(row.title),
-    allow_full_ost: !!row.allow_full_ost,
     curation,
     steam_appid: row.steam_appid != null ? Number(row.steam_appid) : null,
     playtime_minutes: row.playtime_minutes != null ? Number(row.playtime_minutes) : null,
     tagging_status,
     tracklist_source: row.tracklist_source != null ? String(row.tracklist_source) : null,
+    yt_playlist_id: row.yt_playlist_id != null ? String(row.yt_playlist_id) : null,
     needs_review: !!row.needs_review,
     created_at: String(row.created_at ?? ""),
     updated_at: String(row.updated_at ?? ""),
@@ -85,6 +85,7 @@ export function toPlaylistTrack(row: Record<string, unknown>): PlaylistTrack {
     playlist_id: String(row.playlist_id ?? ""),
     game_id: String(row.game_id),
     game_title: row.game_title != null ? String(row.game_title) : undefined,
+    game_steam_appid: row.game_steam_appid != null ? Number(row.game_steam_appid) : null,
     track_name: row.track_name != null ? String(row.track_name) : null,
     video_id: row.video_id != null ? String(row.video_id) : null,
     video_title: row.video_title != null ? String(row.video_title) : null,
@@ -131,14 +132,14 @@ function parseJsonArray<T>(raw: unknown, validSet: Set<string>): T[] {
 export function toTrack(row: Record<string, unknown>): Track {
   const rawEnergy = row.energy != null ? Number(row.energy) : null;
   const energy = rawEnergy === 1 || rawEnergy === 2 || rawEnergy === 3 ? rawEnergy : null;
-  const rawRole = row.role != null ? String(row.role) : null;
-  const role = rawRole != null && VALID_ROLES.has(rawRole) ? (rawRole as TrackRole) : null;
+  const roles = parseJsonArray<TrackRole>(row.role, VALID_ROLES);
   return {
     gameId: String(row.game_id),
     name: String(row.name),
     position: Number(row.position ?? 0),
+    durationSeconds: row.duration_seconds != null ? Number(row.duration_seconds) : null,
     energy,
-    role,
+    roles,
     moods: parseJsonArray<TrackMood>(row.moods, VALID_MOODS),
     instrumentation: parseJsonArray<TrackInstrumentation>(
       row.instrumentation,

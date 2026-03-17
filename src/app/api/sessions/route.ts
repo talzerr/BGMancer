@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { Sessions, Users } from "@/lib/db/repo";
 import { getOrCreateUserId } from "@/lib/services/session";
 
+/** GET /api/sessions — List all sessions for the current user with track counts. */
 export async function GET() {
   try {
     const cookieStore = await cookies();

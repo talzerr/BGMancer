@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
-import { YtPlaylists } from "@/lib/db/repo";
+import { getDB } from "@/lib/db";
 
+/** GET /api/dev/yt-playlists — List all games that have a cached YouTube playlist ID. Dev-only. */
 export async function GET() {
   try {
-    return NextResponse.json(YtPlaylists.loadRaw());
+    const rows = getDB()
+      .prepare(
+        "SELECT id AS game_id, title AS game_title, yt_playlist_id AS playlist_id FROM games WHERE yt_playlist_id IS NOT NULL ORDER BY title ASC",
+      )
+      .all();
+    return NextResponse.json(rows);
   } catch (err) {
     console.error("[GET /api/dev/yt-playlists]", err);
     return NextResponse.json({ error: "Failed to load yt-playlists" }, { status: 500 });

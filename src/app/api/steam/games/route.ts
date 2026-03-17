@@ -44,6 +44,12 @@ async function resolveSteamId(vanity: string, apiKey: string): Promise<string | 
   return null;
 }
 
+/**
+ * GET /api/steam/games?input=<steamid|vanity|url>
+ *
+ * Fetches a Steam user's owned game library sorted by playtime.
+ * Accepts a SteamID64, vanity name, or steamcommunity.com profile URL.
+ */
 export async function GET(request: Request) {
   const apiKey = process.env.STEAM_API_KEY;
   if (!apiKey) {

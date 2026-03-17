@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { TaggingStatus } from "@/types";
 import type { Game } from "@/types";
+import type { GameStatusPayload } from "@/lib/events";
 
 export function useGameLibrary() {
   const [games, setGames] = useState<Game[]>([]);
@@ -37,18 +37,24 @@ export function useGameLibrary() {
     return false;
   }
 
-  const hasIndexing = games.some(
-    (g) =>
-      g.tagging_status === TaggingStatus.Indexing || g.tagging_status === TaggingStatus.Pending,
-  );
-
+  // Subscribe to game status updates via SSE instead of polling.
+  // The server pushes { gameId, status } whenever onboardGame() changes a game's status.
   useEffect(() => {
-    if (!hasIndexing) return;
-    const id = setInterval(() => {
-      fetchGames();
-    }, 3000);
-    return () => clearInterval(id);
-  }, [hasIndexing, fetchGames]);
+    const source = new EventSource("/api/games/status-stream");
+
+    source.onmessage = (e: MessageEvent) => {
+      const event = JSON.parse(e.data) as GameStatusPayload;
+      setGames((prev) =>
+        prev.map((g) => (g.id === event.gameId ? { ...g, tagging_status: event.status } : g)),
+      );
+    };
+
+    source.onerror = (err) => {
+      console.error("[useGameLibrary] SSE error:", err);
+    };
+
+    return () => source.close();
+  }, []);
 
   return { games, gamesLoading, fetchGames, handleGameAdded, deleteGame };
 }

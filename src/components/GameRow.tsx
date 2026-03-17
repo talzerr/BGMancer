@@ -1,16 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { CurationMode, TaggingStatus } from "@/types";
 import type { Game } from "@/types";
-import {
-  TrashIcon,
-  YouTubeLogo,
-  CheckIcon,
-  XIcon,
-  InfoIcon,
-  ErrorCircle,
-} from "@/components/Icons";
+import { TrashIcon, InfoIcon, ErrorCircle } from "@/components/Icons";
 import { steamHeaderUrl } from "@/lib/constants";
 
 const CURATION_OPTIONS: {
@@ -93,39 +86,17 @@ function SteamCoverArt({ appid, title }: { appid: number; title: string }) {
   );
 }
 
-function parsePlaylistId(input: string): string | null {
-  const trimmed = input.trim();
-  if (!trimmed) return null;
-  try {
-    const url = new URL(trimmed);
-    const list = url.searchParams.get("list");
-    if (list) return list;
-  } catch {
-    // not a URL — treat as raw ID
-  }
-  if (/^[A-Za-z0-9_-]{10,}$/.test(trimmed)) return trimmed;
-  return null;
-}
-
 export function GameRow({
   game,
-  ytPlaylistId,
   onCurationChange,
   onDelete,
-  onPlaylistChange,
 }: {
   game: Game;
-  ytPlaylistId: string | null;
   onCurationChange: (id: string, curation: CurationMode) => void;
   onDelete: (id: string) => void;
-  onPlaylistChange: (id: string, playlistId: string | null) => void;
 }) {
   const [toggling, setToggling] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [editingPlaylist, setEditingPlaylist] = useState(false);
-  const [playlistInput, setPlaylistInput] = useState("");
-  const [playlistError, setPlaylistError] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
   const playtime = formatPlaytime(game.playtime_minutes);
 
   async function handleCurationChange(mode: CurationMode) {
@@ -135,32 +106,8 @@ export function GameRow({
     setToggling(false);
   }
 
-  function openPlaylistEdit() {
-    setPlaylistInput(ytPlaylistId ? `https://www.youtube.com/playlist?list=${ytPlaylistId}` : "");
-    setPlaylistError(false);
-    setEditingPlaylist(true);
-    setTimeout(() => inputRef.current?.focus(), 0);
-  }
-
-  function handlePlaylistSave() {
-    if (!playlistInput.trim()) {
-      onPlaylistChange(game.id, null);
-      setEditingPlaylist(false);
-      return;
-    }
-    const id = parsePlaylistId(playlistInput);
-    if (!id) {
-      setPlaylistError(true);
-      return;
-    }
-    onPlaylistChange(game.id, id);
-    setEditingPlaylist(false);
-  }
-
-  function handlePlaylistKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Enter") handlePlaylistSave();
-    if (e.key === "Escape") setEditingPlaylist(false);
-  }
+  const isLimited =
+    game.tagging_status === TaggingStatus.Limited || game.tagging_status === TaggingStatus.Failed;
 
   const rowClass = {
     skip: "border-white/[0.03] bg-zinc-950/60 opacity-50",
@@ -170,7 +117,9 @@ export function GameRow({
   }[game.curation];
 
   return (
-    <div className={`group rounded-xl border px-3.5 pt-2.5 pb-2 transition-colors ${rowClass}`}>
+    <div
+      className={`group rounded-xl border px-3.5 pt-2.5 pb-2 transition-colors ${rowClass} ${isLimited ? "border-l-2 border-l-yellow-500/50" : ""}`}
+    >
       {/* Main row */}
       <div className="flex items-center gap-3">
         {game.steam_appid ? (
@@ -184,9 +133,16 @@ export function GameRow({
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm leading-tight font-medium text-zinc-100">{game.title}</p>
           {playtime && <p className="mt-0.5 text-[11px] leading-none text-zinc-500">{playtime}</p>}
+          {game.tagging_status === TaggingStatus.Limited && (
+            <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-yellow-500/80">
+              <ErrorCircle className="h-2.5 w-2.5 shrink-0" />
+              Limited soundtrack data
+            </span>
+          )}
           {game.tagging_status === TaggingStatus.Failed && (
-            <span className="mt-0.5 inline-block text-yellow-500" title="Limited soundtrack data">
-              <ErrorCircle className="h-2.5 w-2.5" />
+            <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-yellow-500/80">
+              <ErrorCircle className="h-2.5 w-2.5 shrink-0" />
+              Limited soundtrack data
             </span>
           )}
         </div>
@@ -231,73 +187,6 @@ export function GameRow({
           >
             <TrashIcon />
           </button>
-        )}
-      </div>
-
-      {/* Playlist row */}
-      <div className="mt-1 pl-[58px]">
-        {editingPlaylist ? (
-          <div className="flex items-center gap-1.5">
-            <input
-              ref={inputRef}
-              type="text"
-              value={playlistInput}
-              onChange={(e) => {
-                setPlaylistInput(e.target.value);
-                setPlaylistError(false);
-              }}
-              onKeyDown={handlePlaylistKeyDown}
-              placeholder="youtube.com/playlist?list=… or playlist ID"
-              className={`min-w-0 flex-1 rounded-md border bg-zinc-800/80 px-2.5 py-1 text-xs text-white placeholder-zinc-600 focus:ring-1 focus:ring-teal-500/60 focus:outline-none ${
-                playlistError ? "border-red-500/60" : "border-white/[0.07]"
-              }`}
-            />
-            <button
-              onClick={handlePlaylistSave}
-              title="Save"
-              className="shrink-0 cursor-pointer rounded-md p-1 text-teal-400 hover:bg-teal-500/10"
-            >
-              <CheckIcon className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => setEditingPlaylist(false)}
-              title="Cancel"
-              className="shrink-0 cursor-pointer rounded-md p-1 text-zinc-500 hover:bg-zinc-700/50 hover:text-zinc-300"
-            >
-              <XIcon className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        ) : ytPlaylistId ? (
-          <div className="flex items-center gap-2">
-            <a
-              href={`https://www.youtube.com/playlist?list=${ytPlaylistId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-[11px] text-zinc-500 transition-colors hover:text-red-400"
-            >
-              <YouTubeLogo className="h-3 w-3 text-red-500/70" />
-              View playlist
-            </a>
-            <button
-              onClick={openPlaylistEdit}
-              className="cursor-pointer text-[11px] text-zinc-700 opacity-0 transition-all group-hover:opacity-100 hover:text-zinc-400"
-            >
-              · Change
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1 text-[11px] text-zinc-700">
-              <span className="inline-block h-1 w-1 shrink-0 rounded-full bg-zinc-700" />
-              Will discover on next run
-            </span>
-            <button
-              onClick={openPlaylistEdit}
-              className="cursor-pointer text-[11px] text-zinc-600 opacity-0 transition-all group-hover:opacity-100 hover:text-teal-400"
-            >
-              · Set manually
-            </button>
-          </div>
         )}
       </div>
     </div>

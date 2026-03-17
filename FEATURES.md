@@ -46,21 +46,23 @@ Pick **25**, **50**, or **100** from the preset buttons, or hit **Custom** to ty
 
 ### Options
 
-- **Long tracks** — off by default. When off, any track longer than 10 minutes is excluded from the playlist. This keeps OST medleys and extended suites out of a focused listening session. Turn it on if you want the full experience including those longer pieces.
+- **Long tracks** — off by default. When off, any track longer than 9 minutes is excluded from the playlist. This keeps OST medleys and extended suites out of a focused listening session. Turn it on if you want the full experience including those longer pieces.
 
 Regardless of this setting, tracks shorter than 90 seconds are always filtered out — title cards, stingers, and menu jingles aren't worth a playlist slot.
 
+- **Short tracks** — on by default. When off, tracks shorter than 90 seconds are filtered (see above). Usually left on.
+
 ### How it works
 
-Hit **Curate N Tracks** and watch a live progress panel as BGMancer works through your games. Behind the scenes it runs in three passes:
+Hit **Curate N Tracks** and watch a live progress panel as BGMancer works through your games. Behind the scenes it runs in three phases:
 
-1. **Find the OST** — for each game, BGMancer looks up (or pulls from cache) the official YouTube OST playlist
-2. **Pick candidates** — an AI filters each game's playlist, removing filler and picking a diverse shortlist of roughly 3× your target count
-3. **Build the playlist** — a second AI pass looks across all games' shortlists and assembles the final ordered playlist, mixing games, varying energy, and shaping an arc from start to finish
+1. **Discover & Tag** — for each game, find the YouTube OST playlist (cached or auto-discovered). Enrich all tracks with metadata tags: `energy` (1–3), `role` (Opener, Combat, Ambient, etc.), `moods`, `instrumentation`.
+2. **Score with Vibe** — (Maestro tier only) an LLM produces a session-level scoring rubric based on your library mix. Used to personalize track selection.
+3. **Assemble Arc** — pure TypeScript Director builds the final ordered playlist. Respects energy arc (intro → peak → outro), mixes games proportionally by curation weight, applies the vibe rubric, introduces weighted randomness so regenerations feel fresh.
 
-Because the candidate pools are shuffled before the AI sees them, regenerating the same games gives you a genuinely different playlist each time.
+Because the Director uses weighted random selection (not greedy), regenerating the same games produces genuinely different playlists each time while respecting the arc constraints.
 
-Tracks that couldn't be matched automatically are marked **pending** — hit **Find Missing** to run another search pass on them.
+Tracks that couldn't be matched automatically are marked **pending** — hit **Find Videos** to search YouTube for them by name.
 
 ### Generation cooldown
 
@@ -107,6 +109,8 @@ Each track row has a direct link to open the video on YouTube.
 ## Rerolling a track
 
 Hover any track row to reveal a **reroll** button. This replaces the track with a different one from the same game's OST playlist — useful when a track doesn't fit the mood or you've heard it too many times.
+
+Rerolled tracks respect your current **Long tracks** and **Short tracks** settings, so you get a replacement that matches your listening preferences.
 
 ---
 

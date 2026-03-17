@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { Sessions } from "@/lib/db/repo";
 import { getOrCreateUserId } from "@/lib/services/session";
 
+/** PATCH /api/sessions/:id — Rename a session. Body: { name: string }. */
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -24,6 +25,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 }
 
+/** DELETE /api/sessions/:id — Delete a session. Returns the next most recent session ID. */
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const cookieStore = await cookies();
