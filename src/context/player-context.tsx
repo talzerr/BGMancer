@@ -58,7 +58,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     if (config.antiSpoilerEnabled) {
       clearPlayedTracks();
     }
-  }, [config.antiSpoilerEnabled, clearPlayedTracks]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.antiSpoilerEnabled]);
 
   // Steam thumbnail map — built from playlist tracks so skipped games are included.
   // Each track carries game_steam_appid via JOIN, so no extra fetch is needed.
