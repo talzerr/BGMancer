@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDB } from "@/lib/db";
 
+/** GET /api/dev/yt-playlists — List all games that have a cached YouTube playlist ID. Dev-only. */
 export async function GET() {
   try {
     const rows = getDB()

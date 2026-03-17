@@ -144,6 +144,7 @@ export interface PlaylistTrack {
   playlist_id: string;
   game_id: string;
   game_title?: string; // populated via JOIN in API responses
+  game_steam_appid?: number | null; // populated via JOIN in API responses
   track_name: string | null;
   video_id: string | null;
   video_title: string | null;

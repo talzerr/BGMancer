@@ -6,6 +6,13 @@ import { LIBRARY_MAX_GAMES } from "@/lib/constants";
 import { getOrCreateUserId } from "@/lib/services/session";
 import { onboardGame } from "@/lib/pipeline/onboarding";
 
+/**
+ * POST /api/steam/import
+ *
+ * Bulk-imports Steam games into the user's library as curation='skip'.
+ * Triggers onboarding (Discogs lookup + tagging) for each newly imported game.
+ * Games are sorted by playtime and capped at the library limit.
+ */
 export async function POST(request: Request) {
   try {
     const cookieStore = await cookies();

@@ -1,9 +1,21 @@
 import { NextResponse } from "next/server";
 import { Playlist, Games } from "@/lib/db/repo";
 import { fetchPlaylistItems, fetchVideoDurations } from "@/lib/services/youtube";
+import { MIN_TRACK_DURATION_SECONDS, MAX_TRACK_DURATION_SECONDS } from "@/lib/constants";
 
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+/** POST /api/playlist/:id/reroll — Replace a track with a different one from the same game's YouTube playlist. */
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+
+  let allowLongTracks = false;
+  let allowShortTracks = false;
+  try {
+    const body = await req.json();
+    allowLongTracks = body.allowLongTracks === true;
+    allowShortTracks = body.allowShortTracks === true;
+  } catch {
+    // empty body — use defaults
+  }
 
   const track = Playlist.getById(id);
   if (!track) {
@@ -45,16 +57,31 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     );
   }
 
-  const picked = candidates[Math.floor(Math.random() * candidates.length)];
-
-  let durationSeconds: number | null = null;
+  // Fetch durations for all candidates so we can filter by length constraints
+  let durations = new Map<string, number>();
   try {
-    const durations = await fetchVideoDurations([picked.videoId]);
-    durationSeconds = durations.get(picked.videoId) ?? null;
+    durations = await fetchVideoDurations(candidates.map((c) => c.videoId));
   } catch (err) {
-    // Duration is optional — log but don't fail the reroll
     console.warn("[reroll] fetchVideoDurations failed (non-fatal):", err);
   }
+
+  const eligible = candidates.filter((item) => {
+    const secs = durations.get(item.videoId);
+    if (secs == null) return true; // duration unknown — allow through
+    if (!allowShortTracks && secs < MIN_TRACK_DURATION_SECONDS) return false;
+    if (!allowLongTracks && secs > MAX_TRACK_DURATION_SECONDS) return false;
+    return true;
+  });
+
+  if (eligible.length === 0) {
+    return NextResponse.json(
+      { error: "No alternative tracks match your current duration settings" },
+      { status: 409 },
+    );
+  }
+
+  const picked = eligible[Math.floor(Math.random() * eligible.length)];
+  const durationSeconds = durations.get(picked.videoId) ?? null;
 
   try {
     Playlist.setFound(

@@ -4,10 +4,16 @@ import { Games, Tracks, ReviewFlags } from "@/lib/db/repo";
 import { searchGameSoundtrack } from "@/lib/services/discogs";
 import { tagTracks } from "@/lib/pipeline/tagger";
 import { getTaggingProvider } from "@/lib/llm";
+import { bus } from "@/lib/events";
+
+function setStatus(gameId: string, status: TaggingStatus): void {
+  Games.setStatus(gameId, status);
+  bus.emit("game:status", { gameId, status });
+}
 
 export async function onboardGame(game: Game, tier: UserTier): Promise<void> {
   try {
-    Games.setStatus(game.id, TaggingStatus.Indexing);
+    setStatus(game.id, TaggingStatus.Indexing);
 
     const result = await searchGameSoundtrack(game.title);
 
@@ -28,15 +34,15 @@ export async function onboardGame(game: Game, tier: UserTier): Promise<void> {
       await tagTracks(game.id, game.title, dbTracks, provider);
 
       Games.update(game.id, { tracklist_source: `discogs:${releaseId}` });
-      Games.setStatus(game.id, TaggingStatus.Ready);
+      setStatus(game.id, TaggingStatus.Ready);
       console.warn(`[onboard] ${game.title}: ${tracks.length} tracks from Discogs, tagged`);
     } else {
       ReviewFlags.markAsNeedsReview(game.id, ReviewReason.NoDiscogsData);
-      Games.setStatus(game.id, TaggingStatus.Limited);
+      setStatus(game.id, TaggingStatus.Limited);
       console.warn(`[onboard] No Discogs data for "${game.title}", falling back to legacy path`);
     }
   } catch (err) {
-    Games.setStatus(game.id, TaggingStatus.Failed);
+    setStatus(game.id, TaggingStatus.Failed);
     console.error(`[onboard] Failed for "${game.title}":`, err);
   }
 }

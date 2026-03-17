@@ -19,6 +19,10 @@ export function usePlayerState(foundTracks: PlaylistTrack[]) {
     setPlayedTrackIds(new Set());
   }
 
+  function clearPlayedTracks() {
+    setPlayedTrackIds(new Set());
+  }
+
   function handleToggleShuffle() {
     const cur = currentTrackIndex ?? 0;
     if (shuffleMode) {
@@ -80,6 +84,7 @@ export function usePlayerState(foundTracks: PlaylistTrack[]) {
     handleToggleShuffle,
     playerBarRef,
     reset,
+    clearPlayedTracks,
     effectiveFoundTracks,
     playingTrackId,
     activeGameId,

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { Playlist, Users } from "@/lib/db/repo";
 import { getOrCreateUserId } from "@/lib/services/session";
 
+/** GET /api/playlist — Fetch tracks for the active session, or a specific session via ?sessionId=. */
 export async function GET(req: NextRequest) {
   try {
     const cookieStore = await cookies();
@@ -18,6 +19,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
+/** DELETE /api/playlist — Clear all tracks for the current user. */
 export async function DELETE() {
   try {
     const cookieStore = await cookies();
@@ -31,6 +33,7 @@ export async function DELETE() {
   }
 }
 
+/** PATCH /api/playlist — Reorder tracks. Body: { orderedIds: string[] }. */
 export async function PATCH(req: NextRequest) {
   try {
     const { orderedIds } = (await req.json()) as { orderedIds: string[] };

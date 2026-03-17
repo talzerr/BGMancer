@@ -211,7 +211,13 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
                             : undefined
                         }
                         onRemove={() => initiateRemove(track)}
-                        onReroll={() => playlist.rerollTrack(track.id)}
+                        onReroll={() =>
+                          playlist.rerollTrack(
+                            track.id,
+                            config.allowLongTracks,
+                            config.allowShortTracks,
+                          )
+                        }
                       />
                     );
                   })}

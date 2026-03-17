@@ -97,10 +97,14 @@ export function usePlaylist() {
     }
   }
 
-  async function rerollTrack(id: string) {
+  async function rerollTrack(id: string, allowLongTracks = false, allowShortTracks = false) {
     setRerollingIds((prev) => new Set(prev).add(id));
     try {
-      const res = await fetch(`/api/playlist/${id}/reroll`, { method: "POST" });
+      const res = await fetch(`/api/playlist/${id}/reroll`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ allowLongTracks, allowShortTracks }),
+      });
       if (res.ok) {
         const { track } = (await res.json()) as { track: PlaylistTrack };
         setTracks((prev) => prev.map((t) => (t.id === id ? track : t)));

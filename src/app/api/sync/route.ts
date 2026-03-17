@@ -12,6 +12,13 @@ import { getOrCreateUserId } from "@/lib/services/session";
 
 const SYNC_CONCURRENCY = 4;
 
+/**
+ * POST /api/sync
+ *
+ * Syncs all unsynced found tracks to a YouTube playlist ("BGMancer Journey").
+ * Requires the user to be signed in with Google (OAuth access token via NextAuth).
+ * Creates the YouTube playlist if it doesn't exist yet.
+ */
 export async function POST() {
   try {
     const session = await auth();

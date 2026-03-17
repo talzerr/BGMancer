@@ -43,6 +43,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   const fetchTracks = playlist.fetchTracks;
   const fetchGames = gameLibrary.fetchGames;
+  const clearPlayedTracks = player.clearPlayedTracks;
 
   useEffect(() => {
     fetchTracks();
@@ -52,16 +53,24 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     fetchGames();
   }, [fetchGames]);
 
-  // Steam thumbnail map — computed once here, shared with all consumers via context.
-  const gameThumbnailByGameId = useMemo(
-    () =>
-      new Map(
-        gameLibrary.games
-          .filter((g) => g.steam_appid != null)
-          .map((g) => [g.id, steamHeaderUrl(g.steam_appid as number)]),
-      ),
-    [gameLibrary.games],
-  );
+  // Re-blur all tracks when anti-spoiler is re-enabled
+  useEffect(() => {
+    if (config.antiSpoilerEnabled) {
+      clearPlayedTracks();
+    }
+  }, [config.antiSpoilerEnabled, clearPlayedTracks]);
+
+  // Steam thumbnail map — built from playlist tracks so skipped games are included.
+  // Each track carries game_steam_appid via JOIN, so no extra fetch is needed.
+  const gameThumbnailByGameId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const track of playlist.tracks) {
+      if (track.game_steam_appid != null && !map.has(track.game_id)) {
+        map.set(track.game_id, steamHeaderUrl(track.game_steam_appid));
+      }
+    }
+    return map;
+  }, [playlist.tracks]);
 
   return (
     <PlayerContext.Provider

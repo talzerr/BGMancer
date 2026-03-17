@@ -9,6 +9,7 @@ import type { AddGamePayload } from "@/types";
 import { getOrCreateUserId } from "@/lib/services/session";
 import { onboardGame } from "@/lib/pipeline/onboarding";
 
+/** GET /api/games — List active games (curation != skip). Pass ?includeDisabled=true to include skipped games. */
 export async function GET(request: Request) {
   try {
     const cookieStore = await cookies();
@@ -27,6 +28,7 @@ export async function GET(request: Request) {
   }
 }
 
+/** POST /api/games — Add a game to the library. Triggers onboarding (Discogs + tagging) automatically. */
 export async function POST(request: Request) {
   try {
     const cookieStore = await cookies();
@@ -69,6 +71,7 @@ export async function POST(request: Request) {
   }
 }
 
+/** PATCH /api/games?id=<gameId> — Update a game's curation mode. Body: { curation: CurationMode }. */
 export async function PATCH(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -100,6 +103,7 @@ export async function PATCH(request: Request) {
   }
 }
 
+/** DELETE /api/games?id=<gameId> — Remove a game from the library. Deletes the game row if it has no other library entries. */
 export async function DELETE(request: Request) {
   try {
     const cookieStore = await cookies();
