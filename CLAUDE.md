@@ -37,12 +37,16 @@ The DB file is `bgmancer.db` at the project root (or override with `SQLITE_PATH`
 
 ### Pages and routing
 
-Next.js App Router with two main pages:
+Next.js App Router with three main page areas:
 
 - `/` — main feed (`src/app/page.tsx` + `src/app/feed-client.tsx`) — playlist view, generation controls, session history
 - `/library` — game library management (`src/app/library/page.tsx` + `src/app/library/library-client.tsx`)
+- `/backstage` — admin control plane (`src/app/(backstage)/backstage/`) — inspect/correct track metadata, review flags, and Director telemetry. Three views:
+  - `/backstage/games` — game list with needs-review badges, re-ingest / retag actions
+  - `/backstage/tracks` — track lab: full tag table with inline editing via `TrackEditSheet`, bulk actions, re-tag trigger
+  - `/backstage/theatre` — Director telemetry: per-session score breakdown and arc-phase audit trail
 
-All pages are wrapped by `PlayerProvider` (in `src/app/layout.tsx`), which manages global state via `src/context/player-context.tsx`.
+All non-backstage pages are wrapped by `PlayerProvider` (in `src/app/layout.tsx`), which manages global state via `src/context/player-context.tsx`. Backstage has its own layout (`BackstageLayout`) and does not use `PlayerProvider`.
 
 ### Global state (PlayerContext)
 
@@ -58,10 +62,11 @@ Use `usePlayerContext()` to access any of these from any client component.
 ### Database layer (`src/lib/db/`)
 
 - `index.ts` — singleton `getDB()`, schema init, seed functions
-- `repo.ts` — five static repositories: `Games`, `Users`, `Sessions`, `Playlist`, `YtPlaylists`, `Config`
+- `repo.ts` — barrel re-export for all repos in `repos/`
+- `repos/` — one file per domain: `games`, `users`, `sessions`, `playlist`, `tracks`, `video-tracks`, `review-flags`, `decisions`
 - `mappers.ts` — raw SQLite row → typed object converters
 
-Statements are cached in a `Map<string, Statement>` in `repo.ts` to avoid repeated `db.prepare()` calls.
+Statements are cached via the `stmt()` helper in `repos/_shared.ts` to avoid repeated `db.prepare()` calls.
 
 The local single-user setup uses stable UUIDs: `LOCAL_USER_ID` and `LOCAL_LIBRARY_ID` (defined in `src/lib/db/index.ts`). All game queries filter by `LOCAL_LIBRARY_SQ` — a subquery that resolves the local user's library.
 
@@ -75,7 +80,7 @@ Three-phase process for individual-track games:
 
 1. **Phase 1 — Playlist discovery** (`candidates.ts`): find (or load from `game_yt_playlists` cache) the YouTube OST playlist ID per game
 2. **Phase 2 — Per-game track tagging** (`tagger.ts`): the Tagger LLM enriches each track with `energy`, `role`, `cleanName`, and junk detection. Results are cached in `track_tags` DB table.
-3. **Phase 3 — Deterministic arc assembly** (`director.ts`): the TypeScript Director builds the final ordered playlist from the tagged pool, shaping energy flow and cross-game balance. **No LLM involvement.**
+3. **Phase 3 — Deterministic arc assembly** (`director.ts`): the TypeScript Director builds the final ordered playlist from the tagged pool, shaping energy flow and cross-game balance. **No LLM involvement.** Each selected track produces a `TrackDecision` record (score components, arc phase, pool size, game budget) persisted via `DirectorDecisions.bulkInsert()` into `playlist_track_decisions` — this is the Director telemetry shown in the Theatre view.
 
 Between phases 2 and 3, **Vibe Check** (`vibe-check.ts`, Maestro only) scores a 2.5× candidate sample with an LLM to produce `fitScore` values; the Director weights these during arc assembly. `casting.ts` builds the candidate pool for Vibe Check.
 
@@ -134,6 +139,17 @@ All under `src/app/api/`. Key routes:
 - `GET/POST/DELETE /api/sessions/[id]` — session management
 - `POST /api/sync` — sync playlist to YouTube account
 
+Backstage API routes (all under `src/app/api/backstage/`):
+
+- `GET /api/backstage/games` — paginated game list with needs-review flag
+- `GET /api/backstage/games/[gameId]/tracks` — tracks for a single game
+- `POST /api/backstage/reingest` — re-run Phase 1 (playlist discovery) for a game
+- `POST /api/backstage/retag` — re-run Phase 2 (tagger) for a game; streams SSE progress
+- `GET/POST/DELETE /api/backstage/review-flags` — manage per-game review flags
+- `GET /api/backstage/tracks` — full track table with tag metadata
+- `GET /api/backstage/theatre/sessions` — session list for Theatre view
+- `GET /api/backstage/theatre/[playlistId]` — full telemetry for one playlist (tracks + decisions + budgets + rubric)
+
 ## Code style
 
 - Use `enum` for all named value sets — not string literal union types (`type Foo = "a" | "b"`). See `CurationMode`, `UserTier`, `TrackMood`, `TrackInstrumentation` as the established pattern.
@@ -141,6 +157,10 @@ All under `src/app/api/`. Key routes:
 ## Schema changes
 
 No migration system. There are no production users, so any schema change should be made directly in `src/lib/db/schema.ts` (in the `CREATE TABLE` definition) and applied with `npm run db:reset`. Never use `ALTER TABLE` — just update the schema and reset.
+
+### Review flags
+
+Games can be flagged for manual review via `ReviewFlags.markAsNeedsReview(gameId, reason, detail?)` in `repos/review-flags.ts`. This sets `games.needs_review = 1` and inserts a row into `game_review_flags`. The pipeline raises flags when it encounters bad data (e.g. no usable tracks, playlist not found). Backstage shows these and lets the operator clear them after correcting the metadata.
 
 ## Key constraints
 
