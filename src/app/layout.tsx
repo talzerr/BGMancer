@@ -1,44 +1,14 @@
 // BGMancer — Copyright (c) 2026 Tal Koviazin (talzerr) — MIT License
-import type { Metadata } from "next";
 import "./globals.css";
-import { PlayerProvider } from "@/context/player-context";
+import { Geist } from "next/font/google";
+import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = {
-  title: "BGMancer — AI Video Game OST Curator",
-  description:
-    "Add games you've played. BGMancer uses AI to find the best official soundtracks on YouTube and syncs them into your personal playlist.",
-  icons: {
-    icon: "/icon-512.png",
-    apple: "/icon-512.png",
-  },
-};
+const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
-      <body className="antialiased">
-        <PlayerProvider>{children}</PlayerProvider>
-        <footer className="border-t border-white/[0.04] py-4 text-center text-[11px] leading-relaxed text-zinc-600">
-          <p>
-            © 2026 BGMancer™ · Fan-made curation tool · Not affiliated with any developer or
-            publisher
-          </p>
-          <p className="mt-0.5">
-            All soundtracks are property of their respective owners · Streamed via YouTube · Not
-            hosted here
-          </p>
-          <p className="mt-1.5">
-            <a
-              href="https://github.com/talzerr/bgmancer"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="transition-colors hover:text-zinc-400"
-            >
-              Source Code
-            </a>
-          </p>
-        </footer>
-      </body>
+    <html lang="en" className={cn("dark", "font-sans", geist.variable)}>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }

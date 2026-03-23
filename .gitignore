@@ -25,7 +25,6 @@
 
 # claude code worktrees
 .claude/
-claude.md
 
 # misc
 .DS_Store

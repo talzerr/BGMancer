@@ -15,7 +15,6 @@ export function initSchema(db: Database.Database): void {
     CREATE TABLE IF NOT EXISTS games (
       id               TEXT    NOT NULL PRIMARY KEY,
       title            TEXT    NOT NULL,
-      curation         TEXT    NOT NULL DEFAULT 'include',
       steam_appid      INTEGER,
       playtime_minutes INTEGER,
       tagging_status   TEXT    NOT NULL DEFAULT 'pending',
@@ -41,6 +40,7 @@ export function initSchema(db: Database.Database): void {
     CREATE TABLE IF NOT EXISTS library_games (
       library_id TEXT NOT NULL,
       game_id    TEXT NOT NULL,
+      curation   TEXT NOT NULL DEFAULT 'include',
       added_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
       PRIMARY KEY (library_id, game_id),
       FOREIGN KEY (library_id) REFERENCES libraries(id) ON DELETE CASCADE,
@@ -54,8 +54,10 @@ export function initSchema(db: Database.Database): void {
       user_id     TEXT NOT NULL,
       name        TEXT NOT NULL,
       description TEXT,
-      is_archived INTEGER NOT NULL DEFAULT 0,
-      created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      is_archived   INTEGER NOT NULL DEFAULT 0,
+      rubric        TEXT,
+      game_budgets  TEXT,
+      created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
@@ -86,6 +88,26 @@ export function initSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_tracks_game      ON playlist_tracks(game_id);
     CREATE INDEX IF NOT EXISTS idx_tracks_position  ON playlist_tracks(position);
     CREATE INDEX IF NOT EXISTS idx_tracks_status    ON playlist_tracks(status);
+
+    CREATE TABLE IF NOT EXISTS playlist_track_decisions (
+      playlist_id      TEXT    NOT NULL,
+      position         INTEGER NOT NULL,
+      arc_phase        TEXT    NOT NULL,
+      game_id          TEXT    NOT NULL,
+      track_video_id   TEXT    NOT NULL,
+      score_role       REAL    NOT NULL DEFAULT 0,
+      score_mood       REAL    NOT NULL DEFAULT 0,
+      score_inst       REAL    NOT NULL DEFAULT 0,
+      final_score      REAL    NOT NULL DEFAULT 0,
+      adjusted_score   REAL    NOT NULL DEFAULT 0,
+      pool_size        INTEGER NOT NULL DEFAULT 0,
+      game_budget      INTEGER NOT NULL DEFAULT 0,
+      game_budget_used INTEGER NOT NULL DEFAULT 0,
+      selection_pass   TEXT    NOT NULL DEFAULT 'scored',
+      rubric_used      INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (playlist_id, position),
+      FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE
+    );
 
     CREATE TABLE IF NOT EXISTS tracks (
       game_id          TEXT    NOT NULL,

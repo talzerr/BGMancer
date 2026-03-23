@@ -41,4 +41,14 @@ export const ReviewFlags = {
     ) as Record<string, unknown>[];
     return rows.map(toReviewFlag);
   },
+
+  /** Clear all review flags for a game and reset needs_review to 0. */
+  clearByGame(gameId: string): void {
+    getDB().transaction(() => {
+      stmt("DELETE FROM game_review_flags WHERE game_id = ?").run(gameId);
+      stmt(
+        `UPDATE games SET needs_review = 0, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`,
+      ).run(gameId);
+    })();
+  },
 };
