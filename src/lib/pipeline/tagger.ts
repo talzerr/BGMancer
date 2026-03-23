@@ -45,7 +45,7 @@ export async function tagTracks(
     ReviewFlags.markAsNeedsReview(
       gameId,
       ReviewReason.TrackCapReached,
-      `${allUntagged.length} untagged tracks, cap is ${TAG_POOL_MAX}`,
+      `${allUntagged.length - TAG_POOL_MAX} tracks will remain untagged (${allUntagged.length} untagged, cap is ${TAG_POOL_MAX})`,
     );
   }
 

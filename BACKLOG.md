@@ -16,6 +16,8 @@
 
 ## Playlist & UX
 
+- **Play button** — add a play/start button to begin the playlist from the first track without having to click it manually.
+- **Clickable Discogs ID** — make the Discogs ID in the game library link to the corresponding Discogs page.
 - **Track rating** — thumbs up / down while playing; seed data for future personalization.
 - **Track blacklist** — permanently exclude a video from future generations.
 - **Better session names** — optional LLM side-call to produce evocative names (e.g. "Soulsborne Descent") from track energy and roles.
@@ -30,6 +32,26 @@
 - **Bulk text import** — paste newline-separated game titles to add multiple at once.
 
 ## Curation Tuning
+
+- **YouTube view count as popularity signal** — fetch and cache view counts for tracks; use as a soft weight in Director assembly so more-popular tracks are favoured. Expose as a user toggle (similar to allow long/short tracks) so users can opt in or out of popularity bias.
+
+- **Director: Legacy Score ($S_{leg}$)** — add a fourth resonance dimension that balances global popularity with per-game stature, solving both the "Mainstream Bot" (raw views favour AAA) and "no Best-Of feel" (pure intra-game rank loses global signal) problems.
+
+  **Formula:**
+  - **Global Heat** = `log10(views)`, normalized to `0.0–1.0` over the range `[3, 7]` (1k–10M views)
+  - **Local Stature** = `trackViews / avgViewsForGame` (a track with 500k views in a 50k-avg game scores 10×; same track in a 2M-avg game scores 0.25×), then normalized
+  - **Legacy Score** = `(GlobalHeat × 0.6) + (LocalStature × 0.4)`
+  - **Baseline** = `0.3` for tracks with no view data (avoids floor-penalizing obscure/new games)
+
+  **Updated Director resonance weights (when Legacy toggle is on):**
+  | Dimension | Weight |
+  |-----------|--------|
+  | Role | 0.30 |
+  | Mood | 0.25 |
+  | Legacy | 0.30 |
+  | Instrumentation | 0.15 |
+
+  View counts should be fetched from the YouTube API during soundtrack ingestion and cached in `track_tags`. Depends on the "YouTube view count" toggle above.
 
 - **Tagger role skew validation** — if >50% of game's tracks are `ambient`, re-tag with role-diversity bias.
 - **Per-game soft cap tuning** — revisit 40% soft cap if users report thin single-game playlists.
@@ -51,6 +73,19 @@ Current Vibe Check (Maestro only) uses random 2.5× sample. For large libraries,
 
 - **Vibe input UI** _(depends on Vibe Profiler)_ — structured selectors: **Energy** (Calm / Balanced / Intense) + **Activity** (Study, Gaming, Commute, Exercise, Relaxing).
 
+## Bugs
+
+- **Generating a new playlist resets the player** — starting a new generation should not interrupt the currently playing track; the new session should be created in the background and become selectable without stopping playback.
+- **Deleting a non-active session resets the player** — deleting a session that is not currently playing should leave the active session and player state untouched.
+- **Backstage elements not interactable** — some fields in the Backstage UI cannot be edited (e.g. energy value selector); inputs appear rendered but don't respond to interaction.
+
+## Backstage
+
+- **Manual VGMdb onboarding in Backstage** — add a button on a game's Backstage page to onboard/re-onboard its soundtrack from VGMdb using a manually provided VGMdb album ID, as an alternative to the automatic Discogs-based onboarding.
+- **Additive onboarding (merge semantics)** — manual onboarding (and re-onboarding generally) should behave like a merge: existing track/metadata values are preserved and only new data is added. A separate "clean onboard" option should be available when the user explicitly wants to discard existing data and start fresh.
+- **User/Admin view toggle** — similar to the Bard/Maestro tier toggle, add a persistent toggle that switches between user and admin experience; admin mode surfaces all admin-only affordances (e.g. Backstage quick-open on tracks, dev overlays) without requiring separate accounts.
+- **Quick-open in Backstage from playlist track** — admin-only dev affordance on each playlist track card (e.g. small icon) that navigates directly to that track's game in Backstage for quick metadata edits.
+
 ## Quality of Life
 
 - **Better error messages** — when YouTube discovery fails, show "not in YouTube catalog" instead of generic error.
@@ -62,7 +97,6 @@ Current Vibe Check (Maestro only) uses random 2.5× sample. For large libraries,
 These are solid but blocked on auth or infrastructure changes:
 
 - **Production hardening** — multi-user auth, ownership checks, rate limiting, token expiration. See PRODUCTION_HARDENING_WORKDOC.md.
-- **Backstage admin UI** — inspect / correct track metadata. See BACKSTAGE_DESIGN.md.
 - **Free/Account tier split** — localStorage for free users, backend for account users, capability gating. Requires auth.
 - **Tier-based backfill** — pre-tag 200+ popular OSTs for free tier. Requires tier model.
 - **Playlist seed share** — encode playlists as compact strings; `/share/[seed]` read-only view. Lower priority.

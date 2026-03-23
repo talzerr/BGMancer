@@ -59,7 +59,9 @@ export async function POST(request: Request) {
     const existing = Games.findByTitle(title);
     if (existing) {
       Games.linkToLibrary(userId, existing.id);
-      return NextResponse.json(existing, { status: 201 });
+      return NextResponse.json(Games.getByIdForUser(userId, existing.id) ?? existing, {
+        status: 201,
+      });
     }
 
     const game = Games.create(userId, newId(), title, CurationMode.Include, steamAppid);
@@ -74,6 +76,9 @@ export async function POST(request: Request) {
 /** PATCH /api/games?id=<gameId> — Update a game's curation mode. Body: { curation: CurationMode }. */
 export async function PATCH(request: Request) {
   try {
+    const cookieStore = await cookies();
+    const userId = await getOrCreateUserId(cookieStore);
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
@@ -82,17 +87,13 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const fields: { curation?: CurationMode } = {};
 
-    if (typeof body.curation === "string" && VALID_CURATIONS.has(body.curation as CurationMode)) {
-      fields.curation = body.curation as CurationMode; // validated against enum values
-    }
-
-    if (Object.keys(fields).length === 0) {
+    if (typeof body.curation !== "string" || !VALID_CURATIONS.has(body.curation as CurationMode)) {
       return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
     }
 
-    const game = Games.update(id, fields);
+    Games.setCuration(userId, id, body.curation as CurationMode);
+    const game = Games.getByIdForUser(userId, id);
     if (!game) {
       return NextResponse.json({ error: "Game not found" }, { status: 404 });
     }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { BackstageNav } from "@/components/backstage/BackstageNav";
 
 export const metadata: Metadata = {
   title: "Backstage — BGMancer",
@@ -22,6 +23,9 @@ export default function BackstageLayout({ children }: { children: React.ReactNod
           <Link href="/" className="text-xs text-zinc-500 transition-colors hover:text-zinc-300">
             ← Back to app
           </Link>
+        </div>
+        <div className="mx-auto max-w-7xl">
+          <BackstageNav />
         </div>
       </header>
       <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>

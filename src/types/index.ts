@@ -168,6 +168,51 @@ export interface AppConfig {
   allow_short_tracks: boolean;
 }
 
+// ─── Director telemetry ──────────────────────────────────────────────────────
+
+/** How a track was selected for its arc slot. */
+export enum SelectionPass {
+  FocusPre = "focus_pre",
+  Scored = "scored",
+  Fallback = "fallback",
+  LastResort = "last_resort",
+}
+
+/** Per-dimension score breakdown from scoreTrack. */
+export interface ScoreBreakdown {
+  roleScore: number;
+  moodScore: number;
+  instScore: number;
+  finalScore: number;
+  adjustedScore: number;
+}
+
+/** One row of Director telemetry — captures why a track was placed in a slot. */
+export interface TrackDecision {
+  position: number;
+  arcPhase: string;
+  gameId: string;
+  trackVideoId: string;
+  scoreRole: number;
+  scoreMood: number;
+  scoreInst: number;
+  finalScore: number;
+  adjustedScore: number;
+  poolSize: number;
+  gameBudget: number;
+  gameBudgetUsed: number;
+  selectionPass: SelectionPass;
+  rubricUsed: boolean;
+}
+
+/** Full output of assemblePlaylist — tracks + telemetry. */
+export interface DirectorResult {
+  tracks: TaggedTrack[];
+  decisions: TrackDecision[];
+  rubric?: ScoringRubric;
+  gameBudgets: Record<string, number>;
+}
+
 // ─── YouTube ──────────────────────────────────────────────────────────────────
 
 export enum TrackRole {

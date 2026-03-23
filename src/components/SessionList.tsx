@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import type { PlaylistSessionWithCount } from "@/types";
 import { MAX_PLAYLIST_SESSIONS } from "@/lib/constants";
 
@@ -28,6 +28,15 @@ export function formatSessionName(name: string): string {
 
 export function SessionList({ sessions, selectedId, onSelect, onDelete }: SessionListProps) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopy = useCallback((e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(id).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 1500);
+    });
+  }, []);
 
   return (
     <div className="flex flex-col gap-1.5 rounded-2xl border border-white/[0.07] bg-zinc-900/70 p-3 shadow-lg shadow-black/40 backdrop-blur-sm">
@@ -135,23 +144,58 @@ export function SessionList({ sessions, selectedId, onSelect, onDelete }: Sessio
                   </button>
                 </div>
               ) : (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setConfirmDeleteId(session.id);
-                  }}
-                  className="shrink-0 cursor-pointer rounded p-0.5 text-zinc-700 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-400"
-                  title="Delete session"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 16 16"
-                    fill="currentColor"
-                    className="h-3 w-3"
+                <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                  <button
+                    onClick={(e) => handleCopy(e, session.id)}
+                    className="cursor-pointer rounded p-0.5 text-zinc-700 hover:text-zinc-400"
+                    title="Copy session ID"
                   >
-                    <path d="M5.28 4.22a.75.75 0 0 0-1.06 1.06L6.94 8l-2.72 2.72a.75.75 0 1 0 1.06 1.06L8 9.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L9.06 8l2.72-2.72a.75.75 0 0 0-1.06-1.06L8 6.94 5.28 4.22Z" />
-                  </svg>
-                </button>
+                    {copiedId === session.id ? (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                        className="h-3 w-3 text-teal-400"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                        className="h-3 w-3"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10.986 3H12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h1.014A2.25 2.25 0 0 1 7.25 1h1.5a2.25 2.25 0 0 1 2.236 2ZM9.25 3a.75.75 0 0 0-.75-.75h-1a.75.75 0 0 0-.75.75v.25h2.5V3Z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfirmDeleteId(session.id);
+                    }}
+                    className="cursor-pointer rounded p-0.5 text-zinc-700 hover:text-red-400"
+                    title="Delete session"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 16 16"
+                      fill="currentColor"
+                      className="h-3 w-3"
+                    >
+                      <path d="M5.28 4.22a.75.75 0 0 0-1.06 1.06L6.94 8l-2.72 2.72a.75.75 0 1 0 1.06 1.06L8 9.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L9.06 8l2.72-2.72a.75.75 0 0 0-1.06-1.06L8 6.94 5.28 4.22Z" />
+                    </svg>
+                  </button>
+                </div>
               )}
             </div>
           );

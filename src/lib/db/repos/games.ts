@@ -8,8 +8,19 @@ import type { Game } from "@/types";
 import { newId } from "@/lib/uuid";
 import { YT_IMPORT_GAME_ID } from "@/lib/constants";
 
+export interface BackstageGame {
+  id: string;
+  title: string;
+  tagging_status: TaggingStatus;
+  tracklist_source: string | null;
+  needs_review: boolean;
+  trackCount: number;
+  taggedCount: number;
+  activeCount: number;
+  reviewFlagCount: number;
+}
+
 export interface GameUpdateFields {
-  curation?: CurationMode;
   tracklist_source?: string | null;
   needs_review?: boolean;
 }
@@ -24,10 +35,10 @@ export const Games = {
   /** Returns all non-skip games in the user's library — used for playlist generation. */
   listAll(userId: string, excludeId?: string): Game[] {
     const base = `
-      SELECT g.* FROM games g
+      SELECT g.*, lg.curation FROM games g
       JOIN library_games lg ON lg.game_id = g.id
       WHERE lg.library_id = ${LIBRARY_SQ}
-        AND g.curation != 'skip'
+        AND lg.curation != 'skip'
     `;
     if (excludeId) {
       return toGames(stmt(`${base} AND g.id != ? ORDER BY lg.added_at ASC`).all(userId, excludeId));
@@ -39,7 +50,7 @@ export const Games = {
   listAllIncludingDisabled(userId: string): Game[] {
     return toGames(
       stmt(`
-        SELECT g.* FROM games g
+        SELECT g.*, lg.curation FROM games g
         JOIN library_games lg ON lg.game_id = g.id
         WHERE lg.library_id = ${LIBRARY_SQ}
         ORDER BY lg.added_at ASC
@@ -72,6 +83,16 @@ export const Games = {
     return row ? toGame(row) : null;
   },
 
+  /** Returns a game with its curation value scoped to the given user's library. */
+  getByIdForUser(userId: string, id: string): Game | null {
+    const row = stmt(`
+      SELECT g.*, lg.curation FROM games g
+      JOIN library_games lg ON lg.game_id = g.id
+      WHERE g.id = ? AND lg.library_id = ${LIBRARY_SQ}
+    `).get(id, userId) as Record<string, unknown> | undefined;
+    return row ? toGame(row) : null;
+  },
+
   create(
     userId: string,
     id: string,
@@ -84,24 +105,29 @@ export const Games = {
     const seededPlaylistId = getSeedPlaylistId(title);
     db.transaction(() => {
       stmt(
-        "INSERT INTO games (id, title, curation, steam_appid, playtime_minutes, yt_playlist_id) VALUES (?, ?, ?, ?, ?, ?)",
-      ).run(id, title, curation, steamAppid, playtimeMinutes, seededPlaylistId ?? null);
+        "INSERT INTO games (id, title, steam_appid, playtime_minutes, yt_playlist_id) VALUES (?, ?, ?, ?, ?)",
+      ).run(id, title, steamAppid, playtimeMinutes, seededPlaylistId ?? null);
 
       stmt(
-        `INSERT OR IGNORE INTO library_games (library_id, game_id) VALUES (${LIBRARY_SQ}, ?)`,
-      ).run(userId, id);
+        `INSERT OR IGNORE INTO library_games (library_id, game_id, curation) VALUES (${LIBRARY_SQ}, ?, ?)`,
+      ).run(userId, id, curation);
     })();
 
-    const created = this.getById(id);
+    const created = this.getByIdForUser(userId, id);
     if (!created) throw new Error(`[Games.create] game ${id} not found after INSERT`);
     return created;
   },
 
-  linkToLibrary(userId: string, gameId: string): void {
-    stmt(`INSERT OR IGNORE INTO library_games (library_id, game_id) VALUES (${LIBRARY_SQ}, ?)`).run(
-      userId,
-      gameId,
-    );
+  linkToLibrary(userId: string, gameId: string, curation = CurationMode.Include): void {
+    stmt(
+      `INSERT OR IGNORE INTO library_games (library_id, game_id, curation) VALUES (${LIBRARY_SQ}, ?, ?)`,
+    ).run(userId, gameId, curation);
+  },
+
+  setCuration(userId: string, gameId: string, curation: CurationMode): void {
+    stmt(
+      `UPDATE library_games SET curation = ? WHERE library_id = ${LIBRARY_SQ} AND game_id = ?`,
+    ).run(curation, userId, gameId);
   },
 
   setPlaylistId(id: string, playlistId: string): void {
@@ -115,11 +141,6 @@ export const Games = {
   },
 
   update(id: string, fields: GameUpdateFields): Game | null {
-    if (fields.curation !== undefined) {
-      stmt(
-        `UPDATE games SET curation = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`,
-      ).run(fields.curation, id);
-    }
     if (fields.tracklist_source !== undefined) {
       stmt(
         `UPDATE games SET tracklist_source = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`,
@@ -155,11 +176,94 @@ export const Games = {
     if (!exists) {
       this.create(userId, id, title, CurationMode.Skip);
     } else {
-      // Ensure it's in this user's library (idempotent)
-      stmt(
-        `INSERT OR IGNORE INTO library_games (library_id, game_id) VALUES (${LIBRARY_SQ}, ?)`,
-      ).run(userId, id);
+      this.linkToLibrary(userId, id, CurationMode.Skip);
     }
+  },
+
+  /**
+   * Returns all games with aggregate track statistics — used by the Backstage Game Index.
+   * Not scoped to a user — backstage sees all games.
+   */
+  listWithTrackStats(): BackstageGame[] {
+    const rows = stmt(`
+      SELECT
+        g.id, g.title, g.tagging_status, g.tracklist_source, g.needs_review,
+        COUNT(t.name)                                               AS track_count,
+        COUNT(t.tagged_at)                                         AS tagged_count,
+        SUM(CASE WHEN t.active = 1 THEN 1 ELSE 0 END)             AS active_count,
+        (SELECT COUNT(*) FROM game_review_flags f WHERE f.game_id = g.id) AS review_flag_count
+      FROM games g
+      LEFT JOIN tracks t ON t.game_id = g.id
+      GROUP BY g.id
+      ORDER BY review_flag_count DESC, g.title ASC
+    `).all() as Record<string, unknown>[];
+
+    return rows.map((r) => ({
+      id: String(r.id),
+      title: String(r.title),
+      tagging_status: String(r.tagging_status) as BackstageGame["tagging_status"],
+      tracklist_source: r.tracklist_source != null ? String(r.tracklist_source) : null,
+      needs_review: !!r.needs_review,
+      trackCount: Number(r.track_count ?? 0),
+      taggedCount: Number(r.tagged_count ?? 0),
+      activeCount: Number(r.active_count ?? 0),
+      reviewFlagCount: Number(r.review_flag_count ?? 0),
+    }));
+  },
+
+  /**
+   * Filtered search for the Backstage Game Index — returns games matching the given criteria.
+   * All parameters are optional; omitting all returns up to 100 results ordered by title.
+   */
+  searchWithStats(filters: {
+    title?: string;
+    status?: string;
+    needsReview?: boolean;
+  }): BackstageGame[] {
+    const clauses: string[] = [];
+    const params: unknown[] = [];
+
+    if (filters.title) {
+      clauses.push("g.title LIKE ?");
+      params.push(`%${filters.title}%`);
+    }
+    if (filters.status) {
+      clauses.push("g.tagging_status = ?");
+      params.push(filters.status);
+    }
+    if (filters.needsReview) {
+      clauses.push("g.needs_review = 1");
+    }
+
+    const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
+    const sql = `
+      SELECT
+        g.id, g.title, g.tagging_status, g.tracklist_source, g.needs_review,
+        COUNT(t.name)                                               AS track_count,
+        COUNT(t.tagged_at)                                         AS tagged_count,
+        SUM(CASE WHEN t.active = 1 THEN 1 ELSE 0 END)             AS active_count,
+        (SELECT COUNT(*) FROM game_review_flags f WHERE f.game_id = g.id) AS review_flag_count
+      FROM games g
+      LEFT JOIN tracks t ON t.game_id = g.id
+      ${where}
+      GROUP BY g.id
+      ORDER BY review_flag_count DESC, g.title ASC
+      LIMIT 100
+    `;
+    const rows = getDB()
+      .prepare(sql)
+      .all(...params) as Record<string, unknown>[];
+    return rows.map((r) => ({
+      id: String(r.id),
+      title: String(r.title),
+      tagging_status: String(r.tagging_status) as BackstageGame["tagging_status"],
+      tracklist_source: r.tracklist_source != null ? String(r.tracklist_source) : null,
+      needs_review: !!r.needs_review,
+      trackCount: Number(r.track_count ?? 0),
+      taggedCount: Number(r.tagged_count ?? 0),
+      activeCount: Number(r.active_count ?? 0),
+      reviewFlagCount: Number(r.review_flag_count ?? 0),
+    }));
   },
 
   /**
@@ -174,10 +278,10 @@ export const Games = {
     const db = getDB();
     const insertGameSQL = `
       INSERT OR IGNORE INTO games
-        (id, title, curation, steam_appid, playtime_minutes, yt_playlist_id)
-      VALUES (?, ?, 'skip', ?, ?, ?)
+        (id, title, steam_appid, playtime_minutes, yt_playlist_id)
+      VALUES (?, ?, ?, ?, ?)
     `;
-    const insertLibrarySQL = `INSERT OR IGNORE INTO library_games (library_id, game_id) VALUES (${LIBRARY_SQ}, ?)`;
+    const insertLibrarySQL = `INSERT OR IGNORE INTO library_games (library_id, game_id, curation) VALUES (${LIBRARY_SQ}, ?, 'skip')`;
 
     let imported = 0;
     let skipped = 0;

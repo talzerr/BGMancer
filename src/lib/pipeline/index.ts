@@ -1,5 +1,6 @@
-import { Games, Playlist, Users, Sessions } from "@/lib/db/repo";
+import { Games, Playlist, Users, Sessions, DirectorDecisions } from "@/lib/db/repo";
 import { GameProgressStatus, TrackStatus, UserTier } from "@/types";
+import type { TrackDecision } from "@/types";
 import { YouTubeQuotaError } from "@/lib/services/youtube";
 import { fetchGameCandidates } from "@/lib/pipeline/candidates";
 import {
@@ -120,16 +121,28 @@ function runDirector(
   activeGames: Game[],
   targetCount: number,
   rubric: ScoringRubric | undefined,
-): PendingTrack[] {
+): {
+  pendingTracks: PendingTrack[];
+  decisions: TrackDecision[];
+  usedRubric?: ScoringRubric;
+  gameBudgets: Record<string, number>;
+} {
   const assembleTarget = Math.ceil(targetCount * 1.15);
-  return assemblePlaylist(taggedPools, activeGames, assembleTarget, rubric).map((t) =>
-    taggedTrackToPending(t, t.durationSeconds),
-  );
+  const result = assemblePlaylist(taggedPools, activeGames, assembleTarget, rubric);
+  return {
+    pendingTracks: result.tracks.map((t) => taggedTrackToPending(t, t.durationSeconds)),
+    decisions: result.decisions,
+    usedRubric: result.rubric,
+    gameBudgets: result.gameBudgets,
+  };
 }
 
 function persistSession(
   userId: string,
   allTracks: PendingTrack[],
+  decisions: TrackDecision[],
+  usedRubric?: ScoringRubric,
+  gameBudgets?: Record<string, number>,
 ): { session: { id: string }; inserted: PlaylistTrack[] } {
   const gameNames = [...new Set(allTracks.map((t) => t.game_title ?? t.game_id))];
   const rawNameList =
@@ -142,6 +155,11 @@ function persistSession(
 
   const session = Sessions.create(userId, sessionName);
   Playlist.replaceAll(session.id, toInsertable(allTracks));
+
+  if (decisions.length > 0 || usedRubric || gameBudgets) {
+    Sessions.updateTelemetry(session.id, usedRubric, gameBudgets);
+    DirectorDecisions.bulkInsert(session.id, decisions);
+  }
 
   const inserted: PlaylistTrack[] = allTracks.map((t, position) => ({
     ...t,
@@ -183,17 +201,35 @@ export async function generatePlaylist(
   const filteredPools = filterByDuration(taggedPools, config);
 
   let individualTracks: PendingTrack[] = [];
+  let decisions: TrackDecision[] = [];
+  let usedRubric: ScoringRubric | undefined;
+  let gameBudgets: Record<string, number> = {};
+
   if (filteredPools.size > 0 && targetCount > 0) {
     const activeGames = games.filter((g) => filteredPools.has(g.id));
     const rubric = await profileVibe(activeGames, user, send);
     send({ type: "progress", message: "Assembling playlist arc…" });
-    individualTracks = runDirector(filteredPools, activeGames, targetCount, rubric);
+    const directorResult = runDirector(filteredPools, activeGames, targetCount, rubric);
+    individualTracks = directorResult.pendingTracks;
+    decisions = directorResult.decisions;
+    usedRubric = directorResult.usedRubric;
+    gameBudgets = directorResult.gameBudgets;
   }
 
   const allTracks = [...individualTracks, ...fallbackTracks].slice(0, targetCount);
 
+  // Decisions are indexed by arc slot position. After slicing tracks to targetCount,
+  // only keep decisions for positions that survived the cut.
+  const slicedDecisions = decisions.filter((d) => d.position < allTracks.length);
+
   send({ type: "progress", message: "Saving playlist…" });
-  const { session, inserted } = persistSession(user.id, allTracks);
+  const { session, inserted } = persistSession(
+    user.id,
+    allTracks,
+    slicedDecisions,
+    usedRubric,
+    gameBudgets,
+  );
 
   await resolvePendingSlots(inserted, config.allow_long_tracks, config.allow_short_tracks);
 
