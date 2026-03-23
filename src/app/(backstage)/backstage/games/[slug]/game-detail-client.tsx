@@ -45,6 +45,7 @@ export function GameDetailClient({ game, tracks, reviewFlags }: GameDetailClient
   const [reingestRunning, setReingestRunning] = useState(false);
   const [reingestTyped, setReingestTyped] = useState("");
   const [editTrack, setEditTrack] = useState<Track | null>(null);
+  const [mutError, setMutError] = useState<string | null>(null);
 
   const trackCount = tracks.length;
   const activeCount = tracks.filter((t) => t.active).length;
@@ -58,23 +59,37 @@ export function GameDetailClient({ game, tracks, reviewFlags }: GameDetailClient
 
   async function addTrack() {
     if (!newTrackName.trim()) return;
-    await fetch("/api/backstage/tracks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ gameId: game.id, name: newTrackName.trim() }),
-    });
-    setNewTrackName("");
-    setActiveModal(null);
-    router.refresh();
+    setMutError(null);
+    try {
+      const res = await fetch("/api/backstage/tracks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameId: game.id, name: newTrackName.trim() }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setNewTrackName("");
+      setActiveModal(null);
+      router.refresh();
+    } catch (err) {
+      console.error("[GameDetail] addTrack failed:", err);
+      setMutError("Failed to add track. Please try again.");
+    }
   }
 
   async function handleTrackSave(gameId: string, name: string, updates: PatchUpdates) {
-    await fetch("/api/backstage/tracks", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ gameId, name, updates }),
-    });
-    router.refresh();
+    setMutError(null);
+    try {
+      const res = await fetch("/api/backstage/tracks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameId, name, updates }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      router.refresh();
+    } catch (err) {
+      console.error("[GameDetail] handleTrackSave failed:", err);
+      setMutError("Failed to save track. Please try again.");
+    }
   }
 
   return (
@@ -134,6 +149,12 @@ export function GameDetailClient({ game, tracks, reviewFlags }: GameDetailClient
           </Button>
         </div>
       </div>
+
+      {mutError && (
+        <p className="rounded-lg border border-rose-800/30 bg-rose-900/10 px-4 py-2 text-xs text-rose-400">
+          {mutError}
+        </p>
+      )}
 
       {/* Review flags */}
       {reviewFlags.length > 0 && (

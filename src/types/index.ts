@@ -178,6 +178,16 @@ export enum SelectionPass {
   LastResort = "last_resort",
 }
 
+/** The six phases of the Director's energy arc. */
+export enum ArcPhase {
+  Intro = "intro",
+  Rising = "rising",
+  Peak = "peak",
+  Valley = "valley",
+  Climax = "climax",
+  Outro = "outro",
+}
+
 /** Per-dimension score breakdown from scoreTrack. */
 export interface ScoreBreakdown {
   roleScore: number;
@@ -190,16 +200,20 @@ export interface ScoreBreakdown {
 /** One row of Director telemetry — captures why a track was placed in a slot. */
 export interface TrackDecision {
   position: number;
-  arcPhase: string;
+  arcPhase: ArcPhase;
   gameId: string;
   trackVideoId: string;
-  scoreRole: number;
-  scoreMood: number;
-  scoreInst: number;
+  /** Role dimension score (0.0 or 1.0 — binary match). */
+  roleScore: number;
+  /** Mood dimension score (Jaccard, 0.0–1.0). */
+  moodScore: number;
+  /** Instrumentation dimension score (Jaccard, 0.0–1.0). */
+  instScore: number;
   finalScore: number;
   adjustedScore: number;
   poolSize: number;
   gameBudget: number;
+  /** Count of tracks already used from this game *before* this slot was filled. */
   gameBudgetUsed: number;
   selectionPass: SelectionPass;
   rubricUsed: boolean;

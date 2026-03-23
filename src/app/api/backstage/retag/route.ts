@@ -60,7 +60,8 @@ export async function POST(req: Request) {
       await tagTracks(gameId, game.title, tracks, provider);
 
       const tagged = Tracks.getByGame(gameId).filter((t) => t.taggedAt !== null).length;
-      const needsReview = game.needs_review ? 1 : 0;
+      const updatedGame = Games.getById(gameId);
+      const needsReview = updatedGame?.needs_review ? 1 : 0;
 
       send({ type: "done", tagged, needsReview });
     } catch (err) {

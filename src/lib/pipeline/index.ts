@@ -157,8 +157,12 @@ function persistSession(
   Playlist.replaceAll(session.id, toInsertable(allTracks));
 
   if (decisions.length > 0 || usedRubric || gameBudgets) {
-    Sessions.updateTelemetry(session.id, usedRubric, gameBudgets);
-    DirectorDecisions.bulkInsert(session.id, decisions);
+    try {
+      Sessions.updateTelemetry(session.id, usedRubric, gameBudgets);
+      DirectorDecisions.bulkInsert(session.id, decisions);
+    } catch (err) {
+      console.error("[persistSession] Telemetry failed, session preserved:", err);
+    }
   }
 
   const inserted: PlaylistTrack[] = allTracks.map((t, position) => ({

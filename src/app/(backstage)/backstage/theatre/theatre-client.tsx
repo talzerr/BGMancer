@@ -190,24 +190,36 @@ export function TheatreClient() {
   const [refOpen, setRefOpen] = useState(false);
 
   const loadRecent = useCallback(async () => {
-    const res = await fetch("/api/backstage/theatre/sessions");
-    const data = (await res.json()) as SessionSummary[];
-    setRecentSessions(data);
+    try {
+      const res = await fetch("/api/backstage/theatre/sessions");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as SessionSummary[];
+      setRecentSessions(data);
+    } catch (err) {
+      console.error("[Theatre] Failed to load recent sessions:", err);
+      setRecentSessions([]);
+    }
   }, []);
 
   const loadPlaylist = useCallback(async (id: string) => {
     setLoading(true);
     setError(null);
-    const res = await fetch(`/api/backstage/theatre/${id}`);
-    if (!res.ok) {
-      setError("Session not found");
+    try {
+      const res = await fetch(`/api/backstage/theatre/${id}`);
+      if (!res.ok) {
+        setError(`Session not found (HTTP ${res.status})`);
+        setTelemetry(null);
+        return;
+      }
+      const data = (await res.json()) as PlaylistTelemetry;
+      setTelemetry(data);
+    } catch (err) {
+      console.error("[Theatre] Failed to load playlist:", err);
+      setError("Failed to load session. Check your connection and try again.");
       setTelemetry(null);
+    } finally {
       setLoading(false);
-      return;
     }
-    const data = (await res.json()) as PlaylistTelemetry;
-    setTelemetry(data);
-    setLoading(false);
   }, []);
 
   // Auto-load recent sessions on first interaction
@@ -625,13 +637,13 @@ function ScoreBreakdownTable({
                     {track?.track_name ?? track?.video_title ?? "—"}
                   </TableCell>
                   <TableCell className="py-1.5">
-                    <ScoreCell value={d.scoreRole} />
+                    <ScoreCell value={d.roleScore} />
                   </TableCell>
                   <TableCell className="py-1.5">
-                    <ScoreCell value={d.scoreMood} />
+                    <ScoreCell value={d.moodScore} />
                   </TableCell>
                   <TableCell className="py-1.5">
-                    <ScoreCell value={d.scoreInst} />
+                    <ScoreCell value={d.instScore} />
                   </TableCell>
                   <TableCell className="py-1.5">
                     <ScoreCell value={d.finalScore} />

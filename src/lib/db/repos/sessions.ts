@@ -85,13 +85,23 @@ export const Sessions = {
       | Record<string, unknown>
       | undefined;
     if (!row) return null;
-    return {
-      ...toPlaylistSession(row),
-      rubric: row.rubric ? (JSON.parse(String(row.rubric)) as ScoringRubric) : null,
-      gameBudgets: row.game_budgets
-        ? (JSON.parse(String(row.game_budgets)) as Record<string, number>)
-        : null,
-    };
+    let rubric: ScoringRubric | null = null;
+    let gameBudgets: Record<string, number> | null = null;
+    if (row.rubric) {
+      try {
+        rubric = JSON.parse(String(row.rubric)) as ScoringRubric;
+      } catch {
+        console.error(`[Sessions] Failed to parse rubric for session ${id}`);
+      }
+    }
+    if (row.game_budgets) {
+      try {
+        gameBudgets = JSON.parse(String(row.game_budgets)) as Record<string, number>;
+      } catch {
+        console.error(`[Sessions] Failed to parse game_budgets for session ${id}`);
+      }
+    }
+    return { ...toPlaylistSession(row), rubric, gameBudgets };
   },
 
   /** Returns recent sessions across all users — used by Backstage Theatre. */

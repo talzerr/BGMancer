@@ -53,6 +53,8 @@ export function TrackLabClient() {
   const [tracks, setTracks] = useState<BackstageTrackRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [mutError, setMutError] = useState<string | null>(null);
 
   const [selected, setSelected] = useState<Set<TrackKey>>(new Set());
   const [editTrack, setEditTrack] = useState<Track | null>(null);
@@ -62,6 +64,7 @@ export function TrackLabClient() {
     async (overrideGameId?: string) => {
       setLoading(true);
       setSelected(new Set());
+      setFetchError(null);
 
       const apiParams = new URLSearchParams();
       if (overrideGameId) {
@@ -89,11 +92,19 @@ export function TrackLabClient() {
         });
       }
 
-      const res = await fetch(`/api/backstage/tracks?${apiParams}`);
-      const data = (await res.json()) as BackstageTrackRow[];
-      setTracks(data);
-      setHasSearched(true);
-      setLoading(false);
+      try {
+        const res = await fetch(`/api/backstage/tracks?${apiParams}`);
+        if (!res.ok) throw new Error(`Server error: HTTP ${res.status}`);
+        const data = (await res.json()) as BackstageTrackRow[];
+        setTracks(data);
+        setHasSearched(true);
+      } catch (err) {
+        console.error("[TrackLabClient] fetchTracks failed:", err);
+        setFetchError("Failed to load tracks. Try again.");
+        setHasSearched(true);
+      } finally {
+        setLoading(false);
+      }
     },
     [gameSearch, search, energyFilter, activeFilter, untaggedOnly, router],
   );
@@ -129,13 +140,20 @@ export function TrackLabClient() {
   // Mutations
   const patchTracks = useCallback(
     async (patches: { gameId: string; name: string; updates: PatchUpdates }[]) => {
-      await fetch("/api/backstage/tracks", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patches),
-      });
-      await fetchTracks();
-      router.refresh();
+      setMutError(null);
+      try {
+        const res = await fetch("/api/backstage/tracks", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patches),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        await fetchTracks();
+        router.refresh();
+      } catch (err) {
+        console.error("[TrackLabClient] patchTracks failed:", err);
+        setMutError("Failed to save changes. Please try again.");
+      }
     },
     [fetchTracks, router],
   );
@@ -166,28 +184,43 @@ export function TrackLabClient() {
   }
 
   async function bulkMarkReviewed() {
-    const gameIds = [...new Set(selectedTracks().map((t) => t.gameId))];
-    for (const gameId of gameIds) {
-      await fetch("/api/backstage/review-flags", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gameId }),
-      });
+    setMutError(null);
+    try {
+      const gameIds = [...new Set(selectedTracks().map((t) => t.gameId))];
+      for (const gameId of gameIds) {
+        const res = await fetch("/api/backstage/review-flags", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ gameId }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      }
+      router.refresh();
+    } catch (err) {
+      console.error("[TrackLabClient] bulkMarkReviewed failed:", err);
+      setMutError("Failed to clear review flags. Please try again.");
     }
-    router.refresh();
   }
 
   async function bulkDelete() {
-    const sel = selectedTracks();
-    const keys = sel.map((t) => ({ gameId: t.gameId, name: t.name }));
-    await fetch("/api/backstage/tracks", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ keys }),
-    });
-    setDeleteModalOpen(false);
-    await fetchTracks();
-    router.refresh();
+    setMutError(null);
+    try {
+      const sel = selectedTracks();
+      const keys = sel.map((t) => ({ gameId: t.gameId, name: t.name }));
+      const res = await fetch("/api/backstage/tracks", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keys }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setDeleteModalOpen(false);
+      await fetchTracks();
+      router.refresh();
+    } catch (err) {
+      console.error("[TrackLabClient] bulkDelete failed:", err);
+      setMutError("Failed to delete tracks. Please try again.");
+      setDeleteModalOpen(false);
+    }
   }
 
   async function handleTrackSave(gameId: string, name: string, updates: PatchUpdates) {
@@ -271,6 +304,9 @@ export function TrackLabClient() {
           </span>
         )}
       </div>
+
+      {fetchError && <p className="text-xs text-rose-400">{fetchError}</p>}
+      {mutError && <p className="text-xs text-rose-400">{mutError}</p>}
 
       {/* Results */}
       {!hasSearched ? (

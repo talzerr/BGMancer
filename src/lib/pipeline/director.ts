@@ -6,7 +6,14 @@ import type {
   TrackDecision,
   DirectorResult,
 } from "@/types";
-import { CurationMode, SelectionPass, TrackRole, TrackMood, TrackInstrumentation } from "@/types";
+import {
+  ArcPhase,
+  CurationMode,
+  SelectionPass,
+  TrackRole,
+  TrackMood,
+  TrackInstrumentation,
+} from "@/types";
 import {
   SCORE_WEIGHT_ROLE,
   SCORE_WEIGHT_MOOD,
@@ -17,7 +24,7 @@ import {
 } from "@/lib/constants";
 
 interface ArcSlot {
-  phase: string;
+  phase: ArcPhase;
   energyPrefs: Array<1 | 2 | 3>;
   rolePrefs: TrackRole[];
   preferredMoods: TrackMood[];
@@ -26,7 +33,7 @@ interface ArcSlot {
 }
 
 const ARC_TEMPLATE: Array<{
-  phase: string;
+  phase: ArcPhase;
   fraction: number;
   energyPrefs: Array<1 | 2 | 3>;
   rolePrefs: TrackRole[];
@@ -35,7 +42,7 @@ const ARC_TEMPLATE: Array<{
   preferredInstrumentation: TrackInstrumentation[];
 }> = [
   {
-    phase: "intro",
+    phase: ArcPhase.Intro,
     fraction: 0.15,
     energyPrefs: [1, 2],
     rolePrefs: [TrackRole.Opener, TrackRole.Menu, TrackRole.Ambient],
@@ -48,7 +55,7 @@ const ARC_TEMPLATE: Array<{
     ],
   },
   {
-    phase: "rising",
+    phase: ArcPhase.Rising,
     fraction: 0.25,
     energyPrefs: [2],
     rolePrefs: [TrackRole.Build, TrackRole.Ambient, TrackRole.Cinematic],
@@ -61,7 +68,7 @@ const ARC_TEMPLATE: Array<{
     ],
   },
   {
-    phase: "peak",
+    phase: ArcPhase.Peak,
     fraction: 0.25,
     energyPrefs: [2, 3],
     rolePrefs: [TrackRole.Combat, TrackRole.Build, TrackRole.Cinematic],
@@ -74,7 +81,7 @@ const ARC_TEMPLATE: Array<{
     ],
   },
   {
-    phase: "valley",
+    phase: ArcPhase.Valley,
     fraction: 0.15,
     energyPrefs: [1, 2],
     rolePrefs: [TrackRole.Ambient, TrackRole.Cinematic],
@@ -87,7 +94,7 @@ const ARC_TEMPLATE: Array<{
     ],
   },
   {
-    phase: "climax",
+    phase: ArcPhase.Climax,
     fraction: 0.1,
     energyPrefs: [3],
     rolePrefs: [TrackRole.Combat, TrackRole.Cinematic],
@@ -100,7 +107,7 @@ const ARC_TEMPLATE: Array<{
     ],
   },
   {
-    phase: "outro",
+    phase: ArcPhase.Outro,
     fraction: 0.1,
     energyPrefs: [1],
     rolePrefs: [TrackRole.Closer, TrackRole.Ambient, TrackRole.Menu],
@@ -291,9 +298,9 @@ export function assemblePlaylist(
       arcPhase: slots[slotIdx].phase,
       gameId: track.gameId,
       trackVideoId: track.videoId,
-      scoreRole: breakdown.roleScore,
-      scoreMood: breakdown.moodScore,
-      scoreInst: breakdown.instScore,
+      roleScore: breakdown.roleScore,
+      moodScore: breakdown.moodScore,
+      instScore: breakdown.instScore,
       finalScore: breakdown.finalScore,
       adjustedScore: breakdown.adjustedScore,
       poolSize,
@@ -442,6 +449,13 @@ export function assemblePlaylist(
   const compactDecisions = decisions
     .filter((d) => slotToCompact.has(d.position))
     .map((d) => ({ ...d, position: slotToCompact.get(d.position) ?? d.position }));
+
+  if (compactTracks.length < targetCount) {
+    console.warn(
+      `[director] Pool exhausted: assembled ${compactTracks.length}/${targetCount} tracks. ` +
+        `Consider adding more games or tracks.`,
+    );
+  }
 
   const gameBudgets: Record<string, number> = {};
   for (const [id, budget] of budgets) gameBudgets[id] = budget;

@@ -1,6 +1,6 @@
 import { getDB } from "@/lib/db";
 import { stmt } from "./_shared";
-import type { TrackDecision, SelectionPass } from "@/types";
+import type { TrackDecision, ArcPhase, SelectionPass } from "@/types";
 
 export const DirectorDecisions = {
   bulkInsert(playlistId: string, decisions: TrackDecision[]): void {
@@ -21,9 +21,9 @@ export const DirectorDecisions = {
           d.arcPhase,
           d.gameId,
           d.trackVideoId,
-          d.scoreRole,
-          d.scoreMood,
-          d.scoreInst,
+          d.roleScore,
+          d.moodScore,
+          d.instScore,
           d.finalScore,
           d.adjustedScore,
           d.poolSize,
@@ -45,12 +45,12 @@ export const DirectorDecisions = {
 
     return rows.map((r) => ({
       position: Number(r.position),
-      arcPhase: String(r.arc_phase),
+      arcPhase: String(r.arc_phase) as ArcPhase,
       gameId: String(r.game_id),
       trackVideoId: String(r.track_video_id),
-      scoreRole: Number(r.score_role),
-      scoreMood: Number(r.score_mood),
-      scoreInst: Number(r.score_inst),
+      roleScore: Number(r.score_role),
+      moodScore: Number(r.score_mood),
+      instScore: Number(r.score_inst),
       finalScore: Number(r.final_score),
       adjustedScore: Number(r.adjusted_score),
       poolSize: Number(r.pool_size),

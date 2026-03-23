@@ -112,7 +112,6 @@ export const Tracks = {
       moods?: string | null;
       instrumentation?: string | null;
       hasVocals?: boolean | null;
-      needsReview?: boolean;
     },
   ): void {
     const tagFields = ["energy", "role", "moods", "instrumentation", "hasVocals"];

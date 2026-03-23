@@ -38,9 +38,11 @@ export function GamesClient() {
   const [games, setGames] = useState<BackstageGame[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchGames = useCallback(async () => {
     setLoading(true);
+    setFetchError(null);
     const params = new URLSearchParams();
     if (titleSearch.trim()) params.set("title", titleSearch.trim());
     if (statusFilter !== "all") params.set("status", statusFilter);
@@ -48,11 +50,19 @@ export function GamesClient() {
 
     router.replace(`/backstage/games${params.size ? `?${params}` : ""}`, { scroll: false });
 
-    const res = await fetch(`/api/backstage/games?${params}`);
-    const data = (await res.json()) as BackstageGame[];
-    setGames(data);
-    setHasSearched(true);
-    setLoading(false);
+    try {
+      const res = await fetch(`/api/backstage/games?${params}`);
+      if (!res.ok) throw new Error(`Server error: HTTP ${res.status}`);
+      const data = (await res.json()) as BackstageGame[];
+      setGames(data);
+      setHasSearched(true);
+    } catch (err) {
+      console.error("[GamesClient] fetchGames failed:", err);
+      setFetchError("Failed to load games. Try again.");
+      setHasSearched(true);
+    } finally {
+      setLoading(false);
+    }
   }, [titleSearch, statusFilter, needsReviewOnly, router]);
 
   // Auto-fetch on mount if URL has params
@@ -112,6 +122,8 @@ export function GamesClient() {
           </span>
         )}
       </div>
+
+      {fetchError && <p className="text-xs text-rose-400">{fetchError}</p>}
 
       {/* Results */}
       {!hasSearched ? (

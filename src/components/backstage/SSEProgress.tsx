@@ -64,7 +64,13 @@ export function SSEProgress({
 
           for (const line of lines) {
             if (!line.startsWith("data:")) continue;
-            const eventData = JSON.parse(line.slice(5).trim()) as SSEEvent;
+            let eventData: SSEEvent;
+            try {
+              eventData = JSON.parse(line.slice(5).trim()) as SSEEvent;
+            } catch {
+              console.error("[SSEProgress] Failed to parse SSE line:", line);
+              continue;
+            }
 
             if (eventData.type === "progress") {
               const label = progressLabel
