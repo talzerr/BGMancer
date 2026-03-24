@@ -43,8 +43,6 @@ Shift from an open "add any game" model to a **pre-onboarded master library**. E
 
 ## Curation Tuning
 
-- **YouTube view count as popularity signal** — fetch and cache view counts for tracks; use as a soft weight in Director assembly so more-popular tracks are favoured. Expose as a user toggle (similar to allow long/short tracks) so users can opt in or out of popularity bias.
-
 - **Tagger role skew validation** — if >50% of game's tracks are `ambient`, re-tag with role-diversity bias.
 - **Per-game soft cap tuning** — revisit 40% soft cap if users report thin single-game playlists.
 - **Focus mode budget hardening** — option to enforce strict "always N tracks per focus game" (currently soft guarantee).

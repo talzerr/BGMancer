@@ -867,7 +867,7 @@ function ReferenceContent() {
             <thead>
               <tr className="border-b border-zinc-800 text-[11px] tracking-wider text-zinc-500 uppercase">
                 <th className="px-3 py-2 text-left">Dimension</th>
-                <th className="px-3 py-2 text-left">Weight (default / view bias)</th>
+                <th className="px-3 py-2 text-left">Weight (legacy / view bias)</th>
                 <th className="px-3 py-2 text-left">Method</th>
               </tr>
             </thead>
