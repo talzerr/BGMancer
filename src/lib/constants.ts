@@ -84,6 +84,23 @@ export const SCORE_PENALTY_MULTIPLIER = 0.5;
 /** Multiplier applied when rubric.allowVocals is false and track has vocals. */
 export const SCORE_VOCALS_PENALTY_MULTIPLIER = 0.5;
 
+// ─── View bias-enabled Director scoring weights ────────────────────────────────
+
+/** Dimension weight for role match when View bias scoring is active. */
+export const SCORE_WEIGHT_ROLE_VIEW_BIAS = 0.3;
+
+/** Dimension weight for mood Jaccard similarity when View bias scoring is active. */
+export const SCORE_WEIGHT_MOOD_VIEW_BIAS = 0.25;
+
+/** Dimension weight for the View Bias score (log-scaled global heat + per-game local stature) when View Bias scoring is active. */
+export const SCORE_WEIGHT_VIEW_BIAS = 0.3;
+
+/** Dimension weight for instrumentation Jaccard similarity when View bias scoring is active. */
+export const SCORE_WEIGHT_INSTRUMENT_VIEW_BIAS = 0.15;
+
+/** Baseline View bias Score for tracks with no YouTube view data. */
+export const VIEW_BIAS_SCORE_BASELINE = 0.3;
+
 /** Number of top candidates for weighted random selection. */
 export const DIRECTOR_TOP_N_POOL = 5;
 

@@ -178,14 +178,21 @@ export async function findBestVideo(
 }
 
 /**
- * Fetch durations for a batch of video IDs in a single videos.list call (1 quota unit).
- * Returns a map of videoId → duration in seconds.
+ * Fetch durations and view counts for a batch of video IDs in a single videos.list call (1 quota unit).
+ * Returns a map of videoId → { durationSeconds, viewCount }.
+ * Adding `statistics` alongside `contentDetails` does not increase the quota cost for videos.list —
+ * it remains 1 unit per call regardless of how many parts are requested.
  */
 const YT_VIDEOS_PAGE_SIZE = 50; // YouTube videos.list max IDs per request
 
-export async function fetchVideoDurations(videoIds: string[]): Promise<Map<string, number>> {
-  const durations = new Map<string, number>();
-  if (videoIds.length === 0) return durations;
+export interface VideoMetadata {
+  durationSeconds: number;
+  viewCount: number | null;
+}
+
+export async function fetchVideoMetadata(videoIds: string[]): Promise<Map<string, VideoMetadata>> {
+  const result = new Map<string, VideoMetadata>();
+  if (videoIds.length === 0) return result;
 
   // Chunk into pages of 50 — the YouTube videos.list endpoint hard-caps at 50 IDs.
   for (let i = 0; i < videoIds.length; i += YT_VIDEOS_PAGE_SIZE) {
@@ -194,25 +201,30 @@ export async function fetchVideoDurations(videoIds: string[]): Promise<Map<strin
     const url = new URL(`${YOUTUBE_API_BASE}/videos`);
     url.searchParams.set("key", YOUTUBE_API_KEY);
     url.searchParams.set("id", chunk.join(","));
-    url.searchParams.set("part", "contentDetails");
+    url.searchParams.set("part", "contentDetails,statistics");
 
     const res = await fetch(url.toString());
     if (!res.ok) {
       // throwIfFatalError re-throws on quota/auth errors; for other failures, skip this chunk
       await throwIfFatalError(res);
       console.warn(
-        `[YouTube] fetchVideoDurations chunk ${i}–${i + YT_VIDEOS_PAGE_SIZE - 1} failed (${res.status}), skipping`,
+        `[YouTube] fetchVideoMetadata chunk ${i}–${i + chunk.length - 1} failed (${res.status}) — ${chunk.length} video IDs will have no view data`,
       );
       continue; // best-effort: skip this chunk, keep results so far
     }
 
     const data = await res.json();
     for (const v of data.items ?? []) {
-      durations.set(v.id, parseDuration(v.contentDetails?.duration ?? "PT0S"));
+      const rawViews = v.statistics?.viewCount;
+      const parsedViews = rawViews != null ? Number(rawViews) : null;
+      result.set(v.id, {
+        durationSeconds: parseDuration(v.contentDetails?.duration ?? "PT0S"),
+        viewCount: parsedViews != null && Number.isFinite(parsedViews) ? parsedViews : null,
+      });
     }
   }
 
-  return durations;
+  return result;
 }
 
 // ─── OST playlist discovery (read-only, uses API key) ────────────────────────

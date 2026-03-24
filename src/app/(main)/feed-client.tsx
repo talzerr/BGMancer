@@ -55,6 +55,7 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
       allow_long_tracks: config.allowLongTracks,
       allow_short_tracks: config.allowShortTracks,
       anti_spoiler_enabled: config.antiSpoilerEnabled,
+      raw_vibes: config.rawVibes,
     });
     await fetchSessions();
   }
@@ -119,6 +120,8 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
             onToggleLongTracks={config.saveAllowLongTracks}
             allowShortTracks={config.allowShortTracks}
             onToggleShortTracks={config.saveAllowShortTracks}
+            rawVibes={config.rawVibes}
+            onToggleRawVibes={config.saveRawVibes}
             importUrl={playlist.importUrl}
             onImportUrlChange={playlist.setImportUrl}
             importing={playlist.importing}

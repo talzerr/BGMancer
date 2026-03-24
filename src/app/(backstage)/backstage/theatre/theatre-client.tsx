@@ -14,6 +14,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 import type { PlaylistTrack, TrackDecision, ScoringRubric, PlaylistSession } from "@/types";
 import { SelectionPass } from "@/types";
+import {
+  SCORE_WEIGHT_ROLE,
+  SCORE_WEIGHT_MOOD,
+  SCORE_WEIGHT_INSTRUMENT,
+  SCORE_WEIGHT_ROLE_VIEW_BIAS,
+  SCORE_WEIGHT_MOOD_VIEW_BIAS,
+  SCORE_WEIGHT_VIEW_BIAS,
+  SCORE_WEIGHT_INSTRUMENT_VIEW_BIAS,
+} from "@/lib/constants";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -134,13 +143,34 @@ const ARC_PHASES = [
   },
 ] as const;
 
-const SCORING_WEIGHTS = [
-  { dimension: "Role", weight: 0.4, method: "Binary -- 1.0 if role matches slot, 0.0 otherwise" },
-  { dimension: "Mood", weight: 0.35, method: "Jaccard similarity on mood intersection" },
+interface ScoringWeightRow {
+  dimension: string;
+  weight: string;
+  method: string;
+}
+
+const w = (a: number, b: number) => `${a.toFixed(2)} / ${b.toFixed(2)}`;
+
+const SCORING_WEIGHTS: ScoringWeightRow[] = [
+  {
+    dimension: "Role",
+    weight: w(SCORE_WEIGHT_ROLE, SCORE_WEIGHT_ROLE_VIEW_BIAS),
+    method: "Binary -- 1.0 if role matches slot, 0.0 otherwise",
+  },
+  {
+    dimension: "Mood",
+    weight: w(SCORE_WEIGHT_MOOD, SCORE_WEIGHT_MOOD_VIEW_BIAS),
+    method: "Jaccard similarity on mood intersection",
+  },
   {
     dimension: "Instrumentation",
-    weight: 0.25,
+    weight: w(SCORE_WEIGHT_INSTRUMENT, SCORE_WEIGHT_INSTRUMENT_VIEW_BIAS),
     method: "Jaccard similarity on instrumentation intersection",
+  },
+  {
+    dimension: "View Bias",
+    weight: `— / ${SCORE_WEIGHT_VIEW_BIAS.toFixed(2)}`,
+    method: "YouTube view count popularity (global heat + local stature)",
   },
 ];
 
@@ -570,6 +600,8 @@ function ScoreBreakdownTable({
     return map;
   }, [tracks]);
 
+  const hasViewBias = decisions.some((d) => d.viewBiasActive);
+
   return (
     <Section title="Score Breakdown">
       <div className="overflow-x-auto rounded-lg border border-zinc-800">
@@ -596,6 +628,14 @@ function ScoreBreakdownTable({
               </TableHead>
               <TableHead className="w-10 text-[10px] tracking-wider text-zinc-500 uppercase">
                 Inst
+              </TableHead>
+              <TableHead
+                className={`w-10 text-[10px] tracking-wider uppercase ${hasViewBias ? "text-zinc-500" : "text-zinc-700"}`}
+                title={
+                  hasViewBias ? undefined : "View bias was off for this session (raw vibes mode)"
+                }
+              >
+                Views
               </TableHead>
               <TableHead className="w-12 text-[10px] tracking-wider text-zinc-500 uppercase">
                 Final
@@ -644,6 +684,13 @@ function ScoreBreakdownTable({
                   </TableCell>
                   <TableCell className="py-1.5">
                     <ScoreCell value={d.instScore} />
+                  </TableCell>
+                  <TableCell className="py-1.5">
+                    {d.viewBiasActive ? (
+                      <ScoreCell value={d.viewBiasScore} />
+                    ) : (
+                      <span className="font-mono text-[10px] text-zinc-700">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="py-1.5">
                     <ScoreCell value={d.finalScore} />
@@ -852,7 +899,7 @@ function ReferenceContent() {
             <thead>
               <tr className="border-b border-zinc-800 text-[11px] tracking-wider text-zinc-500 uppercase">
                 <th className="px-3 py-2 text-left">Dimension</th>
-                <th className="px-3 py-2 text-left">Weight</th>
+                <th className="px-3 py-2 text-left">Weight (raw vibes / view bias)</th>
                 <th className="px-3 py-2 text-left">Method</th>
               </tr>
             </thead>

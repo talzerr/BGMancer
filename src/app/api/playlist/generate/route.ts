@@ -37,6 +37,7 @@ export async function POST(request: Request) {
     allow_long_tracks: body.allow_long_tracks === true,
     allow_short_tracks: body.allow_short_tracks === true,
     anti_spoiler_enabled: body.anti_spoiler_enabled === true,
+    raw_vibes: body.raw_vibes === true,
   };
 
   const cookieStore = await cookies();

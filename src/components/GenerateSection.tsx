@@ -23,6 +23,8 @@ interface GenerateSectionProps {
   onToggleLongTracks: (enabled: boolean) => void;
   allowShortTracks: boolean;
   onToggleShortTracks: (enabled: boolean) => void;
+  rawVibes: boolean;
+  onToggleRawVibes: (enabled: boolean) => void;
   // Import-related props
   importUrl: string;
   onImportUrlChange: (url: string) => void;
@@ -50,6 +52,8 @@ export function GenerateSection({
   onToggleLongTracks,
   allowShortTracks,
   onToggleShortTracks,
+  rawVibes,
+  onToggleRawVibes,
   importUrl,
   onImportUrlChange,
   importing,
@@ -278,6 +282,27 @@ export function GenerateSection({
                       <p className="mt-0.5 text-[11px] leading-snug text-zinc-400">
                         When off (default), tracks under 90 seconds are excluded. Useful for keeping
                         things flowing — intros, stingers, and short jingles are skipped.
+                      </p>
+                    </div>
+                  </div>
+                  {/* Raw vibes toggle */}
+                  <div className="group relative">
+                    <button
+                      onClick={() => onToggleRawVibes(!rawVibes)}
+                      className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
+                        rawVibes
+                          ? "border-purple-500/40 bg-purple-900/30 text-purple-300 hover:bg-purple-900/50"
+                          : "border-white/[0.06] bg-zinc-950/60 text-zinc-500 hover:border-white/[0.12] hover:text-zinc-300"
+                      }`}
+                    >
+                      <span>{rawVibes ? "♫ Raw vibes: on" : "♫ Raw vibes: off"}</span>
+                    </button>
+                    {/* Tooltip */}
+                    <div className="pointer-events-none absolute right-0 bottom-full z-10 mb-2 w-56 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 opacity-0 shadow-xl shadow-black/50 transition-opacity group-hover:opacity-100">
+                      <p className="text-xs font-medium text-zinc-200">Raw vibes</p>
+                      <p className="mt-0.5 text-[11px] leading-snug text-zinc-400">
+                        When on, ignores YouTube view counts — all tracks scored purely on musical
+                        tags. May surface more obscure tracks.
                       </p>
                     </div>
                   </div>

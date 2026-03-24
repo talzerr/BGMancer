@@ -18,6 +18,11 @@ import {
   SCORE_WEIGHT_ROLE,
   SCORE_WEIGHT_MOOD,
   SCORE_WEIGHT_INSTRUMENT,
+  SCORE_WEIGHT_ROLE_VIEW_BIAS,
+  SCORE_WEIGHT_MOOD_VIEW_BIAS,
+  SCORE_WEIGHT_VIEW_BIAS,
+  SCORE_WEIGHT_INSTRUMENT_VIEW_BIAS,
+  VIEW_BIAS_SCORE_BASELINE,
   SCORE_PENALTY_MULTIPLIER,
   SCORE_VOCALS_PENALTY_MULTIPLIER,
   DIRECTOR_TOP_N_POOL,
@@ -165,6 +170,52 @@ function jaccard(a: string[], b: string[]): number {
   return union === 0 ? 0 : intersection / union;
 }
 
+// ─── View Bias computation ───────────────────────────────────────────────────
+
+const VIEW_BIAS_LOG_MIN = 3; // log10(1,000)
+const VIEW_BIAS_LOG_MAX = 7; // log10(10,000,000)
+
+function computeGlobalHeat(viewCount: number | null): number {
+  // Tracks with no view data get the baseline (0.3) rather than 0.0, to avoid penalising
+  // obscure or newly-ingested games that simply haven't accumulated YouTube statistics yet.
+  if (viewCount == null || viewCount <= 0) return VIEW_BIAS_SCORE_BASELINE;
+  const logViews = Math.log10(viewCount);
+  return Math.max(
+    0,
+    Math.min(1, (logViews - VIEW_BIAS_LOG_MIN) / (VIEW_BIAS_LOG_MAX - VIEW_BIAS_LOG_MIN)),
+  );
+}
+
+function computeViewBiasScores(taggedPools: Map<string, TaggedTrack[]>): Map<string, number> {
+  const scores = new Map<string, number>();
+
+  for (const [, tracks] of taggedPools) {
+    const viewCounts = tracks
+      .map((t) => t.viewCount)
+      .filter((v): v is number => v != null && v > 0);
+    const avgViews =
+      viewCounts.length > 0 ? viewCounts.reduce((a, b) => a + b, 0) / viewCounts.length : 0;
+
+    for (const track of tracks) {
+      const globalHeat = computeGlobalHeat(track.viewCount);
+
+      let localStature: number;
+      if (track.viewCount == null || track.viewCount <= 0 || avgViews <= 0) {
+        localStature = VIEW_BIAS_SCORE_BASELINE;
+      } else {
+        // ratio of 1.0 = average → 0.33; ratio of 3.0+ = 1.0
+        localStature = Math.max(0, Math.min(1, track.viewCount / avgViews / 3));
+      }
+
+      scores.set(track.videoId, globalHeat * 0.6 + localStature * 0.4);
+    }
+  }
+
+  return scores;
+}
+
+// ─── Game budgets ────────────────────────────────────────────────────────────
+
 function computeGameBudgets(
   games: Game[],
   taggedPools: Map<string, TaggedTrack[]>,
@@ -219,6 +270,7 @@ const ZERO_BREAKDOWN: ScoreBreakdown = {
   roleScore: 0,
   moodScore: 0,
   instScore: 0,
+  viewBiasScore: 0,
   finalScore: 0,
   adjustedScore: 0,
 };
@@ -226,7 +278,8 @@ const ZERO_BREAKDOWN: ScoreBreakdown = {
 function scoreTrack(
   track: TaggedTrack,
   slot: ArcSlot,
-  rubric?: ScoringRubric,
+  rubric: ScoringRubric | undefined,
+  viewBiasScores: Map<string, number> | null,
 ): ScoreBreakdown | null {
   if (!slot.energyPrefs.includes(track.energy)) return null;
 
@@ -241,10 +294,17 @@ function scoreTrack(
   const targetInst = rubric?.preferredInstrumentation ?? slot.preferredInstrumentation;
   const instScore = jaccard(track.instrumentation, targetInst);
 
+  const viewBiasScore = viewBiasScores?.get(track.videoId) ?? VIEW_BIAS_SCORE_BASELINE;
+
   const finalScore =
-    roleScore * SCORE_WEIGHT_ROLE +
-    moodScore * SCORE_WEIGHT_MOOD +
-    instScore * SCORE_WEIGHT_INSTRUMENT;
+    viewBiasScores != null
+      ? roleScore * SCORE_WEIGHT_ROLE_VIEW_BIAS +
+        moodScore * SCORE_WEIGHT_MOOD_VIEW_BIAS +
+        viewBiasScore * SCORE_WEIGHT_VIEW_BIAS +
+        instScore * SCORE_WEIGHT_INSTRUMENT_VIEW_BIAS
+      : roleScore * SCORE_WEIGHT_ROLE +
+        moodScore * SCORE_WEIGHT_MOOD +
+        instScore * SCORE_WEIGHT_INSTRUMENT;
 
   let adjustedScore = finalScore;
   const allPenalized = new Set([...slot.penalizedMoods, ...(rubric?.penalizedMoods ?? [])]);
@@ -252,7 +312,7 @@ function scoreTrack(
   if (rubric?.allowVocals === false && track.hasVocals)
     adjustedScore *= SCORE_VOCALS_PENALTY_MULTIPLIER;
 
-  return { roleScore, moodScore, instScore, finalScore, adjustedScore };
+  return { roleScore, moodScore, instScore, viewBiasScore, finalScore, adjustedScore };
 }
 
 interface PickResult {
@@ -269,8 +329,10 @@ export function assemblePlaylist(
   taggedPools: Map<string, TaggedTrack[]>,
   games: Game[],
   targetCount: number,
-  rubric?: ScoringRubric,
+  rubric: ScoringRubric | undefined,
+  useViewBias: boolean,
 ): DirectorResult {
+  const viewBiasScores = useViewBias ? computeViewBiasScores(taggedPools) : null;
   const budgets = computeGameBudgets(games, taggedPools, targetCount);
   const slots = expandArc(targetCount);
 
@@ -301,6 +363,7 @@ export function assemblePlaylist(
       roleScore: breakdown.roleScore,
       moodScore: breakdown.moodScore,
       instScore: breakdown.instScore,
+      viewBiasScore: breakdown.viewBiasScore,
       finalScore: breakdown.finalScore,
       adjustedScore: breakdown.adjustedScore,
       poolSize,
@@ -308,6 +371,7 @@ export function assemblePlaylist(
       gameBudgetUsed: gameUsed.get(track.gameId) ?? 0,
       selectionPass,
       rubricUsed: hasRubric,
+      viewBiasActive: viewBiasScores != null,
     });
   }
 
@@ -330,7 +394,15 @@ export function assemblePlaylist(
         while (slotIdx < slots.length && focusSlotIndices.has(slotIdx)) slotIdx++;
         if (slotIdx >= slots.length) break;
 
-        const pick = pickBestTrack(pool, slots[slotIdx], used, gameId, lastGameId, rubric);
+        const pick = pickBestTrack(
+          pool,
+          slots[slotIdx],
+          used,
+          gameId,
+          lastGameId,
+          rubric,
+          viewBiasScores,
+        );
         if (pick) {
           result[slotIdx] = pick.track;
           focusSlotIndices.add(slotIdx);
@@ -379,7 +451,7 @@ export function assemblePlaylist(
       if (currentUsed >= budget) continue;
 
       const pool = shuffledPools.get(gameId) ?? [];
-      const pick = pickBestTrack(pool, slot, used, gameId, lastGameId, rubric);
+      const pick = pickBestTrack(pool, slot, used, gameId, lastGameId, rubric, viewBiasScores);
       if (!pick) continue;
 
       let score = pick.breakdown.adjustedScore;
@@ -401,7 +473,7 @@ export function assemblePlaylist(
       const allGameIds = [...nonFocusGameIds, ...focusGameIds];
       for (const gameId of allGameIds) {
         const pool = shuffledPools.get(gameId) ?? [];
-        const pick = pickBestTrack(pool, slot, used, gameId, lastGameId, rubric);
+        const pick = pickBestTrack(pool, slot, used, gameId, lastGameId, rubric, viewBiasScores);
         if (pick) {
           bestTrack = pick.track;
           bestBreakdown = pick.breakdown;
@@ -418,7 +490,7 @@ export function assemblePlaylist(
         for (const track of pool) {
           if (!used.has(track.videoId)) {
             bestTrack = track;
-            bestBreakdown = scoreTrack(track, slot, rubric) ?? ZERO_BREAKDOWN;
+            bestBreakdown = scoreTrack(track, slot, rubric, viewBiasScores) ?? ZERO_BREAKDOWN;
             bestPoolSize = 0;
             bestPass = SelectionPass.LastResort;
             break;
@@ -474,14 +546,15 @@ function pickBestTrack(
   used: Set<string>,
   _gameId: string,
   lastGameId: string | null,
-  rubric?: ScoringRubric,
+  rubric: ScoringRubric | undefined,
+  viewBiasScores: Map<string, number> | null,
 ): PickResult | null {
   // Pass 1: avoid consecutive same-game
   const candidates: Array<{ track: TaggedTrack; breakdown: ScoreBreakdown }> = [];
   for (const track of pool) {
     if (used.has(track.videoId)) continue;
     if (track.gameId === lastGameId) continue;
-    const breakdown = scoreTrack(track, slot, rubric);
+    const breakdown = scoreTrack(track, slot, rubric, viewBiasScores);
     if (breakdown) candidates.push({ track, breakdown });
   }
 
@@ -492,7 +565,7 @@ function pickBestTrack(
   const relaxed: Array<{ track: TaggedTrack; breakdown: ScoreBreakdown }> = [];
   for (const track of pool) {
     if (used.has(track.videoId)) continue;
-    const breakdown = scoreTrack(track, slot, rubric);
+    const breakdown = scoreTrack(track, slot, rubric, viewBiasScores);
     if (breakdown) relaxed.push({ track, breakdown });
   }
 

@@ -43,26 +43,6 @@ Shift from an open "add any game" model to a **pre-onboarded master library**. E
 
 ## Curation Tuning
 
-- **YouTube view count as popularity signal** — fetch and cache view counts for tracks; use as a soft weight in Director assembly so more-popular tracks are favoured. Expose as a user toggle (similar to allow long/short tracks) so users can opt in or out of popularity bias.
-
-- **Director: Legacy Score ($S_{leg}$)** — add a fourth resonance dimension that balances global popularity with per-game stature, solving both the "Mainstream Bot" (raw views favour AAA) and "no Best-Of feel" (pure intra-game rank loses global signal) problems.
-
-  **Formula:**
-  - **Global Heat** = `log10(views)`, normalized to `0.0–1.0` over the range `[3, 7]` (1k–10M views)
-  - **Local Stature** = `trackViews / avgViewsForGame` (a track with 500k views in a 50k-avg game scores 10×; same track in a 2M-avg game scores 0.25×), then normalized
-  - **Legacy Score** = `(GlobalHeat × 0.6) + (LocalStature × 0.4)`
-  - **Baseline** = `0.3` for tracks with no view data (avoids floor-penalizing obscure/new games)
-
-  **Updated Director resonance weights (when Legacy toggle is on):**
-  | Dimension | Weight |
-  |-----------|--------|
-  | Role | 0.30 |
-  | Mood | 0.25 |
-  | Legacy | 0.30 |
-  | Instrumentation | 0.15 |
-
-  View counts should be fetched from the YouTube API during soundtrack ingestion and cached in `track_tags`. Depends on the "YouTube view count" toggle above.
-
 - **Tagger role skew validation** — if >50% of game's tracks are `ambient`, re-tag with role-diversity bias.
 - **Per-game soft cap tuning** — revisit 40% soft cap if users report thin single-game playlists.
 - **Focus mode budget hardening** — option to enforce strict "always N tracks per focus game" (currently soft guarantee).
@@ -87,7 +67,6 @@ Current Vibe Check (Maestro only) uses random 2.5× sample. For large libraries,
 
 - **Generating a new playlist resets the player** — starting a new generation should not interrupt the currently playing track; the new session should be created in the background and become selectable without stopping playback.
 - **Deleting a non-active session resets the player** — deleting a session that is not currently playing should leave the active session and player state untouched.
-- **Backstage elements not interactable** — some fields in the Backstage UI cannot be edited (e.g. energy value selector); inputs appear rendered but don't respond to interaction.
 
 ## Backstage
 
