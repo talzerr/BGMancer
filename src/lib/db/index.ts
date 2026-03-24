@@ -1,10 +1,9 @@
 import Database from "better-sqlite3";
 import path from "path";
 import { initSchema } from "./schema";
-import { seedDefaultUser, syncYtPlaylistSeeds } from "./seed";
+import { seedDefaultUser } from "./seed";
 
-// Re-export constants and helpers so existing importers of @/lib/db still work.
-export { LOCAL_USER_ID, LOCAL_LIBRARY_ID, getSeedPlaylistId } from "./seed";
+export { LOCAL_USER_ID, LOCAL_LIBRARY_ID } from "./seed";
 
 let _db: Database.Database | null = null;
 
@@ -16,7 +15,6 @@ export function getDB(): Database.Database {
     _db.pragma("foreign_keys = ON");
     initSchema(_db);
     seedDefaultUser(_db);
-    syncYtPlaylistSeeds(_db);
   }
   return _db;
 }

@@ -1,5 +1,4 @@
 import { getDB } from "@/lib/db";
-import { getSeedPlaylistId } from "@/lib/db/seed";
 import { stmt, LIBRARY_SQ } from "./_shared";
 import { toGame, toGames } from "@/lib/db/mappers";
 import { CurationMode } from "@/types";
@@ -29,6 +28,20 @@ export interface SteamGameInput {
   appid: number;
   name: string;
   playtime_forever: number;
+}
+
+function toBackstageGame(r: Record<string, unknown>): BackstageGame {
+  return {
+    id: String(r.id),
+    title: String(r.title),
+    tagging_status: String(r.tagging_status) as BackstageGame["tagging_status"],
+    tracklist_source: r.tracklist_source != null ? String(r.tracklist_source) : null,
+    needs_review: !!r.needs_review,
+    trackCount: Number(r.track_count ?? 0),
+    taggedCount: Number(r.tagged_count ?? 0),
+    activeCount: Number(r.active_count ?? 0),
+    reviewFlagCount: Number(r.review_flag_count ?? 0),
+  };
 }
 
 export const Games = {
@@ -102,11 +115,13 @@ export const Games = {
     playtimeMinutes: number | null = null,
   ): Game {
     const db = getDB();
-    const seededPlaylistId = getSeedPlaylistId(title);
     db.transaction(() => {
-      stmt(
-        "INSERT INTO games (id, title, steam_appid, playtime_minutes, yt_playlist_id) VALUES (?, ?, ?, ?, ?)",
-      ).run(id, title, steamAppid, playtimeMinutes, seededPlaylistId ?? null);
+      stmt("INSERT INTO games (id, title, steam_appid, playtime_minutes) VALUES (?, ?, ?, ?)").run(
+        id,
+        title,
+        steamAppid,
+        playtimeMinutes,
+      );
 
       stmt(
         `INSERT OR IGNORE INTO library_games (library_id, game_id, curation) VALUES (${LIBRARY_SQ}, ?, ?)`,
@@ -198,17 +213,7 @@ export const Games = {
       ORDER BY review_flag_count DESC, g.title ASC
     `).all() as Record<string, unknown>[];
 
-    return rows.map((r) => ({
-      id: String(r.id),
-      title: String(r.title),
-      tagging_status: String(r.tagging_status) as BackstageGame["tagging_status"],
-      tracklist_source: r.tracklist_source != null ? String(r.tracklist_source) : null,
-      needs_review: !!r.needs_review,
-      trackCount: Number(r.track_count ?? 0),
-      taggedCount: Number(r.tagged_count ?? 0),
-      activeCount: Number(r.active_count ?? 0),
-      reviewFlagCount: Number(r.review_flag_count ?? 0),
-    }));
+    return rows.map(toBackstageGame);
   },
 
   /**
@@ -253,17 +258,7 @@ export const Games = {
     const rows = getDB()
       .prepare(sql)
       .all(...params) as Record<string, unknown>[];
-    return rows.map((r) => ({
-      id: String(r.id),
-      title: String(r.title),
-      tagging_status: String(r.tagging_status) as BackstageGame["tagging_status"],
-      tracklist_source: r.tracklist_source != null ? String(r.tracklist_source) : null,
-      needs_review: !!r.needs_review,
-      trackCount: Number(r.track_count ?? 0),
-      taggedCount: Number(r.tagged_count ?? 0),
-      activeCount: Number(r.active_count ?? 0),
-      reviewFlagCount: Number(r.review_flag_count ?? 0),
-    }));
+    return rows.map(toBackstageGame);
   },
 
   /**
@@ -278,8 +273,8 @@ export const Games = {
     const db = getDB();
     const insertGameSQL = `
       INSERT OR IGNORE INTO games
-        (id, title, steam_appid, playtime_minutes, yt_playlist_id)
-      VALUES (?, ?, ?, ?, ?)
+        (id, title, steam_appid, playtime_minutes)
+      VALUES (?, ?, ?, ?)
     `;
     const insertLibrarySQL = `INSERT OR IGNORE INTO library_games (library_id, game_id, curation) VALUES (${LIBRARY_SQ}, ?, 'skip')`;
 
@@ -290,14 +285,7 @@ export const Games = {
     db.transaction(() => {
       for (const g of games) {
         const id = newId();
-        const seededPlaylistId = getSeedPlaylistId(g.name);
-        const result = stmt(insertGameSQL).run(
-          id,
-          g.name,
-          g.appid,
-          Math.round(g.playtime_forever),
-          seededPlaylistId ?? null,
-        );
+        const result = stmt(insertGameSQL).run(id, g.name, g.appid, Math.round(g.playtime_forever));
         if (result.changes > 0) {
           imported++;
           importedIds.push(id);

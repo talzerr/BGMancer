@@ -8,7 +8,6 @@ import { Spinner, SearchIcon, CheckIcon } from "@/components/Icons";
 import { AddGameForm } from "@/components/AddGameForm";
 import { GameRow, CurationLegend } from "@/components/GameRow";
 import { SteamImportPanel } from "@/components/SteamImportPanel";
-import { SeedExportPanel } from "@/components/SeedExportPanel";
 import { usePlayerContext } from "@/context/player-context";
 type Filter = "all" | "skip" | "lite" | "include" | "focus";
 type SortKey = "playtime" | "name" | "added";
@@ -187,7 +186,6 @@ export function LibraryClient() {
                 gameLibrary.fetchGames();
               }}
             />
-            <SeedExportPanel />
           </aside>
 
           {/* Main: game list */}

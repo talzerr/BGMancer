@@ -61,7 +61,7 @@ export enum ReviewReason {
   LowConfidence = "low_confidence",
   EmptyMetadata = "empty_metadata",
   NoDiscogsData = "no_discogs_data",
-  AlignmentFailed = "alignment_failed",
+  TrackDiscovered = "track_discovered",
   TrackCapReached = "track_cap_reached",
 }
 

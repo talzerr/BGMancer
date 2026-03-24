@@ -26,7 +26,7 @@ Requires a `.env.local` (copy from `.env.local.example`) with:
 - `STEAM_API_KEY` — required for Steam import
 - `ANTHROPIC_API_KEY` — optional; enables Maestro tier (Claude) instead of Bard (Ollama)
 - `ANTHROPIC_TAGGING_MODEL` — optional; override Anthropic model for Phase 2 tagging (defaults to `ANTHROPIC_MODEL`)
-- `ANTHROPIC_VIBE_MODEL` — optional; override Anthropic model for Vibe Check (defaults to `ANTHROPIC_MODEL`)
+- `ANTHROPIC_VIBE_MODEL` — optional; override Anthropic model for Vibe Profiler (defaults to `ANTHROPIC_MODEL`)
 - `NEXTAUTH_SECRET` — required for next-auth sessions
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — optional; enables "Sync to YouTube"
 - `OLLAMA_HOST` / `OLLAMA_MODEL` — optional; defaults to `http://localhost:11434` / `llama3.2`
@@ -70,19 +70,16 @@ Statements are cached via the `stmt()` helper in `repos/_shared.ts` to avoid rep
 
 The local single-user setup uses stable UUIDs: `LOCAL_USER_ID` and `LOCAL_LIBRARY_ID` (defined in `src/lib/db/index.ts`). All game queries filter by `LOCAL_LIBRARY_SQ` — a subquery that resolves the local user's library.
 
-On startup, `syncYtPlaylistSeeds()` upserts `data/yt-playlists.json` into `game_yt_playlists` for any matching games. This can emit FK warnings for titles not yet in the DB — this is harmless.
-
 ### Playlist generation pipeline (`src/lib/pipeline/`)
 
-Entry point: `generatePlaylist(send, userId, config)` in `src/lib/pipeline/index.ts`. Called from `POST /api/playlist/generate`, which wraps it in an SSE stream.
+Entry point: `generatePlaylist(send, userId, config)` in `src/lib/pipeline/index.ts`. Called from `POST /api/playlist/generate`, which wraps it in an SSE stream (using the shared `makeSSEStream` factory in `src/lib/sse.ts`).
 
-Three-phase process for individual-track games:
+Four-phase process for individual-track games:
 
-1. **Phase 1 — Playlist discovery** (`candidates.ts`): find (or load from `game_yt_playlists` cache) the YouTube OST playlist ID per game
-2. **Phase 2 — Per-game track tagging** (`tagger.ts`): the Tagger LLM enriches each track with `energy`, `role`, `cleanName`, and junk detection. Results are cached in `track_tags` DB table.
-3. **Phase 3 — Deterministic arc assembly** (`director.ts`): the TypeScript Director builds the final ordered playlist from the tagged pool, shaping energy flow and cross-game balance. **No LLM involvement.** Each selected track produces a `TrackDecision` record (score components, arc phase, pool size, game budget) persisted via `DirectorDecisions.bulkInsert()` into `playlist_track_decisions` — this is the Director telemetry shown in the Theatre view.
-
-Between phases 2 and 3, **Vibe Check** (`vibe-check.ts`, Maestro only) scores a 2.5× candidate sample with an LLM to produce `fitScore` values; the Director weights these during arc assembly. `casting.ts` builds the candidate pool for Vibe Check.
+1. **Phase 1 — Playlist discovery** (`candidates.ts`): find (or search YouTube for) the OST playlist ID per game; cache result in `game_yt_playlists`.
+2. **Phase 1.5 — Track resolution** (`resolver.ts`): align DB track names to YouTube video IDs via LLM; fall back to per-track YouTube search for unresolved tracks. Durations fetched and cached in `video_tracks`.
+3. **Phase 2 — Vibe Profiler** (`vibe-profiler.ts`, Maestro only): LLM produces a `ScoringRubric` from the session's game titles. The rubric shapes the Director's scoring weights. Skipped entirely for Bard tier.
+4. **Phase 3 — Deterministic arc assembly** (`director.ts`): the TypeScript Director builds the final ordered playlist from the tagged pool, shaping energy flow and cross-game balance. **No LLM involvement.** Each selected track produces a `TrackDecision` record (score components, arc phase, pool size, game budget) persisted via `DirectorDecisions.bulkInsert()` into `playlist_track_decisions` — this is the Director telemetry shown in the Theatre view.
 
 Curation modes (see `CurationMode` enum in `src/types/index.ts`):
 
@@ -91,14 +88,15 @@ Curation modes (see `CurationMode` enum in `src/types/index.ts`):
 - `include` — standard (default)
 - `focus` — guaranteed double-weighted budget in phase 3
 
-Full-OST games (`allow_full_ost = true`) bypass all phases — one YouTube compilation video per game.
+**Game onboarding** (`onboarding.ts`): when a new game is added, `onboardGame()` is called in the background. It calls `ingestFromDiscogs()` — a shared helper that fetches the tracklist from Discogs, upserts tracks, and runs the LLM tagger. The Backstage reingest action also calls `ingestFromDiscogs()` after clearing existing data.
 
 ### LLM providers (`src/lib/llm/`)
 
 `src/lib/llm/index.ts` exports:
 
 - `getTaggingProvider(tier)` — Phase 1.5 resolver + Phase 2 Tagger; Anthropic if Maestro + key set, else Ollama. Override model with `ANTHROPIC_TAGGING_MODEL`.
-- `getLocalLLMProvider()` — always returns Ollama (used for name cleaning and Bard tier).
+- `getVibeProfilerProvider(tier)` — Phase 2 Vibe Profiler; same tier logic. Override model with `ANTHROPIC_VIBE_MODEL`.
+- `getLocalLLMProvider()` — always returns Ollama (used for Bard tier).
 
 All providers implement `LLMProvider` (`src/lib/llm/provider.ts`): `complete(system, user, opts)`.
 
@@ -113,7 +111,7 @@ Config is stored in **localStorage** (not the DB). `useConfig` (`src/hooks/useCo
 
 | Key                        | Type       | Default | Purpose                                            |
 | -------------------------- | ---------- | ------- | -------------------------------------------------- |
-| `bgm_target_track_count`   | number     | 20      | Target playlist length                             |
+| `bgm_target_track_count`   | number     | 50      | Target playlist length                             |
 | `bgm_anti_spoiler_enabled` | "1" \| "0" | "0"     | Blur unplayed track titles                         |
 | `bgm_allow_long_tracks`    | "1" \| "0" | "0"     | Allow tracks >9min                                 |
 | `bgm_allow_short_tracks`   | "1" \| "0" | "1"     | Allow tracks <90s (note: always false in practice) |
@@ -143,8 +141,8 @@ Backstage API routes (all under `src/app/api/backstage/`):
 
 - `GET /api/backstage/games` — paginated game list with needs-review flag
 - `GET /api/backstage/games/[gameId]/tracks` — tracks for a single game
-- `POST /api/backstage/reingest` — re-run Phase 1 (playlist discovery) for a game
-- `POST /api/backstage/retag` — re-run Phase 2 (tagger) for a game; streams SSE progress
+- `POST /api/backstage/reingest` — clear tracks and re-ingest from Discogs + retag; streams SSE progress
+- `POST /api/backstage/retag` — clear tags and re-run the LLM tagger for a game; streams SSE progress
 - `GET/POST/DELETE /api/backstage/review-flags` — manage per-game review flags
 - `GET /api/backstage/tracks` — full track table with tag metadata
 - `GET /api/backstage/theatre/sessions` — session list for Theatre view

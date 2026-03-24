@@ -1,30 +1,13 @@
 import { Games, Tracks } from "@/lib/db/repo";
 import { tagTracks } from "@/lib/pipeline/tagger";
 import { getTaggingProvider } from "@/lib/llm";
+import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
 import { UserTier } from "@/types";
 
 type RetagEvent =
   | { type: "progress"; current: number; total: number; trackName: string }
   | { type: "done"; tagged: number; needsReview: number }
   | { type: "error"; message: string };
-
-function makeStream() {
-  const encoder = new TextEncoder();
-  let controller: ReadableStreamDefaultController<Uint8Array>;
-
-  const stream = new ReadableStream<Uint8Array>({
-    start(c) {
-      controller = c;
-    },
-  });
-
-  const send = (event: RetagEvent) => {
-    controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
-  };
-  const close = () => controller.close();
-
-  return { stream, send, close };
-}
 
 /** POST /api/backstage/retag — clear tags and re-run LLM tagger for a game */
 export async function POST(req: Request) {
@@ -33,7 +16,7 @@ export async function POST(req: Request) {
   if (!gameId) {
     return new Response(
       `data: ${JSON.stringify({ type: "error", message: "gameId is required" })}\n\n`,
-      { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } },
+      { headers: SSE_HEADERS },
     );
   }
 
@@ -41,11 +24,11 @@ export async function POST(req: Request) {
   if (!game) {
     return new Response(
       `data: ${JSON.stringify({ type: "error", message: "Game not found" })}\n\n`,
-      { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } },
+      { headers: SSE_HEADERS },
     );
   }
 
-  const { stream, send, close } = makeStream();
+  const { stream, send, close } = makeSSEStream<RetagEvent>();
 
   (async () => {
     try {
@@ -72,11 +55,5 @@ export async function POST(req: Request) {
     }
   })();
 
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      "X-Accel-Buffering": "no",
-    },
-  });
+  return new Response(stream, { headers: SSE_HEADERS });
 }

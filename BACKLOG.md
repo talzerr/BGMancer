@@ -31,6 +31,16 @@
 - **Playlist cache refresh** — per-game button to force re-discovery of YouTube OST ID; clears cached tags.
 - **Bulk text import** — paste newline-separated game titles to add multiple at once.
 
+## Walled Garden (Curated Library Model)
+
+Shift from an open "add any game" model to a **pre-onboarded master library**. Every game visible to users is guaranteed to have full tag coverage (energy, role, moods, instrumentation), eliminating the metadata-integrity problems that cause floor-scoring and weak Director output.
+
+- **Master library browse** — replace the "Add Game" free-text input with a gallery/search over the pre-approved game catalogue. Users pick from games that are already fully onboarded.
+- **"Request a Game" flow** — a request button for games not yet in the catalogue; creates a `game_requests` record (title, requester info, vote count) visible in Backstage. Admin performs high-fidelity onboarding at their own pace; game moves from `pending` → `ready` and becomes selectable by all users.
+- **Request schema** — `game_requests` table: `id`, `title`, `requester_id`, `vote_count`, `status` (`pending` / `in_progress` / `ready` / `rejected`), `linked_game_id` (nullable FK to `games`), `created_at`.
+- **Backstage request queue** — view and manage pending requests; promote a request to a full game record and trigger onboarding from within Backstage.
+- **Remove Steam / open-text import from the main app** — move Steam bulk-import to a Backstage-only admin tool for seeding the master catalogue; users never trigger raw ingestion.
+
 ## Curation Tuning
 
 - **YouTube view count as popularity signal** — fetch and cache view counts for tracks; use as a soft weight in Director assembly so more-popular tracks are favoured. Expose as a user toggle (similar to allow long/short tracks) so users can opt in or out of popularity bias.

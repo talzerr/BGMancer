@@ -2,7 +2,7 @@ import Link from "next/link";
 import { usePlayerContext } from "@/context/player-context";
 import { steamHeaderUrl } from "@/lib/constants";
 
-export function LibraryCard() {
+export function LibraryWidget() {
   const { gameLibrary, player, playlist } = usePlayerContext();
   const { games, gamesLoading } = gameLibrary;
 

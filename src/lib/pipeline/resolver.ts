@@ -253,7 +253,7 @@ export async function resolveTracksToVideos(
   if (discoveredCount > 0) {
     ReviewFlags.markAsNeedsReview(
       game.id,
-      ReviewReason.AlignmentFailed,
+      ReviewReason.TrackDiscovered,
       `${discoveredCount} track(s) auto-discovered from YouTube titles`,
     );
   }

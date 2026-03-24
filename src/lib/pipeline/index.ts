@@ -35,7 +35,7 @@ async function gatherCandidates(
   const results: CandidateResult[] = await Promise.all(
     games.map(async (game) => {
       try {
-        return await fetchGameCandidates(game, send, user.id, user.tier);
+        return await fetchGameCandidates(game, send, user.tier);
       } catch (err) {
         if (err instanceof YouTubeQuotaError) throw err;
         console.error(`[generate] Phases 1/1.5 failed for game "${game.title}":`, err);

@@ -4,28 +4,10 @@ import { Users } from "@/lib/db/repo";
 import { getOrCreateUserId } from "@/lib/services/session";
 import { YouTubeQuotaError, YouTubeInvalidKeyError } from "@/lib/services/youtube";
 import { GENERATION_COOLDOWN_MS, DEFAULT_TRACK_COUNT } from "@/lib/constants";
+import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
 import type { AppConfig } from "@/types";
 
 export type { GenerateEvent };
-
-function makeStream() {
-  const encoder = new TextEncoder();
-  let controller: ReadableStreamDefaultController<Uint8Array>;
-
-  const stream = new ReadableStream<Uint8Array>({
-    start(c) {
-      controller = c;
-    },
-  });
-
-  const send = (event: GenerateEvent) => {
-    controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
-  };
-
-  const close = () => controller.close();
-
-  return { stream, send, close };
-}
 
 /**
  * POST /api/playlist/generate
@@ -38,7 +20,7 @@ export async function POST(request: Request) {
   if (!process.env.YOUTUBE_API_KEY) {
     return new Response(
       `data: ${JSON.stringify({ type: "error", message: "YouTube API key is not configured. Add YOUTUBE_API_KEY to .env.local and restart the server." })}\n\n`,
-      { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } },
+      { headers: SSE_HEADERS },
     );
   }
 
@@ -64,11 +46,11 @@ export async function POST(request: Request) {
   const lock = Users.tryAcquireGenerationLock(userId, GENERATION_COOLDOWN_MS);
   if (!lock.acquired) {
     return new Response(`data: ${JSON.stringify({ type: "error", message: lock.reason })}\n\n`, {
-      headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+      headers: SSE_HEADERS,
     });
   }
 
-  const { stream, send, close } = makeStream();
+  const { stream, send, close } = makeSSEStream<GenerateEvent>();
 
   (async () => {
     try {
@@ -91,11 +73,5 @@ export async function POST(request: Request) {
     }
   })();
 
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      "X-Accel-Buffering": "no",
-    },
-  });
+  return new Response(stream, { headers: SSE_HEADERS });
 }

@@ -23,7 +23,7 @@ import { useSessionManager } from "@/hooks/useSessionManager";
 import { useTrackDeleteUndo } from "@/hooks/useTrackDeleteUndo";
 import { GenerateSection } from "@/components/GenerateSection";
 import { SessionList } from "@/components/SessionList";
-import { LibraryCard } from "@/components/LibraryCard";
+import { LibraryWidget } from "@/components/LibraryWidget";
 import { PlaylistHeader } from "@/components/PlaylistHeader";
 import { SortableTrackItem } from "@/components/SortableTrackItem";
 import { PlaylistEmptyState } from "@/components/PlaylistEmptyState";
@@ -140,7 +140,7 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
             onDelete={handleDeleteSession}
           />
 
-          <LibraryCard />
+          <LibraryWidget />
         </aside>
 
         {/* Right panel: Playlist */}

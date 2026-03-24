@@ -194,7 +194,6 @@ async function resolveLegacy(
 export async function fetchGameCandidates(
   game: Game,
   send: Send,
-  _userId: string,
   tier: UserTier,
 ): Promise<CandidateResult> {
   const playlistId = await discoverOSTPlaylist(game, send);
