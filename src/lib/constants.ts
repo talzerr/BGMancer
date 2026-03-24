@@ -92,7 +92,7 @@ export const SCORE_WEIGHT_ROLE_VIEW_BIAS = 0.3;
 /** Dimension weight for mood Jaccard similarity when View bias scoring is active. */
 export const SCORE_WEIGHT_MOOD_VIEW_BIAS = 0.25;
 
-/** Dimension weight for the View bias (popularity) dimension. */
+/** Dimension weight for the View Bias score (log-scaled global heat + per-game local stature) when View Bias scoring is active. */
 export const SCORE_WEIGHT_VIEW_BIAS = 0.3;
 
 /** Dimension weight for instrumentation Jaccard similarity when View bias scoring is active. */

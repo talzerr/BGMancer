@@ -221,6 +221,8 @@ export interface TrackDecision {
   gameBudgetUsed: number;
   selectionPass: SelectionPass;
   rubricUsed: boolean;
+  /** True when view bias scoring was active for this session (raw vibes toggle was off). */
+  viewBiasActive: boolean;
 }
 
 /** Full output of assemblePlaylist — tracks + telemetry. */

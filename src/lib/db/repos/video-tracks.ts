@@ -60,7 +60,7 @@ export const VideoTracks = {
     })();
   },
 
-  /** Stores fetched durations and view counts so subsequent generations can skip YouTube API calls. */
+  /** Caches duration (write-once: preserved if already set) and view count (always refreshed) from YouTube. */
   storeDurations(
     entries: {
       videoId: string;

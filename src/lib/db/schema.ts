@@ -104,8 +104,9 @@ export function initSchema(db: Database.Database): void {
       pool_size        INTEGER NOT NULL DEFAULT 0,
       game_budget      INTEGER NOT NULL DEFAULT 0,
       game_budget_used INTEGER NOT NULL DEFAULT 0,
-      selection_pass   TEXT    NOT NULL DEFAULT 'scored',
-      rubric_used      INTEGER NOT NULL DEFAULT 0,
+      selection_pass      TEXT    NOT NULL DEFAULT 'scored',
+      rubric_used         INTEGER NOT NULL DEFAULT 0,
+      view_bias_active    INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY (playlist_id, position),
       FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE
     );

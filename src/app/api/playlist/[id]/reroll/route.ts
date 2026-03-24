@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { Playlist, Games } from "@/lib/db/repo";
-import { fetchPlaylistItems, fetchVideoMetadata } from "@/lib/services/youtube";
+import {
+  fetchPlaylistItems,
+  fetchVideoMetadata,
+  YouTubeQuotaError,
+  YouTubeInvalidKeyError,
+} from "@/lib/services/youtube";
 import { MIN_TRACK_DURATION_SECONDS, MAX_TRACK_DURATION_SECONDS } from "@/lib/constants";
 
 /** POST /api/playlist/:id/reroll — Replace a track with a different one from the same game's YouTube playlist. */
@@ -63,7 +68,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const meta = await fetchVideoMetadata(candidates.map((c) => c.videoId));
     for (const [id, m] of meta) durations.set(id, m.durationSeconds);
   } catch (err) {
-    console.warn("[reroll] fetchVideoMetadata failed (non-fatal):", err);
+    if (err instanceof YouTubeQuotaError || err instanceof YouTubeInvalidKeyError) {
+      console.error("[reroll] fetchVideoMetadata fatal error:", err);
+      return NextResponse.json({ error: (err as Error).message }, { status: 503 });
+    }
+    console.warn(
+      "[reroll] fetchVideoMetadata failed (non-fatal), proceeding without durations:",
+      err,
+    );
   }
 
   const eligible = candidates.filter((item) => {

@@ -83,14 +83,14 @@ The final resonance score $R$ for a track against a slot is the weighted sum of 
 
 $$R = w_{\text{role}} \cdot S_{\text{role}} + w_{\text{mood}} \cdot S_{\text{mood}} + w_{\text{vb}} \cdot S_{\text{vb}} + w_{\text{inst}} \cdot S_{\text{inst}}$$
 
-| Dimension       | Weight $w$ | Scoring Method     |
-| --------------- | ---------- | ------------------ |
-| Role            | 0.30       | Binary (1.0 / 0.0) |
-| Mood            | 0.25       | Jaccard similarity |
-| View Bias       | 0.30       | Log-scaled views   |
-| Instrumentation | 0.15       | Jaccard similarity |
+| Dimension       | Weight (raw vibes mode) | Weight (view bias mode) | Scoring Method     |
+| --------------- | ----------------------- | ----------------------- | ------------------ |
+| Role            | 0.40                    | 0.30                    | Binary (1.0 / 0.0) |
+| Mood            | 0.35                    | 0.25                    | Jaccard similarity |
+| View Bias       | —                       | 0.30                    | Log-scaled views   |
+| Instrumentation | 0.25                    | 0.15                    | Jaccard similarity |
 
-The app supports operating without view bias data, in which case the dimension is dropped and the weights redistribute to the original three-dimension values (Role 0.40, Mood 0.35, Instrumentation 0.25), preserving the same relative priority ordering.
+When the **Raw vibes** toggle is on, the View Bias dimension is dropped and the weights redistribute to the three-dimension values shown above, preserving the same relative priority ordering.
 
 #### Why Role Is an Intersection Check, Not Jaccard
 
@@ -314,7 +314,7 @@ The Director embodies a specific thesis: **subjective listening experience can b
 
 The weights are not derived from first principles — they reflect a deliberate prioritization: _what a track is for_ (role) matters more than _how it feels_ (mood), which matters more than _how it sounds_ (instrumentation). A combat track in a combat slot feels right even if its mood is wrong. A peaceful track in a climax slot feels wrong even if its instrumentation is perfect. The weights encode that hierarchy.
 
-The four-dimension weights (`0.30 / 0.25 / 0.30 / 0.15`) reflect the same underlying priority ordering as the three-dimension model — role above mood above instrumentation — with popularity inserted between mood and instrumentation. It is significant enough to surface iconic tracks, but not so dominant that it overrides role or mood fit. A track with massive global reach but the wrong role for its slot still loses to a well-matched obscure one.
+The four-dimension weights (`0.30 / 0.25 / 0.30 / 0.15`) place View Bias at the same level as Role (`0.30`), numerically above Mood (`0.25`). This is intentional: popularity is significant enough to consistently surface iconic tracks from a catalogue, but role and mood together (`0.55`) still dominate, so a well-matched obscure track will often beat a massively popular but misfit one. A track with massive global reach but the wrong role for its slot still loses to a well-matched obscure one.
 
 ---
 

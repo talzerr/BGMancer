@@ -180,7 +180,8 @@ export async function findBestVideo(
 /**
  * Fetch durations and view counts for a batch of video IDs in a single videos.list call (1 quota unit).
  * Returns a map of videoId → { durationSeconds, viewCount }.
- * Adding `statistics` to the `part` parameter is free — quota cost is per-call, not per-part.
+ * Adding `statistics` alongside `contentDetails` does not increase the quota cost for videos.list —
+ * it remains 1 unit per call regardless of how many parts are requested.
  */
 const YT_VIDEOS_PAGE_SIZE = 50; // YouTube videos.list max IDs per request
 
@@ -207,7 +208,7 @@ export async function fetchVideoMetadata(videoIds: string[]): Promise<Map<string
       // throwIfFatalError re-throws on quota/auth errors; for other failures, skip this chunk
       await throwIfFatalError(res);
       console.warn(
-        `[YouTube] fetchVideoMetadata chunk ${i}–${i + YT_VIDEOS_PAGE_SIZE - 1} failed (${res.status}), skipping`,
+        `[YouTube] fetchVideoMetadata chunk ${i}–${i + chunk.length - 1} failed (${res.status}) — ${chunk.length} video IDs will have no view data`,
       );
       continue; // best-effort: skip this chunk, keep results so far
     }
@@ -215,9 +216,10 @@ export async function fetchVideoMetadata(videoIds: string[]): Promise<Map<string
     const data = await res.json();
     for (const v of data.items ?? []) {
       const rawViews = v.statistics?.viewCount;
+      const parsedViews = rawViews != null ? Number(rawViews) : null;
       result.set(v.id, {
         durationSeconds: parseDuration(v.contentDetails?.duration ?? "PT0S"),
-        viewCount: rawViews != null ? Number(rawViews) : null,
+        viewCount: parsedViews != null && Number.isFinite(parsedViews) ? parsedViews : null,
       });
     }
   }

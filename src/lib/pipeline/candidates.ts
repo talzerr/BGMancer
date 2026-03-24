@@ -48,7 +48,12 @@ async function ensureVideoMetadata(
   gameId: string,
 ): Promise<Map<string, { durationSeconds: number; viewCount: number | null }>> {
   const stored = VideoTracks.getByGame(gameId);
-  const missing = videoIds.filter((id) => stored.get(id)?.durationSeconds == null);
+  // Fetch if duration is absent OR if view count hasn't been cached yet (e.g. tracks ingested
+  // before view-count support was added, or tracks with Discogs durations that bypassed YouTube).
+  const missing = videoIds.filter((id) => {
+    const s = stored.get(id);
+    return s?.durationSeconds == null || s?.viewCount == null;
+  });
 
   const fetched: Map<string, VideoMetadata> =
     missing.length > 0 ? await fetchVideoMetadata(missing) : new Map();
@@ -108,14 +113,15 @@ async function resolveCurated(
       r.energy !== null && r.roles.length > 0,
   );
 
-  // Prefer Discogs durations stored during onboarding; only call YouTube for tracks missing one.
+  // Prefer Discogs durations (more accurate); fetch YouTube metadata for all tracks to populate
+  // view counts (and duration for tracks Discogs didn't cover).
   const discogsDurations = new Map<string, number>(
     filtered.flatMap((r) => (r.durationSeconds != null ? [[r.videoId, r.durationSeconds]] : [])),
   );
-  const missingDurationIds = filtered
-    .filter((r) => r.durationSeconds == null)
-    .map((r) => r.videoId);
-  const videoMeta = await ensureVideoMetadata(missingDurationIds, game.id);
+  const videoMeta = await ensureVideoMetadata(
+    filtered.map((r) => r.videoId),
+    game.id,
+  );
 
   const tracks: TaggedTrack[] = filtered.map((r) => {
     const meta = videoMeta.get(r.videoId);
@@ -133,7 +139,7 @@ async function resolveCurated(
       moods: r.moods,
       instrumentation: r.instrumentation,
       hasVocals: r.hasVocals ?? false,
-      durationSeconds: meta?.durationSeconds ?? discogsDurations.get(r.videoId) ?? 0,
+      durationSeconds: discogsDurations.get(r.videoId) ?? meta?.durationSeconds ?? 0,
       viewCount: meta?.viewCount ?? null,
     };
   });
