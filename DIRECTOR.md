@@ -57,7 +57,7 @@ Each phase carries not just energy bounds but **preferred moods**, **penalized m
 
 ### II. The Resonance Filter — The Math
 
-Once energy gating passes, the Director scores each candidate track against its target slot using a **Weighted Jaccard Resonance** model across three core dimensions — role, mood, and instrumentation — plus an optional fourth dimension, **View Bias**, derived from YouTube view counts (see §II.5 below). View Bias is active by default; users can disable it via the **Raw Vibes** toggle to fall back to pure tag-based scoring.
+Once energy gating passes, the Director scores each candidate track against its target slot using a **Weighted Jaccard Resonance** model across four dimensions: role, mood, view bias, and instrumentation. The first three are tag-based; the fourth introduces a popularity signal derived from YouTube view counts. View bias is active by default and can be disabled, reverting to the original three-dimension model.
 
 #### Why Not Additive Scoring?
 
@@ -83,14 +83,14 @@ The final resonance score $R$ for a track against a slot is the weighted sum of 
 
 $$R = w_{\text{role}} \cdot S_{\text{role}} + w_{\text{mood}} \cdot S_{\text{mood}} + w_{\text{vb}} \cdot S_{\text{vb}} + w_{\text{inst}} \cdot S_{\text{inst}}$$
 
-When View Bias is disabled (Raw Vibes mode), $w_{\text{vb}} = 0$ and the remaining weights revert to the three-dimension defaults:
+When view bias is disabled, $w_{\text{vb}} = 0$ and the remaining three weights revert to their original distribution:
 
-| Dimension       | Raw Vibes (3-dim) | View Bias ON (default) | Scoring Method     |
-| --------------- | ----------------- | ---------------------- | ------------------ |
-| Role            | 0.40              | 0.30                   | Binary (1.0 / 0.0) |
-| Mood            | 0.35              | 0.25                   | Jaccard similarity |
-| View Bias       | —                 | 0.30                   | Log-scaled views   |
-| Instrumentation | 0.25              | 0.15                   | Jaccard similarity |
+| Dimension       | 3-dim (no view bias) | 4-dim (view bias active) | Scoring Method     |
+| --------------- | -------------------- | ------------------------ | ------------------ |
+| Role            | 0.40                 | 0.30                     | Binary (1.0 / 0.0) |
+| Mood            | 0.35                 | 0.25                     | Jaccard similarity |
+| View Bias       | —                    | 0.30                     | Log-scaled views   |
+| Instrumentation | 0.25                 | 0.15                     | Jaccard similarity |
 
 #### Why Role Is an Intersection Check, Not Jaccard
 
@@ -116,7 +116,7 @@ $$R'' = R' \times 0.5$$
 
 #### The View Bias Score — Popularity Dimension
 
-The View Bias Score is the fourth resonance dimension, active by default. It blends two sub-signals to balance global popularity with per-game stature — surfacing iconic tracks without letting AAA deep cuts drown out indie gems.
+The View Bias Score is the fourth resonance dimension. It blends two sub-signals to solve a fundamental tension in popularity-based scoring: raw view counts favour AAA games categorically, making pure popularity a proxy for budget rather than quality. The solution is to split the signal — one half measures absolute reach, the other measures relative importance within the game's own catalogue.
 
 **Global Heat** — logarithmic scaling of raw view count, normalized to `[0.0, 1.0]`:
 
@@ -136,7 +136,7 @@ $$S_{\text{vb}} = 0.6 \cdot H + 0.4 \cdot L$$
 
 Tracks with no view data receive a **baseline** of `0.3` — not penalized to zero, but naturally outscored by tracks with real popularity signal.
 
-View Bias scores are pre-computed once per `assemblePlaylist` call from the `viewCount` field on `TaggedTrack` (populated from the YouTube `videos.list` API at zero additional quota cost — `statistics` is appended to the existing `videos.list` `part` parameter). Users who prefer pure tag-based curation can toggle **Raw Vibes** in the generation UI, which disables this dimension entirely and restores the three-dimension weight distribution.
+View bias scores are pre-computed once per `assemblePlaylist` call — not on a per-slot basis — because the per-game average required for Local Stature must be computed across the entire pool before any slot is filled. When view bias is disabled, the dimension is omitted entirely and the three-dimension weight distribution is used unchanged.
 
 ---
 
@@ -199,7 +199,7 @@ The rubric target sets are **exclusive-or**: when $\rho$ is present, it fully re
 
 $$S_{\text{vb}} = 0.6 \cdot \text{clamp}\!\left(0, 1, \frac{\log_{10}(\text{views}) - 3}{4}\right) + 0.4 \cdot \text{clamp}\!\left(0, 1, \frac{\text{trackViews} / \text{avgGameViews}}{3}\right)$$
 
-When View Bias is disabled (Raw Vibes mode), this term is omitted and the three-dimension weights are used.
+When view bias is disabled, this term is omitted and the three-dimension weight distribution applies.
 
 **6. Weighted Sum**
 
@@ -303,7 +303,7 @@ The Director embodies a specific thesis: **subjective listening experience can b
 
 The weights are not derived from first principles — they reflect a deliberate prioritization: _what a track is for_ (role) matters more than _how it feels_ (mood), which matters more than _how it sounds_ (instrumentation). A combat track in a combat slot feels right even if its mood is wrong. A peaceful track in a climax slot feels wrong even if its instrumentation is perfect. The weights encode that hierarchy.
 
-When View Bias is active (the default), those core weights compress to make room for the popularity signal (`0.30 / 0.25 / 0.30 / 0.15`). The view count dimension sits between mood and instrumentation — significant enough to meaningfully surface iconic tracks, but not so dominant that it overrides role or mood fit. Users who prefer pure tag-based curation can disable it via Raw Vibes mode, restoring the original three-dimension weights (`0.40 / 0.35 / 0.25`).
+When view bias is active, those core weights compress to make room for the popularity signal (`0.30 / 0.25 / 0.30 / 0.15`). The view count dimension sits between mood and instrumentation — significant enough to meaningfully surface iconic tracks, but not so dominant that it overrides role or mood fit. The original three-dimension weights (`0.40 / 0.35 / 0.25`) apply when view bias is disabled, preserving the same relative hierarchy.
 
 ---
 
