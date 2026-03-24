@@ -22,7 +22,7 @@ Issues in the following areas are in scope:
 
 ## Out of scope
 
-- Vulnerabilities in upstream dependencies (YouTube API, Anthropic, Ollama, Steam) — report those to the respective vendors
+- Vulnerabilities in upstream dependencies (YouTube API, Anthropic, Steam) — report those to the respective vendors
 - Self-hosted instances configured insecurely by the operator
 - Issues that require physical access to the server
 - Theoretical issues with no demonstrated impact

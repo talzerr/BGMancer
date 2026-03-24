@@ -24,12 +24,11 @@ Requires a `.env.local` (copy from `.env.local.example`) with:
 
 - `YOUTUBE_API_KEY` — required for all playlist generation
 - `STEAM_API_KEY` — required for Steam import
-- `ANTHROPIC_API_KEY` — optional; enables Maestro tier (Claude) instead of Bard (Ollama)
+- `ANTHROPIC_API_KEY` — required; powers all LLM calls (tagging, vibe profiling)
 - `ANTHROPIC_TAGGING_MODEL` — optional; override Anthropic model for Phase 2 tagging (defaults to `ANTHROPIC_MODEL`)
 - `ANTHROPIC_VIBE_MODEL` — optional; override Anthropic model for Vibe Profiler (defaults to `ANTHROPIC_MODEL`)
 - `NEXTAUTH_SECRET` — required for next-auth sessions
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — optional; enables "Sync to YouTube"
-- `OLLAMA_HOST` / `OLLAMA_MODEL` — optional; defaults to `http://localhost:11434` / `llama3.2`
 
 The DB file is `bgmancer.db` at the project root (or override with `SQLITE_PATH`). Schema is auto-created on first run via `initSchema()` in `src/lib/db/index.ts` — there is no migration system; the schema is idempotent (`CREATE TABLE IF NOT EXISTS`).
 
@@ -78,7 +77,7 @@ Four-phase process for individual-track games:
 
 1. **Phase 1 — Playlist discovery** (`candidates.ts`): find (or search YouTube for) the OST playlist ID per game; cache result in `game_yt_playlists`.
 2. **Phase 1.5 — Track resolution** (`resolver.ts`): align DB track names to YouTube video IDs via LLM; fall back to per-track YouTube search for unresolved tracks. Durations fetched and cached in `video_tracks`.
-3. **Phase 2 — Vibe Profiler** (`vibe-profiler.ts`, Maestro only): LLM produces a `ScoringRubric` from the session's game titles. The rubric shapes the Director's scoring weights. Skipped entirely for Bard tier.
+3. **Phase 2 — Vibe Profiler** (`vibe-profiler.ts`): LLM produces a `ScoringRubric` from the session's game titles. The rubric shapes the Director's scoring weights.
 4. **Phase 3 — Deterministic arc assembly** (`director.ts`): the TypeScript Director builds the final ordered playlist from the tagged pool, shaping energy flow and cross-game balance. **No LLM involvement.** Each selected track produces a `TrackDecision` record (score components, arc phase, pool size, game budget) persisted via `DirectorDecisions.bulkInsert()` into `playlist_track_decisions` — this is the Director telemetry shown in the Theatre view.
 
 Curation modes (see `CurationMode` enum in `src/types/index.ts`):
@@ -94,16 +93,10 @@ Curation modes (see `CurationMode` enum in `src/types/index.ts`):
 
 `src/lib/llm/index.ts` exports:
 
-- `getTaggingProvider(tier)` — Phase 1.5 resolver + Phase 2 Tagger; Anthropic if Maestro + key set, else Ollama. Override model with `ANTHROPIC_TAGGING_MODEL`.
-- `getVibeProfilerProvider(tier)` — Phase 2 Vibe Profiler; same tier logic. Override model with `ANTHROPIC_VIBE_MODEL`.
-- `getLocalLLMProvider()` — always returns Ollama (used for Bard tier).
+- `getTaggingProvider()` — Phase 1.5 resolver + Phase 2 Tagger. Override model with `ANTHROPIC_TAGGING_MODEL`.
+- `getVibeProfilerProvider()` — Phase 2 Vibe Profiler. Override model with `ANTHROPIC_VIBE_MODEL`.
 
-All providers implement `LLMProvider` (`src/lib/llm/provider.ts`): `complete(system, user, opts)`.
-
-Tier summary:
-
-- `Bard` — always Ollama
-- `Maestro` — Anthropic when `ANTHROPIC_API_KEY` is set, falls back to Ollama
+All providers implement `LLMProvider` (`src/lib/llm/provider.ts`): `complete(system, user, opts)`. All LLM calls use Anthropic (`ANTHROPIC_API_KEY` required).
 
 ### Config system
 
@@ -151,7 +144,7 @@ Backstage API routes (all under `src/app/api/backstage/`):
 
 ## Code style
 
-- Use `enum` for all named value sets — not string literal union types (`type Foo = "a" | "b"`). See `CurationMode`, `UserTier`, `TrackMood`, `TrackInstrumentation` as the established pattern.
+- Use `enum` for all named value sets — not string literal union types (`type Foo = "a" | "b"`). See `CurationMode`, `TrackMood`, `TrackInstrumentation` as the established pattern.
 
 ## Schema changes
 

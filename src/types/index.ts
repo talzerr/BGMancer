@@ -1,19 +1,9 @@
 // ─── Users ────────────────────────────────────────────────────────────────────
 
-/** Determines which AI provider is used for playlist generation.
- *  Bard    — all LLM calls use Ollama (local, no API key required)
- *  Maestro — all LLM calls use Anthropic (falls back to Ollama if key absent)
- */
-export enum UserTier {
-  Bard = "bard",
-  Maestro = "maestro",
-}
-
 export interface User {
   id: string;
   email: string;
   username: string | null;
-  tier: UserTier;
   created_at: string;
 }
 

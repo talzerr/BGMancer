@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   try {
     const cookieStore = await cookies();
     const userId = await getOrCreateUserId(cookieStore);
-    const user = Users.getOrCreate(userId);
+    Users.getOrCreate(userId);
 
     const body = (await request.json()) as { games?: unknown };
 
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
       for (const gameId of result.importedIds) {
         const game = Games.getById(gameId);
         if (!game) continue;
-        await onboardGame(game, user.tier);
+        await onboardGame(game);
       }
     })();
 

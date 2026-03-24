@@ -1,16 +1,13 @@
 import Image from "next/image";
 import { cookies } from "next/headers";
 import { auth, signIn, signOut, AUTH_CONFIGURED } from "@/lib/services/auth";
-import { Users } from "@/lib/db/repo";
 import { getOrCreateUserId } from "@/lib/services/session";
 import { FeedClient } from "./feed-client";
-import { TierToggle } from "@/components/TierToggle";
 
 export default async function HomePage() {
   const session = AUTH_CONFIGURED ? await auth() : null;
   const cookieStore = await cookies();
-  const userId = await getOrCreateUserId(cookieStore);
-  const tier = Users.getTier(userId);
+  await getOrCreateUserId(cookieStore);
 
   return (
     <div className="relative min-h-screen bg-zinc-950">
@@ -37,9 +34,8 @@ export default async function HomePage() {
             </div>
           </div>
 
-          {/* Auth + tier badge */}
+          {/* Auth */}
           <div className="flex items-center gap-3">
-            <TierToggle initialTier={tier} />
             {AUTH_CONFIGURED ? (
               session?.user ? (
                 <>

@@ -1,5 +1,5 @@
 import { Games, Playlist, Users, Sessions, DirectorDecisions } from "@/lib/db/repo";
-import { GameProgressStatus, TrackStatus, UserTier } from "@/types";
+import { GameProgressStatus, TrackStatus } from "@/types";
 import type { TrackDecision } from "@/types";
 import { YouTubeQuotaError } from "@/lib/services/youtube";
 import { fetchGameCandidates } from "@/lib/pipeline/candidates";
@@ -13,7 +13,7 @@ import { assemblePlaylist } from "@/lib/pipeline/director";
 import { generateRubric } from "@/lib/pipeline/vibe-profiler";
 import { getVibeProfilerProvider } from "@/lib/llm";
 import type { GenerateEvent, PendingTrack, CandidateResult } from "@/lib/pipeline/types";
-import type { AppConfig, Game, PlaylistTrack, TaggedTrack, ScoringRubric, User } from "@/types";
+import type { AppConfig, Game, PlaylistTrack, TaggedTrack, ScoringRubric } from "@/types";
 import {
   MIN_TRACK_DURATION_SECONDS,
   MAX_TRACK_DURATION_SECONDS,
@@ -29,13 +29,12 @@ type Send = (event: GenerateEvent) => void;
 
 async function gatherCandidates(
   games: Game[],
-  user: User,
   send: Send,
 ): Promise<{ taggedPools: Map<string, TaggedTrack[]>; fallbackTracks: PendingTrack[] }> {
   const results: CandidateResult[] = await Promise.all(
     games.map(async (game) => {
       try {
-        return await fetchGameCandidates(game, send, user.tier);
+        return await fetchGameCandidates(game, send);
       } catch (err) {
         if (err instanceof YouTubeQuotaError) throw err;
         console.error(`[generate] Phases 1/1.5 failed for game "${game.title}":`, err);
@@ -97,17 +96,12 @@ function filterByDuration(
   return filtered;
 }
 
-async function profileVibe(
-  activeGames: Game[],
-  user: User,
-  send: Send,
-): Promise<ScoringRubric | undefined> {
-  if (user.tier !== UserTier.Maestro) return undefined;
+async function profileVibe(activeGames: Game[], send: Send): Promise<ScoringRubric | undefined> {
   try {
     send({ type: "progress", message: "Generating vibe profile…" });
     const result = await generateRubric(
       { gameTitles: activeGames.map((g) => g.title) },
-      getVibeProfilerProvider(user.tier),
+      getVibeProfilerProvider(),
     );
     return result ?? undefined;
   } catch (err) {
@@ -185,7 +179,7 @@ function persistSession(
  * Four phases:
  *   1   — Playlist discovery: find (or search) the YouTube OST playlist per game.
  *   1.5 — Track resolution: align DB tags to video IDs; fetch and store durations.
- *   2   — Vibe Profiler (Maestro only): LLM produces a ScoringRubric from game titles.
+ *   2   — Vibe Profiler: LLM produces a ScoringRubric from game titles.
  *   3   — Arc assembly: the Director builds the final ordered playlist.
  */
 export async function generatePlaylist(
@@ -202,7 +196,7 @@ export async function generatePlaylist(
   const user = Users.getOrCreate(userId);
   const targetCount = config.target_track_count;
 
-  const { taggedPools, fallbackTracks } = await gatherCandidates(games, user, send);
+  const { taggedPools, fallbackTracks } = await gatherCandidates(games, send);
   const filteredPools = filterByDuration(taggedPools, config);
 
   let individualTracks: PendingTrack[] = [];
@@ -212,7 +206,7 @@ export async function generatePlaylist(
 
   if (filteredPools.size > 0 && targetCount > 0) {
     const activeGames = games.filter((g) => filteredPools.has(g.id));
-    const rubric = await profileVibe(activeGames, user, send);
+    const rubric = await profileVibe(activeGames, send);
     send({ type: "progress", message: "Assembling playlist arc…" });
     const directorResult = runDirector(
       filteredPools,

@@ -57,7 +57,7 @@ Regardless of this setting, tracks shorter than 90 seconds are always filtered o
 Hit **Curate N Tracks** and watch a live progress panel as BGMancer works through your games. Behind the scenes it runs in three phases:
 
 1. **Discover & Tag** — for each game, find the YouTube OST playlist (cached or auto-discovered). Enrich all tracks with metadata tags: `energy` (1–3), `role` (Opener, Combat, Ambient, etc.), `moods`, `instrumentation`.
-2. **Score with Vibe** — (Maestro tier only) an LLM produces a session-level scoring rubric based on your library mix. Used to personalize track selection.
+2. **Score with Vibe** — an LLM produces a session-level scoring rubric based on your library mix. Used to personalize track selection.
 3. **Assemble Arc** — pure TypeScript Director builds the final ordered playlist. Respects energy arc (intro → peak → outro), mixes games proportionally by curation weight, applies the vibe rubric, introduces weighted randomness so regenerations feel fresh.
 
 Because the Director uses weighted random selection (not greedy), regenerating the same games produces genuinely different playlists each time while respecting the arc constraints.

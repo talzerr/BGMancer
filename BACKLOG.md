@@ -59,7 +59,7 @@ Current `track_tags` schema is functional but minimal: `video_id + game_id → c
 
 ## Curation Intelligence
 
-Current Vibe Check (Maestro only) uses random 2.5× sample. For large libraries, only ~8% of tracks get scored.
+Current Vibe Check uses random 2.5× sample. For large libraries, only ~8% of tracks get scored.
 
 - **Vibe input UI** _(depends on Vibe Profiler)_ — structured selectors: **Energy** (Calm / Balanced / Intense) + **Activity** (Study, Gaming, Commute, Exercise, Relaxing).
 
@@ -72,7 +72,7 @@ Current Vibe Check (Maestro only) uses random 2.5× sample. For large libraries,
 
 - **Manual VGMdb onboarding in Backstage** — add a button on a game's Backstage page to onboard/re-onboard its soundtrack from VGMdb using a manually provided VGMdb album ID, as an alternative to the automatic Discogs-based onboarding.
 - **Additive onboarding (merge semantics)** — manual onboarding (and re-onboarding generally) should behave like a merge: existing track/metadata values are preserved and only new data is added. A separate "clean onboard" option should be available when the user explicitly wants to discard existing data and start fresh.
-- **User/Admin view toggle** — similar to the Bard/Maestro tier toggle, add a persistent toggle that switches between user and admin experience; admin mode surfaces all admin-only affordances (e.g. Backstage quick-open on tracks, dev overlays) without requiring separate accounts.
+- **User/Admin view toggle** — add a persistent toggle that switches between user and admin experience; admin mode surfaces all admin-only affordances (e.g. Backstage quick-open on tracks, dev overlays) without requiring separate accounts.
 - **Quick-open in Backstage from playlist track** — admin-only dev affordance on each playlist track card (e.g. small icon) that navigates directly to that track's game in Backstage for quick metadata edits.
 
 ## Quality of Life

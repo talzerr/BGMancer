@@ -6,7 +6,6 @@ export function initSchema(db: Database.Database): void {
       id                 TEXT    NOT NULL PRIMARY KEY,
       email              TEXT    NOT NULL UNIQUE,
       username           TEXT,
-      tier               TEXT    NOT NULL DEFAULT 'bard',
       is_generating      INTEGER NOT NULL DEFAULT 0,
       last_generated_at  TEXT,
       created_at         TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))

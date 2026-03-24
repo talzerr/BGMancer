@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   try {
     const cookieStore = await cookies();
     const userId = await getOrCreateUserId(cookieStore);
-    const user = Users.getOrCreate(userId);
+    Users.getOrCreate(userId);
 
     const body: AddGamePayload = await request.json();
 
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
     }
 
     const game = Games.create(userId, newId(), title, CurationMode.Include, steamAppid);
-    void onboardGame(game, user.tier);
+    void onboardGame(game);
     return NextResponse.json(game, { status: 201 });
   } catch (err) {
     console.error("[POST /api/games]", err);

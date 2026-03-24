@@ -35,57 +35,54 @@ Optional, only used by `POST /api/sync` (sync playlist to YouTube). Stores `acce
 
 ### All API endpoints
 
-| Method     | Path                        | Auth state (current)                                        |
-| ---------- | --------------------------- | ----------------------------------------------------------- |
-| `GET/POST` | `/api/auth/[...nextauth]`   | NextAuth handler                                            |
-| `GET`      | `/api/games`                | Cookie (falls back to LOCAL_USER_ID)                        |
-| `POST`     | `/api/games`                | Cookie (falls back to LOCAL_USER_ID)                        |
-| `PATCH`    | `/api/games?id=`            | Cookie (falls back to LOCAL_USER_ID)                        |
-| `DELETE`   | `/api/games?id=`            | Cookie (falls back to LOCAL_USER_ID)                        |
-| `POST`     | `/api/playlist/generate`    | Cookie — has 30s cooldown lock per userId                   |
-| `GET`      | `/api/playlist`             | Cookie                                                      |
-| `DELETE`   | `/api/playlist`             | Cookie                                                      |
-| `PATCH`    | `/api/playlist`             | Cookie                                                      |
-| `GET`      | `/api/playlist/[id]`        | **None**                                                    |
-| `DELETE`   | `/api/playlist/[id]`        | Cookie — **no ownership check**                             |
-| `POST`     | `/api/playlist/[id]/reroll` | Cookie                                                      |
-| `POST`     | `/api/playlist/import`      | Cookie                                                      |
-| `POST`     | `/api/playlist/search`      | Cookie                                                      |
-| `GET`      | `/api/sessions`             | Cookie                                                      |
-| `PATCH`    | `/api/sessions/[id]`        | Cookie — **no ownership check**                             |
-| `DELETE`   | `/api/sessions/[id]`        | Cookie — **no ownership check**                             |
-| `POST`     | `/api/sync`                 | Google OAuth required                                       |
-| `GET`      | `/api/yt-cache`             | Cookie                                                      |
-| `PUT`      | `/api/yt-cache`             | Cookie                                                      |
-| `DELETE`   | `/api/yt-cache?game_id=`    | Cookie                                                      |
-| `POST`     | `/api/user/tier`            | Cookie — **no guard, any user can self-upgrade to Maestro** |
-| `GET`      | `/api/steam/search?q=`      | None                                                        |
-| `GET`      | `/api/steam/games?input=`   | None                                                        |
-| `POST`     | `/api/steam/import`         | Cookie                                                      |
-| `GET`      | `/api/dev/yt-playlists`     | **None — no auth, no env guard**                            |
-| `GET`      | `/api/seed/yt-playlists`    | **None — no auth, no env guard**                            |
+| Method     | Path                        | Auth state (current)                      |
+| ---------- | --------------------------- | ----------------------------------------- |
+| `GET/POST` | `/api/auth/[...nextauth]`   | NextAuth handler                          |
+| `GET`      | `/api/games`                | Cookie (falls back to LOCAL_USER_ID)      |
+| `POST`     | `/api/games`                | Cookie (falls back to LOCAL_USER_ID)      |
+| `PATCH`    | `/api/games?id=`            | Cookie (falls back to LOCAL_USER_ID)      |
+| `DELETE`   | `/api/games?id=`            | Cookie (falls back to LOCAL_USER_ID)      |
+| `POST`     | `/api/playlist/generate`    | Cookie — has 30s cooldown lock per userId |
+| `GET`      | `/api/playlist`             | Cookie                                    |
+| `DELETE`   | `/api/playlist`             | Cookie                                    |
+| `PATCH`    | `/api/playlist`             | Cookie                                    |
+| `GET`      | `/api/playlist/[id]`        | **None**                                  |
+| `DELETE`   | `/api/playlist/[id]`        | Cookie — **no ownership check**           |
+| `POST`     | `/api/playlist/[id]/reroll` | Cookie                                    |
+| `POST`     | `/api/playlist/import`      | Cookie                                    |
+| `POST`     | `/api/playlist/search`      | Cookie                                    |
+| `GET`      | `/api/sessions`             | Cookie                                    |
+| `PATCH`    | `/api/sessions/[id]`        | Cookie — **no ownership check**           |
+| `DELETE`   | `/api/sessions/[id]`        | Cookie — **no ownership check**           |
+| `POST`     | `/api/sync`                 | Google OAuth required                     |
+| `GET`      | `/api/yt-cache`             | Cookie                                    |
+| `PUT`      | `/api/yt-cache`             | Cookie                                    |
+| `DELETE`   | `/api/yt-cache?game_id=`    | Cookie                                    |
+| `GET`      | `/api/steam/search?q=`      | None                                      |
+| `GET`      | `/api/steam/games?input=`   | None                                      |
+| `POST`     | `/api/steam/import`         | Cookie                                    |
+| `GET`      | `/api/dev/yt-playlists`     | **None — no auth, no env guard**          |
+| `GET`      | `/api/seed/yt-playlists`    | **None — no auth, no env guard**          |
 
 ### Security gaps summary
 
-| Severity    | Gap                                                                 | Location                                                                   |
-| ----------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| **BLOCKER** | Dead middleware — all users share LOCAL_USER_ID                     | `src/proxy.ts` never imported; no `src/middleware.ts`                      |
-| **BLOCKER** | JWT tokens have no expiration                                       | `src/lib/services/session.ts:13` — no `.setExpirationTime()`               |
-| **HIGH**    | Hardcoded fallback JWT secret `"dev-fallback-secret-change-me"`     | `src/proxy.ts:9`, `src/lib/services/session.ts:9`                          |
-| **HIGH**    | Session cookie missing `secure: true`                               | `src/proxy.ts:39-44`                                                       |
-| **HIGH**    | Docker CMD regenerates `NEXTAUTH_SECRET` on every restart           | `Dockerfile` CMD line                                                      |
-| **HIGH**    | No ownership checks on session/playlist delete routes               | `src/app/api/sessions/[id]/route.ts`, `src/app/api/playlist/[id]/route.ts` |
-| **HIGH**    | `/api/user/tier` unguarded — any user can self-upgrade to paid tier | `src/app/api/user/tier/route.ts`                                           |
-| **HIGH**    | Dev/seed routes exposed with no auth                                | `src/app/api/dev/`, `src/app/api/seed/`                                    |
-| **HIGH**    | No HTTP rate limiting on any route                                  | No `src/middleware.ts`, no rate-limit library                              |
-| **HIGH**    | No security headers (HSTS, CSP, X-Frame-Options, etc.)              | `next.config.ts`                                                           |
-| **MEDIUM**  | No schema validation library — manual, inconsistent per route       | All routes in `src/app/api/`                                               |
-| **MEDIUM**  | No structured logging or audit trail                                | All routes use `console.error`                                             |
-| **MEDIUM**  | No CI pipeline                                                      | No `.github/workflows/`                                                    |
-| **MEDIUM**  | No off-site backup strategy                                         | `npm run db:backup` exists but undocumented                                |
-| **LOW**     | OAuth refresh token stored in NextAuth JWT with no rotation         | `src/lib/services/auth.ts:12-14`                                           |
-| **LOW**     | `next-auth@5.0.0-beta.30` in security-critical path                 | `package.json`                                                             |
-| **LOW**     | SQLite DB not encrypted at rest                                     | `src/lib/db/index.ts`                                                      |
+| Severity    | Gap                                                             | Location                                                                   |
+| ----------- | --------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| **BLOCKER** | Dead middleware — all users share LOCAL_USER_ID                 | `src/proxy.ts` never imported; no `src/middleware.ts`                      |
+| **BLOCKER** | JWT tokens have no expiration                                   | `src/lib/services/session.ts:13` — no `.setExpirationTime()`               |
+| **HIGH**    | Hardcoded fallback JWT secret `"dev-fallback-secret-change-me"` | `src/proxy.ts:9`, `src/lib/services/session.ts:9`                          |
+| **HIGH**    | Session cookie missing `secure: true`                           | `src/proxy.ts:39-44`                                                       |
+| **HIGH**    | No ownership checks on session/playlist delete routes           | `src/app/api/sessions/[id]/route.ts`, `src/app/api/playlist/[id]/route.ts` |
+| **HIGH**    | Dev/seed routes exposed with no auth                            | `src/app/api/dev/`, `src/app/api/seed/`                                    |
+| **HIGH**    | No HTTP rate limiting on any route                              | No `src/middleware.ts`, no rate-limit library                              |
+| **HIGH**    | No security headers (HSTS, CSP, X-Frame-Options, etc.)          | `next.config.ts`                                                           |
+| **MEDIUM**  | No schema validation library — manual, inconsistent per route   | All routes in `src/app/api/`                                               |
+| **MEDIUM**  | No structured logging or audit trail                            | All routes use `console.error`                                             |
+| **MEDIUM**  | No CI pipeline                                                  | No `.github/workflows/`                                                    |
+| **MEDIUM**  | No off-site backup strategy                                     | `npm run db:backup` exists but undocumented                                |
+| **LOW**     | OAuth refresh token stored in NextAuth JWT with no rotation     | `src/lib/services/auth.ts:12-14`                                           |
+| **LOW**     | `next-auth@5.0.0-beta.30` in security-critical path             | `package.json`                                                             |
+| **LOW**     | SQLite DB not encrypted at rest                                 | `src/lib/db/index.ts`                                                      |
 
 ### Files to understand before starting
 
@@ -98,10 +95,8 @@ Optional, only used by `POST /api/sync` (sync playlist to YouTube). Stores `acce
 | `src/lib/db/index.ts`                     | DB singleton, `LOCAL_USER_ID` constant, schema init                     |
 | `src/lib/db/repos/_shared.ts`             | Shared SQL constants and `stmt()` helper                                |
 | `src/lib/constants.ts`                    | All app constants incl. `GENERATION_COOLDOWN_MS`                        |
-| `src/types/index.ts`                      | All shared types incl. `UserTier`, `AppConfig`                          |
+| `src/types/index.ts`                      | All shared types incl. `AppConfig`                                      |
 | `next.config.ts`                          | Next.js config — needs `headers()` added                                |
-| `Dockerfile`                              | Multi-stage Docker build — CMD has secret-generation issue              |
-| `docker-compose.yml`                      | Production compose setup                                                |
 
 ### What is working well (do not break)
 
@@ -119,10 +114,9 @@ After all milestones are complete:
 
 - Every HTTP request passes through `src/middleware.ts`, which mints or verifies the `bgmancer-uid` cookie. Missing or invalid cookies on API routes return 401. The `LOCAL_USER_ID` fallback is **removed from all API routes**.
 - Session JWTs expire after 30 days and are refreshed on activity.
-- `NEXTAUTH_SECRET` missing at startup crashes the app immediately with a clear error message. The Docker image requires it to be injected as an environment secret.
+- `NEXTAUTH_SECRET` missing at startup crashes the app immediately with a clear error message.
 - The `bgmancer-uid` cookie has `secure: true`, `httpOnly: true`, `sameSite: strict`.
 - All mutating routes (`DELETE/PATCH sessions`, `DELETE playlist track`) verify that the resource belongs to the requesting user before operating.
-- `/api/user/tier` is restricted to a configurable admin flag or removed — tier selection is server-side only.
 - `/api/dev/*` and `/api/seed/*` routes are removed or gated behind `NODE_ENV !== 'production'`.
 - Rate limiting applied at the middleware level: 60 req/min per user on general routes, 2 req/min on `/api/playlist/generate`, 10 req/min on Steam/import routes.
 - `next.config.ts` exports a `headers()` function with HSTS, CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy.
@@ -212,7 +206,7 @@ Fix the session JWT to expire, and harden the cookie flags.
 
 **Severity: HIGH — independent of M0/M1**
 
-Eliminate the hardcoded fallback secret and fix the Docker startup behavior.
+Eliminate the hardcoded fallback secret.
 
 **What to do:**
 
@@ -225,16 +219,7 @@ Eliminate the hardcoded fallback secret and fix the Docker startup behavior.
    const s = process.env.NEXTAUTH_SECRET;
    if (!s) throw new Error("NEXTAUTH_SECRET environment variable is required");
    ```
-2. In `Dockerfile`, change the CMD from:
-   ```sh
-   CMD ["sh", "-c", "export NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-$(openssl rand -base64 32)} && npm start"]
-   ```
-   to:
-   ```sh
-   CMD ["node", "server.js"]
-   ```
-   (or equivalent `npm start` without the random secret generation). The secret must be injected via `docker-compose.yml` as an environment variable from `.env.docker` — which already uses `env_file: .env.docker`. Document in README that `NEXTAUTH_SECRET` is required in `.env.docker`.
-3. Add a startup validation function called at the top of `src/lib/db/index.ts` (runs server-side only) that throws on missing required env vars: `NEXTAUTH_SECRET`, `YOUTUBE_API_KEY`.
+2. Add a startup validation function called at the top of `src/lib/db/index.ts` (runs server-side only) that throws on missing required env vars: `NEXTAUTH_SECRET`, `YOUTUBE_API_KEY`.
 
 ---
 
@@ -299,10 +284,7 @@ Three routes are either dev-only or should not be publicly accessible:
 
 2. **`GET /api/seed/yt-playlists`** — Same treatment. This is a DB seed utility that should never be callable in production. Remove or production-gate.
 
-3. **`POST /api/user/tier`** — This route allows any authenticated user to toggle their own tier between `Bard` and `Maestro`. In a multi-user deployment, allowing users to self-upgrade to Maestro (Claude API) is a cost risk. Options:
-   - **Option A (simplest):** Remove the route entirely. Make tier selection admin-only via a config toggle.
-   - **Option B:** Restrict it — only allow the user whose `userId === ADMIN_USER_ID` (a new env var) to set Maestro tier. All other users are always Bard.
-   - Decide which option and implement accordingly.
+3. ~~**`POST /api/user/tier`**~~ — **Resolved.** Tier system removed; route deleted.
 
 ---
 
@@ -462,11 +444,9 @@ Note: `npm run build` requires env vars that would normally fail startup validat
 **Document and automate off-site backups:**
 
 1. The existing `npm run db:backup` script creates a snapshot under `/snapshots/`. This is on-host only — useless against ransomware or disk failure.
-2. Add a daily cron (or Docker cron container) that rsync/rclone pushes the snapshot to an off-site destination (S3, Backblaze B2, etc.). Document the setup in a `docs/BACKUP.md` or README section.
+2. Add a daily cron that rsync/rclone pushes the snapshot to an off-site destination (S3, Backblaze B2, etc.). Document the setup in a `docs/BACKUP.md` or README section.
 3. Document the rollback procedure:
-   - **Code rollback**: keep the last 2 Docker image tags in your registry; `docker-compose` pull + restart to roll back.
    - **DB rollback**: `npm run db:restore` from a named snapshot file; document which snapshot corresponds to which release.
-4. Tag Docker images with git SHA on build. Update `Dockerfile` or compose to use tagged images rather than `latest`.
 
 ---
 
@@ -477,10 +457,10 @@ Before considering the app production-ready, verify each item:
 - [ ] M0: `src/middleware.ts` exists and runs on all API routes; `src/proxy.ts` deleted; no `LOCAL_USER_ID` fallback in session.ts
 - [ ] M0: New users hitting the app get a fresh UUID cookie; two browser sessions get different identities
 - [ ] M1: Session JWT has a 30d expiry; expired tokens return 401; cookie has `secure: true`
-- [ ] M2: Starting the app without `NEXTAUTH_SECRET` crashes with a clear error; Docker CMD has no `openssl rand` fallback
+- [ ] M2: Starting the app without `NEXTAUTH_SECRET` crashes with a clear error
 - [ ] M3: Attempting to delete another user's session returns 403; attempting to delete another user's playlist track returns 403
 - [ ] M4: Calling `POST /api/playlist/generate` more than 3 times in 10 minutes returns 429
-- [ ] M5: `GET /api/dev/yt-playlists` returns 404 in production; `POST /api/user/tier` is restricted or removed
+- [ ] M5: `GET /api/dev/yt-playlists` returns 404 in production
 - [ ] M6: Response headers include `Strict-Transport-Security` and `Content-Security-Policy`; YouTube thumbnails still load
 - [ ] M7: Passing `target_track_count: 99999` to generate returns 400; session rename with 200-char name returns 400
 - [ ] M8: App logs are JSON in production; `audit_log` table exists and records game adds and generation events

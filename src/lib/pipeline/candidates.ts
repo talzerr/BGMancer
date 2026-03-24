@@ -2,14 +2,7 @@ import { Games, Tracks, VideoTracks } from "@/lib/db/repo";
 import { compilationQueries, makePendingTrack } from "@/lib/pipeline/assembly";
 import { searchOSTPlaylist, fetchPlaylistItems, fetchVideoMetadata } from "@/lib/services/youtube";
 import type { OSTTrack, VideoMetadata } from "@/lib/services/youtube";
-import {
-  type Game,
-  type TaggedTrack,
-  type UserTier,
-  GameProgressStatus,
-  TaggingStatus,
-  TrackRole,
-} from "@/types";
+import { type Game, type TaggedTrack, GameProgressStatus, TaggingStatus, TrackRole } from "@/types";
 import type { GenerateEvent, CandidateResult } from "@/lib/pipeline/types";
 import { resolveTracksToVideos } from "@/lib/pipeline/resolver";
 import { getTaggingProvider } from "@/lib/llm";
@@ -82,7 +75,6 @@ async function ensureVideoMetadata(
 async function resolveCurated(
   game: Game,
   playlistTracks: OSTTrack[],
-  tier: UserTier,
   send: Send,
 ): Promise<CandidateResult> {
   const allTracks = Tracks.getByGame(game.id);
@@ -106,7 +98,7 @@ async function resolveCurated(
     message: "Resolving tracks to videos…",
   });
 
-  const provider = getTaggingProvider(tier);
+  const provider = getTaggingProvider();
   const resolved = await resolveTracksToVideos(game, allTracks, playlistTracks, provider);
   const filtered = resolved.filter(
     (r): r is typeof r & { energy: NonNullable<typeof r.energy> } =>
@@ -214,11 +206,7 @@ async function resolveLegacy(
  *               legacy games receive static stubs. Durations are fetched and
  *               stored for all resolved tracks.
  */
-export async function fetchGameCandidates(
-  game: Game,
-  send: Send,
-  tier: UserTier,
-): Promise<CandidateResult> {
+export async function fetchGameCandidates(game: Game, send: Send): Promise<CandidateResult> {
   const playlistId = await discoverOSTPlaylist(game, send);
 
   if (!playlistId) {
@@ -263,7 +251,7 @@ export async function fetchGameCandidates(
 
   if (Tracks.hasData(game.id)) {
     if (Tracks.isTagged(game.id)) {
-      return resolveCurated(game, playlistTracks, tier, send);
+      return resolveCurated(game, playlistTracks, send);
     }
     // Tracks exist but tagging never completed (e.g. LLM was unavailable during onboarding).
     // Treat as limited so the game still contributes tracks and the UI shows the yellow indicator.

@@ -1,7 +1,6 @@
 import { getDB } from "@/lib/db";
 import { stmt } from "./_shared";
 import { toUser } from "@/lib/db/mappers";
-import { UserTier } from "@/types";
 import type { User } from "@/types";
 import { newId } from "@/lib/uuid";
 
@@ -18,9 +17,10 @@ export const Users = {
 
     const db = getDB();
     db.transaction(() => {
-      stmt(
-        "INSERT OR IGNORE INTO users (id, email, username, tier) VALUES (?, ?, NULL, 'bard')",
-      ).run(id, `anon+${id}@bgmancer.app`);
+      stmt("INSERT OR IGNORE INTO users (id, email, username) VALUES (?, ?, NULL)").run(
+        id,
+        `anon+${id}@bgmancer.app`,
+      );
       stmt("INSERT OR IGNORE INTO libraries (id, user_id) VALUES (?, ?)").run(newId(), id);
     })();
 
@@ -33,15 +33,6 @@ export const Users = {
       | Record<string, unknown>
       | undefined;
     return row ? toUser(row) : null;
-  },
-
-  getTier(id: string): UserTier {
-    const row = stmt("SELECT tier FROM users WHERE id = ?").get(id) as { tier: string } | undefined;
-    return row?.tier === UserTier.Maestro ? UserTier.Maestro : UserTier.Bard;
-  },
-
-  setTier(id: string, tier: UserTier): void {
-    stmt("UPDATE users SET tier = ? WHERE id = ?").run(tier, id);
   },
 
   /**

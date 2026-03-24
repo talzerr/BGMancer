@@ -5,23 +5,19 @@ import {
   TrackInstrumentation,
   TrackRole,
   TrackStatus,
-  UserTier,
 } from "@/types";
 import type { Game, PlaylistTrack, PlaylistSession, Track, User } from "@/types";
 
-const VALID_TIERS = new Set<string>(Object.values(UserTier));
 const VALID_STATUSES = new Set<string>(Object.values(TrackStatus));
 const VALID_TAGGING_STATUSES = new Set<string>(Object.values(TaggingStatus));
 
 export const VALID_CURATIONS = new Set<CurationMode>(Object.values(CurationMode) as CurationMode[]);
 
 export function toUser(row: Record<string, unknown>): User {
-  const rawTier = String(row.tier ?? UserTier.Bard);
   return {
     id: String(row.id),
     email: String(row.email),
     username: row.username != null ? String(row.username) : null,
-    tier: VALID_TIERS.has(rawTier) ? (rawTier as UserTier) : UserTier.Bard,
     created_at: String(row.created_at ?? ""),
   };
 }

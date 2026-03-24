@@ -1,7 +1,7 @@
 import { Games, Tracks, ReviewFlags } from "@/lib/db/repo";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
 import { ingestFromDiscogs } from "@/lib/pipeline/onboarding";
-import { TaggingStatus, ReviewReason, UserTier } from "@/types";
+import { TaggingStatus, ReviewReason } from "@/types";
 
 type ReingestEvent =
   | { type: "progress"; message: string }
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
       ReviewFlags.clearByGame(gameId);
       Games.setStatus(gameId, TaggingStatus.Indexing);
 
-      const result = await ingestFromDiscogs(game, UserTier.Maestro, (msg) =>
+      const result = await ingestFromDiscogs(game, (msg) =>
         send({ type: "progress", message: msg }),
       );
 
