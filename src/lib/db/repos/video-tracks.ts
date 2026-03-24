@@ -2,20 +2,31 @@ import { getDB } from "@/lib/db";
 import { stmt } from "./_shared";
 
 export const VideoTracks = {
-  /** Returns a map of video_id → { trackName, durationSeconds } for all rows belonging to a game. */
+  /** Returns a map of video_id → { trackName, durationSeconds, viewCount } for all rows belonging to a game. */
   getByGame(
     gameId: string,
-  ): Map<string, { trackName: string | null; durationSeconds: number | null }> {
+  ): Map<
+    string,
+    { trackName: string | null; durationSeconds: number | null; viewCount: number | null }
+  > {
     const rows = stmt(
-      "SELECT video_id, track_name, duration_seconds FROM video_tracks WHERE game_id = ?",
+      "SELECT video_id, track_name, duration_seconds, view_count FROM video_tracks WHERE game_id = ?",
     ).all(gameId) as {
       video_id: string;
       track_name: string | null;
       duration_seconds: number | null;
+      view_count: number | null;
     }[];
-    const map = new Map<string, { trackName: string | null; durationSeconds: number | null }>();
+    const map = new Map<
+      string,
+      { trackName: string | null; durationSeconds: number | null; viewCount: number | null }
+    >();
     for (const row of rows) {
-      map.set(row.video_id, { trackName: row.track_name, durationSeconds: row.duration_seconds });
+      map.set(row.video_id, {
+        trackName: row.track_name,
+        durationSeconds: row.duration_seconds,
+        viewCount: row.view_count,
+      });
     }
     return map;
   },
@@ -49,20 +60,27 @@ export const VideoTracks = {
     })();
   },
 
-  /** Stores fetched durations so subsequent generations can filter the pool without a YouTube API call. */
-  storeDurations(entries: { videoId: string; gameId: string; durationSeconds: number }[]): void {
+  /** Stores fetched durations and view counts so subsequent generations can skip YouTube API calls. */
+  storeDurations(
+    entries: {
+      videoId: string;
+      gameId: string;
+      durationSeconds: number;
+      viewCount: number | null;
+    }[],
+  ): void {
     if (entries.length === 0) return;
     const db = getDB();
     const upsert = stmt(
-      `INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds)
-       VALUES (?, ?, NULL, ?)
+      `INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds, view_count)
+       VALUES (?, ?, NULL, ?, ?)
        ON CONFLICT(video_id, game_id) DO UPDATE SET
-         duration_seconds = excluded.duration_seconds
-       WHERE duration_seconds IS NULL`,
+         duration_seconds = COALESCE(video_tracks.duration_seconds, excluded.duration_seconds),
+         view_count = excluded.view_count`,
     );
     db.transaction(() => {
       for (const e of entries) {
-        upsert.run(e.videoId, e.gameId, e.durationSeconds);
+        upsert.run(e.videoId, e.gameId, e.durationSeconds, e.viewCount);
       }
     })();
   },

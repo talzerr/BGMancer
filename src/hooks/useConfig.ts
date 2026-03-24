@@ -8,6 +8,7 @@ const KEYS = {
   antiSpoilerEnabled: "bgm_anti_spoiler_enabled",
   allowLongTracks: "bgm_allow_long_tracks",
   allowShortTracks: "bgm_allow_short_tracks",
+  rawVibes: "bgm_raw_vibes",
 } as const;
 
 function lsGet<T>(key: string, fallback: T, parse: (v: string) => T): T {
@@ -25,6 +26,7 @@ export function useConfig() {
   const [antiSpoilerEnabled, setAntiSpoilerEnabled] = useState(false);
   const [allowLongTracks, setAllowLongTracks] = useState(false);
   const [allowShortTracks, setAllowShortTracks] = useState(false);
+  const [rawVibes, setRawVibes] = useState(false);
 
   useEffect(() => {
     Promise.resolve().then(() => {
@@ -32,6 +34,7 @@ export function useConfig() {
       setAntiSpoilerEnabled(lsGet(KEYS.antiSpoilerEnabled, false, (v) => v === "1"));
       setAllowLongTracks(lsGet(KEYS.allowLongTracks, false, (v) => v === "1"));
       setAllowShortTracks(lsGet(KEYS.allowShortTracks, false, (v) => v === "1"));
+      setRawVibes(lsGet(KEYS.rawVibes, false, (v) => v === "1"));
     });
   }, []);
 
@@ -55,6 +58,11 @@ export function useConfig() {
     lsSet(KEYS.allowShortTracks, enabled ? "1" : "0");
   }
 
+  function saveRawVibes(enabled: boolean) {
+    setRawVibes(enabled);
+    lsSet(KEYS.rawVibes, enabled ? "1" : "0");
+  }
+
   return {
     targetTrackCount,
     setTargetTrackCount,
@@ -65,5 +73,7 @@ export function useConfig() {
     saveAllowLongTracks,
     allowShortTracks,
     saveAllowShortTracks,
+    rawVibes,
+    saveRawVibes,
   };
 }

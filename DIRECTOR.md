@@ -57,7 +57,7 @@ Each phase carries not just energy bounds but **preferred moods**, **penalized m
 
 ### II. The Resonance Filter — The Math
 
-Once energy gating passes, the Director scores each candidate track against its target slot using a **Weighted Jaccard Resonance** model across three dimensions: role, mood, and instrumentation.
+Once energy gating passes, the Director scores each candidate track against its target slot using a **Weighted Jaccard Resonance** model across three core dimensions — role, mood, and instrumentation — plus an optional fourth dimension, **View Bias**, derived from YouTube view counts (see §II.5 below). View Bias is active by default; users can disable it via the **Raw Vibes** toggle to fall back to pure tag-based scoring.
 
 #### Why Not Additive Scoring?
 
@@ -79,17 +79,18 @@ A score of `1.0` means the sets are identical. A score of `0.0` means they share
 
 #### The Weighted Resonance Formula
 
-The final resonance score $R$ for a track against a slot is:
+The final resonance score $R$ for a track against a slot is the weighted sum of all active dimensions:
 
-$$R = w_{\text{role}} \cdot S_{\text{role}} + w_{\text{mood}} \cdot J(\text{moods}_{\text{track}}, \text{moods}_{\text{target}}) + w_{\text{inst}} \cdot J(\text{inst}_{\text{track}}, \text{inst}_{\text{target}})$$
+$$R = w_{\text{role}} \cdot S_{\text{role}} + w_{\text{mood}} \cdot S_{\text{mood}} + w_{\text{vb}} \cdot S_{\text{vb}} + w_{\text{inst}} \cdot S_{\text{inst}}$$
 
-With weights:
+When View Bias is disabled (Raw Vibes mode), $w_{\text{vb}} = 0$ and the remaining weights revert to the three-dimension defaults:
 
-| Dimension       | Weight $w$ | Scoring Method     |
-| --------------- | ---------- | ------------------ |
-| Role            | 0.40       | Binary (1.0 / 0.0) |
-| Mood            | 0.35       | Jaccard similarity |
-| Instrumentation | 0.25       | Jaccard similarity |
+| Dimension       | Raw Vibes (3-dim) | View Bias ON (default) | Scoring Method     |
+| --------------- | ----------------- | ---------------------- | ------------------ |
+| Role            | 0.40              | 0.30                   | Binary (1.0 / 0.0) |
+| Mood            | 0.35              | 0.25                   | Jaccard similarity |
+| View Bias       | —                 | 0.30                   | Log-scaled views   |
+| Instrumentation | 0.25              | 0.15                   | Jaccard similarity |
 
 #### Why Role Is an Intersection Check, Not Jaccard
 
@@ -97,7 +98,7 @@ Tracks carry an array of roles (e.g., `[Combat, Cinematic]`) and slots carry a p
 
 Jaccard is deliberately avoided here. Jaccard would penalize a track for having _more_ roles than the slot expects — a track tagged `[Combat, Cinematic]` would score lower than a track tagged only `[Combat]` in a Combat slot, even though the multi-role track is at least as good a fit. The intersection check removes this "flexibility penalty" entirely: extra roles never hurt, they only help.
 
-The binary outcome also means role carries its full `0.40` weight only when any match exists. A role mismatch floors that dimension to `0.0` — a strong signal, not a soft nudge. Role is a categorical classification, not a fuzzy one: a `Closer` track in a climax slot isn't "somewhat wrong," it's categorically wrong.
+The binary outcome also means role carries its full weight only when any match exists. A role mismatch floors that dimension to `0.0` — a strong signal, not a soft nudge. Role is a categorical classification, not a fuzzy one: a `Closer` track in a climax slot isn't "somewhat wrong," it's categorically wrong.
 
 #### Penalty Multipliers
 
@@ -112,6 +113,30 @@ This is intentionally aggressive. A climax slot penalizes `peaceful` and `playfu
 **Vocals Penalty** — If the active `ScoringRubric` specifies `allowVocals: false` and the track has vocals, the score is halved again (multiplicatively with the mood penalty if both apply):
 
 $$R'' = R' \times 0.5$$
+
+#### The View Bias Score — Popularity Dimension
+
+The View Bias Score is the fourth resonance dimension, active by default. It blends two sub-signals to balance global popularity with per-game stature — surfacing iconic tracks without letting AAA deep cuts drown out indie gems.
+
+**Global Heat** — logarithmic scaling of raw view count, normalized to `[0.0, 1.0]`:
+
+$$H = \text{clamp}\left(0, 1, \frac{\log_{10}(\text{views}) - 3}{4}\right)$$
+
+A track with 1,000 views scores `0.0`; a track with 10,000,000 views scores `1.0`. The logarithmic curve compresses the enormous range of YouTube view counts into a usable signal — the difference between 1M and 10M views matters far less than the difference between 1K and 10K.
+
+**Local Stature** — how essential a track is relative to its own game's average:
+
+$$L = \text{clamp}\left(0, 1, \frac{\text{trackViews} / \text{avgGameViews}}{3}\right)$$
+
+A track at the game's average scores `0.33`; a track at 3× the average scores `1.0`. This ensures a standout indie track (e.g., the main theme at 5× its OST's average) competes with a mid-tier AAA track that has more absolute views but less relative importance.
+
+**Combined:**
+
+$$S_{\text{vb}} = 0.6 \cdot H + 0.4 \cdot L$$
+
+Tracks with no view data receive a **baseline** of `0.3` — not penalized to zero, but naturally outscored by tracks with real popularity signal.
+
+View Bias scores are pre-computed once per `assemblePlaylist` call from the `viewCount` field on `TaggedTrack` (populated from the YouTube `videos.list` API at zero additional quota cost — `statistics` is appended to the existing `videos.list` `part` parameter). Users who prefer pure tag-based curation can toggle **Raw Vibes** in the generation UI, which disables this dimension entirely and restores the three-dimension weight distribution.
 
 ---
 
@@ -170,11 +195,19 @@ $$S_{\text{inst}} = J\!\left(t.\text{instrumentation},\ \rho.\text{preferredInst
 
 The rubric target sets are **exclusive-or**: when $\rho$ is present, it fully replaces the arc slot's preference targets for those dimensions. The two sources are never merged — the rubric either owns the target or it doesn't. This prevents a dilution effect where a general arc preference and a specific rubric preference average each other out into something neither caller intended.
 
-**5. Weighted Sum**
+**5. View Bias Score (when active — default)**
 
-$$R = 0.40 \cdot S_{\text{role}} + 0.35 \cdot S_{\text{mood}} + 0.25 \cdot S_{\text{inst}}$$
+$$S_{\text{vb}} = 0.6 \cdot \text{clamp}\!\left(0, 1, \frac{\log_{10}(\text{views}) - 3}{4}\right) + 0.4 \cdot \text{clamp}\!\left(0, 1, \frac{\text{trackViews} / \text{avgGameViews}}{3}\right)$$
 
-**6. Penalty Application**
+When View Bias is disabled (Raw Vibes mode), this term is omitted and the three-dimension weights are used.
+
+**6. Weighted Sum**
+
+$$R = w_{\text{role}} \cdot S_{\text{role}} + w_{\text{mood}} \cdot S_{\text{mood}} + w_{\text{vb}} \cdot S_{\text{vb}} + w_{\text{inst}} \cdot S_{\text{inst}}$$
+
+See the weight table in §II for values per mode.
+
+**7. Penalty Application**
 
 $$R \leftarrow R \times 0.5 \quad \text{if } t.\text{moods} \cap \text{penalized}(s, \rho) \neq \emptyset$$
 $$R \leftarrow R \times 0.5 \quad \text{if } \rho.\text{allowVocals} = \text{false} \text{ and } t.\text{hasVocals} = \text{true}$$
@@ -268,7 +301,9 @@ Focus games receive double budget weight and pre-assigned arc slots. If a Focus 
 
 The Director embodies a specific thesis: **subjective listening experience can be approximated by a small set of well-chosen, weighted heuristics applied consistently.** The goal is not to perfectly score every track — it is to eliminate the worst placements, reward the best ones, and introduce enough controlled randomness that the output feels discovered rather than computed.
 
-The weights (`0.40 / 0.35 / 0.25`) are not derived from first principles — they reflect a deliberate prioritization: _what a track is for_ (role) matters more than _how it feels_ (mood), which matters more than _how it sounds_ (instrumentation). A combat track in a combat slot feels right even if its mood is wrong. A peaceful track in a climax slot feels wrong even if its instrumentation is perfect. The weights encode that hierarchy.
+The weights are not derived from first principles — they reflect a deliberate prioritization: _what a track is for_ (role) matters more than _how it feels_ (mood), which matters more than _how it sounds_ (instrumentation). A combat track in a combat slot feels right even if its mood is wrong. A peaceful track in a climax slot feels wrong even if its instrumentation is perfect. The weights encode that hierarchy.
+
+When View Bias is active (the default), those core weights compress to make room for the popularity signal (`0.30 / 0.25 / 0.30 / 0.15`). The view count dimension sits between mood and instrumentation — significant enough to meaningfully surface iconic tracks, but not so dominant that it overrides role or mood fit. Users who prefer pure tag-based curation can disable it via Raw Vibes mode, restoring the original three-dimension weights (`0.40 / 0.35 / 0.25`).
 
 ---
 

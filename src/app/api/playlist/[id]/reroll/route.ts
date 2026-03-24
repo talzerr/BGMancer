@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { Playlist, Games } from "@/lib/db/repo";
-import { fetchPlaylistItems, fetchVideoDurations } from "@/lib/services/youtube";
+import { fetchPlaylistItems, fetchVideoMetadata } from "@/lib/services/youtube";
 import { MIN_TRACK_DURATION_SECONDS, MAX_TRACK_DURATION_SECONDS } from "@/lib/constants";
 
 /** POST /api/playlist/:id/reroll — Replace a track with a different one from the same game's YouTube playlist. */
@@ -58,11 +58,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   // Fetch durations for all candidates so we can filter by length constraints
-  let durations = new Map<string, number>();
+  const durations = new Map<string, number>();
   try {
-    durations = await fetchVideoDurations(candidates.map((c) => c.videoId));
+    const meta = await fetchVideoMetadata(candidates.map((c) => c.videoId));
+    for (const [id, m] of meta) durations.set(id, m.durationSeconds);
   } catch (err) {
-    console.warn("[reroll] fetchVideoDurations failed (non-fatal):", err);
+    console.warn("[reroll] fetchVideoMetadata failed (non-fatal):", err);
   }
 
   const eligible = candidates.filter((item) => {

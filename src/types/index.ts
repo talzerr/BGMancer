@@ -166,6 +166,7 @@ export interface AppConfig {
   anti_spoiler_enabled: boolean;
   allow_long_tracks: boolean;
   allow_short_tracks: boolean;
+  raw_vibes: boolean;
 }
 
 // ─── Director telemetry ──────────────────────────────────────────────────────
@@ -193,6 +194,7 @@ export interface ScoreBreakdown {
   roleScore: number;
   moodScore: number;
   instScore: number;
+  viewBiasScore: number;
   finalScore: number;
   adjustedScore: number;
 }
@@ -209,6 +211,8 @@ export interface TrackDecision {
   moodScore: number;
   /** Instrumentation dimension score (Jaccard, 0.0–1.0). */
   instScore: number;
+  /** View bias dimension score (YouTube view count popularity, 0.0–1.0). */
+  viewBiasScore: number;
   finalScore: number;
   adjustedScore: number;
   poolSize: number;
@@ -254,6 +258,7 @@ export interface TaggedTrack {
   instrumentation: TrackInstrumentation[];
   hasVocals: boolean;
   durationSeconds: number;
+  viewCount: number | null;
 }
 
 export interface Track {

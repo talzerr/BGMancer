@@ -1,7 +1,7 @@
 import { Games, Tracks, VideoTracks } from "@/lib/db/repo";
 import { compilationQueries, makePendingTrack } from "@/lib/pipeline/assembly";
-import { searchOSTPlaylist, fetchPlaylistItems, fetchVideoDurations } from "@/lib/services/youtube";
-import type { OSTTrack } from "@/lib/services/youtube";
+import { searchOSTPlaylist, fetchPlaylistItems, fetchVideoMetadata } from "@/lib/services/youtube";
+import type { OSTTrack, VideoMetadata } from "@/lib/services/youtube";
 import {
   type Game,
   type TaggedTrack,
@@ -42,26 +42,35 @@ async function discoverOSTPlaylist(game: Game, send: Send): Promise<string | nul
   return playlistId;
 }
 
-/** Fetches durations for any video IDs not yet in video_tracks, stores them, and returns the full map. */
-async function ensureDurations(videoIds: string[], gameId: string): Promise<Map<string, number>> {
+/** Fetches durations and view counts for any video IDs not yet in video_tracks, stores them, and returns the full map. */
+async function ensureVideoMetadata(
+  videoIds: string[],
+  gameId: string,
+): Promise<Map<string, { durationSeconds: number; viewCount: number | null }>> {
   const stored = VideoTracks.getByGame(gameId);
   const missing = videoIds.filter((id) => stored.get(id)?.durationSeconds == null);
 
-  const fetched =
-    missing.length > 0 ? await fetchVideoDurations(missing) : new Map<string, number>();
+  const fetched: Map<string, VideoMetadata> =
+    missing.length > 0 ? await fetchVideoMetadata(missing) : new Map();
 
   VideoTracks.storeDurations(
     missing.flatMap((id) => {
-      const d = fetched.get(id);
-      return d != null ? [{ videoId: id, gameId, durationSeconds: d }] : [];
+      const m = fetched.get(id);
+      return m != null
+        ? [{ videoId: id, gameId, durationSeconds: m.durationSeconds, viewCount: m.viewCount }]
+        : [];
     }),
   );
 
-  const result = new Map<string, number>();
+  const result = new Map<string, { durationSeconds: number; viewCount: number | null }>();
   for (const [id, meta] of stored) {
-    if (meta.durationSeconds != null) result.set(id, meta.durationSeconds);
+    if (meta.durationSeconds != null) {
+      result.set(id, { durationSeconds: meta.durationSeconds, viewCount: meta.viewCount });
+    }
   }
-  for (const [id, d] of fetched) result.set(id, d);
+  for (const [id, m] of fetched) {
+    result.set(id, { durationSeconds: m.durationSeconds, viewCount: m.viewCount });
+  }
   return result;
 }
 
@@ -106,24 +115,28 @@ async function resolveCurated(
   const missingDurationIds = filtered
     .filter((r) => r.durationSeconds == null)
     .map((r) => r.videoId);
-  const durations = await ensureDurations(missingDurationIds, game.id);
+  const videoMeta = await ensureVideoMetadata(missingDurationIds, game.id);
 
-  const tracks: TaggedTrack[] = filtered.map((r) => ({
-    videoId: r.videoId,
-    title: r.videoTitle,
-    channelTitle: r.channelTitle,
-    thumbnail: r.thumbnail,
-    gameId: game.id,
-    gameTitle: game.title,
-    cleanName: r.trackName,
-    energy: r.energy,
-    roles: r.roles,
-    isJunk: false,
-    moods: r.moods,
-    instrumentation: r.instrumentation,
-    hasVocals: r.hasVocals ?? false,
-    durationSeconds: durations.get(r.videoId) ?? discogsDurations.get(r.videoId) ?? 0,
-  }));
+  const tracks: TaggedTrack[] = filtered.map((r) => {
+    const meta = videoMeta.get(r.videoId);
+    return {
+      videoId: r.videoId,
+      title: r.videoTitle,
+      channelTitle: r.channelTitle,
+      thumbnail: r.thumbnail,
+      gameId: game.id,
+      gameTitle: game.title,
+      cleanName: r.trackName,
+      energy: r.energy,
+      roles: r.roles,
+      isJunk: false,
+      moods: r.moods,
+      instrumentation: r.instrumentation,
+      hasVocals: r.hasVocals ?? false,
+      durationSeconds: meta?.durationSeconds ?? discogsDurations.get(r.videoId) ?? 0,
+      viewCount: meta?.viewCount ?? null,
+    };
+  });
 
   send({
     type: "progress",
@@ -149,27 +162,31 @@ async function resolveLegacy(
     message: "Legacy path — limited quality",
   });
 
-  const durations = await ensureDurations(
+  const videoMeta = await ensureVideoMetadata(
     playlistTracks.map((t) => t.videoId),
     game.id,
   );
 
-  const tracks: TaggedTrack[] = playlistTracks.map((t) => ({
-    videoId: t.videoId,
-    title: t.title,
-    channelTitle: t.channelTitle,
-    thumbnail: t.thumbnail,
-    gameId: game.id,
-    gameTitle: game.title,
-    cleanName: t.title,
-    energy: 2,
-    roles: [TrackRole.Ambient],
-    isJunk: false,
-    moods: [],
-    instrumentation: [],
-    hasVocals: false,
-    durationSeconds: durations.get(t.videoId) ?? 0,
-  }));
+  const tracks: TaggedTrack[] = playlistTracks.map((t) => {
+    const meta = videoMeta.get(t.videoId);
+    return {
+      videoId: t.videoId,
+      title: t.title,
+      channelTitle: t.channelTitle,
+      thumbnail: t.thumbnail,
+      gameId: game.id,
+      gameTitle: game.title,
+      cleanName: t.title,
+      energy: 2 as const,
+      roles: [TrackRole.Ambient],
+      isJunk: false,
+      moods: [],
+      instrumentation: [],
+      hasVocals: false,
+      durationSeconds: meta?.durationSeconds ?? 0,
+      viewCount: meta?.viewCount ?? null,
+    };
+  });
 
   send({
     type: "progress",

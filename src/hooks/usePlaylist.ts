@@ -11,6 +11,7 @@ export interface GenerateConfig {
   allow_long_tracks: boolean;
   allow_short_tracks: boolean;
   anti_spoiler_enabled: boolean;
+  raw_vibes: boolean;
 }
 
 export type GameProgressEntry = {

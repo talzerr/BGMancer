@@ -9,9 +9,9 @@ export const DirectorDecisions = {
     const insertStmt = stmt(`
       INSERT INTO playlist_track_decisions
         (playlist_id, position, arc_phase, game_id, track_video_id,
-         score_role, score_mood, score_inst, final_score, adjusted_score,
+         score_role, score_mood, score_inst, score_view_bias, final_score, adjusted_score,
          pool_size, game_budget, game_budget_used, selection_pass, rubric_used)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     db.transaction(() => {
       for (const d of decisions) {
@@ -24,6 +24,7 @@ export const DirectorDecisions = {
           d.roleScore,
           d.moodScore,
           d.instScore,
+          d.viewBiasScore,
           d.finalScore,
           d.adjustedScore,
           d.poolSize,
@@ -51,6 +52,7 @@ export const DirectorDecisions = {
       roleScore: Number(r.score_role),
       moodScore: Number(r.score_mood),
       instScore: Number(r.score_inst),
+      viewBiasScore: Number(r.score_view_bias),
       finalScore: Number(r.final_score),
       adjustedScore: Number(r.adjusted_score),
       poolSize: Number(r.pool_size),

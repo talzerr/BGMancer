@@ -121,6 +121,7 @@ function runDirector(
   activeGames: Game[],
   targetCount: number,
   rubric: ScoringRubric | undefined,
+  useViewBias: boolean,
 ): {
   pendingTracks: PendingTrack[];
   decisions: TrackDecision[];
@@ -128,7 +129,7 @@ function runDirector(
   gameBudgets: Record<string, number>;
 } {
   const assembleTarget = Math.ceil(targetCount * 1.15);
-  const result = assemblePlaylist(taggedPools, activeGames, assembleTarget, rubric);
+  const result = assemblePlaylist(taggedPools, activeGames, assembleTarget, rubric, useViewBias);
   return {
     pendingTracks: result.tracks.map((t) => taggedTrackToPending(t, t.durationSeconds)),
     decisions: result.decisions,
@@ -213,7 +214,13 @@ export async function generatePlaylist(
     const activeGames = games.filter((g) => filteredPools.has(g.id));
     const rubric = await profileVibe(activeGames, user, send);
     send({ type: "progress", message: "Assembling playlist arc…" });
-    const directorResult = runDirector(filteredPools, activeGames, targetCount, rubric);
+    const directorResult = runDirector(
+      filteredPools,
+      activeGames,
+      targetCount,
+      rubric,
+      !config.raw_vibes,
+    );
     individualTracks = directorResult.pendingTracks;
     decisions = directorResult.decisions;
     usedRubric = directorResult.usedRubric;

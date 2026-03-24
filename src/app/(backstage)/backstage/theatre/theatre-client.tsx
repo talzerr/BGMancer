@@ -135,12 +135,21 @@ const ARC_PHASES = [
 ] as const;
 
 const SCORING_WEIGHTS = [
-  { dimension: "Role", weight: 0.4, method: "Binary -- 1.0 if role matches slot, 0.0 otherwise" },
-  { dimension: "Mood", weight: 0.35, method: "Jaccard similarity on mood intersection" },
+  {
+    dimension: "Role",
+    weight: "0.40 / 0.30",
+    method: "Binary -- 1.0 if role matches slot, 0.0 otherwise",
+  },
+  { dimension: "Mood", weight: "0.35 / 0.25", method: "Jaccard similarity on mood intersection" },
   {
     dimension: "Instrumentation",
-    weight: 0.25,
+    weight: "0.25 / 0.15",
     method: "Jaccard similarity on instrumentation intersection",
+  },
+  {
+    dimension: "View Bias",
+    weight: "— / 0.30",
+    method: "YouTube view count popularity (global heat + local stature)",
   },
 ];
 
@@ -597,6 +606,9 @@ function ScoreBreakdownTable({
               <TableHead className="w-10 text-[10px] tracking-wider text-zinc-500 uppercase">
                 Inst
               </TableHead>
+              <TableHead className="w-10 text-[10px] tracking-wider text-zinc-500 uppercase">
+                Views
+              </TableHead>
               <TableHead className="w-12 text-[10px] tracking-wider text-zinc-500 uppercase">
                 Final
               </TableHead>
@@ -644,6 +656,9 @@ function ScoreBreakdownTable({
                   </TableCell>
                   <TableCell className="py-1.5">
                     <ScoreCell value={d.instScore} />
+                  </TableCell>
+                  <TableCell className="py-1.5">
+                    <ScoreCell value={d.viewBiasScore} />
                   </TableCell>
                   <TableCell className="py-1.5">
                     <ScoreCell value={d.finalScore} />
@@ -852,7 +867,7 @@ function ReferenceContent() {
             <thead>
               <tr className="border-b border-zinc-800 text-[11px] tracking-wider text-zinc-500 uppercase">
                 <th className="px-3 py-2 text-left">Dimension</th>
-                <th className="px-3 py-2 text-left">Weight</th>
+                <th className="px-3 py-2 text-left">Weight (default / view bias)</th>
                 <th className="px-3 py-2 text-left">Method</th>
               </tr>
             </thead>
