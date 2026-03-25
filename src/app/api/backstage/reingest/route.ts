@@ -1,7 +1,7 @@
 import { Games, Tracks, ReviewFlags } from "@/lib/db/repo";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
 import { ingestFromDiscogs } from "@/lib/pipeline/onboarding";
-import { TaggingStatus, ReviewReason } from "@/types";
+import { OnboardingPhase, ReviewReason } from "@/types";
 
 type ReingestEvent =
   | { type: "progress"; message: string }
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
       send({ type: "progress", message: "Clearing existing tracks…" });
       Tracks.deleteByGame(gameId);
       ReviewFlags.clearByGame(gameId);
-      Games.setStatus(gameId, TaggingStatus.Indexing);
+      Games.setPhase(gameId, OnboardingPhase.Draft);
 
       const result = await ingestFromDiscogs(game, (msg) =>
         send({ type: "progress", message: msg }),
@@ -42,12 +42,12 @@ export async function POST(req: Request) {
 
       if (!result) {
         ReviewFlags.markAsNeedsReview(gameId, ReviewReason.NoDiscogsData);
-        Games.setStatus(gameId, TaggingStatus.Limited);
+        Games.setPhase(gameId, OnboardingPhase.Draft);
         send({ type: "error", message: "No Discogs data found for this game." });
         return;
       }
 
-      Games.setStatus(gameId, TaggingStatus.Ready);
+      Games.setPhase(gameId, OnboardingPhase.Tagged);
 
       const finalTracks = Tracks.getByGame(gameId);
       const tagged = finalTracks.filter((t) => t.taggedAt !== null).length;
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
 
       send({ type: "done", trackCount: finalTracks.length, tagged, needsReview });
     } catch (err) {
-      Games.setStatus(gameId, TaggingStatus.Failed);
+      Games.setPhase(gameId, OnboardingPhase.Failed);
       console.error("[POST /api/backstage/reingest]", err);
       send({ type: "error", message: err instanceof Error ? err.message : String(err) });
     } finally {

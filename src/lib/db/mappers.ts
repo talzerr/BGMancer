@@ -1,6 +1,6 @@
 import {
   CurationMode,
-  TaggingStatus,
+  OnboardingPhase,
   TrackMood,
   TrackInstrumentation,
   TrackRole,
@@ -9,7 +9,7 @@ import {
 import type { Game, PlaylistTrack, PlaylistSession, Track, User } from "@/types";
 
 const VALID_STATUSES = new Set<string>(Object.values(TrackStatus));
-const VALID_TAGGING_STATUSES = new Set<string>(Object.values(TaggingStatus));
+const VALID_ONBOARDING_PHASES = new Set<string>(Object.values(OnboardingPhase));
 
 export const VALID_CURATIONS = new Set<CurationMode>(Object.values(CurationMode) as CurationMode[]);
 
@@ -38,17 +38,18 @@ export function toGame(row: Record<string, unknown>): Game {
   const curation: CurationMode = VALID_CURATIONS.has(raw as CurationMode)
     ? (raw as CurationMode)
     : CurationMode.Include;
-  const rawStatus = String(row.tagging_status ?? TaggingStatus.Pending);
-  const tagging_status: TaggingStatus = VALID_TAGGING_STATUSES.has(rawStatus)
-    ? (rawStatus as TaggingStatus)
-    : TaggingStatus.Pending;
+  const rawPhase = String(row.onboarding_phase ?? OnboardingPhase.Draft);
+  const onboarding_phase: OnboardingPhase = VALID_ONBOARDING_PHASES.has(rawPhase)
+    ? (rawPhase as OnboardingPhase)
+    : OnboardingPhase.Draft;
   return {
     id: String(row.id),
     title: String(row.title),
     curation,
     steam_appid: row.steam_appid != null ? Number(row.steam_appid) : null,
     playtime_minutes: row.playtime_minutes != null ? Number(row.playtime_minutes) : null,
-    tagging_status,
+    onboarding_phase,
+    published: !!row.published,
     tracklist_source: row.tracklist_source != null ? String(row.tracklist_source) : null,
     yt_playlist_id: row.yt_playlist_id != null ? String(row.yt_playlist_id) : null,
     needs_review: !!row.needs_review,

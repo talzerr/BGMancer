@@ -3,7 +3,7 @@ import { Games } from "@/lib/db/repo";
 import { getOrCreateUserId } from "@/lib/services/session";
 import { bus } from "@/lib/events";
 import type { GameStatusPayload } from "@/lib/events";
-import { TaggingStatus } from "@/types";
+import { OnboardingPhase } from "@/types";
 
 /**
  * GET /api/games/status-stream
@@ -34,11 +34,8 @@ export async function GET() {
       // doesn't miss statuses that changed before the stream connected.
       const allGames = Games.listAllIncludingDisabled(userId);
       for (const game of allGames) {
-        if (
-          game.tagging_status === TaggingStatus.Indexing ||
-          game.tagging_status === TaggingStatus.Pending
-        ) {
-          send({ gameId: game.id, status: game.tagging_status });
+        if (game.onboarding_phase === OnboardingPhase.Draft) {
+          send({ gameId: game.id, phase: game.onboarding_phase });
         }
       }
 

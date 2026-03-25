@@ -2,7 +2,13 @@ import { Games, Tracks, VideoTracks } from "@/lib/db/repo";
 import { compilationQueries, makePendingTrack } from "@/lib/pipeline/assembly";
 import { searchOSTPlaylist, fetchPlaylistItems, fetchVideoMetadata } from "@/lib/services/youtube";
 import type { OSTTrack, VideoMetadata } from "@/lib/services/youtube";
-import { type Game, type TaggedTrack, GameProgressStatus, TaggingStatus, TrackRole } from "@/types";
+import {
+  type Game,
+  type TaggedTrack,
+  GameProgressStatus,
+  OnboardingPhase,
+  TrackRole,
+} from "@/types";
 import type { GenerateEvent, CandidateResult } from "@/lib/pipeline/types";
 import { resolveTracksToVideos } from "@/lib/pipeline/resolver";
 import { getTaggingProvider } from "@/lib/llm";
@@ -253,9 +259,8 @@ export async function fetchGameCandidates(game: Game, send: Send): Promise<Candi
     if (Tracks.isTagged(game.id)) {
       return resolveCurated(game, playlistTracks, send);
     }
-    // Tracks exist but tagging never completed (e.g. LLM was unavailable during onboarding).
-    // Treat as limited so the game still contributes tracks and the UI shows the yellow indicator.
-    Games.setStatus(game.id, TaggingStatus.Limited);
+    // Tracks exist but tagging never completed — reset to Draft so admin can retry.
+    Games.setPhase(game.id, OnboardingPhase.Draft);
   }
   return resolveLegacy(game, playlistTracks, send);
 }

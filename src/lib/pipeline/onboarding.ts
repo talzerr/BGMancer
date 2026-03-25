@@ -1,4 +1,4 @@
-import { TaggingStatus, ReviewReason } from "@/types";
+import { OnboardingPhase, ReviewReason } from "@/types";
 import type { Game } from "@/types";
 import { Games, Tracks, ReviewFlags } from "@/lib/db/repo";
 import { searchGameSoundtrack } from "@/lib/services/discogs";
@@ -6,9 +6,9 @@ import { tagTracks } from "@/lib/pipeline/tagger";
 import { getTaggingProvider } from "@/lib/llm";
 import { bus } from "@/lib/events";
 
-function setStatus(gameId: string, status: TaggingStatus): void {
-  Games.setStatus(gameId, status);
-  bus.emit("game:status", { gameId, status });
+function setPhase(gameId: string, phase: OnboardingPhase): void {
+  Games.setPhase(gameId, phase);
+  bus.emit("game:status", { gameId, phase });
 }
 
 /**
@@ -48,20 +48,20 @@ export async function ingestFromDiscogs(
 
 export async function onboardGame(game: Game): Promise<void> {
   try {
-    setStatus(game.id, TaggingStatus.Indexing);
+    setPhase(game.id, OnboardingPhase.Draft);
 
     const result = await ingestFromDiscogs(game);
 
     if (result) {
-      setStatus(game.id, TaggingStatus.Ready);
+      setPhase(game.id, OnboardingPhase.Tagged);
       console.warn(`[onboard] ${game.title}: ${result.trackCount} tracks from Discogs, tagged`);
     } else {
       ReviewFlags.markAsNeedsReview(game.id, ReviewReason.NoDiscogsData);
-      setStatus(game.id, TaggingStatus.Limited);
+      setPhase(game.id, OnboardingPhase.Draft);
       console.warn(`[onboard] No Discogs data for "${game.title}", falling back to legacy path`);
     }
   } catch (err) {
-    setStatus(game.id, TaggingStatus.Failed);
+    setPhase(game.id, OnboardingPhase.Failed);
     console.error(`[onboard] Failed for "${game.title}":`, err);
   }
 }

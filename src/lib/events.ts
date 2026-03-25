@@ -1,11 +1,11 @@
 import { EventEmitter } from "events";
-import type { TaggingStatus } from "@/types";
+import type { OnboardingPhase } from "@/types";
 
 // ─── Event payloads ───────────────────────────────────────────────────────────
 
 export interface GameStatusPayload {
   gameId: string;
-  status: TaggingStatus;
+  phase: OnboardingPhase;
 }
 
 // ─── App event map ────────────────────────────────────────────────────────────

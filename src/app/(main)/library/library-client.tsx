@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CurationMode, TaggingStatus } from "@/types";
+import { CurationMode, OnboardingPhase } from "@/types";
 import type { Game } from "@/types";
 import { Spinner, SearchIcon, CheckIcon } from "@/components/Icons";
 import { AddGameForm } from "@/components/AddGameForm";
@@ -41,10 +41,7 @@ export function LibraryClient() {
     fetchGames();
   }, [fetchGames]);
 
-  const hasIndexing = games.some(
-    (g) =>
-      g.tagging_status === TaggingStatus.Indexing || g.tagging_status === TaggingStatus.Pending,
-  );
+  const hasIndexing = games.some((g) => g.onboarding_phase === OnboardingPhase.Draft);
 
   useEffect(() => {
     if (!hasIndexing) return;

@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { StatusBadge } from "@/components/backstage/StatusBadge";
-import { TaggingStatus } from "@/types";
+import { OnboardingPhase } from "@/types";
 import type { BackstageGame } from "@/lib/db/repos/games";
 import { gameSlug } from "@/lib/utils";
 
@@ -30,7 +30,7 @@ export function GamesClient() {
   const searchParams = useSearchParams();
 
   const [titleSearch, setTitleSearch] = useState(() => searchParams.get("title") ?? "");
-  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") ?? "all");
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("phase") ?? "all");
   const [needsReviewOnly, setNeedsReviewOnly] = useState(
     () => searchParams.get("needsReview") === "1",
   );
@@ -45,7 +45,7 @@ export function GamesClient() {
     setFetchError(null);
     const params = new URLSearchParams();
     if (titleSearch.trim()) params.set("title", titleSearch.trim());
-    if (statusFilter !== "all") params.set("status", statusFilter);
+    if (statusFilter !== "all") params.set("phase", statusFilter);
     if (needsReviewOnly) params.set("needsReview", "1");
 
     router.replace(`/backstage/games${params.size ? `?${params}` : ""}`, { scroll: false });
@@ -91,7 +91,7 @@ export function GamesClient() {
             <SelectItem value="all" className="text-xs text-zinc-400">
               All statuses
             </SelectItem>
-            {Object.values(TaggingStatus).map((s) => (
+            {Object.values(OnboardingPhase).map((s) => (
               <SelectItem key={s} value={s} className="text-xs capitalize">
                 {s}
               </SelectItem>
@@ -168,7 +168,7 @@ export function GamesClient() {
                 >
                   <TableCell className="py-2.5 text-sm text-zinc-200">{game.title}</TableCell>
                   <TableCell className="py-2.5">
-                    <StatusBadge status={game.tagging_status} />
+                    <StatusBadge phase={game.onboarding_phase} />
                   </TableCell>
                   <TableCell className="py-2.5 font-mono text-xs text-zinc-400">
                     {game.activeCount}/{game.trackCount}

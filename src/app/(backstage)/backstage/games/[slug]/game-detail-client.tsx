@@ -99,7 +99,7 @@ export function GameDetailClient({ game, tracks, reviewFlags }: GameDetailClient
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <h1 className="font-sans text-xl font-semibold text-zinc-100">{game.title}</h1>
-            <StatusBadge status={game.tagging_status} />
+            <StatusBadge phase={game.onboarding_phase} />
           </div>
           <div className="flex flex-wrap gap-4 font-mono text-[11px] text-zinc-500">
             <span>{trackCount} tracks</span>

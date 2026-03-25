@@ -37,11 +37,11 @@ export enum CurationMode {
   Focus = "focus",
 }
 
-export enum TaggingStatus {
-  Pending = "pending",
-  Indexing = "indexing",
-  Ready = "ready",
-  Limited = "limited",
+export enum OnboardingPhase {
+  Draft = "draft",
+  TracksLoaded = "tracks_loaded",
+  Tagged = "tagged",
+  Resolved = "resolved",
   Failed = "failed",
 }
 
@@ -97,7 +97,8 @@ export interface Game {
   curation: CurationMode;
   steam_appid: number | null;
   playtime_minutes: number | null;
-  tagging_status: TaggingStatus;
+  onboarding_phase: OnboardingPhase;
+  published: boolean;
   tracklist_source: string | null;
   yt_playlist_id: string | null;
   needs_review: boolean;

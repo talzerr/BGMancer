@@ -45,7 +45,7 @@ export function useGameLibrary() {
     source.onmessage = (e: MessageEvent) => {
       const event = JSON.parse(e.data) as GameStatusPayload;
       setGames((prev) =>
-        prev.map((g) => (g.id === event.gameId ? { ...g, tagging_status: event.status } : g)),
+        prev.map((g) => (g.id === event.gameId ? { ...g, onboarding_phase: event.phase } : g)),
       );
     };
 

@@ -18,7 +18,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { usePlayerContext } from "@/context/player-context";
-import { TaggingStatus } from "@/types";
+import { OnboardingPhase } from "@/types";
 import { useSessionManager } from "@/hooks/useSessionManager";
 import { useTrackDeleteUndo } from "@/hooks/useTrackDeleteUndo";
 import { GenerateSection } from "@/components/GenerateSection";
@@ -37,11 +37,10 @@ interface FeedClientProps {
 export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
   const { playlist, player, config, gameLibrary, gameThumbnailByGameId } = usePlayerContext();
   const indexingCount = gameLibrary.games.filter(
-    (g) =>
-      g.tagging_status === TaggingStatus.Indexing || g.tagging_status === TaggingStatus.Pending,
+    (g) => g.onboarding_phase === OnboardingPhase.Draft,
   ).length;
   const failedCount = gameLibrary.games.filter(
-    (g) => g.tagging_status === TaggingStatus.Limited,
+    (g) => g.onboarding_phase === OnboardingPhase.Failed,
   ).length;
   const { sessions, fetchSessions, handleRenameSession, handleDeleteSession } = useSessionManager();
   const { pendingDelete, initiateRemove, undoRemove } = useTrackDeleteUndo();

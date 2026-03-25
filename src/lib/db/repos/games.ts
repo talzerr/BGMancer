@@ -2,7 +2,7 @@ import { getDB } from "@/lib/db";
 import { stmt, LIBRARY_SQ } from "./_shared";
 import { toGame, toGames } from "@/lib/db/mappers";
 import { CurationMode } from "@/types";
-import type { TaggingStatus } from "@/types";
+import type { OnboardingPhase } from "@/types";
 import type { Game } from "@/types";
 import { newId } from "@/lib/uuid";
 import { YT_IMPORT_GAME_ID } from "@/lib/constants";
@@ -10,7 +10,8 @@ import { YT_IMPORT_GAME_ID } from "@/lib/constants";
 export interface BackstageGame {
   id: string;
   title: string;
-  tagging_status: TaggingStatus;
+  onboarding_phase: OnboardingPhase;
+  published: boolean;
   tracklist_source: string | null;
   needs_review: boolean;
   trackCount: number;
@@ -34,7 +35,8 @@ function toBackstageGame(r: Record<string, unknown>): BackstageGame {
   return {
     id: String(r.id),
     title: String(r.title),
-    tagging_status: String(r.tagging_status) as BackstageGame["tagging_status"],
+    onboarding_phase: String(r.onboarding_phase) as BackstageGame["onboarding_phase"],
+    published: !!r.published,
     tracklist_source: r.tracklist_source != null ? String(r.tracklist_source) : null,
     needs_review: !!r.needs_review,
     trackCount: Number(r.track_count ?? 0),
@@ -149,10 +151,20 @@ export const Games = {
     stmt("UPDATE games SET yt_playlist_id = ? WHERE id = ?").run(playlistId, id);
   },
 
-  setStatus(id: string, status: TaggingStatus): void {
+  setPhase(id: string, phase: OnboardingPhase): void {
     stmt(
-      `UPDATE games SET tagging_status = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`,
-    ).run(status, id);
+      `UPDATE games SET onboarding_phase = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`,
+    ).run(phase, id);
+  },
+
+  setPublished(id: string, published: boolean): void {
+    stmt(
+      `UPDATE games SET published = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`,
+    ).run(published ? 1 : 0, id);
+  },
+
+  listPublished(): Game[] {
+    return toGames(stmt("SELECT * FROM games WHERE published = 1 ORDER BY title ASC").all());
   },
 
   update(id: string, fields: GameUpdateFields): Game | null {
@@ -202,7 +214,7 @@ export const Games = {
   listWithTrackStats(): BackstageGame[] {
     const rows = stmt(`
       SELECT
-        g.id, g.title, g.tagging_status, g.tracklist_source, g.needs_review,
+        g.id, g.title, g.onboarding_phase, g.published, g.tracklist_source, g.needs_review,
         COUNT(t.name)                                               AS track_count,
         COUNT(t.tagged_at)                                         AS tagged_count,
         SUM(CASE WHEN t.active = 1 THEN 1 ELSE 0 END)             AS active_count,
@@ -222,7 +234,7 @@ export const Games = {
    */
   searchWithStats(filters: {
     title?: string;
-    status?: string;
+    phase?: string;
     needsReview?: boolean;
   }): BackstageGame[] {
     const clauses: string[] = [];
@@ -232,9 +244,9 @@ export const Games = {
       clauses.push("g.title LIKE ?");
       params.push(`%${filters.title}%`);
     }
-    if (filters.status) {
-      clauses.push("g.tagging_status = ?");
-      params.push(filters.status);
+    if (filters.phase) {
+      clauses.push("g.onboarding_phase = ?");
+      params.push(filters.phase);
     }
     if (filters.needsReview) {
       clauses.push("g.needs_review = 1");
@@ -243,7 +255,7 @@ export const Games = {
     const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
     const sql = `
       SELECT
-        g.id, g.title, g.tagging_status, g.tracklist_source, g.needs_review,
+        g.id, g.title, g.onboarding_phase, g.published, g.tracklist_source, g.needs_review,
         COUNT(t.name)                                               AS track_count,
         COUNT(t.tagged_at)                                         AS tagged_count,
         SUM(CASE WHEN t.active = 1 THEN 1 ELSE 0 END)             AS active_count,
