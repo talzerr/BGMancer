@@ -42,6 +42,21 @@ export const ReviewFlags = {
     return rows.map(toReviewFlag);
   },
 
+  /** Dismiss a single review flag. Clears needs_review if no flags remain. */
+  dismiss(flagId: number, gameId: string): void {
+    getDB().transaction(() => {
+      stmt("DELETE FROM game_review_flags WHERE id = ?").run(flagId);
+      const remaining = stmt("SELECT COUNT(*) AS cnt FROM game_review_flags WHERE game_id = ?").get(
+        gameId,
+      ) as { cnt: number };
+      if (remaining.cnt === 0) {
+        stmt(
+          `UPDATE games SET needs_review = 0, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`,
+        ).run(gameId);
+      }
+    })();
+  },
+
   /** Clear all review flags for a game and reset needs_review to 0. */
   clearByGame(gameId: string): void {
     getDB().transaction(() => {

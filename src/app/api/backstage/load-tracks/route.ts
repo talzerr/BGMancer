@@ -1,14 +1,14 @@
-import { Games, Tracks, ReviewFlags } from "@/lib/db/repo";
+import { Games } from "@/lib/db/repo";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
-import { loadTracks, tagGameTracks } from "@/lib/pipeline/onboarding";
+import { loadTracks } from "@/lib/pipeline/onboarding";
 import { OnboardingPhase } from "@/types";
 
-type ReingestEvent =
+type LoadTracksEvent =
   | { type: "progress"; message: string }
-  | { type: "done"; trackCount: number; tagged: number; needsReview: number }
+  | { type: "done"; trackCount: number }
   | { type: "error"; message: string };
 
-/** POST /api/backstage/reingest — clear all tracks and re-fetch from Discogs */
+/** POST /api/backstage/load-tracks — fetch tracklist from Discogs */
 export async function POST(req: Request) {
   const { gameId } = (await req.json()) as { gameId: string };
 
@@ -27,34 +27,21 @@ export async function POST(req: Request) {
     );
   }
 
-  const { stream, send, close } = makeSSEStream<ReingestEvent>();
+  const { stream, send, close } = makeSSEStream<LoadTracksEvent>();
 
   (async () => {
     try {
-      send({ type: "progress", message: "Clearing existing tracks…" });
-      Tracks.deleteByGame(gameId);
-      ReviewFlags.clearByGame(gameId);
-      Games.setPhase(gameId, OnboardingPhase.Draft);
+      const result = await loadTracks(game, (message) => send({ type: "progress", message }));
 
-      const progress = (message: string) => send({ type: "progress", message });
-
-      const loaded = await loadTracks(game, progress);
-      if (!loaded) {
+      if (!result) {
         send({ type: "error", message: "No Discogs data found for this game." });
         return;
       }
 
-      const tagResult = await tagGameTracks(game, progress);
-
-      send({
-        type: "done",
-        trackCount: loaded.trackCount,
-        tagged: tagResult.tagged,
-        needsReview: tagResult.needsReview ? 1 : 0,
-      });
+      send({ type: "done", trackCount: result.trackCount });
     } catch (err) {
       Games.setPhase(gameId, OnboardingPhase.Failed);
-      console.error("[POST /api/backstage/reingest]", err);
+      console.error("[POST /api/backstage/load-tracks]", err);
       send({ type: "error", message: err instanceof Error ? err.message : String(err) });
     } finally {
       close();

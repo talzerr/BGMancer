@@ -8,182 +8,148 @@ On-the-fly user onboarding stays in the codebase but is disabled. Backstage will
 
 ---
 
-## M1: Game Lifecycle Schema
+## M1: Game Lifecycle Schema — DONE
 
-**Goal:** Replace `TaggingStatus` with `OnboardingPhase`, add `published` column, update all references. App behavior unchanged — this is a pure rename/extend.
+**Commit:** `refactor!: replace TaggingStatus with OnboardingPhase + add published column (M1)`
 
-### Schema change (`src/lib/db/schema.ts`)
+### What was done
 
-- Rename column `tagging_status` → `onboarding_phase` (default `'draft'`)
-- Add column `published INTEGER NOT NULL DEFAULT 0`
-- Run `npm run db:reset` to apply
+- Replaced `TaggingStatus` enum with `OnboardingPhase` (Draft, TracksLoaded, Tagged, Resolved, Failed)
+- `Published` is NOT a phase — it's an independent boolean column (`published INTEGER NOT NULL DEFAULT 0`) that controls user visibility
+- Renamed `tagging_status` column → `onboarding_phase` in schema, mapper, repos, all UI
+- Added `Games.setPhase()`, `Games.setPublished()`, `Games.listPublished()` repo methods
+- `GameStatusPayload.status` → `.phase`, `BackstageGame` updated
+- Dropped `Limited` status entirely — games stay in whatever phase they reached
+- Removed user-facing onboarding status indicators from `GameRow` (users shouldn't see admin internals)
+- `StatusBadge` updated with 5 phase styles (Draft=gray, TracksLoaded=blue, Tagged=cyan, Resolved=violet, Failed=red)
+- Dropped `playtime_minutes` from games table (user-specific data, not relevant for admin catalog)
 
-### New enum (`src/types/index.ts`)
+### Design decisions
 
-Replace `TaggingStatus` with:
-
-```ts
-enum OnboardingPhase {
-  Draft = "draft", // game exists, no tracks
-  TracksLoaded = "tracks_loaded", // tracklist fetched (Discogs/VGMDB/manual)
-  Tagged = "tagged", // LLM tagger has run
-  Resolved = "resolved", // YouTube video IDs assigned
-  Published = "published", // visible to users (implies resolved)
-  Failed = "failed", // onboarding error
-}
-```
-
-Drop `Limited` — it was a workaround for bad auto-onboarding. Games with partial data stay in whatever phase they reached; the admin fixes or discards them.
-
-### Type change (`src/types/index.ts`)
-
-`Game` interface: `tagging_status: TaggingStatus` → `onboarding_phase: OnboardingPhase`, add `published: boolean`.
-
-### Files to update (find-replace `TaggingStatus` → `OnboardingPhase`, `tagging_status` → `onboarding_phase`)
-
-- `src/types/index.ts` — enum + Game interface
-- `src/lib/db/schema.ts` — column rename + add published
-- `src/lib/db/mappers.ts` — `toGame()` mapper
-- `src/lib/db/repos/games.ts` — `setStatus()`, `searchWithStats()`, `BackstageGame`, add `Games.setPublished()`, add `Games.listPublished()`
-- `src/lib/pipeline/onboarding.ts` — status transitions
-- `src/lib/pipeline/candidates.ts` — `TaggingStatus.Limited` reference
-- `src/lib/events.ts` — `GameStatusPayload` type
-- `src/app/api/backstage/reingest/route.ts` — status refs
-- `src/app/api/backstage/retag/route.ts` — status refs
-- `src/app/(backstage)/backstage/games/games-client.tsx` — filter dropdown values
-- `src/app/(main)/library/library-client.tsx` — status badge checks
-- `src/app/(main)/feed-client.tsx` — indexing/failed count checks
-- `src/hooks/useGameLibrary.ts` — SSE status payload
-- `src/components/backstage/StatusBadge.tsx` — styles for new phases
-
-### Acceptance
-
-- [ ] `npm run db:reset` succeeds
-- [ ] `npm run build` — zero type errors (no `TaggingStatus` references remain)
-- [ ] `npm run lint` passes
-- [ ] Backstage games table shows new phase names with correct badge colors
-- [ ] Main app still works (existing flow uses new enum values, no behavioral change)
+- **`published` is a toggle, not a phase.** A game can be `Resolved` but not published (admin reviewing), or published then unpublished without losing its onboarding state.
+- **`NoDiscogsData` review reason renamed to `NoTracklistSource`** — reflects that the admin sets the source, not that Discogs specifically failed.
 
 ---
 
-## M2: Phased Onboarding Actions in Backstage
+## M2: Phased Onboarding Actions in Backstage — DONE
 
-**Goal:** Break the monolithic `onboardGame()` into discrete admin-triggered phases. Each phase is an independent Backstage action.
+### What was done
 
-### Refactor onboarding (`src/lib/pipeline/onboarding.ts`)
+#### Pipeline refactor (`src/lib/pipeline/onboarding.ts`)
 
-Split into composable functions:
+Split monolithic `onboardGame()` into composable functions:
 
-1. **`loadTracks(game, onProgress?)`** — Discogs search + `Tracks.upsertBatch()` + set `tracklist_source`. Sets phase → `TracksLoaded`. Does NOT tag.
-2. **`tagGameTracks(game, onProgress?)`** — runs LLM tagger on existing untagged tracks. Sets phase → `Tagged`.
-3. **`resolveVideos(game, onProgress?)`** — discovers YouTube playlist (extract from `candidates.ts:discoverOSTPlaylist`), fetches playlist items, calls `resolveTracksToVideos()`, stores in `video_tracks`. Sets phase → `Resolved`.
-4. **`quickOnboard(game, onProgress?)`** — chains loadTracks → tagGameTracks → resolveVideos → set published. Reuses all three above.
+- **`loadTracks(game, onProgress?)`** — fetches tracklist from Discogs (or uses preset `tracklist_source`). Sets phase → `TracksLoaded`.
+- **`tagGameTracks(game, onProgress?)`** — runs LLM tagger on loaded tracks. Sets phase → `Tagged`.
+- **`resolveVideos(game, onProgress?)`** — discovers YouTube playlist, resolves tracks to video IDs, caches metadata. Sets phase → `Resolved`.
+- **`quickOnboard(game, onProgress?)`** — chains all three + sets `published=true`.
+- **`ingestFromDiscogs()`** kept as thin wrapper (loadTracks + tagGameTracks) for backward compat.
+- **`onboardGame()`** delegates to `quickOnboard` with try/catch.
 
-Keep `ingestFromDiscogs()` as a thin wrapper calling `loadTracks` + `tagGameTracks` (backward compat for reingest route).
+#### YouTube helpers extraction (`src/lib/pipeline/youtube-resolve.ts`)
 
-### Extract from candidates.ts
+- `discoverOSTPlaylist(game, onProgress?)` — extracted from `candidates.ts`, uses `onProgress` callback instead of SSE `send`
+- `ensureVideoMetadata(videoIds, gameId)` — moved from `candidates.ts`
+- `candidates.ts` updated to import from `youtube-resolve.ts`
 
-`discoverOSTPlaylist()` and `ensureVideoMetadata()` are currently private to `candidates.ts` and coupled to the generation SSE. Extract them into importable helpers (or a new `src/lib/pipeline/youtube-resolve.ts`) so `resolveVideos()` can call them without the generation event system.
+#### Tracklist source format
 
-### New API routes
+The `tracklist_source` field uses explicit prefixes:
 
-| Route                          | Method | Body                          | Response   | Calls                     |
-| ------------------------------ | ------ | ----------------------------- | ---------- | ------------------------- |
-| `/api/backstage/load-tracks`   | POST   | `{ gameId }`                  | SSE stream | `loadTracks()`            |
-| `/api/backstage/resolve`       | POST   | `{ gameId }`                  | SSE stream | `resolveVideos()`         |
-| `/api/backstage/publish`       | POST   | `{ gameId, published }`       | JSON       | `Games.setPublished()`    |
-| `/api/backstage/quick-onboard` | POST   | `{ gameId }` or `{ gameIds }` | SSE stream | `quickOnboard()` per game |
+- `discogs-release:2934025` — Discogs release
+- `discogs-master:648336` — Discogs master
+- `vgmdb:12345` — VGMDB album (not yet implemented, flags as unsupported)
 
-Existing routes updated:
+Auto-discover from Discogs writes the correct prefix (`discogs-master:` or `discogs-release:`) based on which search path found the result. Admin can also preset the source in the metadata editor.
+
+#### Discogs service improvements (`src/lib/services/discogs.ts`)
+
+- `fetchDiscogsRelease(id)` and `fetchDiscogsMaster(id)` — separate functions, no ambiguity
+- `discogsGet()` returns `null` on HTTP errors instead of throwing — graceful fallback through the search chain
+- `searchGameSoundtrack()` return type includes `sourceType` field
+
+#### New API routes
+
+| Route                          | Method | Body                    | Response   | Calls                  |
+| ------------------------------ | ------ | ----------------------- | ---------- | ---------------------- |
+| `/api/backstage/load-tracks`   | POST   | `{ gameId }`            | SSE stream | `loadTracks()`         |
+| `/api/backstage/resolve`       | POST   | `{ gameId }`            | SSE stream | `resolveVideos()`      |
+| `/api/backstage/publish`       | POST   | `{ gameId, published }` | JSON       | `Games.setPublished()` |
+| `/api/backstage/quick-onboard` | POST   | `{ gameId }`            | SSE stream | `quickOnboard()`       |
+
+#### Existing routes updated
 
 - `/api/backstage/retag` → sets phase to `Tagged` on completion
-- `/api/backstage/reingest` → resets phase to `Draft` first, then runs loadTracks + tagGameTracks, lands on `Tagged`
+- `/api/backstage/reingest` → uses composable `loadTracks` + `tagGameTracks` instead of monolithic `ingestFromDiscogs`
+- `/api/backstage/review-flags` DELETE → supports single flag dismiss (`{ flagId, gameId }`) or clear all (`{ gameId }`)
 
-### UI changes (`game-detail-client.tsx`)
+#### Game metadata editing (pulled forward from M3)
 
-Replace the current 2-button layout (Re-tag, Re-ingest) with:
+- `PATCH /api/backstage/games/[gameId]` — update `title`, `steam_appid`, `yt_playlist_id`, `tracklist_source`, `thumbnail_url`
+- `Games.update()` expanded to handle all metadata fields in a single UPDATE
+- `thumbnail_url TEXT` column added to games table
+- Steam games auto-populate `thumbnail_url` with Steam header image on creation (both `Games.create()` and `bulkImportSteam()`)
 
-- **Phase stepper** at the top of game detail: visual breadcrumb showing Draft → TracksLoaded → Tagged → Resolved → Published, current phase highlighted
-- **Phase action buttons**: "Load Tracks", "Tag", "Resolve Videos" — each triggers its SSE route, uses existing `SSEProgress` component
-- **"Quick Onboard"** button — runs the full chain
-- **"Publish" / "Unpublish"** toggle
-- Keep **"Re-ingest"** as destructive action (clears everything, starts over)
-- Keep **"Re-tag"** as a redo for the tagging phase only
+#### Game detail page redesign (`game-detail-client.tsx`)
 
-### Acceptance
+**Three-zone control bar** (state-driven):
 
-- [ ] Admin can run each phase independently from game detail page
-- [ ] "Load Tracks" fetches Discogs tracklist without tagging
-- [ ] "Tag" runs LLM tagger on loaded tracks
-- [ ] "Resolve" discovers YouTube playlist and maps tracks to video IDs
-- [ ] "Quick Onboard" chains all phases and sets published=true
-- [ ] Phase stepper reflects current phase accurately
-- [ ] Publish/unpublish toggle works
-- [ ] `npm run build` + `npm run lint` pass
+| Zone                          | Contents                                                                                                                                                                                                  |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Zone A: Primary Action**    | Context-aware button: "Fetch Tracklist" (Draft), "Run LLM Tagging" (TracksLoaded), "Resolve Videos" (Tagged), "Pipeline complete" (Resolved), "Retry" (Failed), "Review Flags (N)" (any phase with flags) |
+| **Zone B: Pipeline Dropdown** | "Run Pipeline ▾" → Run Full Pipeline, Force Re-Fetch Tracks, Force Re-Tag, Force Re-Resolve                                                                                                               |
+| **Zone C: Danger Zone**       | "⋯" → Reset Pipeline (Re-Sync Source) — opens type-to-confirm reingest dialog                                                                                                                             |
+
+**Publish button** — always visible on control bar (right-aligned), disabled until Resolved. Shows "● Published" when published; on hover changes to rose color with "Unpublish" text. Tooltip when disabled: "Complete all pipeline phases before publishing".
+
+**When published:** Pipeline dropdown, danger menu, and metadata editing are all disabled. "Unpublish to edit" hint shown.
+
+**PhaseStepper component** (`src/components/backstage/PhaseStepper.tsx`) — visual breadcrumb: Draft → Tracks Loaded → Tagged → Resolved. Shows checkmarks for completed phases, highlight for current, red for Failed, green "Published" badge.
+
+**Game thumbnail** — Steam header shown in game detail header. Falls back to `thumbnail_url` field. Editable in metadata section.
+
+**Editable title** — click game title to edit (disabled when published). Max 100 chars.
+
+**Metadata section** — inline-editable fields with ↗ link icons:
+
+- Tracklist Source (discogs-release/discogs-master/vgmdb prefix format)
+- YouTube Playlist → youtube.com link
+- Thumbnail URL → direct link
+- Steam App ID → store.steampowered.com link
+
+**Track editing** — "Edit" toggle on track table header:
+
+- Off: click row to open tag edit sheet
+- On: ✕ delete button (with confirmation dialog), clickable ●/○ active toggle, "+ Add" button in header
+- Edit mode: violet border + tinted background
+
+**Track video links** — ▶ column links to youtube.com/watch?v={videoId} for resolved tracks.
+
+**Review flags** — collapsible `<details>` (collapsed by default), individual ✕ dismiss buttons, "Clear all" link.
+
+### Known issues
+
+- Hydration mismatch warning may appear on game detail page (Next.js SSR vs client state timing)
+- `useGameLibrary` SSE error in console on Backstage pages (pre-existing — Backstage doesn't use PlayerProvider)
 
 ---
 
-## M3: Backstage Catalog Management
+## M3: Backstage Catalog Management — PARTIALLY DONE
 
-**Goal:** Admin can add games, edit all game-level metadata, bulk-onboard, and manage the catalog — all from Backstage.
+### What was done in M2 (pulled forward)
 
-### Game creation in Backstage
+- [x] Game metadata editing (title, steam_appid, yt_playlist_id, tracklist_source, thumbnail_url)
+- [x] `PATCH /api/backstage/games/[gameId]` route
+- [x] Steam header image auto-populated on game creation
+- [x] Track deletion with FK cascade (video_tracks cleaned up)
 
-- `Games.createDraft(title, steamAppid?, playtimeMinutes?)` — creates game as `Draft`, `published=0`, no library link
-- `POST /api/backstage/games` — body: `{ title, steam_appid?, playtime_minutes? }`, returns created game
-- Games list (`games-client.tsx`): add "Add Game" button → dialog with manual title entry + optional Steam app ID
+### What remains
 
-### Game metadata editing
-
-- `PATCH /api/backstage/games/[gameId]` — update `title`, `steam_appid`, `yt_playlist_id`, `tracklist_source`, `playtime_minutes`
-- `Games.updateMetadata(id, fields)` repo method
-- Game detail page: editable fields for title, Steam App ID, YouTube playlist ID (admin can paste a known playlist URL/ID to skip auto-discovery)
-- Show Steam header image when `steam_appid` is set (URL: `https://cdn.akamai.steamstatic.com/steam/apps/{appid}/header.jpg`)
-
-### Catalog filters
-
-- Games list: add Published/Unpublished/All filter toggle
-- Games list: add onboarding phase filter (Draft, TracksLoaded, Tagged, Resolved, Published, Failed)
-- Summary line: "12 draft, 3 tagged, 45 published" counts
-
-### Bulk operations
-
-- Checkbox selection on games list
-- "Quick Onboard Selected" bulk action
-- "Publish Selected" / "Unpublish Selected" bulk actions
-
-### Track editing expansion
-
-Expand `TrackEditSheet` (`PatchUpdates`) to include:
-
-- `videoId` — assign/change linked YouTube video
-- `durationSeconds` — override duration
-- `viewCount` — override view count
-
-Expand `PATCH /api/backstage/tracks` to handle video_track upserts when `videoId` is provided.
-Add `VideoTracks.upsertSingle()` repo method.
-
-### Files
-
-- `src/lib/db/repos/games.ts` — `createDraft()`, `updateMetadata()`
-- `src/app/api/backstage/games/route.ts` — add POST handler
-- `src/app/api/backstage/games/[gameId]/route.ts` — new file, PATCH handler
-- `src/app/(backstage)/backstage/games/games-client.tsx` — add game button, filters, bulk actions
-- `src/app/(backstage)/backstage/games/[slug]/game-detail-client.tsx` — editable metadata fields
-- `src/components/backstage/TrackEditSheet.tsx` — video fields
-- `src/app/api/backstage/tracks/route.ts` — video_track upsert in PATCH
-- `src/lib/db/repos/video-tracks.ts` — `upsertSingle()`
-
-### Acceptance
-
-- [ ] Admin can create a new game from Backstage (manual entry)
-- [ ] Admin can edit game title, Steam App ID, YouTube playlist ID
-- [ ] Admin can edit video ID, duration, view count per track
-- [ ] Published/phase filters work in games list
-- [ ] Bulk quick-onboard works for selected games
-- [ ] Bulk publish/unpublish works
-- [ ] Steam header image shows when appid is set
-- [ ] `npm run build` + `npm run lint` pass
+- [ ] Game creation in Backstage (`POST /api/backstage/games`, "Add Game" button in games list)
+- [ ] Catalog filters (Published/Unpublished/All toggle, phase filter, summary counts)
+- [ ] Bulk operations (checkbox selection, bulk quick-onboard, bulk publish/unpublish)
+- [ ] Track editing expansion in TrackEditSheet (videoId, durationSeconds, viewCount fields)
+- [ ] `VideoTracks.upsertSingle()` repo method
 
 ---
 
@@ -256,7 +222,6 @@ Add a summary view (either on the backstage index page or a new "Catalog" tab):
 
 ### Dead code removal
 
-- Remove `TaggingStatus` enum entirely (if any aliased references remain)
 - Remove `Limited` status handling from `candidates.ts` (legacy path for untagged games) — in the walled garden, all generated games are tagged+resolved
 - Clean up `onboardGame()` — keep as internal tool but remove the event bus broadcast (no user SSE listens for it anymore)
 - Remove `GameProgressStatus` from SSE if generation no longer needs per-game onboarding progress (games are already resolved; phases 1/1.5 become no-ops or simple lookups)
@@ -281,7 +246,6 @@ With admin-curated data, review flags become less critical (the admin already re
 ### Acceptance
 
 - [ ] Backstage shows onboarding phase summary dashboard
-- [ ] No `TaggingStatus` references in codebase
 - [ ] Generation pipeline skips discovery/resolution for pre-resolved games (fast path)
 - [ ] `npm run build` + `npm run lint` pass
 - [ ] Full end-to-end: admin creates game → quick onboard → publish → user adds to library → generate playlist
@@ -291,9 +255,9 @@ With admin-curated data, review flags become less critical (the admin already re
 ## Milestone Dependency Graph
 
 ```
-M1 (Schema)
- └─ M2 (Phased Actions)
-     └─ M3 (Catalog Management)
+M1 (Schema)              ✅ DONE
+ └─ M2 (Phased Actions)  ✅ DONE
+     └─ M3 (Catalog Mgmt)  partial — metadata editing done, bulk ops + game creation remain
          └─ M4 (Published Gate)    ← behavioral change for users
              └─ M5 (Cleanup)
 ```
@@ -302,16 +266,36 @@ Each milestone is independently shippable. The user-visible change happens at M4
 
 ---
 
-## Key Existing Code to Reuse
+## Key Files Changed (M1 + M2)
 
-| What                              | Where                                         | Reused in                                     |
-| --------------------------------- | --------------------------------------------- | --------------------------------------------- |
-| `ingestFromDiscogs()`             | `src/lib/pipeline/onboarding.ts`              | M2: split into `loadTracks` + `tagGameTracks` |
-| `discoverOSTPlaylist()`           | `src/lib/pipeline/candidates.ts`              | M2: extract for `resolveVideos()`             |
-| `resolveTracksToVideos()`         | `src/lib/pipeline/resolver.ts`                | M2: called by `resolveVideos()`               |
-| `ensureVideoMetadata()`           | `src/lib/pipeline/candidates.ts`              | M2: extract for `resolveVideos()`             |
-| `tagTracks()`                     | `src/lib/pipeline/tagger.ts`                  | M2: called by `tagGameTracks()`               |
-| `SSEProgress` component           | `src/components/backstage/SSEProgress.tsx`    | M2: all new phase actions                     |
-| `TrackEditSheet`                  | `src/components/backstage/TrackEditSheet.tsx` | M3: extend with video fields                  |
-| `makeSSEStream()`                 | `src/lib/sse.ts`                              | M2: all new SSE routes                        |
-| `gameSlug()` / `idFromGameSlug()` | `src/lib/utils.ts`                            | M3: new game detail URLs                      |
+### New files
+
+| File                                            | Purpose                                                 |
+| ----------------------------------------------- | ------------------------------------------------------- |
+| `src/lib/pipeline/youtube-resolve.ts`           | Extracted `discoverOSTPlaylist` + `ensureVideoMetadata` |
+| `src/components/backstage/PhaseStepper.tsx`     | Visual breadcrumb component                             |
+| `src/app/api/backstage/load-tracks/route.ts`    | SSE route for track loading phase                       |
+| `src/app/api/backstage/resolve/route.ts`        | SSE route for video resolution phase                    |
+| `src/app/api/backstage/publish/route.ts`        | JSON route for publish toggle                           |
+| `src/app/api/backstage/quick-onboard/route.ts`  | SSE route for full pipeline                             |
+| `src/app/api/backstage/games/[gameId]/route.ts` | PATCH route for game metadata                           |
+
+### Modified files
+
+| File                                                                | Changes                                                                                                                                            |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/types/index.ts`                                                | `OnboardingPhase` enum (no `Published`), `Game` interface (+`published`, +`thumbnail_url`, -`playtime_minutes`), `NoTracklistSource` review reason |
+| `src/lib/db/schema.ts`                                              | `onboarding_phase`, `published`, `thumbnail_url` columns; dropped `playtime_minutes`                                                               |
+| `src/lib/db/mappers.ts`                                             | Updated `toGame()` for new fields                                                                                                                  |
+| `src/lib/db/repos/games.ts`                                         | `setPhase()`, `setPublished()`, `listPublished()`, expanded `update()`, `thumbnail_url` in create/import                                           |
+| `src/lib/db/repos/tracks.ts`                                        | `deleteByKeys()` cascades to `video_tracks`                                                                                                        |
+| `src/lib/db/repos/review-flags.ts`                                  | Added `dismiss(flagId, gameId)` for single flag removal                                                                                            |
+| `src/lib/pipeline/onboarding.ts`                                    | Split into `loadTracks`, `tagGameTracks`, `resolveVideos`, `quickOnboard`                                                                          |
+| `src/lib/pipeline/candidates.ts`                                    | Imports from `youtube-resolve.ts`                                                                                                                  |
+| `src/lib/services/discogs.ts`                                       | `fetchDiscogsRelease()`, `fetchDiscogsMaster()`, graceful error handling, `sourceType` in results                                                  |
+| `src/lib/events.ts`                                                 | `GameStatusPayload.phase` (was `.status`)                                                                                                          |
+| `src/app/api/backstage/retag/route.ts`                              | Sets phase to Tagged on completion                                                                                                                 |
+| `src/app/api/backstage/reingest/route.ts`                           | Uses composable `loadTracks` + `tagGameTracks`                                                                                                     |
+| `src/app/api/backstage/review-flags/route.ts`                       | Supports single flag dismiss                                                                                                                       |
+| `src/app/(backstage)/backstage/games/[slug]/page.tsx`               | Passes `videoMap` to client                                                                                                                        |
+| `src/app/(backstage)/backstage/games/[slug]/game-detail-client.tsx` | Complete redesign: 3-zone controls, PhaseStepper, metadata editor, track editing, publish toggle                                                   |

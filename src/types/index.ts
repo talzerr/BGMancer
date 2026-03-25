@@ -50,7 +50,7 @@ export enum ReviewReason {
   LlmParseFailed = "llm_parse_failed",
   LowConfidence = "low_confidence",
   EmptyMetadata = "empty_metadata",
-  NoDiscogsData = "no_discogs_data",
+  NoTracklistSource = "no_tracklist_source",
   TrackDiscovered = "track_discovered",
   TrackCapReached = "track_cap_reached",
 }
@@ -96,11 +96,11 @@ export interface Game {
   title: string;
   curation: CurationMode;
   steam_appid: number | null;
-  playtime_minutes: number | null;
   onboarding_phase: OnboardingPhase;
   published: boolean;
   tracklist_source: string | null;
   yt_playlist_id: string | null;
+  thumbnail_url: string | null;
   needs_review: boolean;
   created_at: string;
   updated_at: string;

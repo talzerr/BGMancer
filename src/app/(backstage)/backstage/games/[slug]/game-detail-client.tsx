@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,11 +23,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/backstage/StatusBadge";
+import { PhaseStepper } from "@/components/backstage/PhaseStepper";
 import { SSEProgress } from "@/components/backstage/SSEProgress";
 import { EnergyBadge } from "@/components/backstage/EnergyBadge";
 import { TagBadgeList } from "@/components/backstage/TagBadgeList";
 import { TrackEditSheet } from "@/components/backstage/TrackEditSheet";
 import type { PatchUpdates } from "@/components/backstage/TrackEditSheet";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { OnboardingPhase } from "@/types";
 import type { Game, Track } from "@/types";
 import type { ReviewFlag } from "@/lib/db/repos/review-flags";
 
@@ -34,11 +38,19 @@ interface GameDetailClientProps {
   game: Game;
   tracks: Track[];
   reviewFlags: ReviewFlag[];
+  videoMap: Record<string, string>;
 }
 
-type ActiveModal = "retag" | "reingest" | "add-track" | null;
+type ActiveModal =
+  | "retag"
+  | "reingest"
+  | "add-track"
+  | "load-tracks"
+  | "resolve"
+  | "quick-onboard"
+  | null;
 
-export function GameDetailClient({ game, tracks, reviewFlags }: GameDetailClientProps) {
+export function GameDetailClient({ game, tracks, reviewFlags, videoMap }: GameDetailClientProps) {
   const router = useRouter();
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
   const [newTrackName, setNewTrackName] = useState("");
@@ -46,10 +58,18 @@ export function GameDetailClient({ game, tracks, reviewFlags }: GameDetailClient
   const [reingestTyped, setReingestTyped] = useState("");
   const [editTrack, setEditTrack] = useState<Track | null>(null);
   const [mutError, setMutError] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [pipelineOpen, setPipelineOpen] = useState(false);
+  const [dangerOpen, setDangerOpen] = useState(false);
+  const [editingTracks, setEditingTracks] = useState(false);
+  const [pendingDeleteTrack, setPendingDeleteTrack] = useState<Track | null>(null);
+  const flagsRef = useRef<HTMLDetailsElement>(null);
 
   const trackCount = tracks.length;
   const activeCount = tracks.filter((t) => t.active).length;
   const taggedCount = tracks.filter((t) => t.taggedAt !== null).length;
+  const phase = game.onboarding_phase;
+  const thumbnailSrc = game.thumbnail_url;
 
   function closeReingest() {
     setActiveModal(null);
@@ -92,61 +112,236 @@ export function GameDetailClient({ game, tracks, reviewFlags }: GameDetailClient
     }
   }
 
+  async function togglePublished() {
+    setPublishing(true);
+    setMutError(null);
+    try {
+      const res = await fetch("/api/backstage/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameId: game.id, published: !game.published }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      router.refresh();
+    } catch (err) {
+      console.error("[GameDetail] togglePublished failed:", err);
+      setMutError("Failed to update published status.");
+    } finally {
+      setPublishing(false);
+    }
+  }
+
+  async function saveField(field: string, value: string | null) {
+    setMutError(null);
+    let payload: unknown = value || null;
+    if (field === "steam_appid") {
+      payload = value ? Number(value) : null;
+    }
+    try {
+      const res = await fetch(`/api/backstage/games/${game.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: payload }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      router.refresh();
+    } catch (err) {
+      console.error(`[GameDetail] saveField(${field}) failed:`, err);
+      setMutError(`Failed to update ${field}.`);
+    }
+  }
+
+  async function toggleTrackActive(track: Track) {
+    try {
+      await fetch("/api/backstage/tracks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gameId: game.id,
+          name: track.name,
+          updates: { active: !track.active },
+        }),
+      });
+      router.refresh();
+    } catch (err) {
+      console.error("[GameDetail] toggleTrackActive failed:", err);
+      setMutError("Failed to toggle track.");
+    }
+  }
+
+  async function deleteTrack(track: Track) {
+    try {
+      await fetch("/api/backstage/tracks", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameId: game.id, names: [track.name] }),
+      });
+      router.refresh();
+    } catch (err) {
+      console.error("[GameDetail] deleteTrack failed:", err);
+      setMutError("Failed to delete track.");
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Game header */}
-      <div className="flex flex-wrap items-start justify-between gap-4 rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <h1 className="font-sans text-xl font-semibold text-zinc-100">{game.title}</h1>
-            <StatusBadge phase={game.onboarding_phase} />
-          </div>
-          <div className="flex flex-wrap gap-4 font-mono text-[11px] text-zinc-500">
-            <span>{trackCount} tracks</span>
-            <span>{activeCount} active</span>
-            <span>{taggedCount} tagged</span>
-            {reviewFlags.length > 0 && (
-              <span className="text-amber-400">{reviewFlags.length} review flags</span>
-            )}
-            {game.tracklist_source && <span>source: {game.tracklist_source}</span>}
-          </div>
-          {game.yt_playlist_id && (
-            <a
-              href={`https://www.youtube.com/playlist?list=${game.yt_playlist_id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block pt-1 text-[11px] text-zinc-500 transition-colors hover:text-zinc-300"
-            >
-              YouTube OST ↗
-            </a>
+      <div className="flex items-start gap-4 rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-4">
+        <div className="flex min-w-0 flex-1 gap-4">
+          {thumbnailSrc && (
+            <Image
+              src={thumbnailSrc}
+              alt={game.title}
+              width={184}
+              height={69}
+              loading="eager"
+              unoptimized
+              className="shrink-0 rounded-md object-cover"
+              style={{ width: 184, height: "auto" }}
+            />
           )}
+          <div className="min-w-0 space-y-2">
+            <div className="flex items-center gap-2">
+              <EditableTitle
+                value={game.title}
+                disabled={game.published}
+                onSave={(v) => saveField("title", v)}
+              />
+              <StatusBadge phase={phase} />
+            </div>
+
+            <PhaseStepper currentPhase={phase} published={game.published} />
+
+            <div className="flex flex-wrap gap-4 font-mono text-[11px] text-zinc-500">
+              <span>{trackCount} tracks</span>
+              <span>{activeCount} active</span>
+              <span>{taggedCount} tagged</span>
+              {reviewFlags.length > 0 && (
+                <span className="text-amber-400">{reviewFlags.length} review flags</span>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 border-zinc-700 text-xs text-zinc-300 hover:text-zinc-100"
-            onClick={() => setActiveModal("add-track")}
-          >
-            + Add track
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 border-zinc-700 text-xs text-zinc-300 hover:text-zinc-100"
-            onClick={() => setActiveModal("retag")}
-          >
-            Re-tag all
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 border-rose-700/50 text-xs text-rose-400 hover:border-rose-600/50 hover:text-rose-300"
-            onClick={() => setActiveModal("reingest")}
-          >
-            Re-ingest
-          </Button>
+        {/* Controls — stacked on the right */}
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          {/* Action bar */}
+          <div className="flex items-center gap-2">
+            <PrimaryAction
+              phase={phase}
+              reviewFlagCount={reviewFlags.length}
+              onLoadTracks={() => setActiveModal("load-tracks")}
+              onTag={() => setActiveModal("retag")}
+              onResolve={() => setActiveModal("resolve")}
+              onReviewFlags={() => flagsRef.current?.scrollIntoView({ behavior: "smooth" })}
+            />
+
+            <div className="relative">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 border-zinc-700 text-xs text-zinc-300 hover:text-zinc-100"
+                disabled={game.published}
+                onClick={() => setPipelineOpen((o) => !o)}
+                onBlur={() => setTimeout(() => setPipelineOpen(false), 150)}
+              >
+                Run Pipeline ▾
+              </Button>
+              {pipelineOpen && (
+                <div className="absolute right-0 z-10 mt-1 w-48 rounded-md border border-zinc-700 bg-zinc-900 py-1 shadow-lg">
+                  <DropdownItem
+                    onClick={() => {
+                      setPipelineOpen(false);
+                      setActiveModal("quick-onboard");
+                    }}
+                  >
+                    Run Full Pipeline
+                  </DropdownItem>
+                  <DropdownItem
+                    onClick={() => {
+                      setPipelineOpen(false);
+                      setActiveModal("load-tracks");
+                    }}
+                  >
+                    Force Re-Fetch Tracks
+                  </DropdownItem>
+                  <DropdownItem
+                    onClick={() => {
+                      setPipelineOpen(false);
+                      setActiveModal("retag");
+                    }}
+                  >
+                    Force Re-Tag
+                  </DropdownItem>
+                  <DropdownItem
+                    onClick={() => {
+                      setPipelineOpen(false);
+                      setActiveModal("resolve");
+                    }}
+                  >
+                    Force Re-Resolve
+                  </DropdownItem>
+                </div>
+              )}
+            </div>
+
+            <div className="relative">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 w-7 border-zinc-700 p-0 text-xs text-zinc-500 hover:text-zinc-300"
+                disabled={game.published}
+                onClick={() => setDangerOpen((o) => !o)}
+                onBlur={() => setTimeout(() => setDangerOpen(false), 150)}
+              >
+                ⋯
+              </Button>
+              {dangerOpen && (
+                <div className="absolute right-0 z-10 mt-1 w-52 rounded-md border border-zinc-700 bg-zinc-900 py-1 shadow-lg">
+                  <DropdownItem
+                    destructive
+                    onClick={() => {
+                      setDangerOpen(false);
+                      setActiveModal("reingest");
+                    }}
+                  >
+                    Reset Pipeline (Re-Sync Source)
+                  </DropdownItem>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Publish button */}
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  className={`group w-[110px] shrink-0 rounded-lg py-1.5 text-center text-xs font-semibold transition-all ${
+                    game.published
+                      ? "border border-emerald-600/40 bg-emerald-500/10 text-emerald-400 hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-400"
+                      : phase === OnboardingPhase.Resolved
+                        ? "bg-emerald-600 text-white shadow-sm shadow-emerald-500/25 hover:bg-emerald-700"
+                        : "cursor-not-allowed border border-zinc-700 text-zinc-600"
+                  }`}
+                  disabled={publishing || phase !== OnboardingPhase.Resolved}
+                  onClick={togglePublished}
+                >
+                  {game.published ? (
+                    <>
+                      <span className="group-hover:hidden">● Published</span>
+                      <span className="hidden group-hover:inline">Unpublish</span>
+                    </>
+                  ) : (
+                    "Publish"
+                  )}
+                </button>
+              }
+            />
+            {phase !== OnboardingPhase.Resolved && !game.published && (
+              <TooltipContent>Complete all pipeline phases before publishing</TooltipContent>
+            )}
+          </Tooltip>
         </div>
       </div>
 
@@ -156,15 +351,87 @@ export function GameDetailClient({ game, tracks, reviewFlags }: GameDetailClient
         </p>
       )}
 
-      {/* Review flags */}
-      {reviewFlags.length > 0 && (
-        <div className="rounded-lg border border-amber-800/30 bg-amber-900/10 px-4 py-3">
-          <p className="mb-2 text-[11px] font-semibold tracking-wider text-amber-500 uppercase">
-            Review flags ({reviewFlags.length})
+      {/* Metadata editor — locked when published */}
+      <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-3">
+        <div className="mb-3 flex items-center gap-2">
+          <p className="text-[11px] font-semibold tracking-wider text-zinc-500 uppercase">
+            Metadata
           </p>
-          <div className="space-y-1">
+          {game.published && <span className="text-[10px] text-zinc-600">Unpublish to edit</span>}
+        </div>
+        <div className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2">
+          <MetadataField
+            label="Tracklist Source"
+            value={game.tracklist_source ?? ""}
+            placeholder="discogs-release:123 / discogs-master:456 / vgmdb:789"
+            disabled={game.published}
+            href={tracklistSourceUrl(game.tracklist_source)}
+            onSave={(v) => saveField("tracklist_source", v)}
+          />
+          <MetadataField
+            label="YouTube Playlist"
+            value={game.yt_playlist_id ?? ""}
+            placeholder="e.g. PLxxxxxx"
+            disabled={game.published}
+            href={
+              game.yt_playlist_id
+                ? `https://www.youtube.com/playlist?list=${game.yt_playlist_id}`
+                : undefined
+            }
+            onSave={(v) => saveField("yt_playlist_id", v)}
+          />
+          <MetadataField
+            label="Thumbnail URL"
+            value={game.thumbnail_url ?? ""}
+            placeholder="https://..."
+            disabled={game.published}
+            href={game.thumbnail_url ?? undefined}
+            onSave={(v) => saveField("thumbnail_url", v)}
+          />
+          <MetadataField
+            label="Steam App ID"
+            value={game.steam_appid?.toString() ?? ""}
+            placeholder="e.g. 292030"
+            disabled={game.published}
+            href={
+              game.steam_appid
+                ? `https://store.steampowered.com/app/${game.steam_appid}`
+                : undefined
+            }
+            onSave={(v) => saveField("steam_appid", v)}
+          />
+        </div>
+      </div>
+
+      {/* Review flags (collapsible) */}
+      {reviewFlags.length > 0 && (
+        <details
+          ref={flagsRef}
+          className="group rounded-lg border border-amber-800/30 bg-amber-900/10 px-4 py-3"
+        >
+          <summary className="flex cursor-pointer list-none items-center justify-between">
+            <p className="text-[11px] font-semibold tracking-wider text-amber-500 uppercase">
+              <span className="mr-1 inline-block transition-transform group-open:rotate-90">▸</span>
+              Review flags ({reviewFlags.length})
+            </p>
+            <button
+              onClick={async (e) => {
+                e.preventDefault();
+                await fetch("/api/backstage/review-flags", {
+                  method: "DELETE",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ gameId: game.id }),
+                });
+                router.refresh();
+              }}
+              className="text-[10px] text-zinc-500 transition-colors hover:text-zinc-300"
+            >
+              Clear all
+            </button>
+          </summary>
+          <div className="mt-2 space-y-1">
             {reviewFlags.map((flag) => (
-              <div key={flag.id} className="flex items-start gap-2 font-mono text-[11px]">
+              <div key={flag.id} className="flex items-center gap-2 font-mono text-[11px]">
                 <Badge
                   variant="outline"
                   className="border-amber-700/50 bg-amber-500/10 text-amber-400"
@@ -173,18 +440,65 @@ export function GameDetailClient({ game, tracks, reviewFlags }: GameDetailClient
                 </Badge>
                 {flag.detail && <span className="text-zinc-500">{flag.detail}</span>}
                 <span className="ml-auto text-zinc-600">{flag.createdAt.slice(0, 10)}</span>
+                <button
+                  onClick={async () => {
+                    await fetch("/api/backstage/review-flags", {
+                      method: "DELETE",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ flagId: flag.id, gameId: game.id }),
+                    });
+                    router.refresh();
+                  }}
+                  className="text-zinc-600 transition-colors hover:text-zinc-300"
+                >
+                  ✕
+                </button>
               </div>
             ))}
           </div>
-        </div>
+        </details>
       )}
 
       {/* Track list */}
-      {tracks.length > 0 && (
-        <div className="overflow-hidden rounded-lg border border-zinc-800">
+      {(tracks.length > 0 || editingTracks) && (
+        <div
+          className={`overflow-hidden rounded-lg border ${editingTracks ? "border-violet-600/40" : "border-zinc-800"}`}
+        >
+          {/* Track header bar */}
+          <div
+            className={`flex items-center justify-between px-4 py-2 ${editingTracks ? "bg-violet-500/5" : "bg-zinc-900/40"}`}
+          >
+            <span className="text-[11px] font-semibold tracking-wider text-zinc-500 uppercase">
+              Tracks ({tracks.length})
+            </span>
+            <div className="flex items-center gap-2">
+              {editingTracks && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 border-zinc-700 px-2 text-[10px] text-zinc-300 hover:text-zinc-100"
+                  onClick={() => setActiveModal("add-track")}
+                >
+                  + Add
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="outline"
+                className={`h-6 px-2 text-[10px] ${editingTracks ? "border-violet-600/50 text-violet-400" : "border-zinc-700 text-zinc-400 hover:text-zinc-200"}`}
+                onClick={() => setEditingTracks((v) => !v)}
+              >
+                {editingTracks ? "Done" : "Edit"}
+              </Button>
+            </div>
+          </div>
+
           <Table>
             <TableHeader>
               <TableRow className="border-zinc-800 hover:bg-transparent">
+                {editingTracks && (
+                  <TableHead className="w-8 text-[11px] tracking-wider text-zinc-500 uppercase" />
+                )}
                 <TableHead className="w-10 text-[11px] tracking-wider text-zinc-500 uppercase">
                   #
                 </TableHead>
@@ -206,42 +520,181 @@ export function GameDetailClient({ game, tracks, reviewFlags }: GameDetailClient
                 <TableHead className="w-14 text-[11px] tracking-wider text-zinc-500 uppercase">
                   Vocals
                 </TableHead>
+                <TableHead className="w-8 text-[11px] tracking-wider text-zinc-500 uppercase" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tracks.map((track) => (
-                <TableRow
-                  key={track.name}
-                  onClick={() => setEditTrack(track)}
-                  className="cursor-pointer border-zinc-800/60 hover:bg-zinc-800/30"
-                >
-                  <TableCell className="py-2 font-mono text-[11px] text-zinc-500">
-                    {track.position}
-                  </TableCell>
-                  <TableCell className="py-2 text-center">
-                    <span className={track.active ? "text-emerald-400" : "text-zinc-600"}>
-                      {track.active ? "●" : "○"}
-                    </span>
-                  </TableCell>
-                  <TableCell className="py-2 text-sm text-zinc-200">{track.name}</TableCell>
-                  <TableCell className="py-2">
-                    <EnergyBadge energy={track.energy} />
-                  </TableCell>
-                  <TableCell className="py-2">
-                    <TagBadgeList tags={track.roles} maxVisible={2} />
-                  </TableCell>
-                  <TableCell className="py-2">
-                    <TagBadgeList tags={track.moods} maxVisible={2} />
-                  </TableCell>
-                  <TableCell className="py-2 text-center font-mono text-[11px] text-zinc-500">
-                    {track.hasVocals === null ? "—" : track.hasVocals ? "yes" : "no"}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {tracks.map((track, i) => {
+                const vid = videoMap[track.name];
+                return (
+                  <TableRow
+                    key={track.name}
+                    onClick={() => !editingTracks && setEditTrack(track)}
+                    className={`border-zinc-800/60 hover:bg-zinc-800/30 ${editingTracks ? "" : "cursor-pointer"}`}
+                  >
+                    {editingTracks && (
+                      <TableCell className="py-2 text-center">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPendingDeleteTrack(track);
+                          }}
+                          className="text-zinc-600 transition-colors hover:text-rose-400"
+                        >
+                          ✕
+                        </button>
+                      </TableCell>
+                    )}
+                    <TableCell className="py-2 font-mono text-[11px] text-zinc-500">
+                      {i + 1}
+                    </TableCell>
+                    <TableCell className="py-2 text-center">
+                      {editingTracks ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleTrackActive(track);
+                          }}
+                          className={`transition-colors ${track.active ? "text-emerald-400 hover:text-zinc-600" : "text-zinc-600 hover:text-emerald-400"}`}
+                        >
+                          {track.active ? "●" : "○"}
+                        </button>
+                      ) : (
+                        <span className={track.active ? "text-emerald-400" : "text-zinc-600"}>
+                          {track.active ? "●" : "○"}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-2 text-sm text-zinc-200">{track.name}</TableCell>
+                    <TableCell className="py-2">
+                      <EnergyBadge energy={track.energy} />
+                    </TableCell>
+                    <TableCell className="py-2">
+                      <TagBadgeList tags={track.roles} maxVisible={2} />
+                    </TableCell>
+                    <TableCell className="py-2">
+                      <TagBadgeList tags={track.moods} maxVisible={2} />
+                    </TableCell>
+                    <TableCell className="py-2 text-center font-mono text-[11px] text-zinc-500">
+                      {track.hasVocals === null ? "—" : track.hasVocals ? "yes" : "no"}
+                    </TableCell>
+                    <TableCell className="py-2 text-center">
+                      {vid && (
+                        <a
+                          href={`https://www.youtube.com/watch?v=${vid}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-zinc-600 transition-colors hover:text-zinc-300"
+                        >
+                          ▶
+                        </a>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
       )}
+
+      {/* Delete track confirmation */}
+      <Dialog open={!!pendingDeleteTrack} onOpenChange={(v) => !v && setPendingDeleteTrack(null)}>
+        <DialogContent className="border-zinc-800 bg-zinc-900">
+          <DialogHeader>
+            <DialogTitle className="text-zinc-100">Delete track</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              Are you sure you want to delete{" "}
+              <span className="font-mono text-zinc-200">{pendingDeleteTrack?.name}</span>? This will
+              also remove its video mapping.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              className="text-zinc-400"
+              onClick={() => setPendingDeleteTrack(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (pendingDeleteTrack) await deleteTrack(pendingDeleteTrack);
+                setPendingDeleteTrack(null);
+              }}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Load Tracks modal */}
+      <Dialog open={activeModal === "load-tracks"} onOpenChange={(v) => !v && setActiveModal(null)}>
+        <DialogContent className="border-zinc-800 bg-zinc-900">
+          <DialogHeader>
+            <DialogTitle className="text-zinc-100">Load Tracks: {game.title}</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              Fetch tracklist from Discogs and store in database. Does not tag.
+            </DialogDescription>
+          </DialogHeader>
+          <SSEProgress
+            url="/api/backstage/load-tracks"
+            body={{ gameId: game.id }}
+            progressLabel={(e) => String(e.message ?? "Working…")}
+            doneLabel={(e) => `Done — ${e.trackCount} tracks loaded`}
+            onDone={() => router.refresh()}
+            onClose={() => setActiveModal(null)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Resolve Videos modal */}
+      <Dialog open={activeModal === "resolve"} onOpenChange={(v) => !v && setActiveModal(null)}>
+        <DialogContent className="border-zinc-800 bg-zinc-900">
+          <DialogHeader>
+            <DialogTitle className="text-zinc-100">Resolve Videos: {game.title}</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              Discover YouTube OST playlist and map tracks to video IDs.
+            </DialogDescription>
+          </DialogHeader>
+          <SSEProgress
+            url="/api/backstage/resolve"
+            body={{ gameId: game.id }}
+            progressLabel={(e) => String(e.message ?? "Resolving…")}
+            doneLabel={(e) => `Done — ${e.resolved}/${e.total} tracks resolved`}
+            onDone={() => router.refresh()}
+            onClose={() => setActiveModal(null)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Onboard modal */}
+      <Dialog
+        open={activeModal === "quick-onboard"}
+        onOpenChange={(v) => !v && setActiveModal(null)}
+      >
+        <DialogContent className="border-zinc-800 bg-zinc-900">
+          <DialogHeader>
+            <DialogTitle className="text-zinc-100">Quick Onboard: {game.title}</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              Run all phases (load tracks, tag, resolve) and publish.
+            </DialogDescription>
+          </DialogHeader>
+          <SSEProgress
+            url="/api/backstage/quick-onboard"
+            body={{ gameId: game.id }}
+            progressLabel={(e) => String(e.message ?? "Working…")}
+            doneLabel={(e) =>
+              `Done — ${e.trackCount} tracks, ${e.tagged} tagged, ${e.resolved} resolved`
+            }
+            onDone={() => router.refresh()}
+            onClose={() => setActiveModal(null)}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Re-tag modal */}
       <Dialog open={activeModal === "retag"} onOpenChange={(v) => !v && setActiveModal(null)}>
@@ -369,5 +822,262 @@ export function GameDetailClient({ game, tracks, reviewFlags }: GameDetailClient
         />
       )}
     </div>
+  );
+}
+
+// ─── Editable title ──────────────────────────────────────────────────────────
+
+function EditableTitle({
+  value,
+  disabled,
+  onSave,
+}: {
+  value: string;
+  disabled?: boolean;
+  onSave: (value: string | null) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+
+  function commit() {
+    setEditing(false);
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== value) onSave(trimmed);
+    else setDraft(value);
+  }
+
+  if (editing && !disabled) {
+    return (
+      <Input
+        autoFocus
+        maxLength={100}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+          if (e.key === "Escape") {
+            setDraft(value);
+            setEditing(false);
+          }
+        }}
+        className="h-8 border-zinc-700 bg-zinc-800 font-sans text-xl font-semibold text-zinc-100"
+      />
+    );
+  }
+
+  return (
+    <h1
+      onClick={() => {
+        if (!disabled) {
+          setDraft(value);
+          setEditing(true);
+        }
+      }}
+      className={`font-sans text-xl font-semibold text-zinc-100 ${
+        disabled ? "" : "-ml-1 cursor-pointer rounded px-1 hover:bg-zinc-800/60"
+      }`}
+    >
+      {value}
+    </h1>
+  );
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function tracklistSourceUrl(source: string | null): string | undefined {
+  if (!source) return undefined;
+  const match = source.match(/^([\w-]+):(\d+)$/);
+  if (!match) return undefined;
+  const [, prefix, id] = match;
+  if (prefix === "discogs-release") return `https://www.discogs.com/release/${id}`;
+  if (prefix === "discogs-master") return `https://www.discogs.com/master/${id}`;
+  if (prefix === "vgmdb") return `https://vgmdb.net/album/${id}`;
+  return undefined;
+}
+
+// ─── Inline metadata field ───────────────────────────────────────────────────
+
+function MetadataField({
+  label,
+  value,
+  placeholder,
+  disabled,
+  href,
+  onSave,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  disabled?: boolean;
+  href?: string;
+  onSave: (value: string | null) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+
+  function commit() {
+    setEditing(false);
+    if (draft !== value) onSave(draft || null);
+  }
+
+  return (
+    <>
+      <span className="flex items-center gap-1 text-[11px] font-medium text-zinc-500">
+        {label}
+        {href && value && (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-zinc-600 transition-colors hover:text-zinc-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            ↗
+          </a>
+        )}
+      </span>
+      {editing && !disabled ? (
+        <Input
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+            if (e.key === "Escape") {
+              setDraft(value);
+              setEditing(false);
+            }
+          }}
+          placeholder={placeholder}
+          className="h-7 border-zinc-700 bg-zinc-800 font-mono text-xs text-zinc-100 placeholder:text-zinc-600"
+        />
+      ) : (
+        <button
+          onClick={() => {
+            if (disabled) return;
+            setDraft(value);
+            setEditing(true);
+          }}
+          className={`truncate rounded px-1.5 py-1 text-left font-mono text-xs transition-colors ${
+            disabled ? "cursor-default text-zinc-600" : "text-zinc-300 hover:bg-zinc-800"
+          }`}
+        >
+          {value || <span className="text-zinc-600">{disabled ? "—" : placeholder}</span>}
+        </button>
+      )}
+    </>
+  );
+}
+
+// ─── Zone A: Primary action button ───────────────────────────────────────────
+
+function PrimaryAction({
+  phase,
+  reviewFlagCount,
+  onLoadTracks,
+  onTag,
+  onResolve,
+  onReviewFlags,
+}: {
+  phase: OnboardingPhase;
+  reviewFlagCount: number;
+  onLoadTracks: () => void;
+  onTag: () => void;
+  onResolve: () => void;
+  onReviewFlags: () => void;
+}) {
+  const hasFlags = reviewFlagCount > 0;
+
+  // Any phase with flags → review flags first
+  if (hasFlags && phase !== OnboardingPhase.Resolved) {
+    return (
+      <Button
+        size="sm"
+        className="h-7 bg-amber-600 text-xs text-white hover:bg-amber-700"
+        onClick={onReviewFlags}
+      >
+        Review Flags ({reviewFlagCount})
+      </Button>
+    );
+  }
+
+  switch (phase) {
+    case OnboardingPhase.Draft:
+      return (
+        <Button
+          size="sm"
+          className="h-7 bg-violet-600 text-xs text-white hover:bg-violet-700"
+          onClick={onLoadTracks}
+        >
+          Fetch Tracklist
+        </Button>
+      );
+    case OnboardingPhase.TracksLoaded:
+      return (
+        <Button
+          size="sm"
+          className="h-7 bg-violet-600 text-xs text-white hover:bg-violet-700"
+          onClick={onTag}
+        >
+          Run LLM Tagging
+        </Button>
+      );
+    case OnboardingPhase.Tagged:
+      return (
+        <Button
+          size="sm"
+          className="h-7 bg-violet-600 text-xs text-white hover:bg-violet-700"
+          onClick={onResolve}
+        >
+          Resolve Videos
+        </Button>
+      );
+    case OnboardingPhase.Resolved:
+      return (
+        <Button
+          size="sm"
+          variant="outline"
+          className="pointer-events-none h-7 border-emerald-700/40 text-xs text-emerald-400"
+          disabled
+        >
+          Pipeline complete
+        </Button>
+      );
+    case OnboardingPhase.Failed:
+      return (
+        <Button
+          size="sm"
+          className="h-7 bg-violet-600 text-xs text-white hover:bg-violet-700"
+          onClick={onLoadTracks}
+        >
+          Retry: Fetch Tracklist
+        </Button>
+      );
+  }
+}
+
+// ─── Dropdown item ───────────────────────────────────────────────────────────
+
+function DropdownItem({
+  children,
+  onClick,
+  destructive,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  destructive?: boolean;
+}) {
+  return (
+    <button
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
+      className={`block w-full px-3 py-1.5 text-left text-xs transition-colors ${
+        destructive ? "text-rose-400 hover:bg-rose-500/10" : "text-zinc-300 hover:bg-zinc-800"
+      }`}
+    >
+      {children}
+    </button>
   );
 }

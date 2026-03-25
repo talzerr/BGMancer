@@ -63,13 +63,6 @@ export function CurationLegend() {
   );
 }
 
-export function formatPlaytime(minutes: number | null): string | null {
-  if (minutes == null) return null;
-  if (minutes === 0) return "Never played";
-  if (minutes < 60) return "< 1 hr";
-  return `${Math.round(minutes / 60)} hrs`;
-}
-
 function SteamCoverArt({ appid, title }: { appid: number; title: string }) {
   const [failed, setFailed] = useState(false);
   if (failed) return <div className="h-[22px] w-[46px] shrink-0 rounded bg-zinc-800" />;
@@ -97,8 +90,6 @@ export function GameRow({
 }) {
   const [toggling, setToggling] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const playtime = formatPlaytime(game.playtime_minutes);
-
   async function handleCurationChange(mode: CurationMode) {
     if (mode === game.curation) return;
     setToggling(true);
@@ -127,7 +118,6 @@ export function GameRow({
 
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm leading-tight font-medium text-zinc-100">{game.title}</p>
-          {playtime && <p className="mt-0.5 text-[11px] leading-none text-zinc-500">{playtime}</p>}
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">

@@ -10,7 +10,7 @@ import { GameRow, CurationLegend } from "@/components/GameRow";
 import { SteamImportPanel } from "@/components/SteamImportPanel";
 import { usePlayerContext } from "@/context/player-context";
 type Filter = "all" | "skip" | "lite" | "include" | "focus";
-type SortKey = "playtime" | "name" | "added";
+type SortKey = "name" | "added";
 
 const PAGE_SIZE_OPTIONS = [15, 25, 50, 100] as const;
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
@@ -20,7 +20,7 @@ export function LibraryClient() {
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
-  const [sort, setSort] = useState<SortKey>("playtime");
+  const [sort, setSort] = useState<SortKey>("name");
   const [search, setSearch] = useState("");
   const [enablingAll, setEnablingAll] = useState(false);
   const [pageSize, setPageSize] = useState<PageSize>(25);
@@ -104,8 +104,6 @@ export function LibraryClient() {
 
     if (sort === "name") {
       list.sort((a, b) => a.title.localeCompare(b.title));
-    } else if (sort === "playtime") {
-      list.sort((a, b) => (b.playtime_minutes ?? -1) - (a.playtime_minutes ?? -1));
     }
     // "added" keeps the default server order (created_at ASC)
 
@@ -235,7 +233,6 @@ export function LibraryClient() {
                   {(
                     [
                       { key: "added" as SortKey, label: "Added" },
-                      { key: "playtime" as SortKey, label: "Playtime" },
                       { key: "name" as SortKey, label: "Name" },
                     ] as const
                   ).map(({ key, label }) => (

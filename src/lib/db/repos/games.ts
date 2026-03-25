@@ -5,7 +5,7 @@ import { CurationMode } from "@/types";
 import type { OnboardingPhase } from "@/types";
 import type { Game } from "@/types";
 import { newId } from "@/lib/uuid";
-import { YT_IMPORT_GAME_ID } from "@/lib/constants";
+import { YT_IMPORT_GAME_ID, steamHeaderUrl } from "@/lib/constants";
 
 export interface BackstageGame {
   id: string;
@@ -21,7 +21,11 @@ export interface BackstageGame {
 }
 
 export interface GameUpdateFields {
+  title?: string;
+  steam_appid?: number | null;
   tracklist_source?: string | null;
+  yt_playlist_id?: string | null;
+  thumbnail_url?: string | null;
   needs_review?: boolean;
 }
 
@@ -114,15 +118,15 @@ export const Games = {
     title: string,
     curation: CurationMode = CurationMode.Include,
     steamAppid: number | null = null,
-    playtimeMinutes: number | null = null,
   ): Game {
     const db = getDB();
+    const thumbnail = steamAppid ? steamHeaderUrl(steamAppid) : null;
     db.transaction(() => {
-      stmt("INSERT INTO games (id, title, steam_appid, playtime_minutes) VALUES (?, ?, ?, ?)").run(
+      stmt("INSERT INTO games (id, title, steam_appid, thumbnail_url) VALUES (?, ?, ?, ?)").run(
         id,
         title,
         steamAppid,
-        playtimeMinutes,
+        thumbnail,
       );
 
       stmt(
@@ -168,15 +172,36 @@ export const Games = {
   },
 
   update(id: string, fields: GameUpdateFields): Game | null {
-    if (fields.tracklist_source !== undefined) {
-      stmt(
-        `UPDATE games SET tracklist_source = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`,
-      ).run(fields.tracklist_source, id);
+    const sets: string[] = [];
+    const params: unknown[] = [];
+
+    const simple: Array<[keyof GameUpdateFields, string]> = [
+      ["title", "title"],
+      ["tracklist_source", "tracklist_source"],
+      ["yt_playlist_id", "yt_playlist_id"],
+      ["thumbnail_url", "thumbnail_url"],
+    ];
+    for (const [key, col] of simple) {
+      if (fields[key] !== undefined) {
+        sets.push(`${col} = ?`);
+        params.push(fields[key]);
+      }
+    }
+    if (fields.steam_appid !== undefined) {
+      sets.push("steam_appid = ?");
+      params.push(fields.steam_appid);
     }
     if (fields.needs_review !== undefined) {
-      stmt(
-        `UPDATE games SET needs_review = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`,
-      ).run(fields.needs_review ? 1 : 0, id);
+      sets.push("needs_review = ?");
+      params.push(fields.needs_review ? 1 : 0);
+    }
+
+    if (sets.length > 0) {
+      sets.push("updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')");
+      params.push(id);
+      getDB()
+        .prepare(`UPDATE games SET ${sets.join(", ")} WHERE id = ?`)
+        .run(...params);
     }
     return this.getById(id);
   },
@@ -285,7 +310,7 @@ export const Games = {
     const db = getDB();
     const insertGameSQL = `
       INSERT OR IGNORE INTO games
-        (id, title, steam_appid, playtime_minutes)
+        (id, title, steam_appid, thumbnail_url)
       VALUES (?, ?, ?, ?)
     `;
     const insertLibrarySQL = `INSERT OR IGNORE INTO library_games (library_id, game_id, curation) VALUES (${LIBRARY_SQ}, ?, 'skip')`;
@@ -297,7 +322,7 @@ export const Games = {
     db.transaction(() => {
       for (const g of games) {
         const id = newId();
-        const result = stmt(insertGameSQL).run(id, g.name, g.appid, Math.round(g.playtime_forever));
+        const result = stmt(insertGameSQL).run(id, g.name, g.appid, steamHeaderUrl(g.appid));
         if (result.changes > 0) {
           imported++;
           importedIds.push(id);

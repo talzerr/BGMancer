@@ -161,13 +161,17 @@ export const Tracks = {
     );
   },
 
-  /** Delete tracks by composite PK in a single transaction. */
+  /** Delete tracks by composite PK in a single transaction. Cascades to video_tracks. */
   deleteByKeys(keys: { gameId: string; name: string }[]): void {
     if (keys.length === 0) return;
     const db = getDB();
-    const del = db.prepare("DELETE FROM tracks WHERE game_id = ? AND name = ?");
+    const delVideo = db.prepare("DELETE FROM video_tracks WHERE game_id = ? AND track_name = ?");
+    const delTrack = db.prepare("DELETE FROM tracks WHERE game_id = ? AND name = ?");
     db.transaction(() => {
-      for (const k of keys) del.run(k.gameId, k.name);
+      for (const k of keys) {
+        delVideo.run(k.gameId, k.name);
+        delTrack.run(k.gameId, k.name);
+      }
     })();
   },
 
