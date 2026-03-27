@@ -73,10 +73,12 @@ export const Tracks = {
       hasVocals: boolean;
     },
   ): void {
+    // Auto-activate approved discovered tracks when they get tagged
     stmt(
       `UPDATE tracks
        SET energy = ?, role = ?, moods = ?, instrumentation = ?,
-           has_vocals = ?, tagged_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+           has_vocals = ?, tagged_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
+           active = CASE WHEN discovered = 'approved' THEN 1 ELSE active END
        WHERE game_id = ? AND name = ?`,
     ).run(
       tags.energy,
@@ -90,14 +92,36 @@ export const Tracks = {
   },
 
   /**
-   * Inserts a discovered track (active = 0, position = max+1).
+   * Inserts a discovered track (active = 0, discovered = 'pending', position = max+1).
    * Uses INSERT OR IGNORE — safe to call multiple times for the same track.
    */
   insertDiscovered(gameId: string, name: string): void {
     stmt(
-      `INSERT OR IGNORE INTO tracks (game_id, name, position, active)
-       VALUES (?, ?, (SELECT COALESCE(MAX(position), 0) + 1 FROM tracks WHERE game_id = ?), 0)`,
+      `INSERT OR IGNORE INTO tracks (game_id, name, position, active, discovered)
+       VALUES (?, ?, (SELECT COALESCE(MAX(position), 0) + 1 FROM tracks WHERE game_id = ?), 0, 'pending')`,
     ).run(gameId, name, gameId);
+  },
+
+  /** Approve discovered tracks — marks them as accepted for future tagging. */
+  approveDiscovered(gameId: string, names: string[]): void {
+    if (names.length === 0) return;
+    const update = stmt(
+      "UPDATE tracks SET discovered = 'approved' WHERE game_id = ? AND name = ? AND discovered = 'pending'",
+    );
+    getDB().transaction(() => {
+      for (const name of names) update.run(gameId, name);
+    })();
+  },
+
+  /** Reject discovered tracks — blocks re-discovery, keeps inactive. */
+  rejectDiscovered(gameId: string, names: string[]): void {
+    if (names.length === 0) return;
+    const update = stmt(
+      "UPDATE tracks SET discovered = 'rejected', active = 0 WHERE game_id = ? AND name = ?",
+    );
+    getDB().transaction(() => {
+      for (const name of names) update.run(gameId, name);
+    })();
   },
 
   clearTags(gameId: string): void {

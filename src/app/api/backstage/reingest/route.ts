@@ -27,7 +27,10 @@ export async function POST(req: Request) {
     );
   }
 
+  const abort = new AbortController();
   const { stream, send, close } = makeSSEStream<ReingestEvent>();
+
+  req.signal.addEventListener("abort", () => abort.abort());
 
   (async () => {
     try {
@@ -44,7 +47,7 @@ export async function POST(req: Request) {
         return;
       }
 
-      const tagResult = await tagGameTracks(game, progress);
+      const tagResult = await tagGameTracks(game, progress, abort.signal);
 
       send({
         type: "done",

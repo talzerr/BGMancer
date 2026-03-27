@@ -41,11 +41,18 @@ export async function POST(req: Request) {
     );
   }
 
+  const abort = new AbortController();
   const { stream, send, close } = makeSSEStream<ResolveEvent>();
+
+  req.signal.addEventListener("abort", () => abort.abort());
 
   (async () => {
     try {
-      const result = await resolveVideos(game, (message) => send({ type: "progress", message }));
+      const result = await resolveVideos(
+        game,
+        (message) => send({ type: "progress", message }),
+        abort.signal,
+      );
       send({ type: "done", resolved: result.resolved, total: result.total });
     } catch (err) {
       Games.setPhase(gameId, OnboardingPhase.Failed);

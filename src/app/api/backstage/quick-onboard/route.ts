@@ -4,7 +4,7 @@ import { quickOnboard } from "@/lib/pipeline/onboarding";
 import { OnboardingPhase } from "@/types";
 
 type QuickOnboardEvent =
-  | { type: "progress"; message: string }
+  | { type: "progress"; message: string; current?: number; total?: number }
   | { type: "done"; trackCount: number; tagged: number; resolved: number }
   | { type: "error"; message: string };
 
@@ -27,11 +27,19 @@ export async function POST(req: Request) {
     );
   }
 
+  const abort = new AbortController();
   const { stream, send, close } = makeSSEStream<QuickOnboardEvent>();
+
+  // Abort the pipeline when the client disconnects
+  req.signal.addEventListener("abort", () => abort.abort());
 
   (async () => {
     try {
-      const result = await quickOnboard(game, (message) => send({ type: "progress", message }));
+      const result = await quickOnboard(
+        game,
+        (message, current, total) => send({ type: "progress", message, current, total }),
+        abort.signal,
+      );
       send({
         type: "done",
         trackCount: result.trackCount,
@@ -39,9 +47,13 @@ export async function POST(req: Request) {
         resolved: result.resolved,
       });
     } catch (err) {
-      Games.setPhase(gameId, OnboardingPhase.Failed);
-      console.error("[POST /api/backstage/quick-onboard]", err);
-      send({ type: "error", message: err instanceof Error ? err.message : String(err) });
+      if (abort.signal.aborted) {
+        send({ type: "error", message: "Cancelled" });
+      } else {
+        Games.setPhase(gameId, OnboardingPhase.Failed);
+        console.error("[POST /api/backstage/quick-onboard]", err);
+        send({ type: "error", message: err instanceof Error ? err.message : String(err) });
+      }
     } finally {
       close();
     }

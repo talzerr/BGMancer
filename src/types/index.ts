@@ -45,6 +45,12 @@ export enum OnboardingPhase {
   Failed = "failed",
 }
 
+export enum DiscoveredStatus {
+  Pending = "pending",
+  Approved = "approved",
+  Rejected = "rejected",
+}
+
 export enum ReviewReason {
   LlmCallFailed = "llm_call_failed",
   LlmParseFailed = "llm_parse_failed",
@@ -265,6 +271,7 @@ export interface Track {
   instrumentation: TrackInstrumentation[];
   hasVocals: boolean | null;
   active: boolean;
+  discovered: DiscoveredStatus | null;
   taggedAt: string | null;
 }
 

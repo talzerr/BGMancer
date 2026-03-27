@@ -122,6 +122,7 @@ export function initSchema(db: Database.Database): void {
       instrumentation  TEXT,
       has_vocals       INTEGER,
       active           INTEGER NOT NULL DEFAULT 1,
+      discovered       TEXT,
       tagged_at        TEXT,
       PRIMARY KEY (game_id, name),
       FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE

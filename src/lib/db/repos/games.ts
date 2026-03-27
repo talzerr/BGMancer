@@ -51,13 +51,14 @@ function toBackstageGame(r: Record<string, unknown>): BackstageGame {
 }
 
 export const Games = {
-  /** Returns all non-skip games in the user's library — used for playlist generation. */
+  /** Returns all non-skip published games in the user's library — used for playlist generation. */
   listAll(userId: string, excludeId?: string): Game[] {
     const base = `
       SELECT g.*, lg.curation FROM games g
       JOIN library_games lg ON lg.game_id = g.id
       WHERE lg.library_id = ${LIBRARY_SQ}
         AND lg.curation != 'skip'
+        AND g.published = 1
     `;
     if (excludeId) {
       return toGames(stmt(`${base} AND g.id != ? ORDER BY lg.added_at ASC`).all(userId, excludeId));
@@ -65,13 +66,14 @@ export const Games = {
     return toGames(stmt(`${base} ORDER BY lg.added_at ASC`).all(userId));
   },
 
-  /** Returns all games in the user's library regardless of curation — used by the library page. */
+  /** Returns all published games in the user's library regardless of curation — used by the library page. */
   listAllIncludingDisabled(userId: string): Game[] {
     return toGames(
       stmt(`
         SELECT g.*, lg.curation FROM games g
         JOIN library_games lg ON lg.game_id = g.id
         WHERE lg.library_id = ${LIBRARY_SQ}
+          AND g.published = 1
         ORDER BY lg.added_at ASC
       `).all(userId),
     );
@@ -182,8 +184,19 @@ export const Games = {
     ).run(published ? 1 : 0, id);
   },
 
-  listPublished(): Game[] {
-    return toGames(stmt("SELECT * FROM games WHERE published = 1 ORDER BY title ASC").all());
+  listPublished(search?: string, limit?: number): Game[] {
+    if (search?.trim()) {
+      return toGames(
+        getDB()
+          .prepare(
+            `SELECT * FROM games WHERE published = 1 AND title LIKE ? ORDER BY title ASC LIMIT ?`,
+          )
+          .all(`%${search.trim()}%`, limit ?? 15),
+      );
+    }
+    return toGames(
+      stmt("SELECT * FROM games WHERE published = 1 ORDER BY title ASC LIMIT ?").all(limit ?? 15),
+    );
   },
 
   update(id: string, fields: GameUpdateFields): Game | null {
@@ -221,20 +234,29 @@ export const Games = {
     return this.getById(id);
   },
 
-  /** Removes the game from the user's library (and deletes the game row if it has no other library entries). */
+  /** Removes the game from the user's library. Only unlinks — never deletes the game record. */
   remove(userId: string, id: string): void {
+    // [WALLED_GARDEN] Users only modify their own library state. Game records are app data
+    // managed exclusively through Backstage. The old implementation deleted orphan game rows
+    // here — that is no longer permitted.
+    stmt(`DELETE FROM library_games WHERE library_id = ${LIBRARY_SQ} AND game_id = ?`).run(
+      userId,
+      id,
+    );
+  },
+
+  /** Permanently deletes a game and all associated data. Refuses to delete published games. */
+  destroy(id: string): void {
+    const game = this.getById(id);
+    if (!game) return;
+    if (game.published) throw new Error("[Games.destroy] cannot delete a published game");
+
     const db = getDB();
     db.transaction(() => {
-      stmt(`DELETE FROM library_games WHERE library_id = ${LIBRARY_SQ} AND game_id = ?`).run(
-        userId,
-        id,
-      );
-      const remaining = stmt("SELECT COUNT(*) AS cnt FROM library_games WHERE game_id = ?").get(
-        id,
-      ) as { cnt: number };
-      if (remaining.cnt === 0) {
-        stmt("DELETE FROM games WHERE id = ?").run(id);
-      }
+      // playlist_track_decisions has no FK cascade — clean up explicitly
+      stmt("DELETE FROM playlist_track_decisions WHERE game_id = ?").run(id);
+      // FK cascades handle: library_games, tracks, video_tracks, game_review_flags, playlist_tracks
+      stmt("DELETE FROM games WHERE id = ?").run(id);
     })();
   },
 

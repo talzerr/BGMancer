@@ -1,5 +1,6 @@
 import {
   CurationMode,
+  DiscoveredStatus,
   OnboardingPhase,
   TrackMood,
   TrackInstrumentation,
@@ -104,6 +105,7 @@ export function toPlaylistTracks(rows: unknown[]): PlaylistTrack[] {
   return (rows as Record<string, unknown>[]).map(toPlaylistTrack);
 }
 
+const VALID_DISCOVERED = new Set<string>(Object.values(DiscoveredStatus));
 const VALID_MOODS = new Set<string>(Object.values(TrackMood));
 const VALID_INSTRUMENTATIONS = new Set<string>(Object.values(TrackInstrumentation));
 const VALID_ROLES = new Set<string>(Object.values(TrackRole));
@@ -144,6 +146,9 @@ export function toTrack(row: Record<string, unknown>): Track {
     ),
     hasVocals: row.has_vocals != null ? !!row.has_vocals : null,
     active: row.active !== 0,
+    discovered: VALID_DISCOVERED.has(row.discovered as string)
+      ? (row.discovered as DiscoveredStatus)
+      : null,
     taggedAt: row.tagged_at != null ? String(row.tagged_at) : null,
   };
 }

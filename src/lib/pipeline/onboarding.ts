@@ -1,6 +1,7 @@
 import { OnboardingPhase, ReviewReason } from "@/types";
 import type { Game } from "@/types";
-import { Games, Tracks, ReviewFlags } from "@/lib/db/repo";
+import { Games, Tracks, VideoTracks, ReviewFlags } from "@/lib/db/repo";
+import { GAME_MAX_TRACKS } from "@/lib/constants";
 import {
   searchGameSoundtrack,
   fetchDiscogsRelease,
@@ -66,10 +67,15 @@ export async function loadTracks(
   }
 
   const { tracks, releaseId } = result;
-  onProgress?.(`Found ${tracks.length} tracks…`);
+  const capped = tracks.slice(0, GAME_MAX_TRACKS);
+  if (tracks.length > GAME_MAX_TRACKS) {
+    onProgress?.(`Found ${tracks.length} tracks, capping at ${GAME_MAX_TRACKS}…`);
+  } else {
+    onProgress?.(`Found ${capped.length} tracks…`);
+  }
 
   Tracks.upsertBatch(
-    tracks.map((t) => ({
+    capped.map((t) => ({
       gameId: game.id,
       name: t.name,
       position: t.position,
@@ -95,12 +101,13 @@ export async function loadTracks(
 export async function tagGameTracks(
   game: Game,
   onProgress?: (message: string) => void,
+  signal?: AbortSignal,
 ): Promise<{ tagged: number; needsReview: boolean }> {
   const dbTracks = Tracks.getByGame(game.id);
   onProgress?.(`Tagging ${dbTracks.length} tracks…`);
 
   const provider = getTaggingProvider();
-  await tagTracks(game.id, game.title, dbTracks, provider);
+  await tagTracks(game.id, game.title, dbTracks, provider, signal);
   emitPhase(game.id, OnboardingPhase.Tagged);
 
   const afterTracks = Tracks.getByGame(game.id);
@@ -119,11 +126,14 @@ export async function tagGameTracks(
 export async function resolveVideos(
   game: Game,
   onProgress?: (message: string) => void,
+  signal?: AbortSignal,
 ): Promise<{ resolved: number; total: number }> {
   const playlistId = await discoverOSTPlaylist(game, onProgress);
   if (!playlistId) {
     throw new Error(`No YouTube OST playlist found for "${game.title}"`);
   }
+
+  if (signal?.aborted) throw new Error("Cancelled");
 
   onProgress?.("Fetching playlist items…");
   const playlistItems = await fetchPlaylistItems(playlistId);
@@ -132,13 +142,12 @@ export async function resolveVideos(
   onProgress?.(`Resolving ${allTracks.length} tracks to videos…`);
 
   const provider = getTaggingProvider();
-  const resolved = await resolveTracksToVideos(game, allTracks, playlistItems, provider);
+  const resolved = await resolveTracksToVideos(game, allTracks, playlistItems, provider, signal);
 
+  // Fetch metadata for ALL resolved video IDs (including auto-discovered inactive tracks)
   onProgress?.("Fetching video metadata…");
-  await ensureVideoMetadata(
-    resolved.map((r) => r.videoId),
-    game.id,
-  );
+  const allVideoIds = [...VideoTracks.getTrackToVideo(game.id).values()];
+  await ensureVideoMetadata(allVideoIds, game.id);
 
   emitPhase(game.id, OnboardingPhase.Resolved);
 
@@ -152,23 +161,28 @@ export async function resolveVideos(
  */
 export async function quickOnboard(
   game: Game,
-  onProgress?: (message: string) => void,
+  onProgress?: (message: string, current?: number, total?: number) => void,
+  signal?: AbortSignal,
 ): Promise<{ trackCount: number; tagged: number; resolved: number }> {
-  onProgress?.("Phase 1: Loading tracks…");
-  const loaded = await loadTracks(game, onProgress);
+  onProgress?.("Phase 1: Loading tracks…", 0, 3);
+  const loaded = await loadTracks(game, (msg) => onProgress?.(msg, 0, 3));
   if (!loaded) {
     emitPhase(game.id, OnboardingPhase.Failed);
     throw new Error(`No Discogs data for "${game.title}"`);
   }
 
-  onProgress?.("Phase 2: Tagging tracks…");
-  const tagResult = await tagGameTracks(game, onProgress);
+  if (signal?.aborted) throw new Error("Cancelled");
 
-  onProgress?.("Phase 3: Resolving videos…");
-  const resolveResult = await resolveVideos(game, onProgress);
+  onProgress?.("Phase 2: Tagging tracks…", 1, 3);
+  const tagResult = await tagGameTracks(game, (msg) => onProgress?.(msg, 1, 3), signal);
+
+  if (signal?.aborted) throw new Error("Cancelled");
+
+  onProgress?.("Phase 3: Resolving videos…", 2, 3);
+  const resolveResult = await resolveVideos(game, (msg) => onProgress?.(msg, 2, 3), signal);
 
   Games.setPublished(game.id, true);
-  onProgress?.("Published.");
+  onProgress?.("Published.", 3, 3);
 
   return {
     trackCount: loaded.trackCount,
@@ -186,10 +200,11 @@ export async function quickOnboard(
 export async function ingestFromDiscogs(
   game: Game,
   onProgress?: (message: string) => void,
+  signal?: AbortSignal,
 ): Promise<{ trackCount: number } | null> {
   const loaded = await loadTracks(game, onProgress);
   if (!loaded) return null;
-  await tagGameTracks(game, onProgress);
+  await tagGameTracks(game, onProgress, signal);
   return loaded;
 }
 

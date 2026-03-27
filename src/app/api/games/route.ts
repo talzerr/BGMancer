@@ -2,12 +2,13 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { Games, Users } from "@/lib/db/repo";
 import { VALID_CURATIONS } from "@/lib/db/mappers";
-import { YT_IMPORT_GAME_ID, GAME_TITLE_MAX_LENGTH, LIBRARY_MAX_GAMES } from "@/lib/constants";
-import { newId } from "@/lib/uuid";
+import { YT_IMPORT_GAME_ID, LIBRARY_MAX_GAMES } from "@/lib/constants";
 import { CurationMode } from "@/types";
-import type { AddGamePayload } from "@/types";
 import { getOrCreateUserId } from "@/lib/services/session";
-import { onboardGame } from "@/lib/pipeline/onboarding";
+// [WALLED_GARDEN] on-the-fly onboarding disabled — games are onboarded via Backstage
+// import { newId } from "@/lib/uuid";
+// import type { AddGamePayload } from "@/types";
+// import { onboardGame } from "@/lib/pipeline/onboarding";
 
 /** GET /api/games — List active games (curation != skip). Pass ?includeDisabled=true to include skipped games. */
 export async function GET(request: Request) {
@@ -28,24 +29,30 @@ export async function GET(request: Request) {
   }
 }
 
-/** POST /api/games — Add a game to the library. Triggers onboarding (Discogs + tagging) automatically. */
+/** POST /api/games — Link a published game to the user's library. */
 export async function POST(request: Request) {
   try {
     const cookieStore = await cookies();
     const userId = await getOrCreateUserId(cookieStore);
     Users.getOrCreate(userId);
 
-    const body: AddGamePayload = await request.json();
+    const body = await request.json();
+    const gameId = typeof body.gameId === "string" ? body.gameId : null;
+    const ADD_CURATIONS = new Set([CurationMode.Focus, CurationMode.Include, CurationMode.Lite]);
+    const curation =
+      typeof body.curation === "string" && ADD_CURATIONS.has(body.curation as CurationMode)
+        ? (body.curation as CurationMode)
+        : CurationMode.Include;
 
-    if (!body.title?.trim()) {
-      return NextResponse.json({ error: "Game title is required" }, { status: 400 });
+    if (!gameId) {
+      return NextResponse.json({ error: "gameId is required" }, { status: 400 });
     }
-    if (body.title.trim().length > GAME_TITLE_MAX_LENGTH) {
-      return NextResponse.json(
-        { error: `Game title must be ${GAME_TITLE_MAX_LENGTH} characters or fewer` },
-        { status: 400 },
-      );
+
+    const game = Games.getById(gameId);
+    if (!game || !game.published) {
+      return NextResponse.json({ error: "Game not found or not published" }, { status: 404 });
     }
+
     if (Games.count(userId) >= LIBRARY_MAX_GAMES) {
       return NextResponse.json(
         { error: `Library limit reached (${LIBRARY_MAX_GAMES} games max)` },
@@ -53,25 +60,19 @@ export async function POST(request: Request) {
       );
     }
 
-    const title = body.title.trim();
-    const steamAppid = typeof body.steam_appid === "number" ? body.steam_appid : null;
-
-    const existing = Games.findByTitle(title);
-    if (existing) {
-      Games.linkToLibrary(userId, existing.id);
-      return NextResponse.json(Games.getByIdForUser(userId, existing.id) ?? existing, {
-        status: 201,
-      });
-    }
-
-    const game = Games.create(userId, newId(), title, CurationMode.Include, steamAppid);
-    void onboardGame(game);
-    return NextResponse.json(game, { status: 201 });
+    Games.linkToLibrary(userId, gameId, curation);
+    const linked = Games.getByIdForUser(userId, gameId);
+    return NextResponse.json(linked ?? game, { status: 201 });
   } catch (err) {
     console.error("[POST /api/games]", err);
     return NextResponse.json({ error: "Failed to add game" }, { status: 500 });
   }
 }
+
+// [WALLED_GARDEN] Previous POST handler created games on-the-fly and triggered onboarding.
+// That flow is disabled — games are now created and onboarded via Backstage.
+// The old handler accepted { title, steam_appid } and called onboardGame().
+// See git history for the original implementation if needed.
 
 /** PATCH /api/games?id=<gameId> — Update a game's curation mode. Body: { curation: CurationMode }. */
 export async function PATCH(request: Request) {
@@ -104,7 +105,7 @@ export async function PATCH(request: Request) {
   }
 }
 
-/** DELETE /api/games?id=<gameId> — Remove a game from the library. Deletes the game row if it has no other library entries. */
+/** DELETE /api/games?id=<gameId> — Unlink a game from the user's library. Game record is never deleted. */
 export async function DELETE(request: Request) {
   try {
     const cookieStore = await cookies();

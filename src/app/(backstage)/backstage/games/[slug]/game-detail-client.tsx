@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -29,8 +29,9 @@ import { EnergyBadge } from "@/components/backstage/EnergyBadge";
 import { TagBadgeList } from "@/components/backstage/TagBadgeList";
 import { TrackEditSheet } from "@/components/backstage/TrackEditSheet";
 import type { PatchUpdates } from "@/components/backstage/TrackEditSheet";
+import { ConfirmModal } from "@/components/backstage/ConfirmModal";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { OnboardingPhase } from "@/types";
+import { DiscoveredStatus, OnboardingPhase } from "@/types";
 import type { Game, Track } from "@/types";
 import type { ReviewFlag } from "@/lib/db/repos/review-flags";
 
@@ -66,6 +67,7 @@ export function GameDetailClient({
 }: GameDetailClientProps) {
   const router = useRouter();
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
+  const [sseRunning, setSseRunning] = useState(false);
   const [newTrackName, setNewTrackName] = useState("");
   const [reingestRunning, setReingestRunning] = useState(false);
   const [reingestTyped, setReingestTyped] = useState("");
@@ -74,9 +76,19 @@ export function GameDetailClient({
   const [publishing, setPublishing] = useState(false);
   const [pipelineOpen, setPipelineOpen] = useState(false);
   const [dangerOpen, setDangerOpen] = useState(false);
+  const [nukeOpen, setNukeOpen] = useState(false);
+  const [nuking, setNuking] = useState(false);
   const [editingTracks, setEditingTracks] = useState(false);
   const [pendingDeleteTrack, setPendingDeleteTrack] = useState<Track | null>(null);
   const flagsRef = useRef<HTMLDetailsElement>(null);
+
+  // SSE modals set sseRunning when they open, clear on close
+  const SSE_MODALS: ActiveModal[] = ["load-tracks", "resolve", "quick-onboard", "retag"];
+  useEffect(() => {
+    if (activeModal && SSE_MODALS.includes(activeModal)) {
+      setSseRunning(true);
+    }
+  }, [activeModal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const trackCount = tracks.length;
   const activeCount = tracks.filter((t) => t.active).length;
@@ -184,6 +196,22 @@ export function GameDetailClient({
     } catch (err) {
       console.error("[GameDetail] toggleTrackActive failed:", err);
       setMutError("Failed to toggle track.");
+    }
+  }
+
+  async function reviewDiscovered(approve: string[], reject: string[]) {
+    setMutError(null);
+    try {
+      const res = await fetch("/api/backstage/tracks/review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameId: game.id, approve, reject }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      router.refresh();
+    } catch (err) {
+      console.error("[GameDetail] reviewDiscovered failed:", err);
+      setMutError("Failed to review tracks.");
     }
   }
 
@@ -324,6 +352,15 @@ export function GameDetailClient({
                     }}
                   >
                     Reset Pipeline (Re-Sync Source)
+                  </DropdownItem>
+                  <DropdownItem
+                    destructive
+                    onClick={() => {
+                      setDangerOpen(false);
+                      setNukeOpen(true);
+                    }}
+                  >
+                    Delete Game
                   </DropdownItem>
                 </div>
               )}
@@ -490,6 +527,41 @@ export function GameDetailClient({
               Tracks ({tracks.length})
             </span>
             <div className="flex items-center gap-2">
+              {tracks.some((t) => t.discovered === DiscoveredStatus.Pending) && (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 border-emerald-600/40 px-2 text-[10px] text-emerald-400 hover:bg-emerald-500/10"
+                    onClick={() =>
+                      reviewDiscovered(
+                        tracks
+                          .filter((t) => t.discovered === DiscoveredStatus.Pending)
+                          .map((t) => t.name),
+                        [],
+                      )
+                    }
+                  >
+                    Approve All (
+                    {tracks.filter((t) => t.discovered === DiscoveredStatus.Pending).length})
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 border-rose-600/40 px-2 text-[10px] text-rose-400 hover:bg-rose-500/10"
+                    onClick={() =>
+                      reviewDiscovered(
+                        [],
+                        tracks
+                          .filter((t) => t.discovered === DiscoveredStatus.Pending)
+                          .map((t) => t.name),
+                      )
+                    }
+                  >
+                    Reject All
+                  </Button>
+                </>
+              )}
               {editingTracks && (
                 <Button
                   size="sm"
@@ -583,7 +655,54 @@ export function GameDetailClient({
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="py-2 text-sm text-zinc-200">{track.name}</TableCell>
+                    <TableCell className="py-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={
+                            track.discovered === DiscoveredStatus.Rejected
+                              ? "text-zinc-600 line-through"
+                              : "text-zinc-200"
+                          }
+                        >
+                          {track.name}
+                        </span>
+                        {track.discovered === DiscoveredStatus.Pending && (
+                          <>
+                            <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-400">
+                              discovered
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                reviewDiscovered([track.name], []);
+                              }}
+                              className="rounded px-1.5 py-0.5 text-[10px] text-emerald-500 transition-colors hover:bg-emerald-500/10"
+                            >
+                              approve
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                reviewDiscovered([], [track.name]);
+                              }}
+                              className="rounded px-1.5 py-0.5 text-[10px] text-rose-500 transition-colors hover:bg-rose-500/10"
+                            >
+                              reject
+                            </button>
+                          </>
+                        )}
+                        {track.discovered === DiscoveredStatus.Rejected && (
+                          <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-600">
+                            rejected
+                          </span>
+                        )}
+                        {track.discovered === DiscoveredStatus.Approved && !track.taggedAt && (
+                          <span className="rounded bg-violet-500/15 px-1.5 py-0.5 text-[10px] text-violet-400">
+                            approved
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="py-2">
                       <EnergyBadge energy={track.energy} />
                     </TableCell>
@@ -650,8 +769,11 @@ export function GameDetailClient({
       </Dialog>
 
       {/* Load Tracks modal */}
-      <Dialog open={activeModal === "load-tracks"} onOpenChange={(v) => !v && setActiveModal(null)}>
-        <DialogContent className="border-zinc-800 bg-zinc-900">
+      <Dialog
+        open={activeModal === "load-tracks"}
+        onOpenChange={(v) => !v && !sseRunning && setActiveModal(null)}
+      >
+        <DialogContent className="border-zinc-800 bg-zinc-900" showCloseButton={false}>
           <DialogHeader>
             <DialogTitle className="text-zinc-100">Load Tracks: {game.title}</DialogTitle>
             <DialogDescription className="text-zinc-400">
@@ -664,14 +786,20 @@ export function GameDetailClient({
             progressLabel={(e) => String(e.message ?? "Working…")}
             doneLabel={(e) => `Done — ${e.trackCount} tracks loaded`}
             onDone={() => router.refresh()}
-            onClose={() => setActiveModal(null)}
+            onClose={() => {
+              setSseRunning(false);
+              setActiveModal(null);
+            }}
           />
         </DialogContent>
       </Dialog>
 
       {/* Resolve Videos modal */}
-      <Dialog open={activeModal === "resolve"} onOpenChange={(v) => !v && setActiveModal(null)}>
-        <DialogContent className="border-zinc-800 bg-zinc-900">
+      <Dialog
+        open={activeModal === "resolve"}
+        onOpenChange={(v) => !v && !sseRunning && setActiveModal(null)}
+      >
+        <DialogContent className="border-zinc-800 bg-zinc-900" showCloseButton={false}>
           <DialogHeader>
             <DialogTitle className="text-zinc-100">Resolve Videos: {game.title}</DialogTitle>
             <DialogDescription className="text-zinc-400">
@@ -684,7 +812,10 @@ export function GameDetailClient({
             progressLabel={(e) => String(e.message ?? "Resolving…")}
             doneLabel={(e) => `Done — ${e.resolved}/${e.total} tracks resolved`}
             onDone={() => router.refresh()}
-            onClose={() => setActiveModal(null)}
+            onClose={() => {
+              setSseRunning(false);
+              setActiveModal(null);
+            }}
           />
         </DialogContent>
       </Dialog>
@@ -692,9 +823,9 @@ export function GameDetailClient({
       {/* Quick Onboard modal */}
       <Dialog
         open={activeModal === "quick-onboard"}
-        onOpenChange={(v) => !v && setActiveModal(null)}
+        onOpenChange={(v) => !v && !sseRunning && setActiveModal(null)}
       >
-        <DialogContent className="border-zinc-800 bg-zinc-900">
+        <DialogContent className="border-zinc-800 bg-zinc-900" showCloseButton={false}>
           <DialogHeader>
             <DialogTitle className="text-zinc-100">Quick Onboard: {game.title}</DialogTitle>
             <DialogDescription className="text-zinc-400">
@@ -709,14 +840,20 @@ export function GameDetailClient({
               `Done — ${e.trackCount} tracks, ${e.tagged} tagged, ${e.resolved} resolved`
             }
             onDone={() => router.refresh()}
-            onClose={() => setActiveModal(null)}
+            onClose={() => {
+              setSseRunning(false);
+              setActiveModal(null);
+            }}
           />
         </DialogContent>
       </Dialog>
 
       {/* Re-tag modal */}
-      <Dialog open={activeModal === "retag"} onOpenChange={(v) => !v && setActiveModal(null)}>
-        <DialogContent className="border-zinc-800 bg-zinc-900">
+      <Dialog
+        open={activeModal === "retag"}
+        onOpenChange={(v) => !v && !sseRunning && setActiveModal(null)}
+      >
+        <DialogContent className="border-zinc-800 bg-zinc-900" showCloseButton={false}>
           <DialogHeader>
             <DialogTitle className="text-zinc-100">Re-tag: {game.title}</DialogTitle>
             <DialogDescription className="text-zinc-400">
@@ -731,14 +868,20 @@ export function GameDetailClient({
             }
             doneLabel={(e) => `Done — ${e.tagged} tagged, ${e.needsReview} need review`}
             onDone={() => router.refresh()}
-            onClose={() => setActiveModal(null)}
+            onClose={() => {
+              setSseRunning(false);
+              setActiveModal(null);
+            }}
           />
         </DialogContent>
       </Dialog>
 
       {/* Re-ingest dialog */}
-      <Dialog open={activeModal === "reingest"} onOpenChange={(v) => !v && closeReingest()}>
-        <DialogContent className="border-zinc-800 bg-zinc-900">
+      <Dialog
+        open={activeModal === "reingest"}
+        onOpenChange={(v) => !v && !reingestRunning && closeReingest()}
+      >
+        <DialogContent className="border-zinc-800 bg-zinc-900" showCloseButton={!reingestRunning}>
           <DialogHeader>
             <DialogTitle className="text-zinc-100">Re-ingest: {game.title}</DialogTitle>
             {!reingestRunning && (
@@ -840,6 +983,29 @@ export function GameDetailClient({
           onSave={handleTrackSave}
         />
       )}
+
+      {/* Nuke game confirmation */}
+      <ConfirmModal
+        open={nukeOpen}
+        onOpenChange={setNukeOpen}
+        title={`Delete ${game.title}?`}
+        description="This will permanently delete this game and all its tracks, video mappings, review flags, and playlist references. It will also be removed from all user libraries. This cannot be undone."
+        confirmLabel={nuking ? "Deleting…" : "Delete"}
+        typeToConfirm={game.title}
+        destructive
+        onConfirm={async () => {
+          setNuking(true);
+          try {
+            const res = await fetch(`/api/backstage/games/${game.id}`, { method: "DELETE" });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            router.push("/backstage/games");
+          } catch (err) {
+            console.error("[GameDetail] nuke failed:", err);
+            setMutError("Failed to delete game. Please try again.");
+            setNuking(false);
+          }
+        }}
+      />
     </div>
   );
 }

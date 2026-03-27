@@ -26,3 +26,26 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ gameId
   const updated = Games.update(gameId, fields);
   return NextResponse.json(updated);
 }
+
+/** DELETE /api/backstage/games/[gameId] — permanently delete a game and all associated data */
+export async function DELETE(_req: Request, { params }: { params: Promise<{ gameId: string }> }) {
+  const { gameId } = await params;
+  const game = Games.getById(gameId);
+  if (!game) {
+    return NextResponse.json({ error: "Game not found" }, { status: 404 });
+  }
+  if (game.published) {
+    return NextResponse.json(
+      { error: "Cannot delete a published game. Unpublish it first." },
+      { status: 400 },
+    );
+  }
+
+  try {
+    Games.destroy(gameId);
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("[DELETE /api/backstage/games]", err);
+    return NextResponse.json({ error: "Failed to delete game" }, { status: 500 });
+  }
+}

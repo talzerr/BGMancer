@@ -189,7 +189,10 @@ export async function generatePlaylist(
 ): Promise<void> {
   const games = Games.listAll(userId);
   if (games.length === 0) {
-    send({ type: "error", message: "Add at least one game before generating a playlist." });
+    send({
+      type: "error",
+      message: "No games in your library. Browse the Catalog to add some.",
+    });
     return;
   }
 

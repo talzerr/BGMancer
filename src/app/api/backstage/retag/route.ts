@@ -28,7 +28,10 @@ export async function POST(req: Request) {
     );
   }
 
+  const abort = new AbortController();
   const { stream, send, close } = makeSSEStream<RetagEvent>();
+
+  req.signal.addEventListener("abort", () => abort.abort());
 
   (async () => {
     try {
@@ -40,7 +43,7 @@ export async function POST(req: Request) {
       send({ type: "progress", current: 0, total, trackName: "Starting…" });
 
       const provider = getTaggingProvider();
-      await tagTracks(gameId, game.title, tracks, provider);
+      await tagTracks(gameId, game.title, tracks, provider, abort.signal);
 
       Games.setPhase(gameId, OnboardingPhase.Tagged);
 

@@ -1,5 +1,11 @@
 import type { Track } from "@/types";
-import { ReviewReason, TrackRole, TrackMood, TrackInstrumentation } from "@/types";
+import {
+  DiscoveredStatus,
+  ReviewReason,
+  TrackRole,
+  TrackMood,
+  TrackInstrumentation,
+} from "@/types";
 import type { LLMProvider } from "@/lib/llm/provider";
 import { Tracks, ReviewFlags } from "@/lib/db/repo";
 import { TAG_BATCH_SIZE, TAG_POOL_MAX } from "@/lib/constants";
@@ -37,8 +43,11 @@ export async function tagTracks(
   gameTitle: string,
   tracks: Track[],
   provider: LLMProvider,
+  signal?: AbortSignal,
 ): Promise<void> {
-  const allUntagged = tracks.filter((t) => t.taggedAt === null);
+  const allUntagged = tracks.filter(
+    (t) => t.taggedAt === null && t.discovered !== DiscoveredStatus.Rejected,
+  );
   if (allUntagged.length === 0) return;
 
   if (allUntagged.length > TAG_POOL_MAX) {
@@ -52,6 +61,8 @@ export async function tagTracks(
   const untagged = allUntagged.slice(0, TAG_POOL_MAX);
 
   for (let i = 0; i < untagged.length; i += TAG_BATCH_SIZE) {
+    if (signal?.aborted) throw new Error("Cancelled");
+
     const batch = untagged.slice(i, i + TAG_BATCH_SIZE);
     const batchNum = i / TAG_BATCH_SIZE + 1;
     const userPrompt = buildUserPrompt(gameTitle, batch);
@@ -61,8 +72,11 @@ export async function tagTracks(
       raw = await provider.complete(SYSTEM_PROMPT, userPrompt, {
         temperature: 0.2,
         maxTokens: 4096,
+        signal,
       });
     } catch (err) {
+      // Re-throw abort errors — don't flag cancellations as failures
+      if (signal?.aborted) throw err;
       console.error(`[tagger] LLM call failed for game "${gameTitle}" batch ${batchNum}:`, err);
       ReviewFlags.markAsNeedsReview(
         gameId,
