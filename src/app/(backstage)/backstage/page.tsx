@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { BackstageDashboard } from "./backstage-dashboard";
 
 export default function BackstageRootPage() {
-  redirect("/backstage/games");
+  return <BackstageDashboard />;
 }

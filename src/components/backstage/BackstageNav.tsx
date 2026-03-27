@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const TABS = [
+  { label: "Dashboard", href: "/backstage", exact: true },
   { label: "Games", href: "/backstage/games" },
   { label: "Tracks", href: "/backstage/tracks" },
   { label: "Theatre", href: "/backstage/theatre" },
@@ -16,7 +17,8 @@ export function BackstageNav() {
   return (
     <nav className="flex gap-1 border-b border-zinc-800 px-4">
       {TABS.map((tab) => {
-        const active = pathname.startsWith(tab.href);
+        const active =
+          "exact" in tab && tab.exact ? pathname === tab.href : pathname.startsWith(tab.href);
         return (
           <Link
             key={tab.href}

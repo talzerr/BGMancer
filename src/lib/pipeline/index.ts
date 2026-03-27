@@ -1,18 +1,12 @@
 import { Games, Playlist, Users, Sessions, DirectorDecisions } from "@/lib/db/repo";
 import { GameProgressStatus, TrackStatus } from "@/types";
 import type { TrackDecision } from "@/types";
-import { YouTubeQuotaError } from "@/lib/services/youtube";
 import { fetchGameCandidates } from "@/lib/pipeline/candidates";
-import {
-  makePendingTrack,
-  toInsertable,
-  resolvePendingSlots,
-  taggedTrackToPending,
-} from "@/lib/pipeline/assembly";
+import { toInsertable, resolvePendingSlots, taggedTrackToPending } from "@/lib/pipeline/assembly";
 import { assemblePlaylist } from "@/lib/pipeline/director";
 import { generateRubric } from "@/lib/pipeline/vibe-profiler";
 import { getVibeProfilerProvider } from "@/lib/llm";
-import type { GenerateEvent, PendingTrack, CandidateResult } from "@/lib/pipeline/types";
+import type { GenerateEvent, PendingTrack } from "@/lib/pipeline/types";
 import type { AppConfig, Game, PlaylistTrack, TaggedTrack, ScoringRubric } from "@/types";
 import {
   MIN_TRACK_DURATION_SECONDS,
@@ -27,51 +21,26 @@ type Send = (event: GenerateEvent) => void;
 
 // ─── Pipeline steps ───────────────────────────────────────────────────────────
 
-async function gatherCandidates(
-  games: Game[],
-  send: Send,
-): Promise<{ taggedPools: Map<string, TaggedTrack[]>; fallbackTracks: PendingTrack[] }> {
-  const results: CandidateResult[] = await Promise.all(
-    games.map(async (game) => {
-      try {
-        return await fetchGameCandidates(game, send);
-      } catch (err) {
-        if (err instanceof YouTubeQuotaError) throw err;
-        console.error(`[generate] Phases 1/1.5 failed for game "${game.title}":`, err);
-        send({
-          type: "progress",
-          gameId: game.id,
-          title: game.title,
-          status: GameProgressStatus.Error,
-          message: err instanceof Error ? err.message : "Failed",
-        });
-        return {
-          kind: "fallback" as const,
-          game,
-          pendingTracks: [
-            makePendingTrack(game.id, game.title, {
-              status: TrackStatus.Error,
-              error_message: err instanceof Error ? err.message : "Generation failed",
-            }),
-          ],
-        };
-      }
-    }),
-  );
-
+async function gatherCandidates(games: Game[], send: Send): Promise<Map<string, TaggedTrack[]>> {
   const taggedPools = new Map<string, TaggedTrack[]>();
-  for (const r of results.filter(
-    (r): r is Extract<CandidateResult, { kind: "tagged" }> =>
-      r.kind === "tagged" && r.tracks.length > 0,
-  )) {
-    taggedPools.set(r.game.id, r.tracks);
+
+  for (const game of games) {
+    try {
+      const tracks = await fetchGameCandidates(game, send);
+      if (tracks.length > 0) taggedPools.set(game.id, tracks);
+    } catch (err) {
+      console.error(`[generate] Failed to load candidates for "${game.title}":`, err);
+      send({
+        type: "progress",
+        gameId: game.id,
+        title: game.title,
+        status: GameProgressStatus.Error,
+        message: err instanceof Error ? err.message : "Failed",
+      });
+    }
   }
 
-  const fallbackTracks = results
-    .filter((r): r is Extract<CandidateResult, { kind: "fallback" }> => r.kind === "fallback")
-    .flatMap((r) => r.pendingTracks);
-
-  return { taggedPools, fallbackTracks };
+  return taggedPools;
 }
 
 function filterByDuration(
@@ -199,7 +168,7 @@ export async function generatePlaylist(
   const user = Users.getOrCreate(userId);
   const targetCount = config.target_track_count;
 
-  const { taggedPools, fallbackTracks } = await gatherCandidates(games, send);
+  const taggedPools = await gatherCandidates(games, send);
   const filteredPools = filterByDuration(taggedPools, config);
 
   let individualTracks: PendingTrack[] = [];
@@ -224,7 +193,7 @@ export async function generatePlaylist(
     gameBudgets = directorResult.gameBudgets;
   }
 
-  const allTracks = [...individualTracks, ...fallbackTracks].slice(0, targetCount);
+  const allTracks = individualTracks.slice(0, targetCount);
 
   // Decisions are indexed by arc slot position. After slicing tracks to targetCount,
   // only keep decisions for positions that survived the cut.

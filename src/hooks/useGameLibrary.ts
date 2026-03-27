@@ -37,8 +37,8 @@ export function useGameLibrary() {
     return false;
   }
 
-  // Subscribe to game status updates via SSE instead of polling.
-  // The server pushes { gameId, status } whenever onboardGame() changes a game's status.
+  // SSE subscription for game phase updates. Vestigial for user-facing code (games don't
+  // change phase in user flow), but kept for potential Backstage real-time dashboard use.
   useEffect(() => {
     const source = new EventSource("/api/games/status-stream");
 

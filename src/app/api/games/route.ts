@@ -5,10 +5,6 @@ import { VALID_CURATIONS } from "@/lib/db/mappers";
 import { YT_IMPORT_GAME_ID, LIBRARY_MAX_GAMES } from "@/lib/constants";
 import { CurationMode } from "@/types";
 import { getOrCreateUserId } from "@/lib/services/session";
-// [WALLED_GARDEN] on-the-fly onboarding disabled — games are onboarded via Backstage
-// import { newId } from "@/lib/uuid";
-// import type { AddGamePayload } from "@/types";
-// import { onboardGame } from "@/lib/pipeline/onboarding";
 
 /** GET /api/games — List active games (curation != skip). Pass ?includeDisabled=true to include skipped games. */
 export async function GET(request: Request) {
@@ -68,11 +64,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to add game" }, { status: 500 });
   }
 }
-
-// [WALLED_GARDEN] Previous POST handler created games on-the-fly and triggered onboarding.
-// That flow is disabled — games are now created and onboarded via Backstage.
-// The old handler accepted { title, steam_appid } and called onboardGame().
-// See git history for the original implementation if needed.
 
 /** PATCH /api/games?id=<gameId> — Update a game's curation mode. Body: { curation: CurationMode }. */
 export async function PATCH(request: Request) {

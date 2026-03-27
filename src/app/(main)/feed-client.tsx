@@ -18,8 +18,6 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { usePlayerContext } from "@/context/player-context";
-// [WALLED_GARDEN] OnboardingPhase no longer needed in user-facing code
-// import { OnboardingPhase } from "@/types";
 import { useSessionManager } from "@/hooks/useSessionManager";
 import { useTrackDeleteUndo } from "@/hooks/useTrackDeleteUndo";
 import { GenerateSection } from "@/components/GenerateSection";
@@ -37,9 +35,6 @@ interface FeedClientProps {
 
 export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
   const { playlist, player, config, gameLibrary, gameThumbnailByGameId } = usePlayerContext();
-  // [WALLED_GARDEN] Onboarding status indicators removed — all games in library are pre-onboarded via Backstage
-  // const indexingCount = gameLibrary.games.filter((g) => g.onboarding_phase === OnboardingPhase.Draft).length;
-  // const failedCount = gameLibrary.games.filter((g) => g.onboarding_phase === OnboardingPhase.Failed).length;
   const { sessions, fetchSessions, handleRenameSession, handleDeleteSession } = useSessionManager();
   const { pendingDelete, initiateRemove, undoRemove } = useTrackDeleteUndo();
 
@@ -110,8 +105,6 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
             onTargetChange={config.setTargetTrackCount}
             onTargetSave={config.saveTrackCount}
             gamesCount={gameLibrary.games.length}
-            indexingCount={0} // [WALLED_GARDEN] Onboarding status indicators removed — all games in library are pre-onboarded via Backstage
-            failedCount={0} // [WALLED_GARDEN] Onboarding status indicators removed — all games in library are pre-onboarded via Backstage
             onGenerate={handleGenerate}
             allowLongTracks={config.allowLongTracks}
             onToggleLongTracks={config.saveAllowLongTracks}

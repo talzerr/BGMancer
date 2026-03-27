@@ -236,9 +236,7 @@ export const Games = {
 
   /** Removes the game from the user's library. Only unlinks — never deletes the game record. */
   remove(userId: string, id: string): void {
-    // [WALLED_GARDEN] Users only modify their own library state. Game records are app data
-    // managed exclusively through Backstage. The old implementation deleted orphan game rows
-    // here — that is no longer permitted.
+    // Users only modify their own library state — game records are managed through Backstage.
     stmt(`DELETE FROM library_games WHERE library_id = ${LIBRARY_SQ} AND game_id = ?`).run(
       userId,
       id,
@@ -346,6 +344,30 @@ export const Games = {
    * Silently skips entries whose steam_appid already exists (via the unique index).
    * Returns the count of newly inserted and skipped rows.
    */
+
+  /** Returns aggregate counts for the Backstage dashboard. */
+  dashboardCounts(): {
+    phase: string;
+    count: number;
+    publishedCount: number;
+    needsReviewCount: number;
+  }[] {
+    return stmt(`
+      SELECT
+        onboarding_phase AS phase,
+        COUNT(*)                                                AS count,
+        SUM(CASE WHEN published = 1 THEN 1 ELSE 0 END)        AS publishedCount,
+        SUM(CASE WHEN needs_review = 1 THEN 1 ELSE 0 END)     AS needsReviewCount
+      FROM games
+      GROUP BY onboarding_phase
+    `).all() as {
+      phase: string;
+      count: number;
+      publishedCount: number;
+      needsReviewCount: number;
+    }[];
+  },
+
   bulkImportSteam(
     userId: string,
     games: SteamGameInput[],
