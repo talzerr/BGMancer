@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Table,
@@ -11,23 +11,62 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Button } from "@/components/ui/button";
+import { Search } from "lucide-react";
 import { EnergyBadge } from "@/components/backstage/EnergyBadge";
 import { TagBadgeList } from "@/components/backstage/TagBadgeList";
 import { TrackEditSheet } from "@/components/backstage/TrackEditSheet";
 import type { PatchUpdates } from "@/components/backstage/TrackEditSheet";
 import { BulkActionBar } from "@/components/backstage/BulkActionBar";
 import { ConfirmModal } from "@/components/backstage/ConfirmModal";
+import { QuickViewTabs } from "@/components/backstage/QuickViewTabs";
+import type { QuickViewTab } from "@/components/backstage/QuickViewTabs";
+import { FilterChipBar } from "@/components/backstage/FilterChipBar";
+import type { FilterDef, ActiveFilter } from "@/components/backstage/FilterChipBar";
 import type { BackstageTrackRow } from "@/lib/db/repos/tracks";
-import type { Track } from "@/types";
+
+// ─── Tab presets ────────────────────────────────────────────────────────────
+
+interface TabPreset {
+  tab: QuickViewTab;
+  params: Record<string, string>;
+}
+
+const TAB_PRESETS: TabPreset[] = [
+  { tab: { label: "All", value: "all" }, params: {} },
+  { tab: { label: "Untagged", value: "untagged" }, params: { untaggedOnly: "1" } },
+  { tab: { label: "Active", value: "active" }, params: { active: "1" } },
+  { tab: { label: "Inactive", value: "inactive" }, params: { active: "0" } },
+];
+
+// ─── Filter definitions ─────────────────────────────────────────────────────
+
+const TRACK_FILTER_DEFS: FilterDef[] = [
+  {
+    key: "energy",
+    label: "Energy",
+    options: [
+      { label: "Calm", value: "1" },
+      { label: "Moderate", value: "2" },
+      { label: "Intense", value: "3" },
+    ],
+  },
+  {
+    key: "active",
+    label: "Active",
+    options: [
+      { label: "Yes", value: "1" },
+      { label: "No", value: "0" },
+    ],
+  },
+  {
+    key: "untaggedOnly",
+    label: "Untagged Only",
+    options: [{ label: "Yes", value: "1" }],
+  },
+];
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
 type TrackKey = `${string}::${string}`;
 
@@ -35,58 +74,63 @@ function trackKey(t: { gameId: string; name: string }): TrackKey {
   return `${t.gameId}::${t.name}`;
 }
 
+// ─── Component ──────────────────────────────────────────────────────────────
+
 export function TrackLabClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // Search
   const [search, setSearch] = useState(() => searchParams.get("name") ?? "");
   const [gameSearch, setGameSearch] = useState(() => searchParams.get("gameTitle") ?? "");
-  const [energyFilter, setEnergyFilter] = useState(() => searchParams.get("energy") ?? "all");
-  const [activeFilter, setActiveFilter] = useState(() => {
-    const a = searchParams.get("active");
-    return a === "1" ? "active" : a === "0" ? "inactive" : "all";
-  });
-  const [untaggedOnly, setUntaggedOnly] = useState(() => searchParams.get("untagged") === "1");
-  // ?game=<id> comes from Game Hub "View in Track Lab" link — exact game ID match
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ?game=<id> comes from Game Hub "View in Track Lab" link — exact game ID match (one-time)
   const initialGameId = searchParams.get("game") ?? undefined;
 
+  // Tabs + filter chips
+  const [activeTab, setActiveTab] = useState(() => deriveTabFromParams(searchParams));
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>(() =>
+    deriveFiltersFromParams(searchParams),
+  );
+
+  // Results
   const [tracks, setTracks] = useState<BackstageTrackRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [mutError, setMutError] = useState<string | null>(null);
 
+  // Selection + editing
   const [selected, setSelected] = useState<Set<TrackKey>>(new Set());
-  const [editTrack, setEditTrack] = useState<Track | null>(null);
+  const [editTrack, setEditTrack] = useState<BackstageTrackRow | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
+  // ─── Fetch logic ────────────────────────────────────────────────────────
+
   const fetchTracks = useCallback(
-    async (overrideGameId?: string) => {
+    async (opts?: {
+      overrideGameId?: string;
+      search?: string;
+      gameSearch?: string;
+      tab?: string;
+      filters?: ActiveFilter[];
+    }) => {
+      const s = opts?.search ?? search;
+      const gs = opts?.gameSearch ?? gameSearch;
+      const t = opts?.tab ?? activeTab;
+      const f = opts?.filters ?? activeFilters;
+      const overrideGameId = opts?.overrideGameId;
+
       setLoading(true);
       setSelected(new Set());
       setFetchError(null);
 
-      const apiParams = new URLSearchParams();
-      if (overrideGameId) {
-        apiParams.set("gameId", overrideGameId);
-      } else if (gameSearch.trim()) {
-        apiParams.set("gameTitle", gameSearch.trim());
-      }
-      if (search.trim()) apiParams.set("name", search.trim());
-      if (energyFilter !== "all") apiParams.set("energy", energyFilter);
-      if (activeFilter === "active") apiParams.set("active", "1");
-      if (activeFilter === "inactive") apiParams.set("active", "0");
-      if (untaggedOnly) apiParams.set("untaggedOnly", "1");
+      const apiParams = buildApiParams(s, gs, t, f, overrideGameId);
 
       // Sync URL (skip the gameId override — that's a one-time Game Hub link)
       if (!overrideGameId) {
-        const urlParams = new URLSearchParams();
-        if (gameSearch.trim()) urlParams.set("gameTitle", gameSearch.trim());
-        if (search.trim()) urlParams.set("name", search.trim());
-        if (energyFilter !== "all") urlParams.set("energy", energyFilter);
-        if (activeFilter === "active") urlParams.set("active", "1");
-        if (activeFilter === "inactive") urlParams.set("active", "0");
-        if (untaggedOnly) urlParams.set("untagged", "1");
+        const urlParams = buildUrlParams(s, gs, t, f);
         router.replace(`/backstage/tracks${urlParams.size ? `?${urlParams}` : ""}`, {
           scroll: false,
         });
@@ -106,17 +150,71 @@ export function TrackLabClient() {
         setLoading(false);
       }
     },
-    [gameSearch, search, energyFilter, activeFilter, untaggedOnly, router],
+    [search, gameSearch, activeTab, activeFilters, router],
   );
 
-  // Auto-fetch on mount if URL has params
+  // Auto-fetch on mount
   useEffect(() => {
-    if (searchParams.size > 0) {
-      Promise.resolve().then(() => fetchTracks(initialGameId));
-    }
+    Promise.resolve().then(() => fetchTracks({ overrideGameId: initialGameId }));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Selection helpers
+  // ─── Debounced search ───────────────────────────────────────────────────
+
+  function handleSearchChange(field: "name" | "game", value: string) {
+    if (field === "name") setSearch(value);
+    else setGameSearch(value);
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const opts = field === "name" ? { search: value } : { gameSearch: value };
+      fetchTracks(opts);
+    }, 300);
+  }
+
+  // ─── Tab switching ──────────────────────────────────────────────────────
+
+  function handleTabChange(tab: string) {
+    setActiveTab(tab);
+    setActiveFilters([]);
+    setSelected(new Set());
+    fetchTracks({ tab, filters: [] });
+  }
+
+  // ─── Filter handlers ────────────────────────────────────────────────────
+
+  function handleFilterChange(key: string, value: string) {
+    let next: ActiveFilter[];
+    if (value === "") {
+      next = activeFilters.filter((f) => f.key !== key);
+    } else {
+      const existing = activeFilters.find((f) => f.key === key);
+      if (existing) {
+        next = activeFilters.map((f) => (f.key === key ? { ...f, value } : f));
+      } else {
+        next = [...activeFilters, { key, value }];
+      }
+    }
+    setActiveFilters(next);
+    setActiveTab("all");
+    fetchTracks({ tab: "all", filters: next });
+  }
+
+  // ─── Derived state ───────────────────────────────────────────────────────
+
+  // Merge tab preset params into active filters so dropdowns reflect the full query state
+  const effectiveFilters: ActiveFilter[] = (() => {
+    const preset = TAB_PRESETS.find((p) => p.tab.value === activeTab);
+    const merged = new Map(activeFilters.map((f) => [f.key, f.value]));
+    if (preset) {
+      for (const [k, v] of Object.entries(preset.params)) {
+        if (!merged.has(k)) merged.set(k, v);
+      }
+    }
+    return [...merged.entries()].map(([key, value]) => ({ key, value }));
+  })();
+
+  // ─── Selection helpers ──────────────────────────────────────────────────
+
   const allSelected = tracks.length > 0 && tracks.every((t) => selected.has(trackKey(t)));
 
   function toggleAll() {
@@ -137,7 +235,8 @@ export function TrackLabClient() {
     });
   }
 
-  // Mutations
+  // ─── Mutations ──────────────────────────────────────────────────────────
+
   const patchTracks = useCallback(
     async (patches: { gameId: string; name: string; updates: PatchUpdates }[]) => {
       setMutError(null);
@@ -224,102 +323,89 @@ export function TrackLabClient() {
   }
 
   async function handleTrackSave(gameId: string, name: string, updates: PatchUpdates) {
-    await patchTracks([{ gameId, name, updates }]);
+    const { videoId, durationSeconds, viewCount, ...trackUpdates } = updates;
+    const body: Record<string, unknown> = { gameId, name, updates: trackUpdates };
+    if (videoId) {
+      body.videoUpdates = { videoId, durationSeconds, viewCount };
+    }
+    setMutError(null);
+    try {
+      const res = await fetch("/api/backstage/tracks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await fetchTracks();
+    } catch (err) {
+      console.error("[TrackLabClient] handleTrackSave failed:", err);
+      setMutError("Failed to save track. Please try again.");
+    }
   }
+
+  // ─── Render ─────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-4">
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          placeholder="Search by track name…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && fetchTracks()}
-          className="h-8 w-52 border-zinc-700 bg-zinc-900 text-xs text-zinc-200 placeholder:text-zinc-600 focus-visible:ring-violet-500/50"
-        />
-        <Input
-          placeholder="Filter by game…"
-          value={gameSearch}
-          onChange={(e) => setGameSearch(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && fetchTracks()}
-          className="h-8 w-44 border-zinc-700 bg-zinc-900 text-xs text-zinc-200 placeholder:text-zinc-600 focus-visible:ring-violet-500/50"
-        />
-        <Select value={energyFilter} onValueChange={(v) => setEnergyFilter(v ?? "all")}>
-          <SelectTrigger className="h-8 w-32 border-zinc-700 bg-zinc-900 text-xs text-zinc-400">
-            <SelectValue placeholder="All energy" />
-          </SelectTrigger>
-          <SelectContent className="border-zinc-700 bg-zinc-900">
-            <SelectItem value="all" className="text-xs text-zinc-400">
-              All energy
-            </SelectItem>
-            <SelectItem value="1" className="text-xs">
-              1 — Calm
-            </SelectItem>
-            <SelectItem value="2" className="text-xs">
-              2 — Moderate
-            </SelectItem>
-            <SelectItem value="3" className="text-xs">
-              3 — Intense
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={activeFilter} onValueChange={(v) => setActiveFilter(v ?? "all")}>
-          <SelectTrigger className="h-8 w-28 border-zinc-700 bg-zinc-900 text-xs text-zinc-400">
-            <SelectValue placeholder="All" />
-          </SelectTrigger>
-          <SelectContent className="border-zinc-700 bg-zinc-900">
-            <SelectItem value="all" className="text-xs text-zinc-400">
-              All
-            </SelectItem>
-            <SelectItem value="active" className="text-xs">
-              Active
-            </SelectItem>
-            <SelectItem value="inactive" className="text-xs">
-              Inactive
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        <label className="flex cursor-pointer items-center gap-2 text-xs text-zinc-500 select-none">
-          <Checkbox
-            checked={untaggedOnly}
-            onCheckedChange={(v) => setUntaggedOnly(!!v)}
-            className="h-3.5 w-3.5 border-zinc-600"
+      {/* Quick-view tabs */}
+      <QuickViewTabs
+        tabs={TAB_PRESETS.map((p) => p.tab)}
+        active={activeTab}
+        onChange={handleTabChange}
+      />
+
+      {/* Search + filters */}
+      <div className="flex items-center gap-2">
+        <div className="relative w-52">
+          <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+          <Input
+            placeholder="Search by track name..."
+            value={search}
+            onChange={(e) => handleSearchChange("name", e.target.value)}
+            className="h-8 border-zinc-700 bg-zinc-900 pl-8 text-xs text-zinc-200 placeholder:text-zinc-600 focus-visible:ring-violet-500/50"
           />
-          Untagged only
-        </label>
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-8 border-zinc-700 px-4 text-xs text-zinc-300 hover:border-zinc-500 hover:text-zinc-100"
-          onClick={() => fetchTracks()}
-          disabled={loading}
-        >
-          {loading ? "Searching…" : "Search"}
-        </Button>
+        </div>
+        <div className="relative w-44">
+          <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+          <Input
+            placeholder="Filter by game..."
+            value={gameSearch}
+            onChange={(e) => handleSearchChange("game", e.target.value)}
+            className="h-8 border-zinc-700 bg-zinc-900 pl-8 text-xs text-zinc-200 placeholder:text-zinc-600 focus-visible:ring-violet-500/50"
+          />
+        </div>
         {hasSearched && (
-          <span className="ml-auto font-mono text-xs text-zinc-600">
+          <span className="ml-auto font-mono text-xs whitespace-nowrap text-zinc-600">
             {tracks.length} result{tracks.length === 1 ? "" : "s"}
-            {tracks.length === 200 && " · limit reached"}
           </span>
         )}
       </div>
+
+      {/* Filters */}
+      <FilterChipBar
+        filters={effectiveFilters}
+        definitions={TRACK_FILTER_DEFS}
+        onChange={handleFilterChange}
+        onReset={() => {
+          setActiveFilters([]);
+          setActiveTab("all");
+          fetchTracks({ tab: "all", filters: [] });
+        }}
+      />
 
       {fetchError && <p className="text-xs text-rose-400">{fetchError}</p>}
       {mutError && <p className="text-xs text-rose-400">{mutError}</p>}
 
       {/* Results */}
-      {!hasSearched ? (
-        <p className="py-10 text-center text-xs text-zinc-600">
-          Search by track name, or select a game to browse its tracks.
-        </p>
-      ) : tracks.length === 0 ? (
+      {tracks.length === 0 && hasSearched ? (
         <p className="py-10 text-center text-xs text-zinc-600">
           No tracks match the current filters.
         </p>
       ) : (
-        <>
-          <div className="overflow-hidden rounded-lg border border-zinc-800">
+        hasSearched && (
+          <div
+            className={`overflow-hidden rounded-lg border border-zinc-800 transition-opacity ${loading ? "opacity-60" : ""}`}
+          >
             <Table>
               <TableHeader>
                 <TableRow className="border-zinc-800 hover:bg-transparent">
@@ -363,13 +449,6 @@ export function TrackLabClient() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tracks.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={11} className="py-8 text-center text-sm text-zinc-500">
-                      No tracks match the current filters
-                    </TableCell>
-                  </TableRow>
-                )}
                 {tracks.map((track) => {
                   const key = trackKey(track);
                   const isSelected = selected.has(key);
@@ -436,8 +515,9 @@ export function TrackLabClient() {
               </TableBody>
             </Table>
           </div>
-        </>
+        )
       )}
+
       {/* Bulk action bar */}
       <BulkActionBar
         selectedCount={selected.size}
@@ -465,6 +545,15 @@ export function TrackLabClient() {
         <TrackEditSheet
           key={trackKey(editTrack)}
           track={editTrack}
+          videoMeta={
+            editTrack.videoId
+              ? {
+                  videoId: editTrack.videoId,
+                  durationSeconds: editTrack.durationSeconds,
+                  viewCount: editTrack.viewCount,
+                }
+              : null
+          }
           open={!!editTrack}
           onOpenChange={(open) => {
             if (!open) setEditTrack(null);
@@ -474,4 +563,91 @@ export function TrackLabClient() {
       )}
     </div>
   );
+}
+
+// ─── Query param helpers ──────────────────────────────────────────────────────
+
+function buildApiParams(
+  search: string,
+  gameSearch: string,
+  tab: string,
+  filters: ActiveFilter[],
+  overrideGameId?: string,
+): URLSearchParams {
+  const params = new URLSearchParams();
+
+  if (overrideGameId) {
+    params.set("gameId", overrideGameId);
+  } else if (gameSearch.trim()) {
+    params.set("gameTitle", gameSearch.trim());
+  }
+  if (search.trim()) params.set("name", search.trim());
+
+  // Tab presets
+  const preset = TAB_PRESETS.find((p) => p.tab.value === tab);
+  if (preset) {
+    for (const [k, v] of Object.entries(preset.params)) {
+      params.set(k, v);
+    }
+  }
+
+  // Filter chips override tab presets
+  for (const f of filters) {
+    params.set(f.key, f.value);
+  }
+
+  return params;
+}
+
+function buildUrlParams(
+  search: string,
+  gameSearch: string,
+  tab: string,
+  filters: ActiveFilter[],
+): URLSearchParams {
+  const params = new URLSearchParams();
+  if (gameSearch.trim()) params.set("gameTitle", gameSearch.trim());
+  if (search.trim()) params.set("name", search.trim());
+
+  const preset = TAB_PRESETS.find((p) => p.tab.value === tab);
+  if (preset) {
+    for (const [k, v] of Object.entries(preset.params)) {
+      params.set(k, v);
+    }
+  }
+  for (const f of filters) {
+    params.set(f.key, f.value);
+  }
+
+  return params;
+}
+
+function deriveTabFromParams(sp: URLSearchParams): string {
+  const filterKeys = new Set(TRACK_FILTER_DEFS.map((d) => d.key));
+  const urlFilterKeys = [...sp.keys()].filter((k) => filterKeys.has(k));
+
+  for (const preset of TAB_PRESETS) {
+    if (preset.tab.value === "all") continue;
+    const presetKeys = Object.keys(preset.params);
+    if (presetKeys.length !== urlFilterKeys.length) continue;
+    const matches =
+      presetKeys.every((k) => sp.get(k) === preset.params[k]) &&
+      urlFilterKeys.every((k) => k in preset.params);
+    if (matches) return preset.tab.value;
+  }
+  return "all";
+}
+
+function deriveFiltersFromParams(sp: URLSearchParams): ActiveFilter[] {
+  const filters: ActiveFilter[] = [];
+  const tab = deriveTabFromParams(sp);
+  if (tab !== "all") return [];
+
+  for (const def of TRACK_FILTER_DEFS) {
+    const val = sp.get(def.key);
+    if (val && def.options.some((o) => o.value === val)) {
+      filters.push({ key: def.key, value: val });
+    }
+  }
+  return filters;
 }

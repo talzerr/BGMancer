@@ -13,7 +13,29 @@ export default async function GameDetailPage({ params }: { params: Promise<{ slu
   const reviewFlags = ReviewFlags.listByGame(game.id);
   const videoMap = Object.fromEntries(VideoTracks.getTrackToVideo(game.id));
 
+  // Build track-name → full video metadata for TrackEditSheet
+  const byVideoId = VideoTracks.getByGame(game.id);
+  const videoDetailMap: Record<
+    string,
+    { videoId: string; durationSeconds: number | null; viewCount: number | null }
+  > = {};
+  for (const [videoId, meta] of byVideoId) {
+    if (meta.trackName) {
+      videoDetailMap[meta.trackName] = {
+        videoId,
+        durationSeconds: meta.durationSeconds,
+        viewCount: meta.viewCount,
+      };
+    }
+  }
+
   return (
-    <GameDetailClient game={game} tracks={tracks} reviewFlags={reviewFlags} videoMap={videoMap} />
+    <GameDetailClient
+      game={game}
+      tracks={tracks}
+      reviewFlags={reviewFlags}
+      videoMap={videoMap}
+      videoDetailMap={videoDetailMap}
+    />
   );
 }

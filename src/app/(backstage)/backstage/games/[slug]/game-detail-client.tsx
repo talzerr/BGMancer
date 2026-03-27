@@ -34,11 +34,18 @@ import { OnboardingPhase } from "@/types";
 import type { Game, Track } from "@/types";
 import type { ReviewFlag } from "@/lib/db/repos/review-flags";
 
+interface VideoDetail {
+  videoId: string;
+  durationSeconds: number | null;
+  viewCount: number | null;
+}
+
 interface GameDetailClientProps {
   game: Game;
   tracks: Track[];
   reviewFlags: ReviewFlag[];
   videoMap: Record<string, string>;
+  videoDetailMap: Record<string, VideoDetail>;
 }
 
 type ActiveModal =
@@ -50,7 +57,13 @@ type ActiveModal =
   | "quick-onboard"
   | null;
 
-export function GameDetailClient({ game, tracks, reviewFlags, videoMap }: GameDetailClientProps) {
+export function GameDetailClient({
+  game,
+  tracks,
+  reviewFlags,
+  videoMap,
+  videoDetailMap,
+}: GameDetailClientProps) {
   const router = useRouter();
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
   const [newTrackName, setNewTrackName] = useState("");
@@ -99,10 +112,15 @@ export function GameDetailClient({ game, tracks, reviewFlags, videoMap }: GameDe
   async function handleTrackSave(gameId: string, name: string, updates: PatchUpdates) {
     setMutError(null);
     try {
+      const { videoId, durationSeconds, viewCount, ...trackUpdates } = updates;
+      const body: Record<string, unknown> = { gameId, name, updates: trackUpdates };
+      if (videoId) {
+        body.videoUpdates = { videoId, durationSeconds, viewCount };
+      }
       const res = await fetch("/api/backstage/tracks", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gameId, name, updates }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       router.refresh();
@@ -814,6 +832,7 @@ export function GameDetailClient({ game, tracks, reviewFlags, videoMap }: GameDe
         <TrackEditSheet
           key={editTrack.name}
           track={editTrack}
+          videoMeta={videoDetailMap[editTrack.name] ?? null}
           open={!!editTrack}
           onOpenChange={(open) => {
             if (!open) setEditTrack(null);

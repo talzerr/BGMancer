@@ -139,6 +139,21 @@ export const Games = {
     return created;
   },
 
+  /** Creates a game record without linking to any user library — used by Backstage. */
+  createDraft(title: string, steamAppid?: number | null): Game {
+    const id = newId();
+    const thumbnail = steamAppid ? steamHeaderUrl(steamAppid) : null;
+    stmt("INSERT INTO games (id, title, steam_appid, thumbnail_url) VALUES (?, ?, ?, ?)").run(
+      id,
+      title,
+      steamAppid ?? null,
+      thumbnail,
+    );
+    const created = this.getById(id);
+    if (!created) throw new Error(`[Games.createDraft] game ${id} not found after INSERT`);
+    return created;
+  },
+
   linkToLibrary(userId: string, gameId: string, curation = CurationMode.Include): void {
     stmt(
       `INSERT OR IGNORE INTO library_games (library_id, game_id, curation) VALUES (${LIBRARY_SQ}, ?, ?)`,
@@ -261,6 +276,7 @@ export const Games = {
     title?: string;
     phase?: string;
     needsReview?: boolean;
+    published?: boolean;
   }): BackstageGame[] {
     const clauses: string[] = [];
     const params: unknown[] = [];
@@ -273,8 +289,13 @@ export const Games = {
       clauses.push("g.onboarding_phase = ?");
       params.push(filters.phase);
     }
-    if (filters.needsReview) {
-      clauses.push("g.needs_review = 1");
+    if (filters.needsReview !== undefined) {
+      clauses.push("g.needs_review = ?");
+      params.push(filters.needsReview ? 1 : 0);
+    }
+    if (filters.published !== undefined) {
+      clauses.push("g.published = ?");
+      params.push(filters.published ? 1 : 0);
     }
 
     const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";

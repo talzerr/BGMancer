@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import { TrackLabClient } from "./track-lab-client";
 
 export default function TrackLabPage() {
-  return <TrackLabClient />;
+  return (
+    <Suspense>
+      <TrackLabClient />
+    </Suspense>
+  );
 }

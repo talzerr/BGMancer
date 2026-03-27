@@ -6,6 +6,18 @@ import type { Track } from "@/types";
 export interface BackstageTrackRow extends Track {
   gameTitle: string;
   videoId: string | null;
+  durationSeconds: number | null;
+  viewCount: number | null;
+}
+
+function toBackstageTrackRow(r: Record<string, unknown>): BackstageTrackRow {
+  return {
+    ...toTrack(r),
+    gameTitle: String(r.game_title),
+    videoId: r.video_id != null ? String(r.video_id) : null,
+    durationSeconds: r.duration_seconds != null ? Number(r.duration_seconds) : null,
+    viewCount: r.view_count != null ? Number(r.view_count) : null,
+  };
 }
 
 export const Tracks = {
@@ -187,19 +199,15 @@ export const Tracks = {
   listAllWithVideoIds(): BackstageTrackRow[] {
     const rows = stmt(`
       SELECT t.*, g.title AS game_title,
-        (SELECT vt.video_id FROM video_tracks vt
-         WHERE vt.game_id = t.game_id AND vt.track_name = t.name
-         LIMIT 1) AS video_id
+        (SELECT vt.video_id FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS video_id,
+        (SELECT vt.duration_seconds FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS duration_seconds,
+        (SELECT vt.view_count FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS view_count
       FROM tracks t
       JOIN games g ON g.id = t.game_id
       ORDER BY g.title ASC, t.position ASC
     `).all() as Record<string, unknown>[];
 
-    return rows.map((r) => ({
-      ...toTrack(r),
-      gameTitle: String(r.game_title),
-      videoId: r.video_id != null ? String(r.video_id) : null,
-    }));
+    return rows.map(toBackstageTrackRow);
   },
 
   searchWithVideoIds(filters: {
@@ -240,9 +248,9 @@ export const Tracks = {
     const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
     const sql = `
       SELECT t.*, g.title AS game_title,
-        (SELECT vt.video_id FROM video_tracks vt
-         WHERE vt.game_id = t.game_id AND vt.track_name = t.name
-         LIMIT 1) AS video_id
+        (SELECT vt.video_id FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS video_id,
+        (SELECT vt.duration_seconds FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS duration_seconds,
+        (SELECT vt.view_count FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS view_count
       FROM tracks t
       JOIN games g ON g.id = t.game_id
       ${where}
@@ -252,10 +260,6 @@ export const Tracks = {
     const rows = getDB()
       .prepare(sql)
       .all(...params) as Record<string, unknown>[];
-    return rows.map((r) => ({
-      ...toTrack(r),
-      gameTitle: String(r.game_title),
-      videoId: r.video_id != null ? String(r.video_id) : null,
-    }));
+    return rows.map(toBackstageTrackRow);
   },
 };
