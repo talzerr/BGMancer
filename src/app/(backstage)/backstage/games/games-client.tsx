@@ -22,7 +22,6 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search } from "lucide-react";
 import { StatusBadge } from "@/components/backstage/StatusBadge";
-import { BulkOnboardProgress } from "@/components/backstage/BulkOnboardProgress";
 import { QuickViewTabs } from "@/components/backstage/QuickViewTabs";
 import type { QuickViewTab } from "@/components/backstage/QuickViewTabs";
 import { FilterChipBar } from "@/components/backstage/FilterChipBar";
@@ -119,7 +118,6 @@ export function GamesClient() {
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkPublishing, setBulkPublishing] = useState(false);
-  const [bulkOnboardOpen, setBulkOnboardOpen] = useState(false);
 
   // ─── Fetch logic ────────────────────────────────────────────────────────
 
@@ -392,14 +390,6 @@ export function GamesClient() {
             </Button>
             <Button
               size="sm"
-              variant="outline"
-              className="h-7 border-violet-600/40 px-3 text-xs text-violet-300 hover:bg-violet-500/10"
-              onClick={() => setBulkOnboardOpen(true)}
-            >
-              Quick Onboard
-            </Button>
-            <Button
-              size="sm"
               variant="ghost"
               className="h-7 px-2 text-xs text-zinc-500 hover:text-zinc-300"
               onClick={() => setSelectedIds(new Set())}
@@ -609,17 +599,6 @@ export function GamesClient() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Bulk onboard progress dialog */}
-      <BulkOnboardProgress
-        open={bulkOnboardOpen}
-        gameIds={[...selectedIds]}
-        onClose={() => {
-          setBulkOnboardOpen(false);
-          setSelectedIds(new Set());
-          Promise.resolve().then(() => fetchGames());
-        }}
-      />
     </div>
   );
 }

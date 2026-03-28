@@ -23,8 +23,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ gameId
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
   }
 
-  const updated = Games.update(gameId, fields);
-  return NextResponse.json(updated);
+  try {
+    const updated = Games.update(gameId, fields);
+    if (!updated) {
+      return NextResponse.json({ error: "Game not found after update" }, { status: 404 });
+    }
+    return NextResponse.json(updated);
+  } catch (err) {
+    console.error("[PATCH /api/backstage/games]", err);
+    return NextResponse.json({ error: "Failed to update game" }, { status: 500 });
+  }
 }
 
 /** DELETE /api/backstage/games/[gameId] — permanently delete a game and all associated data */

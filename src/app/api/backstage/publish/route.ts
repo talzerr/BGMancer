@@ -17,6 +17,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Game not found" }, { status: 404 });
   }
 
-  Games.setPublished(gameId, published);
-  return NextResponse.json({ ok: true, published });
+  try {
+    Games.setPublished(gameId, published);
+    return NextResponse.json({ ok: true, published });
+  } catch (err) {
+    console.error("[POST /api/backstage/publish]", err);
+    return NextResponse.json({ error: "Failed to update published status" }, { status: 500 });
+  }
 }

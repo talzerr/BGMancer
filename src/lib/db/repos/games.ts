@@ -29,12 +29,6 @@ export interface GameUpdateFields {
   needs_review?: boolean;
 }
 
-export interface SteamGameInput {
-  appid: number;
-  name: string;
-  playtime_forever: number;
-}
-
 function toBackstageGame(r: Record<string, unknown>): BackstageGame {
   return {
     id: String(r.id),
@@ -187,11 +181,9 @@ export const Games = {
   listPublished(search?: string, limit?: number): Game[] {
     if (search?.trim()) {
       return toGames(
-        getDB()
-          .prepare(
-            `SELECT * FROM games WHERE published = 1 AND title LIKE ? ORDER BY title ASC LIMIT ?`,
-          )
-          .all(`%${search.trim()}%`, limit ?? 15),
+        stmt(
+          "SELECT * FROM games WHERE published = 1 AND title LIKE ? ORDER BY title ASC LIMIT ?",
+        ).all(`%${search.trim()}%`, limit ?? 15),
       );
     }
     return toGames(
@@ -339,12 +331,6 @@ export const Games = {
     return rows.map(toBackstageGame);
   },
 
-  /**
-   * Bulk-inserts Steam games as disabled (curation='skip') into the user's library.
-   * Silently skips entries whose steam_appid already exists (via the unique index).
-   * Returns the count of newly inserted and skipped rows.
-   */
-
   /** Returns aggregate counts for the Backstage dashboard. */
   dashboardCounts(): {
     phase: string;
@@ -366,38 +352,5 @@ export const Games = {
       publishedCount: number;
       needsReviewCount: number;
     }[];
-  },
-
-  bulkImportSteam(
-    userId: string,
-    games: SteamGameInput[],
-  ): { imported: number; skipped: number; importedIds: string[] } {
-    const db = getDB();
-    const insertGameSQL = `
-      INSERT OR IGNORE INTO games
-        (id, title, steam_appid, thumbnail_url)
-      VALUES (?, ?, ?, ?)
-    `;
-    const insertLibrarySQL = `INSERT OR IGNORE INTO library_games (library_id, game_id, curation) VALUES (${LIBRARY_SQ}, ?, 'skip')`;
-
-    let imported = 0;
-    let skipped = 0;
-    const importedIds: string[] = [];
-
-    db.transaction(() => {
-      for (const g of games) {
-        const id = newId();
-        const result = stmt(insertGameSQL).run(id, g.name, g.appid, steamHeaderUrl(g.appid));
-        if (result.changes > 0) {
-          imported++;
-          importedIds.push(id);
-          stmt(insertLibrarySQL).run(userId, id);
-        } else {
-          skipped++;
-        }
-      }
-    })();
-
-    return { imported, skipped, importedIds };
   },
 };

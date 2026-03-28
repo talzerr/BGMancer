@@ -145,11 +145,10 @@ function persistSession(
 /**
  * Core playlist generation pipeline, decoupled from HTTP/SSE transport.
  *
- * Four phases:
- *   1   — Playlist discovery: find (or search) the YouTube OST playlist per game.
- *   1.5 — Track resolution: align DB tags to video IDs; fetch and store durations.
- *   2   — Vibe Profiler: LLM produces a ScoringRubric from game titles.
- *   3   — Arc assembly: the Director builds the final ordered playlist.
+ * Three phases (all track data is pre-cached during onboarding):
+ *   1 — Candidate gathering: load tagged tracks + cached video metadata from DB.
+ *   2 — Vibe Profiler: LLM produces a ScoringRubric from game titles.
+ *   3 — Arc assembly: the Director builds the final ordered playlist.
  */
 export async function generatePlaylist(
   send: Send,

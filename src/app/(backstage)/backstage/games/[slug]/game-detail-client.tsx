@@ -163,7 +163,7 @@ export function GameDetailClient({
 
   async function saveField(field: string, value: string | null) {
     setMutError(null);
-    let payload: unknown = value || null;
+    let payload: unknown = value === "" ? null : value;
     if (field === "steam_appid") {
       payload = value ? Number(value) : null;
     }

@@ -56,9 +56,13 @@ export async function POST(req: Request) {
         needsReview: tagResult.needsReview ? 1 : 0,
       });
     } catch (err) {
-      Games.setPhase(gameId, OnboardingPhase.Failed);
-      console.error("[POST /api/backstage/reingest]", err);
-      send({ type: "error", message: err instanceof Error ? err.message : String(err) });
+      if (abort.signal.aborted) {
+        send({ type: "error", message: "Cancelled" });
+      } else {
+        Games.setPhase(gameId, OnboardingPhase.Failed);
+        console.error("[POST /api/backstage/reingest]", err);
+        send({ type: "error", message: err instanceof Error ? err.message : String(err) });
+      }
     } finally {
       close();
     }

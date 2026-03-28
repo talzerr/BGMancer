@@ -53,8 +53,12 @@ export async function POST(req: Request) {
 
       send({ type: "done", tagged, needsReview });
     } catch (err) {
-      console.error("[POST /api/backstage/retag]", err);
-      send({ type: "error", message: err instanceof Error ? err.message : String(err) });
+      if (abort.signal.aborted) {
+        send({ type: "error", message: "Cancelled" });
+      } else {
+        console.error("[POST /api/backstage/retag]", err);
+        send({ type: "error", message: err instanceof Error ? err.message : String(err) });
+      }
     } finally {
       close();
     }

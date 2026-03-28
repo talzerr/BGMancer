@@ -7,6 +7,7 @@ export const SSE_HEADERS = {
 export function makeSSEStream<T>() {
   const encoder = new TextEncoder();
   let controller: ReadableStreamDefaultController<Uint8Array>;
+  let closed = false;
 
   const stream = new ReadableStream<Uint8Array>({
     start(c) {
@@ -15,10 +16,23 @@ export function makeSSEStream<T>() {
   });
 
   const send = (event: T) => {
-    controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+    if (closed) return;
+    try {
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+    } catch {
+      closed = true;
+    }
   };
 
-  const close = () => controller.close();
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    try {
+      controller.close();
+    } catch {
+      /* already closed */
+    }
+  };
 
   return { stream, send, close };
 }

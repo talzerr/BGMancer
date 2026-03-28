@@ -12,12 +12,6 @@ import { tagTracks } from "@/lib/pipeline/tagger";
 import { resolveTracksToVideos } from "@/lib/pipeline/resolver";
 import { discoverOSTPlaylist, ensureVideoMetadata } from "@/lib/pipeline/youtube-resolve";
 import { getTaggingProvider } from "@/lib/llm";
-import { bus } from "@/lib/events";
-
-function emitPhase(gameId: string, phase: OnboardingPhase): void {
-  Games.setPhase(gameId, phase);
-  bus.emit("game:status", { gameId, phase });
-}
 
 // ─── Phase 1: Load Tracks ────────────────────────────────────────────────────
 
@@ -62,7 +56,10 @@ export async function loadTracks(
   }
 
   if (!result) {
-    ReviewFlags.markAsNeedsReview(game.id, ReviewReason.NoTracklistSource);
+    const detail = wasPreset
+      ? `Configured source "${source}" returned no usable tracks — verify the ID is correct`
+      : undefined;
+    ReviewFlags.markAsNeedsReview(game.id, ReviewReason.NoTracklistSource, detail);
     return null;
   }
 
@@ -87,7 +84,7 @@ export async function loadTracks(
   if (!wasPreset) {
     Games.update(game.id, { tracklist_source: `${result.sourceType}:${releaseId}` });
   }
-  emitPhase(game.id, OnboardingPhase.TracksLoaded);
+  Games.setPhase(game.id, OnboardingPhase.TracksLoaded);
 
   return { trackCount: tracks.length };
 }
@@ -108,7 +105,7 @@ export async function tagGameTracks(
 
   const provider = getTaggingProvider();
   await tagTracks(game.id, game.title, dbTracks, provider, signal);
-  emitPhase(game.id, OnboardingPhase.Tagged);
+  Games.setPhase(game.id, OnboardingPhase.Tagged);
 
   const afterTracks = Tracks.getByGame(game.id);
   const tagged = afterTracks.filter((t) => t.taggedAt !== null).length;
@@ -149,7 +146,7 @@ export async function resolveVideos(
   const allVideoIds = [...VideoTracks.getTrackToVideo(game.id).values()];
   await ensureVideoMetadata(allVideoIds, game.id);
 
-  emitPhase(game.id, OnboardingPhase.Resolved);
+  Games.setPhase(game.id, OnboardingPhase.Resolved);
 
   return { resolved: resolved.length, total: allTracks.length };
 }
@@ -167,7 +164,7 @@ export async function quickOnboard(
   onProgress?.("Phase 1: Loading tracks…", 0, 3);
   const loaded = await loadTracks(game, (msg) => onProgress?.(msg, 0, 3));
   if (!loaded) {
-    emitPhase(game.id, OnboardingPhase.Failed);
+    Games.setPhase(game.id, OnboardingPhase.Failed);
     throw new Error(`No Discogs data for "${game.title}"`);
   }
 
@@ -189,33 +186,4 @@ export async function quickOnboard(
     tagged: tagResult.tagged,
     resolved: resolveResult.resolved,
   };
-}
-
-// ─── Backward-compat wrappers ────────────────────────────────────────────────
-
-/**
- * Fetches the game's soundtrack from Discogs, upserts tracks, and runs the LLM tagger.
- * Thin wrapper around loadTracks + tagGameTracks for backward compatibility.
- */
-export async function ingestFromDiscogs(
-  game: Game,
-  onProgress?: (message: string) => void,
-  signal?: AbortSignal,
-): Promise<{ trackCount: number } | null> {
-  const loaded = await loadTracks(game, onProgress);
-  if (!loaded) return null;
-  await tagGameTracks(game, onProgress, signal);
-  return loaded;
-}
-
-/** Background onboarding entry point — delegates to quickOnboard. */
-export async function onboardGame(game: Game): Promise<void> {
-  try {
-    emitPhase(game.id, OnboardingPhase.Draft);
-    await quickOnboard(game);
-    console.warn(`[onboard] ${game.title}: quick onboard complete`);
-  } catch (err) {
-    emitPhase(game.id, OnboardingPhase.Failed);
-    console.error(`[onboard] Failed for "${game.title}":`, err);
-  }
 }
