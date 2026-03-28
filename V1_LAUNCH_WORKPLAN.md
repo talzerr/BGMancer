@@ -6,6 +6,8 @@
 
 BGMancer is feature-complete and needs to move from a local single-user Mac setup to a public, multi-user Cloudflare deployment. The app is open-source (MIT). There's one admin (the owner). The domain is `bgmancer.com`.
 
+**Project posture:** This is a passion project shared with the world, not a commercial product. There are no monetization plans — at most a "buy me a coffee" link if traffic and expenses justify it. The tone of the app (docs, legal pages, error messages) should reflect this: friendly, honest, low-ceremony. Don't over-engineer for scale or legal edge cases that only matter for commercial SaaS. Security and reliability still matter — but formality and legal armor do not.
+
 The single biggest architectural challenge: the entire database layer uses synchronous `better-sqlite3`, which cannot run on Cloudflare Workers. This cascades into nearly every other decision.
 
 ---
@@ -24,6 +26,7 @@ These decisions were made during planning and should not be revisited without go
 - **Auth:** Google OAuth for logged-in users
 - **Admin access:** Single admin (owner), Cloudflare Access
 - **No SSH:** Use `wrangler d1 execute`, admin API endpoints, and local scripts instead
+- **Non-commercial posture:** Hobby project, no monetization plans, at most a "buy me a coffee" link. Legal and observability should be proportional — lightweight and honest, not enterprise-grade.
 
 ---
 
@@ -437,9 +440,9 @@ You can't fix what you can't see. These items give you visibility into what's ha
 
 **Scope:**
 
-- **Option A — Cloudflare Analytics (simplest):** Cloudflare Workers has built-in analytics (request count, error rate, CPU time, latency percentiles) available in the dashboard at no extra cost. Start here.
-- **Option B — Workers Analytics Engine:** Cloudflare's custom metrics system — write arbitrary data points from Workers code, query via SQL-like API. More flexible than built-in analytics, still Cloudflare-native. Good for custom metrics like "generations per hour" or "YouTube quota units consumed."
-- **Option C — Prometheus + Grafana (full observability stack):** Export metrics from Workers via a `/metrics` endpoint or push to a hosted Prometheus (Grafana Cloud free tier: 10k metrics). Gives you full control over dashboards, alerting, and retention. More setup overhead but industry-standard.
+- **Recommended: Cloudflare Analytics (free, built-in).** Workers has built-in analytics (request count, error rate, CPU time, latency percentiles) in the dashboard at no extra cost. For a hobby project with modest traffic, this is more than enough to start.
+- **If custom metrics are needed later:** Workers Analytics Engine lets you write arbitrary data points (e.g., "generations per hour") from code and query via SQL-like API. Still Cloudflare-native, no extra infra.
+- **Prometheus + Grafana is overkill for this project's scale.** Only consider if traffic grows significantly and you need advanced alerting or retention beyond what Cloudflare provides.
 
 **Recommended metrics to track:**
 
@@ -495,18 +498,16 @@ Open-source project + public-facing app = documentation matters for both contrib
 
 ### 5.2 Legal Documents
 
-**Why it matters:** A public web app that stores user data (even anonymous UUIDs and game libraries) needs legal coverage. A privacy policy is legally required in most jurisdictions if you're setting cookies. Terms of service protect you from liability. A license tells the open-source community how they can use your code.
+**Why it matters:** Even a non-commercial hobby project needs basic legal coverage if it sets cookies or stores user data. The good news: because this isn't commercial, the requirements are minimal. A plain-language one-pager for each is sufficient — no lawyer-drafted legalese needed.
 
 **Scope:**
 
-- **Privacy Policy** — what data is collected (Google account email for logged-in users, game library, session history), cookies used, third-party services (YouTube, Discogs, Anthropic), data retention (30 days inactive for logged-in, nothing stored for guests), how to request deletion
-- **Terms of Service** — acceptable use, no warranty, limitation of liability, API usage disclaimers
-- **LICENSE** — MIT
-- Host these as pages in the app (footer links) and/or in the repo
-
-**Decision questions:**
-
-- GDPR considerations: will EU users access this? If so, cookie consent banner may be needed.
+- **Privacy Policy** — plain-language one-pager: what data is collected (Google account email for logged-in users, game library, session history), cookies used (auth only — strictly necessary, no tracking), third-party services (YouTube, Discogs, Anthropic), data retention (30 days inactive for logged-in, nothing stored for guests), how to request deletion (or note that inactivity auto-deletes)
+- **Terms of Service** — keep it short and honest: "this is a hobby project, use at your own risk, no warranty, no guarantees of uptime"
+- **LICENSE** — MIT (already decided)
+- Host these as simple pages in the app (footer links)
+- **No cookie consent banner needed** — all cookies are strictly necessary for authentication (exempt under ePrivacy Directive). Use `youtube-nocookie.com` for embeds to avoid YouTube setting tracking cookies.
+- **No formal GDPR documentation needed** — only required for organizations with 250+ employees or high-risk data processing. Neither applies here.
 
 ---
 
