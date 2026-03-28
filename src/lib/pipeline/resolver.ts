@@ -1,5 +1,5 @@
 import type { Game, Track, ResolvedTrack } from "@/types";
-import { ReviewReason } from "@/types";
+import { DiscoveredStatus, ReviewReason } from "@/types";
 import type { LLMProvider } from "@/lib/llm/provider";
 import type { OSTTrack } from "@/lib/services/youtube";
 import { searchYouTube, YouTubeQuotaError, YouTubeInvalidKeyError } from "@/lib/services/youtube";
@@ -87,6 +87,7 @@ export async function resolveTracksToVideos(
   tracks: Track[],
   playlistItems: OSTTrack[],
   provider: LLMProvider,
+  signal?: AbortSignal,
 ): Promise<ResolvedTrack[]> {
   const activeTracks = tracks.filter((t) => t.active);
 
@@ -117,6 +118,8 @@ export async function resolveTracksToVideos(
   const candidateVideos = playlistItems.filter((v) => !matchedVideoIds.has(v.videoId));
 
   for (let i = 0; i < candidateVideos.length; i += RESOLVE_BATCH_SIZE) {
+    if (signal?.aborted) throw new Error("Cancelled");
+
     const batchVideos = candidateVideos.slice(i, i + RESOLVE_BATCH_SIZE);
     const batchNum = Math.floor(i / RESOLVE_BATCH_SIZE) + 1;
 
@@ -127,8 +130,10 @@ export async function resolveTracksToVideos(
       raw = await provider.complete(SYSTEM_PROMPT, userPrompt, {
         temperature: 0.1,
         maxTokens: 4096,
+        signal,
       });
     } catch (err) {
+      if (signal?.aborted) throw err;
       console.error(`[resolver] LLM call failed for game "${game.title}" batch ${batchNum}:`, err);
       ReviewFlags.markAsNeedsReview(
         game.id,
@@ -240,6 +245,7 @@ export async function resolveTracksToVideos(
         instrumentation: [],
         hasVocals: null,
         active: false,
+        discovered: DiscoveredStatus.Pending,
         taggedAt: null,
       };
       trackByName.set(candidateName, discoveredTrack);
@@ -264,6 +270,7 @@ export async function resolveTracksToVideos(
   let fallbackCount = 0;
 
   for (const track of stillUnresolved) {
+    if (signal?.aborted) throw new Error("Cancelled");
     if (fallbackCount >= RESOLVE_FALLBACK_MAX) break;
 
     const query = `${game.title} ${track.name} OST`;

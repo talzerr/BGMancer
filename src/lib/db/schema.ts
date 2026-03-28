@@ -15,10 +15,11 @@ export function initSchema(db: Database.Database): void {
       id               TEXT    NOT NULL PRIMARY KEY,
       title            TEXT    NOT NULL,
       steam_appid      INTEGER,
-      playtime_minutes INTEGER,
-      tagging_status   TEXT    NOT NULL DEFAULT 'pending',
+      onboarding_phase TEXT    NOT NULL DEFAULT 'draft',
+      published        INTEGER NOT NULL DEFAULT 0,
       tracklist_source TEXT,
       yt_playlist_id   TEXT,
+      thumbnail_url    TEXT,
       needs_review     INTEGER NOT NULL DEFAULT 0,
       created_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
       updated_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
@@ -121,6 +122,7 @@ export function initSchema(db: Database.Database): void {
       instrumentation  TEXT,
       has_vocals       INTEGER,
       active           INTEGER NOT NULL DEFAULT 1,
+      discovered       TEXT,
       tagged_at        TEXT,
       PRIMARY KEY (game_id, name),
       FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE

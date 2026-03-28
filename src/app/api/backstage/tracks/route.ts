@@ -1,4 +1,4 @@
-import { Tracks } from "@/lib/db/repo";
+import { Tracks, VideoTracks } from "@/lib/db/repo";
 import { NextResponse } from "next/server";
 
 /** GET /api/backstage/tracks — search tracks with optional filters */
@@ -39,6 +39,11 @@ interface TrackPatch {
     instrumentation?: string | null;
     hasVocals?: boolean | null;
   };
+  videoUpdates?: {
+    videoId: string;
+    durationSeconds?: number | null;
+    viewCount?: number | null;
+  };
 }
 
 /** PATCH /api/backstage/tracks — update one or many tracks */
@@ -57,6 +62,10 @@ export async function PATCH(req: Request) {
         instrumentation: patch.updates.instrumentation,
         hasVocals: patch.updates.hasVocals,
       });
+
+      if (patch.videoUpdates?.videoId) {
+        VideoTracks.upsertSingle(patch.gameId, patch.name, patch.videoUpdates);
+      }
     }
 
     return NextResponse.json({ ok: true });

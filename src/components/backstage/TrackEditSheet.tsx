@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -16,8 +17,15 @@ import { TrackRole, TrackMood, TrackInstrumentation } from "@/types";
 import type { Track } from "@/types";
 import { cn } from "@/lib/utils";
 
+export interface VideoMeta {
+  videoId: string | null;
+  durationSeconds: number | null;
+  viewCount: number | null;
+}
+
 interface TrackEditSheetProps {
   track: Track | null;
+  videoMeta?: VideoMeta | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (gameId: string, name: string, updates: PatchUpdates) => Promise<void>;
@@ -31,6 +39,9 @@ export interface PatchUpdates {
   instrumentation?: string | null;
   hasVocals?: boolean | null;
   active?: boolean;
+  videoId?: string;
+  durationSeconds?: number | null;
+  viewCount?: number | null;
 }
 
 const ROLES = Object.values(TrackRole);
@@ -62,13 +73,26 @@ function ToggleChip({
   );
 }
 
-export function TrackEditSheet({ track, open, onOpenChange, onSave }: TrackEditSheetProps) {
+export function TrackEditSheet({
+  track,
+  videoMeta,
+  open,
+  onOpenChange,
+  onSave,
+}: TrackEditSheetProps) {
   const [energy, setEnergy] = useState<number | null>(track?.energy ?? null);
   const [roles, setRoles] = useState<string[]>(track?.roles ?? []);
   const [moods, setMoods] = useState<string[]>(track?.moods ?? []);
   const [instrumentation, setInstrumentation] = useState<string[]>(track?.instrumentation ?? []);
   const [hasVocals, setHasVocals] = useState<boolean | null>(track?.hasVocals ?? null);
   const [active, setActive] = useState<boolean>(track?.active ?? true);
+  const [videoId, setVideoId] = useState<string>(videoMeta?.videoId ?? "");
+  const [durationSeconds, setDurationSeconds] = useState<string>(
+    videoMeta?.durationSeconds != null ? String(videoMeta.durationSeconds) : "",
+  );
+  const [viewCount, setViewCount] = useState<string>(
+    videoMeta?.viewCount != null ? String(videoMeta.viewCount) : "",
+  );
   const [saving, setSaving] = useState(false);
 
   function toggleSet<T extends string>(arr: T[], val: T): T[] {
@@ -79,14 +103,20 @@ export function TrackEditSheet({ track, open, onOpenChange, onSave }: TrackEditS
     if (!track) return;
     setSaving(true);
     try {
-      await onSave(track.gameId, track.name, {
+      const updates: PatchUpdates = {
         energy,
         role: JSON.stringify(roles),
         moods: JSON.stringify(moods),
         instrumentation: JSON.stringify(instrumentation),
         hasVocals,
         active,
-      });
+      };
+      if (videoId.trim()) {
+        updates.videoId = videoId.trim();
+        updates.durationSeconds = durationSeconds ? Number(durationSeconds) : null;
+        updates.viewCount = viewCount ? Number(viewCount) : null;
+      }
+      await onSave(track.gameId, track.name, updates);
       onOpenChange(false);
     } finally {
       setSaving(false);
@@ -251,6 +281,48 @@ export function TrackEditSheet({ track, open, onOpenChange, onSave }: TrackEditS
                     {v === null ? "unknown" : v ? "yes" : "no"}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* Video metadata */}
+            <div className="space-y-1.5">
+              <p className="text-[11px] tracking-wider text-zinc-500 uppercase">Video</p>
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <label className="text-[10px] text-zinc-500">Video ID</label>
+                  <Input
+                    value={videoId}
+                    onChange={(e) => setVideoId(e.target.value)}
+                    placeholder="e.g. dQw4w9WgXcQ"
+                    className="h-7 border-zinc-700 bg-zinc-800 font-mono text-xs text-zinc-200 placeholder:text-zinc-600"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex-1 space-y-1">
+                    <label className="text-[10px] text-zinc-500">Duration (sec)</label>
+                    <Input
+                      value={durationSeconds}
+                      onChange={(e) => setDurationSeconds(e.target.value.replace(/\D/g, ""))}
+                      placeholder="180"
+                      className="h-7 border-zinc-700 bg-zinc-800 font-mono text-xs text-zinc-200 placeholder:text-zinc-600"
+                    />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <label className="text-[10px] text-zinc-500">View count</label>
+                    <Input
+                      value={viewCount}
+                      onChange={(e) => setViewCount(e.target.value.replace(/\D/g, ""))}
+                      placeholder="1000"
+                      className="h-7 border-zinc-700 bg-zinc-800 font-mono text-xs text-zinc-200 placeholder:text-zinc-600"
+                    />
+                  </div>
+                </div>
+                {durationSeconds && (
+                  <p className="font-mono text-[10px] text-zinc-600">
+                    {Math.floor(Number(durationSeconds) / 60)}:
+                    {String(Number(durationSeconds) % 60).padStart(2, "0")}
+                  </p>
+                )}
               </div>
             </div>
 

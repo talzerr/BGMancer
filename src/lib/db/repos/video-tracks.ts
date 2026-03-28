@@ -60,6 +60,29 @@ export const VideoTracks = {
     })();
   },
 
+  /** Upserts a single video track entry — used by TrackEditSheet for manual video metadata editing. */
+  upsertSingle(
+    gameId: string,
+    trackName: string,
+    fields: { videoId: string; durationSeconds?: number | null; viewCount?: number | null },
+  ): void {
+    stmt(
+      `INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds, view_count)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(video_id, game_id) DO UPDATE SET
+         track_name = excluded.track_name,
+         duration_seconds = COALESCE(excluded.duration_seconds, video_tracks.duration_seconds),
+         view_count = COALESCE(excluded.view_count, video_tracks.view_count),
+         aligned_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
+    ).run(
+      fields.videoId,
+      gameId,
+      trackName,
+      fields.durationSeconds ?? null,
+      fields.viewCount ?? null,
+    );
+  },
+
   /** Caches duration (write-once: preserved if already set) and view count (always refreshed) from YouTube. */
   storeDurations(
     entries: {

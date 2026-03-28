@@ -6,6 +6,18 @@ import type { Track } from "@/types";
 export interface BackstageTrackRow extends Track {
   gameTitle: string;
   videoId: string | null;
+  durationSeconds: number | null;
+  viewCount: number | null;
+}
+
+function toBackstageTrackRow(r: Record<string, unknown>): BackstageTrackRow {
+  return {
+    ...toTrack(r),
+    gameTitle: String(r.game_title),
+    videoId: r.video_id != null ? String(r.video_id) : null,
+    durationSeconds: r.duration_seconds != null ? Number(r.duration_seconds) : null,
+    viewCount: r.view_count != null ? Number(r.view_count) : null,
+  };
 }
 
 export const Tracks = {
@@ -61,10 +73,12 @@ export const Tracks = {
       hasVocals: boolean;
     },
   ): void {
+    // Auto-activate approved discovered tracks when they get tagged
     stmt(
       `UPDATE tracks
        SET energy = ?, role = ?, moods = ?, instrumentation = ?,
-           has_vocals = ?, tagged_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+           has_vocals = ?, tagged_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
+           active = CASE WHEN discovered = 'approved' THEN 1 ELSE active END
        WHERE game_id = ? AND name = ?`,
     ).run(
       tags.energy,
@@ -78,14 +92,36 @@ export const Tracks = {
   },
 
   /**
-   * Inserts a discovered track (active = 0, position = max+1).
+   * Inserts a discovered track (active = 0, discovered = 'pending', position = max+1).
    * Uses INSERT OR IGNORE — safe to call multiple times for the same track.
    */
   insertDiscovered(gameId: string, name: string): void {
     stmt(
-      `INSERT OR IGNORE INTO tracks (game_id, name, position, active)
-       VALUES (?, ?, (SELECT COALESCE(MAX(position), 0) + 1 FROM tracks WHERE game_id = ?), 0)`,
+      `INSERT OR IGNORE INTO tracks (game_id, name, position, active, discovered)
+       VALUES (?, ?, (SELECT COALESCE(MAX(position), 0) + 1 FROM tracks WHERE game_id = ?), 0, 'pending')`,
     ).run(gameId, name, gameId);
+  },
+
+  /** Approve discovered tracks — marks them as accepted for future tagging. */
+  approveDiscovered(gameId: string, names: string[]): void {
+    if (names.length === 0) return;
+    const update = stmt(
+      "UPDATE tracks SET discovered = 'approved' WHERE game_id = ? AND name = ? AND discovered = 'pending'",
+    );
+    getDB().transaction(() => {
+      for (const name of names) update.run(gameId, name);
+    })();
+  },
+
+  /** Reject discovered tracks — blocks re-discovery, keeps inactive. */
+  rejectDiscovered(gameId: string, names: string[]): void {
+    if (names.length === 0) return;
+    const update = stmt(
+      "UPDATE tracks SET discovered = 'rejected', active = 0 WHERE game_id = ? AND name = ?",
+    );
+    getDB().transaction(() => {
+      for (const name of names) update.run(gameId, name);
+    })();
   },
 
   clearTags(gameId: string): void {
@@ -161,13 +197,17 @@ export const Tracks = {
     );
   },
 
-  /** Delete tracks by composite PK in a single transaction. */
+  /** Delete tracks by composite PK in a single transaction. Cascades to video_tracks. */
   deleteByKeys(keys: { gameId: string; name: string }[]): void {
     if (keys.length === 0) return;
     const db = getDB();
-    const del = db.prepare("DELETE FROM tracks WHERE game_id = ? AND name = ?");
+    const delVideo = db.prepare("DELETE FROM video_tracks WHERE game_id = ? AND track_name = ?");
+    const delTrack = db.prepare("DELETE FROM tracks WHERE game_id = ? AND name = ?");
     db.transaction(() => {
-      for (const k of keys) del.run(k.gameId, k.name);
+      for (const k of keys) {
+        delVideo.run(k.gameId, k.name);
+        delTrack.run(k.gameId, k.name);
+      }
     })();
   },
 
@@ -183,19 +223,15 @@ export const Tracks = {
   listAllWithVideoIds(): BackstageTrackRow[] {
     const rows = stmt(`
       SELECT t.*, g.title AS game_title,
-        (SELECT vt.video_id FROM video_tracks vt
-         WHERE vt.game_id = t.game_id AND vt.track_name = t.name
-         LIMIT 1) AS video_id
+        (SELECT vt.video_id FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS video_id,
+        (SELECT vt.duration_seconds FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS duration_seconds,
+        (SELECT vt.view_count FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS view_count
       FROM tracks t
       JOIN games g ON g.id = t.game_id
       ORDER BY g.title ASC, t.position ASC
     `).all() as Record<string, unknown>[];
 
-    return rows.map((r) => ({
-      ...toTrack(r),
-      gameTitle: String(r.game_title),
-      videoId: r.video_id != null ? String(r.video_id) : null,
-    }));
+    return rows.map(toBackstageTrackRow);
   },
 
   searchWithVideoIds(filters: {
@@ -236,9 +272,9 @@ export const Tracks = {
     const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
     const sql = `
       SELECT t.*, g.title AS game_title,
-        (SELECT vt.video_id FROM video_tracks vt
-         WHERE vt.game_id = t.game_id AND vt.track_name = t.name
-         LIMIT 1) AS video_id
+        (SELECT vt.video_id FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS video_id,
+        (SELECT vt.duration_seconds FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS duration_seconds,
+        (SELECT vt.view_count FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS view_count
       FROM tracks t
       JOIN games g ON g.id = t.game_id
       ${where}
@@ -248,10 +284,6 @@ export const Tracks = {
     const rows = getDB()
       .prepare(sql)
       .all(...params) as Record<string, unknown>[];
-    return rows.map((r) => ({
-      ...toTrack(r),
-      gameTitle: String(r.game_title),
-      videoId: r.video_id != null ? String(r.video_id) : null,
-    }));
+    return rows.map(toBackstageTrackRow);
   },
 };

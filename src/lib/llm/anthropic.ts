@@ -14,13 +14,16 @@ export class AnthropicProvider implements LLMProvider {
   }
 
   async complete(system: string, user: string, opts: CompletionOptions = {}): Promise<string> {
-    const message = await this.client.messages.create({
-      model: this.model,
-      max_tokens: opts.maxTokens ?? DEFAULT_MAX_TOKENS,
-      system,
-      messages: [{ role: "user", content: user }],
-      temperature: opts.temperature ?? 0.7,
-    });
+    const message = await this.client.messages.create(
+      {
+        model: this.model,
+        max_tokens: opts.maxTokens ?? DEFAULT_MAX_TOKENS,
+        system,
+        messages: [{ role: "user", content: user }],
+        temperature: opts.temperature ?? 0.7,
+      },
+      opts.signal ? { signal: opts.signal } : undefined,
+    );
 
     const block = message.content[0];
     if (!block || block.type !== "text" || !block.text.trim()) {

@@ -1,15 +1,14 @@
 import { Games, Tracks } from "@/lib/db/repo";
-import { tagTracks } from "@/lib/pipeline/tagger";
-import { getTaggingProvider } from "@/lib/llm";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
+import { resolveVideos } from "@/lib/pipeline/onboarding";
 import { OnboardingPhase } from "@/types";
 
-type RetagEvent =
-  | { type: "progress"; current: number; total: number; trackName: string }
-  | { type: "done"; tagged: number; needsReview: number }
+type ResolveEvent =
+  | { type: "progress"; message: string }
+  | { type: "done"; resolved: number; total: number }
   | { type: "error"; message: string };
 
-/** POST /api/backstage/retag — clear tags and re-run LLM tagger for a game */
+/** POST /api/backstage/resolve — discover YouTube playlist and map tracks to video IDs */
 export async function POST(req: Request) {
   const { gameId } = (await req.json()) as { gameId: string };
 
@@ -28,35 +27,39 @@ export async function POST(req: Request) {
     );
   }
 
+  if (!Tracks.hasData(gameId)) {
+    return new Response(
+      `data: ${JSON.stringify({ type: "error", message: "No tracks loaded — run Load Tracks first" })}\n\n`,
+      { headers: SSE_HEADERS },
+    );
+  }
+
+  if (!Tracks.isTagged(gameId)) {
+    return new Response(
+      `data: ${JSON.stringify({ type: "error", message: "Tracks not tagged — run Tag first" })}\n\n`,
+      { headers: SSE_HEADERS },
+    );
+  }
+
   const abort = new AbortController();
-  const { stream, send, close } = makeSSEStream<RetagEvent>();
+  const { stream, send, close } = makeSSEStream<ResolveEvent>();
 
   req.signal.addEventListener("abort", () => abort.abort());
 
   (async () => {
     try {
-      Tracks.clearTags(gameId);
-
-      const tracks = Tracks.getByGame(gameId);
-      const total = tracks.length;
-
-      send({ type: "progress", current: 0, total, trackName: "Starting…" });
-
-      const provider = getTaggingProvider();
-      await tagTracks(gameId, game.title, tracks, provider, abort.signal);
-
-      Games.setPhase(gameId, OnboardingPhase.Tagged);
-
-      const tagged = Tracks.getByGame(gameId).filter((t) => t.taggedAt !== null).length;
-      const updatedGame = Games.getById(gameId);
-      const needsReview = updatedGame?.needs_review ? 1 : 0;
-
-      send({ type: "done", tagged, needsReview });
+      const result = await resolveVideos(
+        game,
+        (message) => send({ type: "progress", message }),
+        abort.signal,
+      );
+      send({ type: "done", resolved: result.resolved, total: result.total });
     } catch (err) {
       if (abort.signal.aborted) {
         send({ type: "error", message: "Cancelled" });
       } else {
-        console.error("[POST /api/backstage/retag]", err);
+        Games.setPhase(gameId, OnboardingPhase.Failed);
+        console.error("[POST /api/backstage/resolve]", err);
         send({ type: "error", message: err instanceof Error ? err.message : String(err) });
       }
     } finally {

@@ -8,9 +8,14 @@ function authHeaders(): Record<string, string> {
   };
 }
 
-async function discogsGet(url: string): Promise<{ data: unknown; remaining: number }> {
+async function discogsGet(url: string): Promise<{ data: unknown; remaining: number } | null> {
   const res = await fetch(url, { headers: authHeaders() });
-  if (!res.ok) throw new Error(`Discogs request failed: ${res.status} ${url}`);
+  if (!res.ok) {
+    // 404 = genuinely not found — return null so callers can try alternatives
+    if (res.status === 404) return null;
+    // Everything else is an operational error — surface it
+    throw new Error(`Discogs API error: ${res.status} ${url}`);
+  }
   const remaining = Number(res.headers.get("X-Discogs-Ratelimit-Remaining") ?? "99");
   const data = await res.json();
   return { data, remaining };
@@ -92,75 +97,109 @@ function parseTracks(
 
 // ─── Master search (preferred) ───────────────────────────────────────────────
 
-async function tryMasterSearch(gameTitle: string): Promise<{
-  tracks: Array<{ name: string; position: number; durationSeconds: number | null }>;
-  releaseTitle: string;
-  releaseId: number;
-} | null> {
+async function tryMasterSearch(gameTitle: string): Promise<DiscogsTracklistResult | null> {
   const searchUrl =
     `https://api.discogs.com/database/search?` +
     `q=${encodeURIComponent(gameTitle)}&genre=Stage+%26+Screen&style=Video+Game+Music` +
     `&type=master&per_page=5`;
 
-  const { data: searchData, remaining: r1 } = await discogsGet(searchUrl);
-  await throttle(r1);
+  const searchResult = await discogsGet(searchUrl);
+  if (!searchResult) return null;
+  await throttle(searchResult.remaining);
 
-  const results = (searchData as DiscogsSearchResponse).results ?? [];
+  const results = (searchResult.data as DiscogsSearchResponse).results ?? [];
   const best = pickByPopularity(results);
   if (!best) return null;
 
-  const { data: masterData, remaining: r2 } = await discogsGet(
-    `https://api.discogs.com/masters/${best.id}`,
-  );
-  await throttle(r2);
+  const masterResult = await discogsGet(`https://api.discogs.com/masters/${best.id}`);
+  if (!masterResult) return null;
+  await throttle(masterResult.remaining);
 
-  const master = masterData as DiscogsMaster;
+  const master = masterResult.data as DiscogsMaster;
   const tracklist = master.tracklist ?? [];
   const tracks = parseTracks(tracklist);
   if (tracks.length === 0) return null;
 
-  // Use master ID as the canonical identifier (prefixed so it's distinguishable from release IDs)
-  return { tracks, releaseTitle: master.title ?? gameTitle, releaseId: best.id };
+  return {
+    tracks,
+    releaseTitle: master.title ?? gameTitle,
+    releaseId: best.id,
+    sourceType: "discogs-master",
+  };
 }
 
 // ─── Release search (fallback) ───────────────────────────────────────────────
 
-async function tryReleaseSearch(gameTitle: string): Promise<{
-  tracks: Array<{ name: string; position: number; durationSeconds: number | null }>;
-  releaseTitle: string;
-  releaseId: number;
-} | null> {
+async function tryReleaseSearch(gameTitle: string): Promise<DiscogsTracklistResult | null> {
   const searchUrl =
     `https://api.discogs.com/database/search?` +
     `q=${encodeURIComponent(gameTitle)}&genre=Stage+%26+Screen&style=Video+Game+Music` +
     `&type=release&per_page=5`;
 
-  const { data: searchData, remaining: r1 } = await discogsGet(searchUrl);
-  await throttle(r1);
+  const searchResult = await discogsGet(searchUrl);
+  if (!searchResult) return null;
+  await throttle(searchResult.remaining);
 
-  const results = (searchData as DiscogsSearchResponse).results ?? [];
+  const results = (searchResult.data as DiscogsSearchResponse).results ?? [];
   const best = pickBestRelease(results);
   if (!best) return null;
 
-  const { data: releaseData, remaining: r2 } = await discogsGet(
-    `https://api.discogs.com/releases/${best.id}`,
-  );
-  await throttle(r2);
+  const releaseResult = await discogsGet(`https://api.discogs.com/releases/${best.id}`);
+  if (!releaseResult) return null;
+  await throttle(releaseResult.remaining);
 
-  const release = releaseData as DiscogsRelease;
+  const release = releaseResult.data as DiscogsRelease;
   const tracks = parseTracks(release.tracklist ?? []);
   if (tracks.length === 0) return null;
 
-  return { tracks, releaseTitle: release.title ?? gameTitle, releaseId: best.id };
+  return {
+    tracks,
+    releaseTitle: release.title ?? gameTitle,
+    releaseId: best.id,
+    sourceType: "discogs-release",
+  };
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-export async function searchGameSoundtrack(gameTitle: string): Promise<{
+export type DiscogsTracklistResult = {
   tracks: Array<{ name: string; position: number; durationSeconds: number | null }>;
   releaseTitle: string;
   releaseId: number;
-} | null> {
+  sourceType: "discogs-master" | "discogs-release";
+};
+
+export async function fetchDiscogsRelease(id: number): Promise<DiscogsTracklistResult | null> {
+  const result = await discogsGet(`https://api.discogs.com/releases/${id}`);
+  if (!result) return null;
+  const release = result.data as DiscogsRelease;
+  const tracks = parseTracks(release.tracklist ?? []);
+  if (tracks.length === 0) return null;
+  return {
+    tracks,
+    releaseTitle: release.title ?? String(id),
+    releaseId: id,
+    sourceType: "discogs-release",
+  };
+}
+
+export async function fetchDiscogsMaster(id: number): Promise<DiscogsTracklistResult | null> {
+  const result = await discogsGet(`https://api.discogs.com/masters/${id}`);
+  if (!result) return null;
+  const master = result.data as DiscogsMaster;
+  const tracks = parseTracks(master.tracklist ?? []);
+  if (tracks.length === 0) return null;
+  return {
+    tracks,
+    releaseTitle: master.title ?? String(id),
+    releaseId: id,
+    sourceType: "discogs-master",
+  };
+}
+
+export async function searchGameSoundtrack(
+  gameTitle: string,
+): Promise<DiscogsTracklistResult | null> {
   const result = (await tryMasterSearch(gameTitle)) ?? (await tryReleaseSearch(gameTitle));
   if (result) return result;
 

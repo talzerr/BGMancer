@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { CurationMode, TaggingStatus } from "@/types";
+import { CurationMode } from "@/types";
 import type { Game } from "@/types";
-import { TrashIcon, InfoIcon, ErrorCircle } from "@/components/Icons";
+import { TrashIcon, InfoIcon } from "@/components/Icons";
 import { steamHeaderUrl } from "@/lib/constants";
 
 const CURATION_OPTIONS: {
@@ -63,24 +63,17 @@ export function CurationLegend() {
   );
 }
 
-export function formatPlaytime(minutes: number | null): string | null {
-  if (minutes == null) return null;
-  if (minutes === 0) return "Never played";
-  if (minutes < 60) return "< 1 hr";
-  return `${Math.round(minutes / 60)} hrs`;
-}
-
 function SteamCoverArt({ appid, title }: { appid: number; title: string }) {
   const [failed, setFailed] = useState(false);
-  if (failed) return <div className="h-[22px] w-[46px] shrink-0 rounded bg-zinc-800" />;
+  if (failed) return <div className="h-[26px] w-[56px] shrink-0 rounded bg-zinc-800" />;
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={steamHeaderUrl(appid)}
       alt={title}
-      width={46}
-      height={22}
-      className="h-[22px] w-[46px] shrink-0 rounded bg-zinc-800 object-cover"
+      width={56}
+      height={26}
+      className="h-[26px] w-[56px] shrink-0 rounded bg-zinc-800 object-cover"
       onError={() => setFailed(true)}
     />
   );
@@ -97,17 +90,12 @@ export function GameRow({
 }) {
   const [toggling, setToggling] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const playtime = formatPlaytime(game.playtime_minutes);
-
   async function handleCurationChange(mode: CurationMode) {
     if (mode === game.curation) return;
     setToggling(true);
     await onCurationChange(game.id, mode);
     setToggling(false);
   }
-
-  const isLimited =
-    game.tagging_status === TaggingStatus.Limited || game.tagging_status === TaggingStatus.Failed;
 
   const rowClass = {
     skip: "border-white/[0.03] bg-zinc-950/60 opacity-50",
@@ -117,34 +105,19 @@ export function GameRow({
   }[game.curation];
 
   return (
-    <div
-      className={`group rounded-xl border px-3.5 pt-2.5 pb-2 transition-colors ${rowClass} ${isLimited ? "border-l-2 border-l-yellow-500/50" : ""}`}
-    >
+    <div className={`group rounded-xl border px-3.5 pt-2.5 pb-2 transition-colors ${rowClass}`}>
       {/* Main row */}
       <div className="flex items-center gap-3">
         {game.steam_appid ? (
           <SteamCoverArt appid={game.steam_appid} title={game.title} />
         ) : (
-          <div className="flex h-[22px] w-[46px] shrink-0 items-center justify-center rounded bg-zinc-800/60">
+          <div className="flex h-[26px] w-[56px] shrink-0 items-center justify-center rounded bg-zinc-800/60">
             <span className="text-[8px] font-bold text-zinc-600">BGM</span>
           </div>
         )}
 
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm leading-tight font-medium text-zinc-100">{game.title}</p>
-          {playtime && <p className="mt-0.5 text-[11px] leading-none text-zinc-500">{playtime}</p>}
-          {game.tagging_status === TaggingStatus.Limited && (
-            <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-yellow-500/80">
-              <ErrorCircle className="h-2.5 w-2.5 shrink-0" />
-              Limited soundtrack data
-            </span>
-          )}
-          {game.tagging_status === TaggingStatus.Failed && (
-            <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-yellow-500/80">
-              <ErrorCircle className="h-2.5 w-2.5 shrink-0" />
-              Limited soundtrack data
-            </span>
-          )}
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">

@@ -16,6 +16,8 @@ interface SSEProgressProps {
   progressLabel?: (event: SSEEvent) => string;
   /** Completion label */
   doneLabel?: (event: SSEEvent) => string;
+  /** Called when the dialog wants to prevent closing (return false to block) */
+  onPreventClose?: () => void;
 }
 
 export function SSEProgress({
@@ -30,6 +32,7 @@ export function SSEProgress({
   const [message, setMessage] = useState("Starting…");
   const [progress, setProgress] = useState(5);
   const [done, setDone] = useState(false);
+  const [cancelled, setCancelled] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -87,14 +90,18 @@ export function SSEProgress({
               onDone?.(eventData);
             } else if (eventData.type === "error") {
               const msg = String(eventData.message ?? "Unknown error");
-              setMessage(`Error: ${msg}`);
+              setMessage(msg === "Cancelled" ? "Cancelled" : `Error: ${msg}`);
               onError?.(msg);
               setDone(true);
             }
           }
         }
       } catch (err) {
-        if ((err as Error).name === "AbortError") return;
+        if ((err as Error).name === "AbortError") {
+          setMessage("Cancelled");
+          setDone(true);
+          return;
+        }
         const msg = err instanceof Error ? err.message : String(err);
         setMessage(`Error: ${msg}`);
         onError?.(msg);
@@ -105,6 +112,11 @@ export function SSEProgress({
     return () => abort.abort();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  function handleCancel() {
+    setCancelled(true);
+    abortRef.current?.abort();
+  }
+
   return (
     <div className="space-y-3">
       <Progress value={progress} className="h-1.5 bg-zinc-800" />
@@ -114,10 +126,11 @@ export function SSEProgress({
           <Button
             size="sm"
             variant="ghost"
-            className="h-6 px-2 text-xs text-zinc-500 hover:text-zinc-300"
-            onClick={() => abortRef.current?.abort()}
+            className="h-6 px-2 text-xs text-rose-400 hover:text-rose-300"
+            onClick={handleCancel}
+            disabled={cancelled}
           >
-            Cancel
+            {cancelled ? "Cancelling…" : "Cancel"}
           </Button>
         ) : (
           <Button
@@ -132,4 +145,14 @@ export function SSEProgress({
       </div>
     </div>
   );
+}
+
+/** Whether an SSEProgress operation is currently running — use to prevent dialog close. */
+export function useSSEDialogLock() {
+  const [locked, setLocked] = useState(false);
+  return {
+    locked,
+    lock: () => setLocked(true),
+    unlock: () => setLocked(false),
+  };
 }

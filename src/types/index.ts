@@ -37,12 +37,18 @@ export enum CurationMode {
   Focus = "focus",
 }
 
-export enum TaggingStatus {
-  Pending = "pending",
-  Indexing = "indexing",
-  Ready = "ready",
-  Limited = "limited",
+export enum OnboardingPhase {
+  Draft = "draft",
+  TracksLoaded = "tracks_loaded",
+  Tagged = "tagged",
+  Resolved = "resolved",
   Failed = "failed",
+}
+
+export enum DiscoveredStatus {
+  Pending = "pending",
+  Approved = "approved",
+  Rejected = "rejected",
 }
 
 export enum ReviewReason {
@@ -50,7 +56,7 @@ export enum ReviewReason {
   LlmParseFailed = "llm_parse_failed",
   LowConfidence = "low_confidence",
   EmptyMetadata = "empty_metadata",
-  NoDiscogsData = "no_discogs_data",
+  NoTracklistSource = "no_tracklist_source",
   TrackDiscovered = "track_discovered",
   TrackCapReached = "track_cap_reached",
 }
@@ -96,10 +102,11 @@ export interface Game {
   title: string;
   curation: CurationMode;
   steam_appid: number | null;
-  playtime_minutes: number | null;
-  tagging_status: TaggingStatus;
+  onboarding_phase: OnboardingPhase;
+  published: boolean;
   tracklist_source: string | null;
   yt_playlist_id: string | null;
+  thumbnail_url: string | null;
   needs_review: boolean;
   created_at: string;
   updated_at: string;
@@ -264,6 +271,7 @@ export interface Track {
   instrumentation: TrackInstrumentation[];
   hasVocals: boolean | null;
   active: boolean;
+  discovered: DiscoveredStatus | null;
   taggedAt: string | null;
 }
 

@@ -1,4 +1,4 @@
-import { Games, Tracks, ReviewFlags } from "@/lib/db/repo";
+import { Games, Tracks, VideoTracks, ReviewFlags } from "@/lib/db/repo";
 import { notFound } from "next/navigation";
 import { idFromGameSlug } from "@/lib/utils";
 import { GameDetailClient } from "./game-detail-client";
@@ -11,6 +11,31 @@ export default async function GameDetailPage({ params }: { params: Promise<{ slu
 
   const tracks = Tracks.getByGame(game.id);
   const reviewFlags = ReviewFlags.listByGame(game.id);
+  const videoMap = Object.fromEntries(VideoTracks.getTrackToVideo(game.id));
 
-  return <GameDetailClient game={game} tracks={tracks} reviewFlags={reviewFlags} />;
+  // Build track-name → full video metadata for TrackEditSheet
+  const byVideoId = VideoTracks.getByGame(game.id);
+  const videoDetailMap: Record<
+    string,
+    { videoId: string; durationSeconds: number | null; viewCount: number | null }
+  > = {};
+  for (const [videoId, meta] of byVideoId) {
+    if (meta.trackName) {
+      videoDetailMap[meta.trackName] = {
+        videoId,
+        durationSeconds: meta.durationSeconds,
+        viewCount: meta.viewCount,
+      };
+    }
+  }
+
+  return (
+    <GameDetailClient
+      game={game}
+      tracks={tracks}
+      reviewFlags={reviewFlags}
+      videoMap={videoMap}
+      videoDetailMap={videoDetailMap}
+    />
+  );
 }

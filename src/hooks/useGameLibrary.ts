@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import type { Game } from "@/types";
-import type { GameStatusPayload } from "@/lib/events";
 
 export function useGameLibrary() {
   const [games, setGames] = useState<Game[]>([]);
@@ -36,25 +35,6 @@ export function useGameLibrary() {
     }
     return false;
   }
-
-  // Subscribe to game status updates via SSE instead of polling.
-  // The server pushes { gameId, status } whenever onboardGame() changes a game's status.
-  useEffect(() => {
-    const source = new EventSource("/api/games/status-stream");
-
-    source.onmessage = (e: MessageEvent) => {
-      const event = JSON.parse(e.data) as GameStatusPayload;
-      setGames((prev) =>
-        prev.map((g) => (g.id === event.gameId ? { ...g, tagging_status: event.status } : g)),
-      );
-    };
-
-    source.onerror = (err) => {
-      console.error("[useGameLibrary] SSE error:", err);
-    };
-
-    return () => source.close();
-  }, []);
 
   return { games, gamesLoading, fetchGames, handleGameAdded, deleteGame };
 }

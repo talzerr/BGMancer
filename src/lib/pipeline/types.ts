@@ -1,4 +1,4 @@
-import type { Game, PlaylistTrack, GameProgressStatus, TaggedTrack } from "@/types";
+import type { PlaylistTrack, GameProgressStatus } from "@/types";
 
 export type GenerateEvent =
   | {
@@ -22,9 +22,3 @@ export type PendingTrack = Omit<
   PlaylistTrack,
   "playlist_id" | "position" | "created_at" | "synced_at"
 >;
-
-export type GameTracks = { game: Game; tracks: PendingTrack[] };
-
-export type CandidateResult =
-  | { kind: "tagged"; game: Game; tracks: TaggedTrack[] }
-  | { kind: "fallback"; game: Game; pendingTracks: PendingTrack[] };

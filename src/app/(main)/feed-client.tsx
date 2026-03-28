@@ -18,7 +18,6 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { usePlayerContext } from "@/context/player-context";
-import { TaggingStatus } from "@/types";
 import { useSessionManager } from "@/hooks/useSessionManager";
 import { useTrackDeleteUndo } from "@/hooks/useTrackDeleteUndo";
 import { GenerateSection } from "@/components/GenerateSection";
@@ -36,13 +35,6 @@ interface FeedClientProps {
 
 export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
   const { playlist, player, config, gameLibrary, gameThumbnailByGameId } = usePlayerContext();
-  const indexingCount = gameLibrary.games.filter(
-    (g) =>
-      g.tagging_status === TaggingStatus.Indexing || g.tagging_status === TaggingStatus.Pending,
-  ).length;
-  const failedCount = gameLibrary.games.filter(
-    (g) => g.tagging_status === TaggingStatus.Limited,
-  ).length;
   const { sessions, fetchSessions, handleRenameSession, handleDeleteSession } = useSessionManager();
   const { pendingDelete, initiateRemove, undoRemove } = useTrackDeleteUndo();
 
@@ -113,8 +105,6 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
             onTargetChange={config.setTargetTrackCount}
             onTargetSave={config.saveTrackCount}
             gamesCount={gameLibrary.games.length}
-            indexingCount={indexingCount}
-            failedCount={failedCount}
             onGenerate={handleGenerate}
             allowLongTracks={config.allowLongTracks}
             onToggleLongTracks={config.saveAllowLongTracks}

@@ -1,6 +1,7 @@
 export interface CompletionOptions {
   temperature?: number;
   maxTokens?: number;
+  signal?: AbortSignal;
 }
 
 export interface LLMProvider {

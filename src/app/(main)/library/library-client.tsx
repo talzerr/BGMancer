@@ -2,15 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CurationMode, TaggingStatus } from "@/types";
+import { CurationMode } from "@/types";
 import type { Game } from "@/types";
-import { Spinner, SearchIcon, CheckIcon } from "@/components/Icons";
-import { AddGameForm } from "@/components/AddGameForm";
+import { Spinner, SearchIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon } from "@/components/Icons";
 import { GameRow, CurationLegend } from "@/components/GameRow";
-import { SteamImportPanel } from "@/components/SteamImportPanel";
+import { CatalogBrowser } from "@/components/CatalogBrowser";
 import { usePlayerContext } from "@/context/player-context";
 type Filter = "all" | "skip" | "lite" | "include" | "focus";
-type SortKey = "playtime" | "name" | "added";
+type SortKey = "name" | "added";
 
 const PAGE_SIZE_OPTIONS = [15, 25, 50, 100] as const;
 type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
@@ -20,11 +19,12 @@ export function LibraryClient() {
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
-  const [sort, setSort] = useState<SortKey>("playtime");
+  const [sort, setSort] = useState<SortKey>("name");
   const [search, setSearch] = useState("");
   const [enablingAll, setEnablingAll] = useState(false);
   const [pageSize, setPageSize] = useState<PageSize>(25);
   const [page, setPage] = useState(0);
+  const [catalogOpen, setCatalogOpen] = useState(false);
 
   const fetchGames = useCallback(async () => {
     try {
@@ -41,18 +41,10 @@ export function LibraryClient() {
     fetchGames();
   }, [fetchGames]);
 
-  const hasIndexing = games.some(
-    (g) =>
-      g.tagging_status === TaggingStatus.Indexing || g.tagging_status === TaggingStatus.Pending,
-  );
-
+  // Auto-expand catalog when library is empty
   useEffect(() => {
-    if (!hasIndexing) return;
-    const id = setInterval(() => {
-      fetchGames();
-    }, 3000);
-    return () => clearInterval(id);
-  }, [hasIndexing, fetchGames]);
+    if (!loading && games.length === 0) setCatalogOpen(true);
+  }, [loading, games.length]);
 
   async function handleCurationChange(id: string, newCuration: CurationMode) {
     const prevCuration = games.find((g) => g.id === id)?.curation;
@@ -107,8 +99,6 @@ export function LibraryClient() {
 
     if (sort === "name") {
       list.sort((a, b) => a.title.localeCompare(b.title));
-    } else if (sort === "playtime") {
-      list.sort((a, b) => (b.playtime_minutes ?? -1) - (a.playtime_minutes ?? -1));
     }
     // "added" keeps the default server order (created_at ASC)
 
@@ -165,193 +155,194 @@ export function LibraryClient() {
           </div>
         </div>
 
-        {/* Two-column layout */}
-        <div className="flex flex-col items-start gap-6 lg:grid lg:grid-cols-[300px_1fr]">
-          {/* Sidebar */}
-          <aside className="flex flex-col gap-4 lg:sticky lg:top-8">
-            <section className="relative z-10 rounded-2xl border border-white/[0.07] bg-zinc-900/70 p-5 shadow-lg shadow-black/40 backdrop-blur-sm">
-              <h2 className="mb-4 text-[11px] font-bold tracking-widest text-zinc-500 uppercase">
-                Add a Game
-              </h2>
-              <AddGameForm
+        {/* Collapsible catalog section */}
+        <section className="mb-6 rounded-2xl border border-white/[0.07] bg-zinc-900/70 shadow-lg shadow-black/40 backdrop-blur-sm">
+          <button
+            onClick={() => setCatalogOpen((v) => !v)}
+            className="flex w-full cursor-pointer items-center justify-between px-5 py-4"
+          >
+            <h2 className="text-[11px] font-bold tracking-widest text-zinc-500 uppercase">
+              Browse Catalog
+            </h2>
+            {catalogOpen ? (
+              <ChevronUpIcon className="h-4 w-4 text-zinc-500" />
+            ) : (
+              <ChevronDownIcon className="h-4 w-4 text-zinc-500" />
+            )}
+          </button>
+          {catalogOpen && (
+            <div className="px-5 pb-5">
+              <CatalogBrowser
+                libraryGameIds={new Set(games.map((g) => g.id))}
                 onGameAdded={() => {
                   fetchGames();
                   gameLibrary.fetchGames();
                 }}
               />
-            </section>
-            <SteamImportPanel
-              onImported={() => {
-                fetchGames();
-                gameLibrary.fetchGames();
-              }}
-            />
-          </aside>
+            </div>
+          )}
+        </section>
 
-          {/* Main: game list */}
-          <div className="flex min-w-0 flex-col gap-4">
-            {/* Filter + sort + search */}
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-wrap items-center gap-2">
+        {/* Library list */}
+        <div className="flex min-w-0 flex-col gap-4">
+          {/* Filter + sort + search */}
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {(
+                [
+                  { key: "all" as Filter, label: `All (${games.length})` },
+                  { key: "focus" as Filter, label: `Focus (${focusCount})` },
+                  { key: "include" as Filter, label: `Include (${includeCount})` },
+                  { key: "lite" as Filter, label: `Lite (${liteCount})` },
+                  { key: "skip" as Filter, label: `Skip (${skipCount})` },
+                ] as const
+              ).map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setFilter(key)}
+                  className={`cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    filter === key
+                      ? "bg-zinc-700 text-white"
+                      : "border border-white/[0.07] bg-zinc-900/60 text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+
+              <CurationLegend />
+
+              {displayed.some((g) => g.curation === CurationMode.Skip) && (
+                <button
+                  onClick={handleIncludeAllShown}
+                  disabled={enablingAll}
+                  className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-teal-500/30 bg-teal-600/20 px-3 py-1.5 text-xs font-semibold text-teal-300 transition-colors hover:bg-teal-600/30 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {enablingAll ? (
+                    <Spinner className="h-3 w-3" />
+                  ) : (
+                    <CheckIcon className="h-3 w-3" />
+                  )}
+                  Include all shown (
+                  {displayed.filter((g) => g.curation === CurationMode.Skip).length})
+                </button>
+              )}
+
+              <div className="ml-auto flex items-center gap-2">
+                <span className="text-xs text-zinc-500">Sort:</span>
                 {(
                   [
-                    { key: "all" as Filter, label: `All (${games.length})` },
-                    { key: "focus" as Filter, label: `Focus (${focusCount})` },
-                    { key: "include" as Filter, label: `Include (${includeCount})` },
-                    { key: "lite" as Filter, label: `Lite (${liteCount})` },
-                    { key: "skip" as Filter, label: `Skip (${skipCount})` },
+                    { key: "added" as SortKey, label: "Added" },
+                    { key: "name" as SortKey, label: "Name" },
                   ] as const
                 ).map(({ key, label }) => (
                   <button
                     key={key}
-                    onClick={() => setFilter(key)}
-                    className={`cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                      filter === key
-                        ? "bg-zinc-700 text-white"
-                        : "border border-white/[0.07] bg-zinc-900/60 text-zinc-400 hover:text-white"
+                    onClick={() => setSort(key)}
+                    className={`cursor-pointer rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                      sort === key ? "bg-zinc-700 text-white" : "text-zinc-500 hover:text-zinc-300"
                     }`}
                   >
                     {label}
                   </button>
                 ))}
-
-                <CurationLegend />
-
-                {displayed.some((g) => g.curation === CurationMode.Skip) && (
-                  <button
-                    onClick={handleIncludeAllShown}
-                    disabled={enablingAll}
-                    className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-teal-500/30 bg-teal-600/20 px-3 py-1.5 text-xs font-semibold text-teal-300 transition-colors hover:bg-teal-600/30 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {enablingAll ? (
-                      <Spinner className="h-3 w-3" />
-                    ) : (
-                      <CheckIcon className="h-3 w-3" />
-                    )}
-                    Include all shown (
-                    {displayed.filter((g) => g.curation === CurationMode.Skip).length})
-                  </button>
-                )}
-
-                <div className="ml-auto flex items-center gap-2">
-                  <span className="text-xs text-zinc-500">Sort:</span>
-                  {(
-                    [
-                      { key: "added" as SortKey, label: "Added" },
-                      { key: "playtime" as SortKey, label: "Playtime" },
-                      { key: "name" as SortKey, label: "Name" },
-                    ] as const
-                  ).map(({ key, label }) => (
-                    <button
-                      key={key}
-                      onClick={() => setSort(key)}
-                      className={`cursor-pointer rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                        sort === key
-                          ? "bg-zinc-700 text-white"
-                          : "text-zinc-500 hover:text-zinc-300"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="relative">
-                <SearchIcon className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search games…"
-                  className="w-full rounded-lg border border-white/[0.07] bg-zinc-800/60 py-2.5 pr-4 pl-9 text-sm text-white placeholder-zinc-500 focus:ring-2 focus:ring-teal-500/40 focus:outline-none"
-                />
               </div>
             </div>
 
-            {/* Game list */}
-            {loading ? (
-              <div className="space-y-2">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="h-[52px] animate-pulse rounded-xl bg-zinc-900/40" />
-                ))}
-              </div>
-            ) : displayed.length === 0 ? (
-              <div className="rounded-2xl border border-white/[0.07] bg-zinc-900/60 p-8 text-center">
-                {games.length === 0 ? (
-                  <>
-                    <p className="mb-1 text-sm text-zinc-400">No games in your library yet.</p>
-                    <p className="text-xs text-zinc-600">
-                      Add a game using the panel on the left, or import from Steam.
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-sm text-zinc-500">No games match your filters.</p>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-col gap-1.5">
-                {paginatedDisplayed.map((game) => (
-                  <GameRow
-                    key={game.id}
-                    game={game}
-                    onCurationChange={handleCurationChange}
-                    onDelete={handleDelete}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Pagination */}
-            {!loading && displayed.length > 0 && (
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.05] pt-4">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-zinc-600">Per page:</span>
-                  {PAGE_SIZE_OPTIONS.map((size) => (
-                    <button
-                      key={size}
-                      onClick={() => setPageSize(size)}
-                      className={`cursor-pointer rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
-                        pageSize === size
-                          ? "bg-zinc-700 text-white"
-                          : "text-zinc-500 hover:text-zinc-300"
-                      }`}
-                    >
-                      {size}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-zinc-500 tabular-nums">
-                    {pageStart + 1}–{Math.min(pageStart + pageSize, displayed.length)} of{" "}
-                    {displayed.length}
-                  </span>
-                  <button
-                    onClick={() => setPage((p) => p - 1)}
-                    disabled={page === 0}
-                    className="cursor-pointer rounded-lg border border-white/[0.06] px-3 py-1.5 text-xs font-semibold text-zinc-400 transition-colors hover:border-white/[0.12] hover:text-white disabled:cursor-default disabled:opacity-30"
-                  >
-                    ← Prev
-                  </button>
-                  <button
-                    onClick={() => setPage((p) => p + 1)}
-                    disabled={page >= totalPages - 1}
-                    className="cursor-pointer rounded-lg border border-white/[0.06] px-3 py-1.5 text-xs font-semibold text-zinc-400 transition-colors hover:border-white/[0.12] hover:text-white disabled:cursor-default disabled:opacity-30"
-                  >
-                    Next →
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {!loading && games.length > 0 && activeCount === 0 && (
-              <p className="text-center text-xs text-zinc-600">
-                All games are set to Skip — set at least one to Lite, Include, or Focus to generate
-                a playlist.
-              </p>
-            )}
+            <div className="relative">
+              <SearchIcon className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search games…"
+                className="w-full rounded-lg border border-white/[0.07] bg-zinc-800/60 py-2.5 pr-4 pl-9 text-sm text-white placeholder-zinc-500 focus:ring-2 focus:ring-teal-500/40 focus:outline-none"
+              />
+            </div>
           </div>
+
+          {/* Game list */}
+          {loading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-[52px] animate-pulse rounded-xl bg-zinc-900/40" />
+              ))}
+            </div>
+          ) : displayed.length === 0 ? (
+            <div className="rounded-2xl border border-white/[0.07] bg-zinc-900/60 p-8 text-center">
+              {games.length === 0 ? (
+                <>
+                  <p className="mb-1 text-sm text-zinc-400">No games in your library yet.</p>
+                  <p className="text-xs text-zinc-600">
+                    Browse the catalog above to add games to your library.
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-zinc-500">No games match your filters.</p>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              {paginatedDisplayed.map((game) => (
+                <GameRow
+                  key={game.id}
+                  game={game}
+                  onCurationChange={handleCurationChange}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {!loading && displayed.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.05] pt-4">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-zinc-600">Per page:</span>
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <button
+                    key={size}
+                    onClick={() => setPageSize(size)}
+                    className={`cursor-pointer rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+                      pageSize === size
+                        ? "bg-zinc-700 text-white"
+                        : "text-zinc-500 hover:text-zinc-300"
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-zinc-500 tabular-nums">
+                  {pageStart + 1}–{Math.min(pageStart + pageSize, displayed.length)} of{" "}
+                  {displayed.length}
+                </span>
+                <button
+                  onClick={() => setPage((p) => p - 1)}
+                  disabled={page === 0}
+                  className="cursor-pointer rounded-lg border border-white/[0.06] px-3 py-1.5 text-xs font-semibold text-zinc-400 transition-colors hover:border-white/[0.12] hover:text-white disabled:cursor-default disabled:opacity-30"
+                >
+                  ← Prev
+                </button>
+                <button
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={page >= totalPages - 1}
+                  className="cursor-pointer rounded-lg border border-white/[0.06] px-3 py-1.5 text-xs font-semibold text-zinc-400 transition-colors hover:border-white/[0.12] hover:text-white disabled:cursor-default disabled:opacity-30"
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!loading && games.length > 0 && activeCount === 0 && (
+            <p className="text-center text-xs text-zinc-600">
+              All games are set to Skip — set at least one to Lite, Include, or Focus to generate a
+              playlist.
+            </p>
+          )}
         </div>
       </div>
     </div>

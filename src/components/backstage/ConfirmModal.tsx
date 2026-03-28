@@ -20,7 +20,7 @@ interface ConfirmModalProps {
   confirmLabel?: string;
   /** If set, user must type this string to enable the confirm button */
   typeToConfirm?: string;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   destructive?: boolean;
 }
 
@@ -38,9 +38,9 @@ export function ConfirmModal({
 
   const canConfirm = !typeToConfirm || typed === typeToConfirm;
 
-  function handleConfirm() {
+  async function handleConfirm() {
     if (!canConfirm) return;
-    onConfirm();
+    await onConfirm();
     setTyped("");
     onOpenChange(false);
   }
