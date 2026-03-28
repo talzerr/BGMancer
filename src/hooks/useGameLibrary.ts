@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import type { Game } from "@/types";
-import type { GameStatusPayload } from "@/lib/events";
 
 export function useGameLibrary() {
   const [games, setGames] = useState<Game[]>([]);
@@ -36,25 +35,6 @@ export function useGameLibrary() {
     }
     return false;
   }
-
-  // SSE subscription for game phase updates. Vestigial for user-facing code (games don't
-  // change phase in user flow), but kept for potential Backstage real-time dashboard use.
-  useEffect(() => {
-    const source = new EventSource("/api/games/status-stream");
-
-    source.onmessage = (e: MessageEvent) => {
-      const event = JSON.parse(e.data) as GameStatusPayload;
-      setGames((prev) =>
-        prev.map((g) => (g.id === event.gameId ? { ...g, onboarding_phase: event.phase } : g)),
-      );
-    };
-
-    source.onerror = (err) => {
-      console.error("[useGameLibrary] SSE error:", err);
-    };
-
-    return () => source.close();
-  }, []);
 
   return { games, gamesLoading, fetchGames, handleGameAdded, deleteGame };
 }
