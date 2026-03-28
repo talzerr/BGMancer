@@ -11,7 +11,7 @@ import {
   parseSearchQueries,
   parseJsonArray,
   VALID_CURATIONS,
-} from "./mappers";
+} from "../mappers";
 import {
   CurationMode,
   OnboardingPhase,

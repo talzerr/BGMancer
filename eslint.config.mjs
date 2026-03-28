@@ -70,6 +70,15 @@ export default [
     },
   },
 
+  // ── Relaxed rules for test files ───────────────────────────────────────────
+  {
+    files: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    rules: {
+      // Non-null assertions are idiomatic in tests after expect().not.toBeNull()
+      "@typescript-eslint/no-non-null-assertion": "off",
+    },
+  },
+
   // ── Relaxed rules for plain JS utility scripts ─────────────────────────────
   {
     files: ["scripts/**/*.js"],

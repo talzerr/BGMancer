@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { extractTagArray, parseTagItem } from "./tagger";
-import type { LLMTagItem } from "./tagger";
+import { extractTagArray, parseTagItem } from "../tagger";
+import type { LLMTagItem } from "../tagger";
 import { TrackRole, TrackMood, TrackInstrumentation } from "@/types";
 
 describe("extractTagArray", () => {

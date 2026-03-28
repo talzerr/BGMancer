@@ -1,0 +1,310 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import type Database from "better-sqlite3";
+import { createTestDB, clearStmtCache, seedTestUser, seedTestSession } from "../../test-helpers";
+import { TEST_USER_ID } from "@/test/constants";
+
+let db: Database.Database;
+
+vi.mock("@/lib/db", async () => {
+  const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  return {
+    getDB: () => db,
+    LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
+    LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
+  };
+});
+
+const { Sessions } = await import("../sessions");
+
+beforeEach(() => {
+  db = createTestDB();
+  clearStmtCache();
+  seedTestUser(db);
+});
+
+describe("Sessions", () => {
+  describe("create", () => {
+    describe("when creating a new session", () => {
+      it("should return a PlaylistSession with the given name", () => {
+        const session = Sessions.create(TEST_USER_ID, "My Session");
+        expect(session.name).toBe("My Session");
+        expect(session.user_id).toBe(TEST_USER_ID);
+        expect(session.is_archived).toBe(false);
+        expect(session.id).toBeTruthy();
+      });
+
+      it("should store the description when provided", () => {
+        const session = Sessions.create(TEST_USER_ID, "S1", "A description");
+        expect(session.description).toBe("A description");
+      });
+
+      it("should set description to null when not provided", () => {
+        const session = Sessions.create(TEST_USER_ID, "S1");
+        expect(session.description).toBeNull();
+      });
+    });
+
+    describe("when FIFO limit is reached", () => {
+      it("should evict the oldest session when creating a 4th", () => {
+        const s1 = Sessions.create(TEST_USER_ID, "Session 1");
+        Sessions.create(TEST_USER_ID, "Session 2");
+        Sessions.create(TEST_USER_ID, "Session 3");
+        Sessions.create(TEST_USER_ID, "Session 4");
+
+        const remaining = db
+          .prepare("SELECT id FROM playlists WHERE user_id = ? ORDER BY created_at ASC")
+          .all(TEST_USER_ID) as Array<{ id: string }>;
+        expect(remaining).toHaveLength(3);
+        expect(remaining.map((r) => r.id)).not.toContain(s1.id);
+      });
+
+      it("should not evict sessions belonging to other users", () => {
+        seedTestUser(db, "other-user");
+        const otherSession = Sessions.create("other-user", "Other");
+
+        Sessions.create(TEST_USER_ID, "S1");
+        Sessions.create(TEST_USER_ID, "S2");
+        Sessions.create(TEST_USER_ID, "S3");
+        Sessions.create(TEST_USER_ID, "S4");
+
+        const otherStillExists = Sessions.getById(otherSession.id);
+        expect(otherStillExists).not.toBeNull();
+      });
+    });
+  });
+
+  describe("getActive", () => {
+    describe("when non-archived sessions exist", () => {
+      it("should return the most recent non-archived session", () => {
+        const oldId = seedTestSession(db, TEST_USER_ID, { id: "old-session", name: "Old" });
+        db.prepare("UPDATE playlists SET created_at = '2024-01-01T00:00:00Z' WHERE id = ?").run(
+          oldId,
+        );
+        const newerId = seedTestSession(db, TEST_USER_ID, { id: "newer-session", name: "Newer" });
+        db.prepare("UPDATE playlists SET created_at = '2024-01-02T00:00:00Z' WHERE id = ?").run(
+          newerId,
+        );
+
+        const active = Sessions.getActive(TEST_USER_ID);
+        expect(active).not.toBeNull();
+        expect(active!.id).toBe(newerId);
+      });
+    });
+
+    describe("when all sessions are archived", () => {
+      it("should return null", () => {
+        const id = seedTestSession(db, TEST_USER_ID, { isArchived: true });
+        expect(id).toBeTruthy();
+
+        const active = Sessions.getActive(TEST_USER_ID);
+        expect(active).toBeNull();
+      });
+    });
+
+    describe("when no sessions exist", () => {
+      it("should return null", () => {
+        expect(Sessions.getActive(TEST_USER_ID)).toBeNull();
+      });
+    });
+  });
+
+  describe("getById", () => {
+    describe("when session exists", () => {
+      it("should return the session", () => {
+        const created = Sessions.create(TEST_USER_ID, "Test");
+        const found = Sessions.getById(created.id);
+        expect(found).not.toBeNull();
+        expect(found!.name).toBe("Test");
+      });
+    });
+
+    describe("when session does not exist", () => {
+      it("should return null", () => {
+        expect(Sessions.getById("nonexistent")).toBeNull();
+      });
+    });
+  });
+
+  describe("listAllWithCounts", () => {
+    describe("when sessions have tracks", () => {
+      it("should include track_count for each session", () => {
+        const session = Sessions.create(TEST_USER_ID, "With tracks");
+
+        // Insert some playlist tracks directly
+        const gameId = "game-1";
+        db.prepare("INSERT INTO games (id, title) VALUES (?, ?)").run(gameId, "Test Game");
+        for (let i = 0; i < 3; i++) {
+          db.prepare(
+            "INSERT INTO playlist_tracks (id, playlist_id, game_id, position, status) VALUES (?, ?, ?, ?, 'pending')",
+          ).run(`track-${i}`, session.id, gameId, i);
+        }
+
+        const list = Sessions.listAllWithCounts(TEST_USER_ID);
+        expect(list).toHaveLength(1);
+        expect(list[0].track_count).toBe(3);
+      });
+
+      it("should return newest first", () => {
+        Sessions.create(TEST_USER_ID, "First");
+        Sessions.create(TEST_USER_ID, "Second");
+
+        const list = Sessions.listAllWithCounts(TEST_USER_ID);
+        expect(list[0].name).toBe("Second");
+        expect(list[1].name).toBe("First");
+      });
+    });
+
+    describe("when user has no sessions", () => {
+      it("should return an empty array", () => {
+        const list = Sessions.listAllWithCounts(TEST_USER_ID);
+        expect(list).toEqual([]);
+      });
+    });
+
+    describe("when sessions have no tracks", () => {
+      it("should return track_count of 0", () => {
+        Sessions.create(TEST_USER_ID, "Empty");
+        const list = Sessions.listAllWithCounts(TEST_USER_ID);
+        expect(list[0].track_count).toBe(0);
+      });
+    });
+  });
+
+  describe("rename", () => {
+    describe("when renaming a session", () => {
+      it("should update the session name", () => {
+        const session = Sessions.create(TEST_USER_ID, "Original");
+        Sessions.rename(session.id, "Renamed");
+
+        const updated = Sessions.getById(session.id);
+        expect(updated!.name).toBe("Renamed");
+      });
+    });
+  });
+
+  describe("updateTelemetry + getByIdWithTelemetry", () => {
+    describe("when storing rubric and game budgets", () => {
+      it("should roundtrip JSON data correctly", () => {
+        const session = Sessions.create(TEST_USER_ID, "Telemetry");
+        const rubric = {
+          targetEnergy: [2, 3] as Array<1 | 2 | 3>,
+          preferredMoods: ["peaceful" as const],
+          penalizedMoods: [],
+          preferredInstrumentation: ["piano" as const],
+          penalizedInstrumentation: [],
+          allowVocals: false,
+          preferredRoles: ["ambient" as const],
+        };
+        const budgets = { "game-a": 10, "game-b": 5 };
+
+        Sessions.updateTelemetry(session.id, rubric, budgets);
+        const result = Sessions.getByIdWithTelemetry(session.id);
+
+        expect(result).not.toBeNull();
+        expect(result!.rubric).toEqual(rubric);
+        expect(result!.gameBudgets).toEqual(budgets);
+      });
+    });
+
+    describe("when telemetry is not set", () => {
+      it("should return null for rubric and gameBudgets", () => {
+        const session = Sessions.create(TEST_USER_ID, "No telemetry");
+        const result = Sessions.getByIdWithTelemetry(session.id);
+
+        expect(result!.rubric).toBeNull();
+        expect(result!.gameBudgets).toBeNull();
+      });
+    });
+
+    describe("when JSON is malformed in the database", () => {
+      it("should return null for the malformed field", () => {
+        const session = Sessions.create(TEST_USER_ID, "Bad JSON");
+        db.prepare("UPDATE playlists SET rubric = ?, game_budgets = ? WHERE id = ?").run(
+          "{not valid json",
+          '{"a":1}',
+          session.id,
+        );
+
+        const result = Sessions.getByIdWithTelemetry(session.id);
+        expect(result!.rubric).toBeNull();
+        expect(result!.gameBudgets).toEqual({ a: 1 });
+      });
+
+      it("should return null for gameBudgets when game_budgets JSON is malformed", () => {
+        const session = Sessions.create(TEST_USER_ID, "Bad Budgets");
+        db.prepare("UPDATE playlists SET rubric = ?, game_budgets = ? WHERE id = ?").run(
+          '{"targetEnergy":[2]}',
+          "not valid json!!!",
+          session.id,
+        );
+
+        const result = Sessions.getByIdWithTelemetry(session.id);
+        expect(result).not.toBeNull();
+        expect(result!.gameBudgets).toBeNull();
+      });
+    });
+
+    describe("when session does not exist", () => {
+      it("should return null", () => {
+        expect(Sessions.getByIdWithTelemetry("nonexistent")).toBeNull();
+      });
+    });
+  });
+
+  describe("listRecent", () => {
+    describe("when sessions exist across users", () => {
+      it("should return sessions from all users newest first", () => {
+        seedTestUser(db, "user-2");
+        const idA = seedTestSession(db, TEST_USER_ID, { id: "recent-a", name: "A" });
+        db.prepare("UPDATE playlists SET created_at = '2024-01-01T00:00:00Z' WHERE id = ?").run(
+          idA,
+        );
+        const idB = seedTestSession(db, "user-2", { id: "recent-b", name: "B" });
+        db.prepare("UPDATE playlists SET created_at = '2024-01-02T00:00:00Z' WHERE id = ?").run(
+          idB,
+        );
+
+        const recent = Sessions.listRecent(10);
+        expect(recent).toHaveLength(2);
+        expect(recent[0].name).toBe("B");
+        expect(recent[1].name).toBe("A");
+      });
+
+      it("should respect the limit parameter", () => {
+        Sessions.create(TEST_USER_ID, "A");
+        Sessions.create(TEST_USER_ID, "B");
+        Sessions.create(TEST_USER_ID, "C");
+
+        const recent = Sessions.listRecent(2);
+        expect(recent).toHaveLength(2);
+      });
+    });
+  });
+
+  describe("delete", () => {
+    describe("when deleting a session", () => {
+      it("should remove the session", () => {
+        const session = Sessions.create(TEST_USER_ID, "Doomed");
+        Sessions.delete(session.id);
+
+        expect(Sessions.getById(session.id)).toBeNull();
+      });
+
+      it("should cascade-delete playlist tracks", () => {
+        const session = Sessions.create(TEST_USER_ID, "With tracks");
+        const gameId = "game-cascade";
+        db.prepare("INSERT INTO games (id, title) VALUES (?, ?)").run(gameId, "Cascade Game");
+        db.prepare(
+          "INSERT INTO playlist_tracks (id, playlist_id, game_id, position, status) VALUES (?, ?, ?, ?, 'pending')",
+        ).run("track-del-1", session.id, gameId, 0);
+
+        Sessions.delete(session.id);
+
+        const tracks = db
+          .prepare("SELECT * FROM playlist_tracks WHERE playlist_id = ?")
+          .all(session.id);
+        expect(tracks).toHaveLength(0);
+      });
+    });
+  });
+});

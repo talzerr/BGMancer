@@ -12,8 +12,8 @@ import {
   assemblePlaylist,
   ARC_TEMPLATE,
   ZERO_BREAKDOWN,
-} from "./director";
-import type { ArcSlot } from "./director";
+} from "../director";
+import type { ArcSlot } from "../director";
 import type { TaggedTrack, Game, ScoringRubric } from "@/types";
 import {
   ArcPhase,
@@ -41,14 +41,20 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+// ─── File-level constants (not in shared constants) ─────────────────────────
+
+const DEFAULT_GAME_ID = "game-1";
+const DEFAULT_GAME_TITLE = "Test Game";
+const DEFAULT_TRACK_TITLE = "Test Track";
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function makeTrack(overrides: Partial<TaggedTrack> = {}): TaggedTrack {
   return {
     videoId: `vid-${Math.random().toString(36).slice(2, 8)}`,
-    title: "Test Track",
-    gameId: "game-1",
-    gameTitle: "Test Game",
+    title: DEFAULT_TRACK_TITLE,
+    gameId: DEFAULT_GAME_ID,
+    gameTitle: DEFAULT_GAME_TITLE,
     energy: 2,
     roles: [TrackRole.Ambient],
     moods: [TrackMood.Peaceful],
@@ -62,8 +68,8 @@ function makeTrack(overrides: Partial<TaggedTrack> = {}): TaggedTrack {
 
 function makeGame(overrides: Partial<Game> = {}): Game {
   return {
-    id: "game-1",
-    title: "Test Game",
+    id: DEFAULT_GAME_ID,
+    title: DEFAULT_GAME_TITLE,
     curation: CurationMode.Include,
     steam_appid: null,
     onboarding_phase: "tagged" as Game["onboarding_phase"],
@@ -271,7 +277,7 @@ describe("computeGlobalHeat", () => {
 describe("computeViewBiasScores", () => {
   describe("when all tracks have null viewCount", () => {
     it("should return baseline score", () => {
-      const pools = new Map([["game-1", [makeTrack({ videoId: "v1", viewCount: null })]]]);
+      const pools = new Map([[DEFAULT_GAME_ID, [makeTrack({ videoId: "v1", viewCount: null })]]]);
       expect(computeViewBiasScores(pools).get("v1")).toBeCloseTo(0.3, 5);
     });
   });
@@ -280,7 +286,7 @@ describe("computeViewBiasScores", () => {
     it("should score higher-view tracks higher", () => {
       const pools = new Map([
         [
-          "game-1",
+          DEFAULT_GAME_ID,
           [
             makeTrack({ videoId: "v1", viewCount: 1_000_000 }),
             makeTrack({ videoId: "v2", viewCount: 100_000 }),
@@ -295,7 +301,7 @@ describe("computeViewBiasScores", () => {
   describe("when pools span multiple games", () => {
     it("should return an entry for every track", () => {
       const pools = new Map([
-        ["game-1", [makeTrack({ videoId: "v1" })]],
+        [DEFAULT_GAME_ID, [makeTrack({ videoId: "v1" })]],
         ["game-2", [makeTrack({ videoId: "v2" }), makeTrack({ videoId: "v3" })]],
       ]);
       expect(computeViewBiasScores(pools).size).toBe(3);
@@ -304,7 +310,7 @@ describe("computeViewBiasScores", () => {
 
   describe("when a track has viewCount of 0", () => {
     it("should return baseline score", () => {
-      const pools = new Map([["game-1", [makeTrack({ videoId: "v1", viewCount: 0 })]]]);
+      const pools = new Map([[DEFAULT_GAME_ID, [makeTrack({ videoId: "v1", viewCount: 0 })]]]);
       expect(computeViewBiasScores(pools).get("v1")).toBeCloseTo(0.3, 5);
     });
   });
@@ -317,10 +323,10 @@ describe("computeGameBudgets", () => {
     it("should assign full target", () => {
       const budgets = computeGameBudgets(
         [makeGame()],
-        new Map([["game-1", Array.from({ length: 50 }, () => makeTrack())]]),
+        new Map([[DEFAULT_GAME_ID, Array.from({ length: 50 }, () => makeTrack())]]),
         20,
       );
-      expect(budgets.get("game-1")).toBe(20);
+      expect(budgets.get(DEFAULT_GAME_ID)).toBe(20);
     });
   });
 
@@ -440,7 +446,7 @@ describe("computeGameBudgets", () => {
     it("should return empty map", () => {
       const budgets = computeGameBudgets(
         [makeGame({ curation: CurationMode.Skip })],
-        new Map([["game-1", [makeTrack()]]]),
+        new Map([[DEFAULT_GAME_ID, [makeTrack()]]]),
         20,
       );
       expect(budgets.size).toBe(0);
@@ -775,7 +781,7 @@ describe("pickBestTrack", () => {
         [makeTrack({ energy: 2, videoId: "v1" })],
         makeSlot(),
         new Set(["v1"]),
-        "game-1",
+        DEFAULT_GAME_ID,
         null,
         undefined,
         null,
@@ -786,14 +792,14 @@ describe("pickBestTrack", () => {
 
   describe("when lastGameId matches the track's game (Pass 1)", () => {
     it("should prefer tracks from a different game", () => {
-      const t1 = makeTrack({ energy: 2, videoId: "v1", gameId: "game-1" });
+      const t1 = makeTrack({ energy: 2, videoId: "v1", gameId: DEFAULT_GAME_ID });
       const t2 = makeTrack({ energy: 2, videoId: "v2", gameId: "game-2" });
       const result = pickBestTrack(
         [t1, t2],
         makeSlot(),
         new Set(),
-        "game-1",
-        "game-1",
+        DEFAULT_GAME_ID,
+        DEFAULT_GAME_ID,
         undefined,
         null,
       );
@@ -803,13 +809,13 @@ describe("pickBestTrack", () => {
 
   describe("when only same-game tracks are available (Pass 2 fallback)", () => {
     it("should relax the same-game constraint", () => {
-      const t1 = makeTrack({ energy: 2, videoId: "v1", gameId: "game-1" });
+      const t1 = makeTrack({ energy: 2, videoId: "v1", gameId: DEFAULT_GAME_ID });
       const result = pickBestTrack(
         [t1],
         makeSlot(),
         new Set(),
-        "game-1",
-        "game-1",
+        DEFAULT_GAME_ID,
+        DEFAULT_GAME_ID,
         undefined,
         null,
       );
@@ -823,7 +829,7 @@ describe("pickBestTrack", () => {
         [makeTrack({ energy: 2, videoId: "v1" })],
         makeSlot(),
         new Set(["v1"]),
-        "game-1",
+        DEFAULT_GAME_ID,
         null,
         undefined,
         null,
@@ -838,7 +844,7 @@ describe("pickBestTrack", () => {
         [makeTrack({ energy: 3 })],
         makeSlot({ energyPrefs: [1] }),
         new Set(),
-        "game-1",
+        DEFAULT_GAME_ID,
         null,
         undefined,
         null,
@@ -853,7 +859,8 @@ describe("pickBestTrack", () => {
         makeTrack({ energy: 2, videoId: `v${i}` }),
       );
       expect(
-        pickBestTrack(tracks, makeSlot(), new Set(), "game-1", null, undefined, null)!.poolSize,
+        pickBestTrack(tracks, makeSlot(), new Set(), DEFAULT_GAME_ID, null, undefined, null)!
+          .poolSize,
       ).toBe(5);
     });
   });
