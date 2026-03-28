@@ -110,7 +110,7 @@ const VALID_MOODS = new Set<string>(Object.values(TrackMood));
 const VALID_INSTRUMENTATIONS = new Set<string>(Object.values(TrackInstrumentation));
 const VALID_ROLES = new Set<string>(Object.values(TrackRole));
 
-function parseJsonArray<T>(raw: unknown, validSet: Set<string>): T[] {
+export function parseJsonArray<T>(raw: unknown, validSet: Set<string>): T[] {
   if (raw == null) return [];
   let arr: unknown[];
   if (Array.isArray(raw)) {

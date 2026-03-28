@@ -62,7 +62,7 @@ export const Sessions = {
 
     return rows.map((r) => ({
       ...toPlaylistSession(r),
-      track_count: Number(r.track_count ?? 0),
+      track_count: Number(r.track_count),
     }));
   },
 
@@ -117,7 +117,7 @@ export const Sessions = {
 
     return rows.map((r) => ({
       ...toPlaylistSession(r),
-      track_count: Number(r.track_count ?? 0),
+      track_count: Number(r.track_count),
     }));
   },
 

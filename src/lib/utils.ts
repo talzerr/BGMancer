@@ -16,5 +16,6 @@ export function gameSlug(title: string, id: string): string {
 
 /** Extracts the game ID from a friendly slug (the part after "--"). */
 export function idFromGameSlug(slug: string): string {
-  return slug.split("--").pop() ?? slug;
+  const idx = slug.lastIndexOf("--");
+  return idx === -1 ? slug : slug.slice(idx + 2);
 }

@@ -28,7 +28,7 @@ import {
   DIRECTOR_TOP_N_POOL,
 } from "@/lib/constants";
 
-interface ArcSlot {
+export interface ArcSlot {
   phase: ArcPhase;
   energyPrefs: Array<1 | 2 | 3>;
   rolePrefs: TrackRole[];
@@ -37,7 +37,7 @@ interface ArcSlot {
   preferredInstrumentation: TrackInstrumentation[];
 }
 
-const ARC_TEMPLATE: Array<{
+export const ARC_TEMPLATE: Array<{
   phase: ArcPhase;
   fraction: number;
   energyPrefs: Array<1 | 2 | 3>;
@@ -126,7 +126,7 @@ const ARC_TEMPLATE: Array<{
   },
 ];
 
-function expandArc(targetCount: number): ArcSlot[] {
+export function expandArc(targetCount: number): ArcSlot[] {
   const slots: ArcSlot[] = [];
   let remaining = targetCount;
 
@@ -151,7 +151,7 @@ function expandArc(targetCount: number): ArcSlot[] {
   return slots;
 }
 
-function shuffle<T>(arr: T[]): T[] {
+export function shuffle<T>(arr: T[]): T[] {
   const out = [...arr];
   for (let i = out.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -160,7 +160,7 @@ function shuffle<T>(arr: T[]): T[] {
   return out;
 }
 
-function jaccard(a: string[], b: string[]): number {
+export function jaccard(a: string[], b: string[]): number {
   if (a.length === 0 && b.length === 0) return 0;
   const setA = new Set(a);
   const setB = new Set(b);
@@ -175,7 +175,7 @@ function jaccard(a: string[], b: string[]): number {
 const VIEW_BIAS_LOG_MIN = 3; // log10(1,000)
 const VIEW_BIAS_LOG_MAX = 7; // log10(10,000,000)
 
-function computeGlobalHeat(viewCount: number | null): number {
+export function computeGlobalHeat(viewCount: number | null): number {
   // Tracks with no view data get the baseline (0.3) rather than 0.0, to avoid penalising
   // obscure or newly-ingested games that simply haven't accumulated YouTube statistics yet.
   if (viewCount == null || viewCount <= 0) return VIEW_BIAS_SCORE_BASELINE;
@@ -186,7 +186,9 @@ function computeGlobalHeat(viewCount: number | null): number {
   );
 }
 
-function computeViewBiasScores(taggedPools: Map<string, TaggedTrack[]>): Map<string, number> {
+export function computeViewBiasScores(
+  taggedPools: Map<string, TaggedTrack[]>,
+): Map<string, number> {
   const scores = new Map<string, number>();
 
   for (const [, tracks] of taggedPools) {
@@ -216,7 +218,7 @@ function computeViewBiasScores(taggedPools: Map<string, TaggedTrack[]>): Map<str
 
 // ─── Game budgets ────────────────────────────────────────────────────────────
 
-function computeGameBudgets(
+export function computeGameBudgets(
   games: Game[],
   taggedPools: Map<string, TaggedTrack[]>,
   targetCount: number,
@@ -266,7 +268,7 @@ function computeGameBudgets(
   return budgets;
 }
 
-const ZERO_BREAKDOWN: ScoreBreakdown = {
+export const ZERO_BREAKDOWN: ScoreBreakdown = {
   roleScore: 0,
   moodScore: 0,
   instScore: 0,
@@ -275,7 +277,7 @@ const ZERO_BREAKDOWN: ScoreBreakdown = {
   adjustedScore: 0,
 };
 
-function scoreTrack(
+export function scoreTrack(
   track: TaggedTrack,
   slot: ArcSlot,
   rubric: ScoringRubric | undefined,
@@ -315,7 +317,7 @@ function scoreTrack(
   return { roleScore, moodScore, instScore, viewBiasScore, finalScore, adjustedScore };
 }
 
-interface PickResult {
+export interface PickResult {
   track: TaggedTrack;
   breakdown: ScoreBreakdown;
   poolSize: number;
@@ -540,7 +542,7 @@ export function assemblePlaylist(
   };
 }
 
-function pickBestTrack(
+export function pickBestTrack(
   pool: TaggedTrack[],
   slot: ArcSlot,
   used: Set<string>,
@@ -575,7 +577,7 @@ function pickBestTrack(
   return null;
 }
 
-function weightedTopN(
+export function weightedTopN(
   candidates: Array<{ track: TaggedTrack; breakdown: ScoreBreakdown }>,
 ): { track: TaggedTrack; breakdown: ScoreBreakdown } | null {
   if (candidates.length === 0) return null;
@@ -586,10 +588,11 @@ function weightedTopN(
   const epsilon = 0.01;
   const totalWeight = pool.reduce((sum, c) => sum + c.breakdown.adjustedScore + epsilon, 0);
   let rand = Math.random() * totalWeight;
+  let picked = pool[0];
   for (const c of pool) {
     rand -= c.breakdown.adjustedScore + epsilon;
-    if (rand <= 0) return c;
+    picked = c;
+    if (rand <= 0) break;
   }
-
-  return pool[pool.length - 1];
+  return picked;
 }
