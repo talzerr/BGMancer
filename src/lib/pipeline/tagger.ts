@@ -28,7 +28,7 @@ Each entry must have:
 
 Return ONLY a JSON array. Do not include markdown fences or any other text.`;
 
-interface LLMTagItem {
+export interface LLMTagItem {
   index: number;
   energy: number;
   roles: unknown[];
@@ -36,6 +36,57 @@ interface LLMTagItem {
   instrumentation: unknown[];
   hasVocals: unknown;
   confident: unknown;
+}
+
+export interface ParsedTag {
+  energy: 1 | 2 | 3;
+  roles: TrackRole[];
+  moods: TrackMood[];
+  instrumentation: TrackInstrumentation[];
+  hasVocals: boolean;
+  confident: boolean;
+}
+
+/** Extract a JSON array of tag items from raw LLM output */
+export function extractTagArray(raw: string): LLMTagItem[] {
+  const jsonMatch = raw.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) throw new Error("No JSON array found in response");
+  return JSON.parse(jsonMatch[0]) as LLMTagItem[];
+}
+
+/** Validate and normalize a single LLM tag item. Returns null if energy or roles are invalid. */
+export function parseTagItem(item: LLMTagItem): ParsedTag | null {
+  const energy = item.energy;
+  if (energy !== 1 && energy !== 2 && energy !== 3) return null;
+
+  const roles = Array.isArray(item.roles)
+    ? (item.roles as unknown[])
+        .filter((r): r is string => typeof r === "string" && VALID_ROLES.has(r.toLowerCase()))
+        .map((r) => r.toLowerCase() as TrackRole)
+        .slice(0, 2)
+    : [];
+  if (roles.length === 0) return null;
+
+  const moods = Array.isArray(item.moods)
+    ? (item.moods as unknown[])
+        .filter((m): m is string => typeof m === "string" && VALID_MOODS.has(m.toLowerCase()))
+        .map((m) => m.toLowerCase() as TrackMood)
+        .slice(0, 3)
+    : [];
+
+  const instrumentation = Array.isArray(item.instrumentation)
+    ? (item.instrumentation as unknown[])
+        .filter(
+          (v): v is string => typeof v === "string" && VALID_INSTRUMENTATION.has(v.toLowerCase()),
+        )
+        .map((v) => v.toLowerCase() as TrackInstrumentation)
+        .slice(0, 3)
+    : [];
+
+  const hasVocals = item.hasVocals === true;
+  const confident = item.confident !== false;
+
+  return { energy, roles, moods, instrumentation, hasVocals, confident };
 }
 
 export async function tagTracks(
@@ -88,9 +139,7 @@ export async function tagTracks(
 
     let parsed: LLMTagItem[];
     try {
-      const jsonMatch = raw.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) throw new Error("No JSON array found in response");
-      parsed = JSON.parse(jsonMatch[0]) as LLMTagItem[];
+      parsed = extractTagArray(raw);
     } catch (err) {
       console.error(
         `[tagger] Failed to parse LLM response for game "${gameTitle}" batch ${batchNum}:`,
@@ -108,60 +157,26 @@ export async function tagTracks(
       const track = batch[item.index - 1];
       if (!track) continue;
 
-      const energy = item.energy;
-      if (energy !== 1 && energy !== 2 && energy !== 3) {
-        ReviewFlags.markAsNeedsReview(
-          gameId,
-          ReviewReason.EmptyMetadata,
-          `invalid energy for "${track.name}": ${JSON.stringify(item.energy)}`,
-        );
+      const tag = parseTagItem(item);
+      if (!tag) {
+        const reason =
+          item.energy !== 1 && item.energy !== 2 && item.energy !== 3
+            ? `invalid energy for "${track.name}": ${JSON.stringify(item.energy)}`
+            : `invalid roles for "${track.name}": ${JSON.stringify(item.roles)}`;
+        ReviewFlags.markAsNeedsReview(gameId, ReviewReason.EmptyMetadata, reason);
         continue;
       }
 
-      const roles = Array.isArray(item.roles)
-        ? (item.roles as unknown[])
-            .filter((r): r is string => typeof r === "string" && VALID_ROLES.has(r.toLowerCase()))
-            .map((r) => r.toLowerCase() as TrackRole)
-            .slice(0, 2)
-        : [];
-      if (roles.length === 0) {
-        ReviewFlags.markAsNeedsReview(
-          gameId,
-          ReviewReason.EmptyMetadata,
-          `invalid roles for "${track.name}": ${JSON.stringify(item.roles)}`,
-        );
-        continue;
-      }
-
-      const moods = Array.isArray(item.moods)
-        ? (item.moods as unknown[])
-            .filter((m): m is string => typeof m === "string" && VALID_MOODS.has(m.toLowerCase()))
-            .map((m) => m.toLowerCase() as TrackMood)
-            .slice(0, 3)
-        : [];
-
-      const instrumentation = Array.isArray(item.instrumentation)
-        ? (item.instrumentation as unknown[])
-            .filter(
-              (v): v is string =>
-                typeof v === "string" && VALID_INSTRUMENTATION.has(v.toLowerCase()),
-            )
-            .map((v) => v.toLowerCase() as TrackInstrumentation)
-            .slice(0, 3)
-        : [];
-
-      const hasVocals = item.hasVocals === true;
-
-      if (item.confident === false) {
+      if (!tag.confident) {
         ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LowConfidence, track.name);
       }
 
       Tracks.updateTags(gameId, track.name, {
-        energy,
-        roles: JSON.stringify(roles),
-        moods: JSON.stringify(moods),
-        instrumentation: JSON.stringify(instrumentation),
-        hasVocals,
+        energy: tag.energy,
+        roles: JSON.stringify(tag.roles),
+        moods: JSON.stringify(tag.moods),
+        instrumentation: JSON.stringify(tag.instrumentation),
+        hasVocals: tag.hasVocals,
       });
     }
   }

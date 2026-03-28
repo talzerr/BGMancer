@@ -75,7 +75,7 @@ const REJECT_KEYWORDS = [
 const MIN_DURATION_SECONDS = 15 * 60; // 15 minutes
 
 /** Parse ISO 8601 duration string (PT1H23M45S) to seconds */
-function parseDuration(iso: string): number {
+export function parseDuration(iso: string): number {
   const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
   if (!match) return 0;
   const hours = parseInt(match[1] ?? "0");
@@ -85,7 +85,7 @@ function parseDuration(iso: string): number {
 }
 
 /** Check if a video should be rejected based on title/description */
-function isRejected(title: string, description: string): boolean {
+export function isRejected(title: string, description: string): boolean {
   const haystack = `${title} ${description}`.toLowerCase();
   return REJECT_KEYWORDS.some((kw) => haystack.includes(kw));
 }
