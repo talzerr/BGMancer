@@ -1,4 +1,4 @@
-import { Games } from "@/lib/db/repo";
+import { BackstageGames } from "@/lib/db/repo";
 import { NextResponse } from "next/server";
 
 /** GET /api/backstage/games — search games with optional filters */
@@ -13,7 +13,7 @@ export async function GET(req: Request) {
     const publishedParam = url.searchParams.get("published");
     const published = publishedParam === "1" ? true : publishedParam === "0" ? false : undefined;
 
-    const games = Games.searchWithStats({ title, phase, needsReview, published });
+    const games = BackstageGames.searchWithStats({ title, phase, needsReview, published });
     return NextResponse.json(games);
   } catch (err) {
     console.error("[GET /api/backstage/games]", err);
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "title is required" }, { status: 400 });
     }
     const steamAppid = typeof body.steamAppid === "number" ? body.steamAppid : null;
-    const game = Games.createDraft(title, steamAppid);
+    const game = BackstageGames.createDraft(title, steamAppid);
     return NextResponse.json(game, { status: 201 });
   } catch (err) {
     console.error("[POST /api/backstage/games]", err);

@@ -1,5 +1,5 @@
 import { getDB } from "@/lib/db";
-import { Games } from "@/lib/db/repo";
+import { BackstageGames } from "@/lib/db/repo";
 import { NextResponse } from "next/server";
 
 /** POST /api/backstage/bulk-publish — batch publish/unpublish games */
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
 
     getDB().transaction(() => {
       for (const id of gameIds) {
-        Games.setPublished(id, published);
+        BackstageGames.setPublished(id, published);
       }
     })();
 

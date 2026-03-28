@@ -1,4 +1,4 @@
-import { Games, Tracks } from "@/lib/db/repo";
+import { BackstageGames, Games, Tracks } from "@/lib/db/repo";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
 import { resolveVideos } from "@/lib/pipeline/onboarding";
 import { OnboardingPhase } from "@/types";
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
       if (abort.signal.aborted) {
         send({ type: "error", message: "Cancelled" });
       } else {
-        Games.setPhase(gameId, OnboardingPhase.Failed);
+        BackstageGames.setPhase(gameId, OnboardingPhase.Failed);
         console.error("[POST /api/backstage/resolve]", err);
         send({ type: "error", message: err instanceof Error ? err.message : String(err) });
       }

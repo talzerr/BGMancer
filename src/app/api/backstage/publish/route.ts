@@ -1,4 +1,4 @@
-import { Games } from "@/lib/db/repo";
+import { BackstageGames, Games } from "@/lib/db/repo";
 import { NextResponse } from "next/server";
 
 /** POST /api/backstage/publish — toggle game published status */
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    Games.setPublished(gameId, published);
+    BackstageGames.setPublished(gameId, published);
     return NextResponse.json({ ok: true, published });
   } catch (err) {
     console.error("[POST /api/backstage/publish]", err);

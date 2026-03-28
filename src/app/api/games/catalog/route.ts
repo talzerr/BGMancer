@@ -1,4 +1,4 @@
-import { Games } from "@/lib/db/repo";
+import { BackstageGames } from "@/lib/db/repo";
 import { CATALOG_PAGE_SIZE } from "@/lib/constants";
 import { NextResponse } from "next/server";
 
@@ -7,7 +7,7 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const search = url.searchParams.get("q") ?? undefined;
-    const games = Games.listPublished(search, CATALOG_PAGE_SIZE);
+    const games = BackstageGames.listPublished(search, CATALOG_PAGE_SIZE);
     return NextResponse.json(games);
   } catch (err) {
     console.error("[GET /api/games/catalog]", err);

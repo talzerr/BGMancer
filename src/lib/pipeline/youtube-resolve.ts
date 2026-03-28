@@ -1,4 +1,4 @@
-import { Games, VideoTracks } from "@/lib/db/repo";
+import { BackstageGames, VideoTracks } from "@/lib/db/repo";
 import { searchOSTPlaylist, fetchVideoMetadata } from "@/lib/services/youtube";
 import type { VideoMetadata } from "@/lib/services/youtube";
 import type { Game } from "@/types";
@@ -18,7 +18,7 @@ export async function discoverOSTPlaylist(
 
   onProgress?.("Searching YouTube for OST playlist…");
   const playlistId = await searchOSTPlaylist(game.title);
-  if (playlistId) Games.setPlaylistId(game.id, playlistId);
+  if (playlistId) BackstageGames.setPlaylistId(game.id, playlistId);
   return playlistId;
 }
 

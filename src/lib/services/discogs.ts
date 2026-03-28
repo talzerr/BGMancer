@@ -200,12 +200,5 @@ export async function fetchDiscogsMaster(id: number): Promise<DiscogsTracklistRe
 export async function searchGameSoundtrack(
   gameTitle: string,
 ): Promise<DiscogsTracklistResult | null> {
-  const result = (await tryMasterSearch(gameTitle)) ?? (await tryReleaseSearch(gameTitle));
-  if (result) return result;
-
-  // TODO: this is a hack — strip subtitle/edition suffix and retry (e.g. "Foo – Definitive Edition" → "Foo").
-  // Ideally we'd resolve a canonical OST title via IGDB or similar before ever hitting Discogs.
-  const truncated = gameTitle.split(/\s[–-]\s/)[0].trim();
-  if (truncated === gameTitle) return null;
-  return (await tryMasterSearch(truncated)) ?? (await tryReleaseSearch(truncated));
+  return (await tryMasterSearch(gameTitle)) ?? (await tryReleaseSearch(gameTitle));
 }

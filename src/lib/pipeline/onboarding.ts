@@ -1,6 +1,6 @@
 import { OnboardingPhase, ReviewReason } from "@/types";
 import type { Game } from "@/types";
-import { Games, Tracks, VideoTracks, ReviewFlags } from "@/lib/db/repo";
+import { Games, BackstageGames, Tracks, VideoTracks, ReviewFlags } from "@/lib/db/repo";
 import { GAME_MAX_TRACKS } from "@/lib/constants";
 import {
   searchGameSoundtrack,
@@ -82,9 +82,9 @@ export async function loadTracks(
 
   // Only set tracklist_source if it was discovered (not admin-preset)
   if (!wasPreset) {
-    Games.update(game.id, { tracklist_source: `${result.sourceType}:${releaseId}` });
+    BackstageGames.update(game.id, { tracklist_source: `${result.sourceType}:${releaseId}` });
   }
-  Games.setPhase(game.id, OnboardingPhase.TracksLoaded);
+  BackstageGames.setPhase(game.id, OnboardingPhase.TracksLoaded);
 
   return { trackCount: tracks.length };
 }
@@ -105,7 +105,7 @@ export async function tagGameTracks(
 
   const provider = getTaggingProvider();
   await tagTracks(game.id, game.title, dbTracks, provider, signal);
-  Games.setPhase(game.id, OnboardingPhase.Tagged);
+  BackstageGames.setPhase(game.id, OnboardingPhase.Tagged);
 
   const afterTracks = Tracks.getByGame(game.id);
   const tagged = afterTracks.filter((t) => t.taggedAt !== null).length;
@@ -146,7 +146,7 @@ export async function resolveVideos(
   const allVideoIds = [...VideoTracks.getTrackToVideo(game.id).values()];
   await ensureVideoMetadata(allVideoIds, game.id);
 
-  Games.setPhase(game.id, OnboardingPhase.Resolved);
+  BackstageGames.setPhase(game.id, OnboardingPhase.Resolved);
 
   return { resolved: resolved.length, total: allTracks.length };
 }
@@ -164,7 +164,7 @@ export async function quickOnboard(
   onProgress?.("Phase 1: Loading tracks…", 0, 3);
   const loaded = await loadTracks(game, (msg) => onProgress?.(msg, 0, 3));
   if (!loaded) {
-    Games.setPhase(game.id, OnboardingPhase.Failed);
+    BackstageGames.setPhase(game.id, OnboardingPhase.Failed);
     throw new Error(`No Discogs data for "${game.title}"`);
   }
 
@@ -178,7 +178,7 @@ export async function quickOnboard(
   onProgress?.("Phase 3: Resolving videos…", 2, 3);
   const resolveResult = await resolveVideos(game, (msg) => onProgress?.(msg, 2, 3), signal);
 
-  Games.setPublished(game.id, true);
+  BackstageGames.setPublished(game.id, true);
   onProgress?.("Published.", 3, 3);
 
   return {

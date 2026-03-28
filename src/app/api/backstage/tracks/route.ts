@@ -34,7 +34,7 @@ interface TrackPatch {
     name?: string;
     active?: boolean;
     energy?: number | null;
-    role?: string | null;
+    roles?: string | null;
     moods?: string | null;
     instrumentation?: string | null;
     hasVocals?: boolean | null;
@@ -57,7 +57,7 @@ export async function PATCH(req: Request) {
         newName: patch.updates.name,
         active: patch.updates.active,
         energy: patch.updates.energy,
-        role: patch.updates.role,
+        roles: patch.updates.roles,
         moods: patch.updates.moods,
         instrumentation: patch.updates.instrumentation,
         hasVocals: patch.updates.hasVocals,

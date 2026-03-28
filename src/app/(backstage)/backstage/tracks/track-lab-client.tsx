@@ -272,7 +272,7 @@ export function TrackLabClient() {
       sel.map((t) => ({
         gameId: t.gameId,
         name: t.name,
-        updates: { role: JSON.stringify([role]) },
+        updates: { roles: JSON.stringify([role]) },
       })),
     );
   }

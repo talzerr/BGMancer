@@ -27,7 +27,7 @@ import type { QuickViewTab } from "@/components/backstage/QuickViewTabs";
 import { FilterChipBar } from "@/components/backstage/FilterChipBar";
 import type { FilterDef, ActiveFilter } from "@/components/backstage/FilterChipBar";
 import { OnboardingPhase } from "@/types";
-import type { BackstageGame } from "@/lib/db/repos/games";
+import type { BackstageGame } from "@/lib/db/repos/backstage-games";
 import { gameSlug } from "@/lib/utils";
 
 // ─── Tab presets ────────────────────────────────────────────────────────────

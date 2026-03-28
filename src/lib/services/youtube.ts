@@ -1,4 +1,11 @@
-import type { YouTubeSearchResult } from "@/types";
+interface YouTubeSearchResult {
+  videoId: string;
+  title: string;
+  channelTitle: string;
+  thumbnail: string;
+  durationSeconds: number;
+  description: string;
+}
 
 const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
 

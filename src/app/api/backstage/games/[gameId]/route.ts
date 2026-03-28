@@ -1,5 +1,5 @@
-import { Games } from "@/lib/db/repo";
-import type { GameUpdateFields } from "@/lib/db/repos/games";
+import { BackstageGames, Games } from "@/lib/db/repo";
+import type { GameUpdateFields } from "@/lib/db/repos/backstage-games";
 import { NextResponse } from "next/server";
 
 /** PATCH /api/backstage/games/[gameId] — update game metadata */
@@ -24,7 +24,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ gameId
   }
 
   try {
-    const updated = Games.update(gameId, fields);
+    const updated = BackstageGames.update(gameId, fields);
     if (!updated) {
       return NextResponse.json({ error: "Game not found after update" }, { status: 404 });
     }
@@ -50,7 +50,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ game
   }
 
   try {
-    Games.destroy(gameId);
+    BackstageGames.destroy(gameId);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[DELETE /api/backstage/games]", err);

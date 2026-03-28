@@ -63,11 +63,9 @@ export function taggedTrackToPending(
   durationSeconds: number | null,
 ): PendingTrack {
   return makePendingTrack(track.gameId, track.gameTitle, {
-    track_name: track.cleanName,
+    track_name: track.title,
     video_id: track.videoId,
     video_title: track.title,
-    channel_title: track.channelTitle,
-    thumbnail: track.thumbnail,
     duration_seconds: durationSeconds,
     status: TrackStatus.Found,
   });

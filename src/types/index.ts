@@ -112,11 +112,6 @@ export interface Game {
   updated_at: string;
 }
 
-export interface AddGamePayload {
-  title: string;
-  steam_appid?: number;
-}
-
 // ─── Playlist ─────────────────────────────────────────────────────────────────
 
 export enum TrackStatus {
@@ -245,14 +240,10 @@ export enum TrackRole {
 export interface TaggedTrack {
   videoId: string;
   title: string;
-  channelTitle: string;
-  thumbnail: string;
   gameId: string;
   gameTitle: string;
-  cleanName: string;
   energy: 1 | 2 | 3;
   roles: TrackRole[];
-  isJunk: boolean;
   moods: TrackMood[];
   instrumentation: TrackInstrumentation[];
   hasVocals: boolean;
@@ -298,13 +289,4 @@ export interface ScoringRubric {
   penalizedInstrumentation: TrackInstrumentation[];
   allowVocals: boolean | null;
   preferredRoles: TrackRole[];
-}
-
-export interface YouTubeSearchResult {
-  videoId: string;
-  title: string;
-  channelTitle: string;
-  thumbnail: string;
-  durationSeconds: number;
-  description: string;
 }

@@ -131,7 +131,7 @@ function parseJsonArray<T>(raw: unknown, validSet: Set<string>): T[] {
 export function toTrack(row: Record<string, unknown>): Track {
   const rawEnergy = row.energy != null ? Number(row.energy) : null;
   const energy = rawEnergy === 1 || rawEnergy === 2 || rawEnergy === 3 ? rawEnergy : null;
-  const roles = parseJsonArray<TrackRole>(row.role, VALID_ROLES);
+  const roles = parseJsonArray<TrackRole>(row.roles, VALID_ROLES);
   return {
     gameId: String(row.game_id),
     name: String(row.name),

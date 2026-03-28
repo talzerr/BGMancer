@@ -1,4 +1,4 @@
-import { Games, Tracks, ReviewFlags } from "@/lib/db/repo";
+import { BackstageGames, Games, Tracks, ReviewFlags } from "@/lib/db/repo";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
 import { loadTracks, tagGameTracks } from "@/lib/pipeline/onboarding";
 import { OnboardingPhase } from "@/types";
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
       send({ type: "progress", message: "Clearing existing tracks…" });
       Tracks.deleteByGame(gameId);
       ReviewFlags.clearByGame(gameId);
-      Games.setPhase(gameId, OnboardingPhase.Draft);
+      BackstageGames.setPhase(gameId, OnboardingPhase.Draft);
 
       const progress = (message: string) => send({ type: "progress", message });
 
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
       if (abort.signal.aborted) {
         send({ type: "error", message: "Cancelled" });
       } else {
-        Games.setPhase(gameId, OnboardingPhase.Failed);
+        BackstageGames.setPhase(gameId, OnboardingPhase.Failed);
         console.error("[POST /api/backstage/reingest]", err);
         send({ type: "error", message: err instanceof Error ? err.message : String(err) });
       }

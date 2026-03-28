@@ -76,7 +76,7 @@ export const Tracks = {
     // Auto-activate approved discovered tracks when they get tagged
     stmt(
       `UPDATE tracks
-       SET energy = ?, role = ?, moods = ?, instrumentation = ?,
+       SET energy = ?, roles = ?, moods = ?, instrumentation = ?,
            has_vocals = ?, tagged_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
            active = CASE WHEN discovered = 'approved' THEN 1 ELSE active END
        WHERE game_id = ? AND name = ?`,
@@ -127,7 +127,7 @@ export const Tracks = {
   clearTags(gameId: string): void {
     stmt(
       `UPDATE tracks
-       SET energy = NULL, role = NULL, moods = NULL, instrumentation = NULL,
+       SET energy = NULL, roles = NULL, moods = NULL, instrumentation = NULL,
            has_vocals = NULL, tagged_at = NULL
        WHERE game_id = ?`,
     ).run(gameId);
@@ -135,7 +135,7 @@ export const Tracks = {
 
   /**
    * Partial update for any subset of track fields.
-   * Updates `tagged_at` automatically when tag fields (energy/role/moods/instrumentation/has_vocals) change.
+   * Updates `tagged_at` automatically when tag fields (energy/roles/moods/instrumentation/has_vocals) change.
    */
   updateFields(
     gameId: string,
@@ -144,13 +144,13 @@ export const Tracks = {
       newName?: string;
       active?: boolean;
       energy?: number | null;
-      role?: string | null;
+      roles?: string | null;
       moods?: string | null;
       instrumentation?: string | null;
       hasVocals?: boolean | null;
     },
   ): void {
-    const tagFields = ["energy", "role", "moods", "instrumentation", "hasVocals"];
+    const tagFields = ["energy", "roles", "moods", "instrumentation", "hasVocals"];
     const isTagChange = tagFields.some((k) => fields[k as keyof typeof fields] !== undefined);
 
     const setClauses: string[] = [];
@@ -168,9 +168,9 @@ export const Tracks = {
       setClauses.push("energy = ?");
       params.push(fields.energy);
     }
-    if (fields.role !== undefined) {
-      setClauses.push("role = ?");
-      params.push(fields.role);
+    if (fields.roles !== undefined) {
+      setClauses.push("roles = ?");
+      params.push(fields.roles);
     }
     if (fields.moods !== undefined) {
       setClauses.push("moods = ?");

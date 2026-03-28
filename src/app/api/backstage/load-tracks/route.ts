@@ -1,4 +1,4 @@
-import { Games } from "@/lib/db/repo";
+import { BackstageGames, Games } from "@/lib/db/repo";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
 import { loadTracks } from "@/lib/pipeline/onboarding";
 import { OnboardingPhase } from "@/types";
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
 
       send({ type: "done", trackCount: result.trackCount });
     } catch (err) {
-      Games.setPhase(gameId, OnboardingPhase.Failed);
+      BackstageGames.setPhase(gameId, OnboardingPhase.Failed);
       console.error("[POST /api/backstage/load-tracks]", err);
       send({ type: "error", message: err instanceof Error ? err.message : String(err) });
     } finally {

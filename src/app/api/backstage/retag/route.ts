@@ -1,4 +1,4 @@
-import { Games, Tracks } from "@/lib/db/repo";
+import { BackstageGames, Games, Tracks } from "@/lib/db/repo";
 import { tagTracks } from "@/lib/pipeline/tagger";
 import { getTaggingProvider } from "@/lib/llm";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
       const provider = getTaggingProvider();
       await tagTracks(gameId, game.title, tracks, provider, abort.signal);
 
-      Games.setPhase(gameId, OnboardingPhase.Tagged);
+      BackstageGames.setPhase(gameId, OnboardingPhase.Tagged);
 
       const tagged = Tracks.getByGame(gameId).filter((t) => t.taggedAt !== null).length;
       const updatedGame = Games.getById(gameId);

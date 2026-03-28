@@ -117,7 +117,7 @@ export function initSchema(db: Database.Database): void {
       position         INTEGER NOT NULL,
       duration_seconds INTEGER,
       energy           INTEGER,
-      role             TEXT,
+      roles            TEXT,
       moods            TEXT,
       instrumentation  TEXT,
       has_vocals       INTEGER,
@@ -148,7 +148,7 @@ export function initSchema(db: Database.Database): void {
       aligned_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
       PRIMARY KEY (video_id, game_id),
       FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
-      FOREIGN KEY (game_id, track_name) REFERENCES tracks(game_id, name)
+      FOREIGN KEY (game_id, track_name) REFERENCES tracks(game_id, name) ON DELETE SET NULL
     );
 
   `);
