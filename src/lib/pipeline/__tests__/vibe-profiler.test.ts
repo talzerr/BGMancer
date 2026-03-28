@@ -146,6 +146,99 @@ describe("generateRubric", () => {
     });
   });
 
+  describe("when preferredMoods is a non-array value", () => {
+    it("should return null (moods are required and filter to empty)", async () => {
+      const provider = mockProvider(
+        JSON.stringify({
+          targetEnergy: [2],
+          preferredMoods: "epic",
+          penalizedMoods: [],
+          preferredInstrumentation: [],
+          penalizedInstrumentation: [],
+          allowVocals: null,
+          preferredRoles: [],
+        }),
+      );
+      const result = await generateRubric({ gameTitles: ["Test"] }, provider);
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("when preferredInstrumentation is a non-array value", () => {
+    it("should result in empty instrumentation", async () => {
+      const provider = mockProvider(
+        JSON.stringify({
+          targetEnergy: [2],
+          preferredMoods: [TrackMood.Epic],
+          penalizedMoods: [],
+          preferredInstrumentation: 42,
+          penalizedInstrumentation: [],
+          allowVocals: null,
+          preferredRoles: [],
+        }),
+      );
+      const result = await generateRubric({ gameTitles: ["Test"] }, provider);
+      expect(result).not.toBeNull();
+      expect(result!.preferredInstrumentation).toEqual([]);
+    });
+  });
+
+  describe("when preferredRoles is null", () => {
+    it("should result in empty roles", async () => {
+      const provider = mockProvider(
+        JSON.stringify({
+          targetEnergy: [2],
+          preferredMoods: [TrackMood.Epic],
+          penalizedMoods: [],
+          preferredInstrumentation: [],
+          penalizedInstrumentation: [],
+          allowVocals: null,
+          preferredRoles: null,
+        }),
+      );
+      const result = await generateRubric({ gameTitles: ["Test"] }, provider);
+      expect(result).not.toBeNull();
+      expect(result!.preferredRoles).toEqual([]);
+    });
+  });
+
+  describe("when targetEnergy is a non-array value", () => {
+    it("should result in empty targetEnergy", async () => {
+      const provider = mockProvider(
+        JSON.stringify({
+          targetEnergy: "high",
+          preferredMoods: [TrackMood.Epic],
+          penalizedMoods: [],
+          preferredInstrumentation: [],
+          penalizedInstrumentation: [],
+          allowVocals: null,
+          preferredRoles: [],
+        }),
+      );
+      const result = await generateRubric({ gameTitles: ["Test"] }, provider);
+      expect(result).not.toBeNull();
+      expect(result!.targetEnergy).toEqual([]);
+    });
+  });
+
+  describe("when all filterable fields are non-array values", () => {
+    it("should return null because moods filter to empty", async () => {
+      const provider = mockProvider(
+        JSON.stringify({
+          targetEnergy: "medium",
+          preferredMoods: "epic",
+          penalizedMoods: 123,
+          preferredInstrumentation: true,
+          penalizedInstrumentation: null,
+          allowVocals: false,
+          preferredRoles: { role: "combat" },
+        }),
+      );
+      const result = await generateRubric({ gameTitles: ["Test"] }, provider);
+      expect(result).toBeNull();
+    });
+  });
+
   describe("when arrays exceed max limits", () => {
     it("should truncate to allowed maximums", async () => {
       const provider = mockProvider(

@@ -133,6 +133,36 @@ describe("fetchGameCandidates", () => {
     });
   });
 
+  describe("when a tagged track has has_vocals = null in the DB", () => {
+    it("should default hasVocals to false in the TaggedTrack", async () => {
+      const gameId = seedTestGame(db, TEST_USER_ID, { id: TEST_GAME_ID });
+      // Insert a tagged track with has_vocals explicitly null
+      db.prepare(
+        `INSERT INTO tracks (game_id, name, position, energy, roles, moods, instrumentation, has_vocals, tagged_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        gameId,
+        "Null Vocal Track",
+        0,
+        2,
+        '["ambient"]',
+        '["peaceful"]',
+        '["piano"]',
+        null,
+        new Date().toISOString(),
+      );
+
+      // Add video mapping
+      db.prepare(
+        "INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds) VALUES (?, ?, ?, ?)",
+      ).run("vid-null-vocal", gameId, "Null Vocal Track", 200);
+
+      const result = await fetchGameCandidates(makeGame(TEST_GAME_ID, "Test"), vi.fn());
+      expect(result).toHaveLength(1);
+      expect(result[0].hasVocals).toBe(false);
+    });
+  });
+
   describe("when game has inactive tracks", () => {
     it("should not include inactive tracks", async () => {
       const gameId = seedTestGame(db, TEST_USER_ID, { id: TEST_GAME_ID });

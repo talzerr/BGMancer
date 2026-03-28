@@ -588,10 +588,11 @@ export function weightedTopN(
   const epsilon = 0.01;
   const totalWeight = pool.reduce((sum, c) => sum + c.breakdown.adjustedScore + epsilon, 0);
   let rand = Math.random() * totalWeight;
+  let picked = pool[0];
   for (const c of pool) {
     rand -= c.breakdown.adjustedScore + epsilon;
-    if (rand <= 0) return c;
+    picked = c;
+    if (rand <= 0) break;
   }
-
-  return pool[pool.length - 1];
+  return picked;
 }

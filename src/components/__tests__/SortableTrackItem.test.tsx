@@ -18,15 +18,17 @@ import {
   TEST_DURATION_SECONDS,
 } from "@/test/constants";
 
+const mockUseSortable = vi.fn(() => ({
+  attributes: { role: "button", tabIndex: 0 },
+  listeners: {},
+  setNodeRef: vi.fn(),
+  transform: null,
+  transition: undefined,
+  isDragging: false,
+}));
+
 vi.mock("@dnd-kit/sortable", () => ({
-  useSortable: () => ({
-    attributes: { role: "button", tabIndex: 0 },
-    listeners: {},
-    setNodeRef: vi.fn(),
-    transform: null,
-    transition: undefined,
-    isDragging: false,
-  }),
+  useSortable: (...args: unknown[]) => mockUseSortable(...args),
 }));
 
 vi.mock("@dnd-kit/utilities", () => ({
@@ -144,11 +146,7 @@ describe("SortableTrackItem", () => {
 
   describe("when isDragging is true", () => {
     it("should apply z-index styling", async () => {
-      // Override the mock to return isDragging: true for this test
-      const sortableMock = await import("@dnd-kit/sortable");
-      const originalUseSortable = sortableMock.useSortable;
-      // @ts-expect-error -- replacing module export for test
-      sortableMock.useSortable = () => ({
+      mockUseSortable.mockReturnValueOnce({
         attributes: { role: "button", tabIndex: 0 },
         listeners: {},
         setNodeRef: vi.fn(),
@@ -173,10 +171,6 @@ describe("SortableTrackItem", () => {
 
       const wrapper = container.firstChild as HTMLElement;
       expect(wrapper.style.zIndex).toBe("10");
-
-      // Restore original mock
-      // @ts-expect-error -- restoring module export
-      sortableMock.useSortable = originalUseSortable;
     });
   });
 });

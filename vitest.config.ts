@@ -28,6 +28,10 @@ export default defineConfig({
     ],
     coverage: {
       provider: "v8",
+      thresholds: {
+        functions: 100,
+        lines: 100,
+      },
       include: ["src/lib/**/*.ts"],
       exclude: [
         "src/lib/**/*.test.ts",
@@ -40,10 +44,6 @@ export default defineConfig({
         "src/lib/llm/provider.ts",
         "src/lib/pipeline/types.ts",
         "src/lib/services/auth.ts",
-
-        // LLM SDK wrapper + factory — requires real API key to instantiate
-        "src/lib/llm/anthropic.ts",
-        "src/lib/llm/index.ts",
 
         // Heavy orchestrators chaining 3+ external services (LLM + YouTube + DB).
         // Appropriate for E2E tests, not unit/integration tests.

@@ -215,6 +215,48 @@ describe("fetchDiscogsMaster", () => {
   });
 });
 
+describe("throttle (rate-limit pause)", () => {
+  describe("when the API returns X-Discogs-Ratelimit-Remaining <= 2", () => {
+    it("should pause for 61 seconds before continuing", async () => {
+      vi.useFakeTimers();
+
+      mockFetchSequence([
+        // Master search — returns a result with remaining = 1 (triggers throttle)
+        {
+          ok: true,
+          data: {
+            results: [{ id: 999, community: { have: 10 } }],
+          },
+          headers: { "X-Discogs-Ratelimit-Remaining": "1" },
+        },
+        // Master fetch — also low remaining
+        {
+          ok: true,
+          data: {
+            title: "Throttled Game OST",
+            tracklist: [{ title: "Theme", position: "1", duration: "3:00" }],
+          },
+          headers: { "X-Discogs-Ratelimit-Remaining": "1" },
+        },
+      ]);
+
+      const promise = searchGameSoundtrack("Throttled Game");
+
+      // Advance past the first 61s throttle (after search)
+      await vi.advanceTimersByTimeAsync(61_000);
+      // Advance past the second 61s throttle (after master fetch)
+      await vi.advanceTimersByTimeAsync(61_000);
+
+      const result = await promise;
+      expect(result).not.toBeNull();
+      expect(result!.tracks).toHaveLength(1);
+      expect(result!.tracks[0].name).toBe("Theme");
+
+      vi.useRealTimers();
+    });
+  });
+});
+
 describe("duration parsing (via fetchDiscogsRelease)", () => {
   describe("when tracks have H:M:S format durations", () => {
     it("should parse correctly", async () => {
@@ -267,6 +309,40 @@ describe("duration parsing (via fetchDiscogsRelease)", () => {
 
       const result = await fetchDiscogsRelease(102);
       expect(result!.tracks[0].durationSeconds).toBeNull();
+    });
+  });
+});
+
+describe("searchGameSoundtrack (popularity ranking)", () => {
+  describe("when multiple master results are returned", () => {
+    it("should pick the most popular by community.have", async () => {
+      mockFetchSequence([
+        // Master search — multiple results with different popularity
+        {
+          ok: true,
+          data: {
+            results: [
+              { id: 10, community: { have: 50 } },
+              { id: 20, community: { have: 200 } },
+              { id: 30, community: { have: 100 } },
+            ],
+          },
+          headers: { "X-Discogs-Ratelimit-Remaining": "50" },
+        },
+        // Master fetch for id=20 (the most popular)
+        {
+          ok: true,
+          data: {
+            title: "Best OST",
+            tracklist: [{ title: "Best Track", position: "1", duration: "4:00" }],
+          },
+          headers: { "X-Discogs-Ratelimit-Remaining": "49" },
+        },
+      ]);
+
+      const result = await searchGameSoundtrack("Some Game");
+      expect(result).not.toBeNull();
+      expect(result!.releaseTitle).toBe("Best OST");
     });
   });
 });

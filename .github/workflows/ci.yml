@@ -33,10 +33,7 @@ jobs:
       - name: Format check
         run: npm run format:check
 
-      - name: Tests
-        run: npm test
-
-      - name: Coverage
+      - name: Tests + Coverage
         run: npm run test:coverage
 
       - name: Build

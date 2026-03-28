@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type Database from "better-sqlite3";
 import { createTestDB, clearStmtCache, seedTestUser, seedTestSession } from "../../test-helpers";
 import { TEST_USER_ID } from "@/test/constants";
+import { TrackInstrumentation, TrackMood, TrackRole } from "@/types";
 
 let db: Database.Database;
 
@@ -188,12 +189,12 @@ describe("Sessions", () => {
         const session = Sessions.create(TEST_USER_ID, "Telemetry");
         const rubric = {
           targetEnergy: [2, 3] as Array<1 | 2 | 3>,
-          preferredMoods: ["peaceful" as const],
-          penalizedMoods: [],
-          preferredInstrumentation: ["piano" as const],
-          penalizedInstrumentation: [],
+          preferredMoods: [TrackMood.Peaceful],
+          penalizedMoods: [] as TrackMood[],
+          preferredInstrumentation: [TrackInstrumentation.Piano],
+          penalizedInstrumentation: [] as TrackInstrumentation[],
           allowVocals: false,
-          preferredRoles: ["ambient" as const],
+          preferredRoles: [TrackRole.Ambient],
         };
         const budgets = { "game-a": 10, "game-b": 5 };
 
@@ -203,6 +204,18 @@ describe("Sessions", () => {
         expect(result).not.toBeNull();
         expect(result!.rubric).toEqual(rubric);
         expect(result!.gameBudgets).toEqual(budgets);
+      });
+    });
+
+    describe("when rubric and gameBudgets are undefined", () => {
+      it("should store null for both fields", () => {
+        const session = Sessions.create(TEST_USER_ID, "Undefined telemetry");
+        Sessions.updateTelemetry(session.id);
+
+        const result = Sessions.getByIdWithTelemetry(session.id);
+        expect(result).not.toBeNull();
+        expect(result!.rubric).toBeNull();
+        expect(result!.gameBudgets).toBeNull();
       });
     });
 

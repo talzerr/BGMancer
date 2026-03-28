@@ -209,7 +209,9 @@ describe("LibraryClient", () => {
 
     it("should auto-expand the catalog browser", async () => {
       await renderLibraryClient([]);
-      expect(screen.getByTestId("catalog-browser")).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId("catalog-browser")).toBeInTheDocument();
+      });
     });
   });
 

@@ -78,7 +78,7 @@ export const Games = {
   ): Game {
     const db = getDB();
     const thumbnail = steamAppid ? steamHeaderUrl(steamAppid) : null;
-    db.transaction(() => {
+    return db.transaction(() => {
       stmt("INSERT INTO games (id, title, steam_appid, thumbnail_url) VALUES (?, ?, ?, ?)").run(
         id,
         title,
@@ -89,11 +89,16 @@ export const Games = {
       stmt(
         `INSERT OR IGNORE INTO library_games (library_id, game_id, curation) VALUES (${LIBRARY_SQ}, ?, ?)`,
       ).run(userId, id, curation);
-    })();
 
-    const created = this.getByIdForUser(userId, id);
-    if (!created) throw new Error(`[Games.create] game ${id} not found after INSERT`);
-    return created;
+      // SELECT inside the transaction — the row we just inserted is guaranteed to exist
+      return toGame(
+        stmt(
+          `SELECT g.*, lg.curation FROM games g
+           JOIN library_games lg ON lg.game_id = g.id
+           WHERE g.id = ? AND lg.library_id = ${LIBRARY_SQ}`,
+        ).get(id, userId) as Record<string, unknown>,
+      );
+    })();
   },
 
   linkToLibrary(userId: string, gameId: string, curation = CurationMode.Include): void {

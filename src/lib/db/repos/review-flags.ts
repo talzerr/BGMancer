@@ -16,7 +16,7 @@ function toReviewFlag(row: Record<string, unknown>): ReviewFlag {
     gameId: String(row.game_id),
     reason: row.reason as ReviewReason,
     detail: row.detail != null ? String(row.detail) : null,
-    createdAt: String(row.created_at ?? ""),
+    createdAt: String(row.created_at),
   };
 }
 

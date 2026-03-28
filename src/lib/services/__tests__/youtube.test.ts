@@ -288,6 +288,39 @@ describe("searchYouTube", () => {
     });
   });
 
+  describe("when the search API returns a non-fatal error (generic 500)", () => {
+    it("should throw a non-quota error", async () => {
+      mockFetch(async () =>
+        jsonResponse({ error: { errors: [{ reason: "backendError" }] } }, false, 500),
+      );
+      await expect(searchYouTube("test")).rejects.toThrow("YouTube search failed");
+    });
+  });
+
+  describe("when the videos.list API returns a non-fatal error (generic 500)", () => {
+    it("should throw a non-quota error", async () => {
+      mockFetch(async (url) => {
+        if (url.includes("/search")) {
+          return jsonResponse({
+            items: [
+              {
+                id: { videoId: "vid1" },
+                snippet: {
+                  title: "OST",
+                  channelTitle: "C",
+                  description: "official",
+                  thumbnails: { default: { url: "t.jpg" } },
+                },
+              },
+            ],
+          });
+        }
+        return jsonResponse({ error: { errors: [{ reason: "backendError" }] } }, false, 500);
+      });
+      await expect(searchYouTube("test")).rejects.toThrow("YouTube videos.list failed");
+    });
+  });
+
   describe("when videos are shorter than MIN_DURATION_SECONDS", () => {
     beforeEach(() => {
       mockFetch(async (url) => {
@@ -439,6 +472,35 @@ describe("fetchVideoMetadata", () => {
       await expect(fetchVideoMetadata(["v1"])).rejects.toThrow(YouTubeQuotaError);
     });
   });
+
+  describe("when a chunk fails with a non-fatal error", () => {
+    it("should skip the failed chunk and return results from successful chunks", async () => {
+      let callCount = 0;
+      mockFetch(async () => {
+        callCount++;
+        if (callCount === 1) {
+          // First chunk succeeds
+          return jsonResponse({
+            items: Array.from({ length: 50 }, (_, i) => ({
+              id: `v${i}`,
+              contentDetails: { duration: "PT3M0S" },
+              statistics: { viewCount: "1000" },
+            })),
+          });
+        }
+        // Second chunk fails with generic 500
+        return jsonResponse({ error: { errors: [{ reason: "backendError" }] } }, false, 500);
+      });
+
+      // 60 IDs triggers two chunks (50 + 10)
+      const ids = Array.from({ length: 60 }, (_, i) => `v${i}`);
+      const result = await fetchVideoMetadata(ids);
+      // Only first chunk's 50 results should be present
+      expect(result.size).toBe(50);
+      expect(result.has("v0")).toBe(true);
+      expect(result.has("v50")).toBe(false);
+    });
+  });
 });
 
 describe("searchOSTPlaylist", () => {
@@ -469,6 +531,31 @@ describe("searchOSTPlaylist", () => {
 
     it("should return null", async () => {
       expect(await searchOSTPlaylist("Unknown Game")).toBeNull();
+    });
+  });
+
+  describe("when a search query fails with a non-fatal error", () => {
+    it("should continue to the next query", async () => {
+      let callCount = 0;
+      mockFetch(async () => {
+        callCount++;
+        if (callCount === 1) {
+          // First query fails with generic 500
+          return jsonResponse({ error: { errors: [{ reason: "backendError" }] } }, false, 500);
+        }
+        // Second query succeeds
+        return jsonResponse({
+          items: [
+            {
+              id: { playlistId: "PL_fallback" },
+              snippet: { title: `${TEST_GAME_TITLE} Full OST`, channelTitle: TEST_CHANNEL_TITLE },
+            },
+          ],
+        });
+      });
+
+      const result = await searchOSTPlaylist(TEST_GAME_TITLE);
+      expect(result).toBe("PL_fallback");
     });
   });
 });
@@ -586,6 +673,37 @@ describe("fetchPlaylistItems", () => {
     });
   });
 
+  describe("when a page fetch fails with a non-fatal error", () => {
+    it("should stop pagination and return tracks collected so far", async () => {
+      let callCount = 0;
+      mockFetch(async () => {
+        callCount++;
+        if (callCount === 1) {
+          // First page succeeds with a nextPageToken
+          return jsonResponse({
+            items: [
+              {
+                snippet: {
+                  resourceId: { videoId: "v1" },
+                  title: "Track 1",
+                  videoOwnerChannelTitle: "Channel",
+                  thumbnails: { default: { url: "t.jpg" } },
+                },
+              },
+            ],
+            nextPageToken: "page2",
+          });
+        }
+        // Second page fails with generic 500
+        return jsonResponse({ error: { errors: [{ reason: "backendError" }] } }, false, 500);
+      });
+
+      const tracks = await fetchPlaylistItems("PL_abc");
+      expect(tracks).toHaveLength(1);
+      expect(tracks[0].videoId).toBe("v1");
+    });
+  });
+
   describe("when maxTracks limits the result", () => {
     beforeEach(() => {
       const items = Array.from({ length: 5 }, (_, i) => ({
@@ -691,6 +809,31 @@ describe("addVideoToPlaylist", () => {
       await expect(addVideoToPlaylist("token", "PL_1", "vid_1")).rejects.toThrow(
         "Failed to add video",
       );
+    });
+  });
+});
+
+describe("throwIfFatalError (edge case)", () => {
+  describe("when res.text() throws", () => {
+    beforeEach(() => {
+      mockFetch(
+        async () =>
+          ({
+            ok: false,
+            status: 500,
+            statusText: "Internal Server Error",
+            url: "https://youtube.googleapis.com/test",
+            headers: new Headers(),
+            json: async () => ({}),
+            text: async () => {
+              throw new Error("body stream already consumed");
+            },
+          }) as unknown as Response,
+      );
+    });
+
+    it("should still throw the generic error", async () => {
+      await expect(searchYouTube("test")).rejects.toThrow("YouTube search failed");
     });
   });
 });

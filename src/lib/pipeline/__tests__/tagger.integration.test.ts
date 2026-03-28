@@ -215,6 +215,55 @@ describe("tagTracks (integration)", () => {
     });
   });
 
+  describe("when untagged track count exceeds TAG_POOL_MAX", () => {
+    it("should create a TrackCapReached review flag", async () => {
+      const bigGameId = seedTestGame(db, TEST_USER_ID, { id: "big-game", title: "Big Game" });
+      seedTestTracks(db, bigGameId, 85, false);
+      const bigTracks = Tracks.getByGame(bigGameId);
+
+      // Build a response array that covers all 80 tracks (capped at TAG_POOL_MAX)
+      const tagResponse = JSON.stringify(
+        Array.from({ length: 80 }, (_, i) => ({
+          index: i + 1,
+          energy: 2,
+          roles: ["ambient"],
+          moods: ["peaceful"],
+          instrumentation: ["piano"],
+          hasVocals: false,
+          confident: true,
+        })),
+      );
+      await tagTracks(bigGameId, "Big Game", bigTracks, mockProvider(tagResponse));
+
+      const flags = ReviewFlags.listByGame(bigGameId);
+      expect(flags.some((f) => f.reason === "track_cap_reached")).toBe(true);
+    });
+
+    it("should only tag up to TAG_POOL_MAX tracks", async () => {
+      const { TAG_POOL_MAX } = await import("@/lib/constants");
+      const bigGameId = seedTestGame(db, TEST_USER_ID, { id: "big-game-2", title: "Big Game 2" });
+      seedTestTracks(db, bigGameId, 85, false);
+      const bigTracks = Tracks.getByGame(bigGameId);
+
+      const tagResponse = JSON.stringify(
+        Array.from({ length: TAG_POOL_MAX }, (_, i) => ({
+          index: i + 1,
+          energy: 2,
+          roles: ["ambient"],
+          moods: ["peaceful"],
+          instrumentation: ["piano"],
+          hasVocals: false,
+          confident: true,
+        })),
+      );
+      await tagTracks(bigGameId, "Big Game 2", bigTracks, mockProvider(tagResponse));
+
+      const updated = Tracks.getByGame(bigGameId);
+      const tagged = updated.filter((t) => t.taggedAt !== null);
+      expect(tagged).toHaveLength(TAG_POOL_MAX);
+    });
+  });
+
   describe("when there are no untagged tracks", () => {
     it("should return immediately without calling the provider", async () => {
       // Tag all tracks first
