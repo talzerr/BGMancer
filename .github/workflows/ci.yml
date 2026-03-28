@@ -24,17 +24,20 @@ jobs:
 
       - run: npm ci
 
+      - name: Load test env
+        run: cp .env.test .env.local
+
       - name: Lint
         run: npm run lint
 
       - name: Format check
         run: npm run format:check
 
-      - name: Unit tests
+      - name: Tests
         run: npm test
 
-      - name: Load test env
-        run: cp .env.test .env.local
+      - name: Coverage
+        run: npm run test:coverage
 
       - name: Build
         run: npm run build

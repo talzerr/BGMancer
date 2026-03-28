@@ -8,8 +8,24 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
-    environmentMatchGlobs: [["src/**/*.test.tsx", "jsdom"]],
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "node",
+          include: ["src/**/*.test.ts"],
+          environment: "node",
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "jsdom",
+          include: ["src/**/*.test.tsx"],
+          environment: "jsdom",
+        },
+      },
+    ],
     coverage: {
       provider: "v8",
       include: ["src/lib/**/*.ts"],

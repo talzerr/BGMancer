@@ -2,7 +2,7 @@
 import coreWebVitals from "eslint-config-next/core-web-vitals";
 import nextTypescript from "eslint-config-next/typescript";
 
-export default [
+const eslintConfig = [
   // ── Next.js rules (React, React-Hooks, jsx-a11y, @next/next) ───────────────
   ...coreWebVitals,
 
@@ -76,6 +76,11 @@ export default [
     rules: {
       // Non-null assertions are idiomatic in tests after expect().not.toBeNull()
       "@typescript-eslint/no-non-null-assertion": "off",
+      // Mocks (e.g. next/image stub) use `any` for brevity
+      "@typescript-eslint/no-explicit-any": "off",
+      // next/image mock renders a plain <img> — intentional in test environment
+      "@next/next/no-img-element": "off",
+      "jsx-a11y/alt-text": "off",
     },
   },
 
@@ -93,3 +98,5 @@ export default [
     ignores: [".next/**", "node_modules/**"],
   },
 ];
+
+export default eslintConfig;

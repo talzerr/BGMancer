@@ -45,7 +45,6 @@ const CATALOG_GAMES = [GAME_HOLLOW_KNIGHT, GAME_CELESTE];
 
 vi.mock("next/image", () => ({
   default: (props: React.ImgHTMLAttributes<HTMLImageElement>) => {
-    // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
     return <img {...props} />;
   },
 }));
