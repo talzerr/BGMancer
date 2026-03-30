@@ -6,7 +6,6 @@ import { usePlayerState } from "@/hooks/usePlayerState";
 import { useConfig } from "@/hooks/useConfig";
 import { useGameLibrary } from "@/hooks/useGameLibrary";
 import { PlayerBar } from "@/components/PlayerBar";
-import { steamHeaderUrl } from "@/lib/constants";
 
 type PlaylistState = ReturnType<typeof usePlaylist>;
 type PlayerState = ReturnType<typeof usePlayerState>;
@@ -61,13 +60,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.antiSpoilerEnabled]);
 
-  // Steam thumbnail map — built from playlist tracks so skipped games are included.
-  // Each track carries game_steam_appid via JOIN, so no extra fetch is needed.
+  // Game thumbnail map — built from playlist tracks so skipped games are included.
+  // Each track carries game_thumbnail_url via JOIN, so no extra fetch is needed.
   const gameThumbnailByGameId = useMemo(() => {
     const map = new Map<string, string>();
     for (const track of playlist.tracks) {
-      if (track.game_steam_appid != null && !map.has(track.game_id)) {
-        map.set(track.game_id, steamHeaderUrl(track.game_steam_appid));
+      if (track.game_thumbnail_url && !map.has(track.game_id)) {
+        map.set(track.game_id, track.game_thumbnail_url);
       }
     }
     return map;
