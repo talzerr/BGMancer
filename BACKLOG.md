@@ -36,7 +36,7 @@
 - **Request schema** — `game_requests` table: `id`, `title`, `requester_id`, `vote_count`, `status` (`pending` / `in_progress` / `ready` / `rejected`), `linked_game_id` (nullable FK to `games`), `created_at`.
 - **Backstage request queue** — view and manage pending requests; promote a request to a full game record and trigger onboarding from within Backstage.
 
-## Curation Tuning
+## Curation Tuningddd
 
 - **Resolve YouTube videos before tagging** — move YouTube video resolution ahead of the LLM tagging step in the onboarding pipeline; avoids wasting tagger tokens on bad track names that have no matching YouTube video.
 - **Tagger role skew validation** — if >50% of game's tracks are `ambient`, re-tag with role-diversity bias.
