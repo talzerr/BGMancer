@@ -149,7 +149,7 @@ export const BackstageGames = {
     const rows = stmt(`
       SELECT
         g.id, g.title, g.onboarding_phase, g.published, g.tracklist_source, g.needs_review,
-        COUNT(t.name)                                               AS track_count,
+        SUM(CASE WHEN t.name IS NOT NULL AND (t.discovered IS NULL OR t.discovered != 'rejected') THEN 1 ELSE 0 END) AS track_count,
         COUNT(t.tagged_at)                                         AS tagged_count,
         SUM(CASE WHEN t.active = 1 THEN 1 ELSE 0 END)             AS active_count,
         (SELECT COUNT(*) FROM game_review_flags f WHERE f.game_id = g.id) AS review_flag_count
@@ -193,7 +193,7 @@ export const BackstageGames = {
     const sql = `
       SELECT
         g.id, g.title, g.onboarding_phase, g.published, g.tracklist_source, g.needs_review,
-        COUNT(t.name)                                               AS track_count,
+        SUM(CASE WHEN t.name IS NOT NULL AND (t.discovered IS NULL OR t.discovered != 'rejected') THEN 1 ELSE 0 END) AS track_count,
         COUNT(t.tagged_at)                                         AS tagged_count,
         SUM(CASE WHEN t.active = 1 THEN 1 ELSE 0 END)             AS active_count,
         (SELECT COUNT(*) FROM game_review_flags f WHERE f.game_id = g.id) AS review_flag_count

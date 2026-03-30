@@ -51,10 +51,6 @@ Current Vibe Check uses random 2.5× sample. For large libraries, only ~8% of tr
 
 ## Bugs
 
-- **Generating a new playlist resets the player** — starting a new generation should not interrupt the currently playing track; the new session should be created in the background and become selectable without stopping playback.
-- **Deleting a non-active session resets the player** — deleting a session that is not currently playing should leave the active session and player state untouched.
-- **Rejected tracks inflate track count** — rejected/inactive tracks are still counted in the total (e.g. "50/53" instead of "50/50"); only active tracks should count.
-
 ## Backstage
 
 - **Inline track name editing** — allow admin to manually edit track names in Backstage (e.g. via the TrackEditSheet or inline in the track table).

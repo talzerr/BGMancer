@@ -90,7 +90,7 @@ export function GameDetailClient({
     }
   }, [activeModal]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const trackCount = tracks.length;
+  const trackCount = tracks.filter((t) => t.discovered !== DiscoveredStatus.Rejected).length;
   const activeCount = tracks.filter((t) => t.active).length;
   const taggedCount = tracks.filter((t) => t.taggedAt !== null).length;
   const phase = game.onboarding_phase;
