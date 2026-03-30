@@ -83,7 +83,6 @@ export function toPlaylistTrack(row: Record<string, unknown>): PlaylistTrack {
     playlist_id: String(row.playlist_id ?? ""),
     game_id: String(row.game_id),
     game_title: row.game_title != null ? String(row.game_title) : undefined,
-    game_steam_appid: row.game_steam_appid != null ? Number(row.game_steam_appid) : null,
     game_thumbnail_url: row.game_thumbnail_url != null ? String(row.game_thumbnail_url) : null,
     track_name: row.track_name != null ? String(row.track_name) : null,
     video_id: row.video_id != null ? String(row.video_id) : null,

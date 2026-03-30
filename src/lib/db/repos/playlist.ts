@@ -33,7 +33,7 @@ export const Playlist = {
     if (sessionId) {
       return toPlaylistTracks(
         stmt(`
-          SELECT pt.*, g.title AS game_title, g.steam_appid AS game_steam_appid, g.thumbnail_url AS game_thumbnail_url
+          SELECT pt.*, g.title AS game_title, g.thumbnail_url AS game_thumbnail_url
           FROM playlist_tracks pt
           JOIN games g ON g.id = pt.game_id
           WHERE pt.playlist_id = ?
@@ -43,7 +43,7 @@ export const Playlist = {
     }
     return toPlaylistTracks(
       stmt(`
-        SELECT pt.*, g.title AS game_title, g.steam_appid AS game_steam_appid, g.thumbnail_url AS game_thumbnail_url
+        SELECT pt.*, g.title AS game_title, g.thumbnail_url AS game_thumbnail_url
         FROM playlist_tracks pt
         JOIN games g ON g.id = pt.game_id
         WHERE pt.playlist_id = ${ACTIVE_SESSION_SQ}
@@ -169,7 +169,7 @@ export const Playlist = {
   getById(id: string): PlaylistTrack | undefined {
     const rows = toPlaylistTracks(
       stmt(`
-        SELECT pt.*, g.title AS game_title
+        SELECT pt.*, g.title AS game_title, g.thumbnail_url AS game_thumbnail_url
         FROM playlist_tracks pt
         JOIN games g ON g.id = pt.game_id
         WHERE pt.id = ?

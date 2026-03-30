@@ -169,7 +169,6 @@ function makeTrack(overrides: Partial<PlaylistTrack> = {}): PlaylistTrack {
     playlist_id: TEST_PLAYLIST_ID,
     game_id: TEST_GAME_ID,
     game_title: TEST_GAME_TITLE,
-    game_steam_appid: null,
     track_name: TEST_TRACK_NAME,
     video_id: TEST_VIDEO_ID,
     video_title: TEST_VIDEO_TITLE,

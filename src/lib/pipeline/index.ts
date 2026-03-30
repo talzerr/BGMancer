@@ -209,12 +209,19 @@ export async function generatePlaylist(
 
   await resolvePendingSlots(inserted, config.allow_long_tracks, config.allow_short_tracks);
 
+  // Enrich with JOIN-derived fields from the games already in memory.
+  const gameMap = new Map(games.map((g) => [g.id, g]));
+  const finalTracks = inserted.map((t) => {
+    const g = gameMap.get(t.game_id);
+    return g ? { ...t, game_thumbnail_url: g.thumbnail_url } : t;
+  });
+
   send({
     type: "done",
     sessionId: session.id,
-    tracks: inserted,
-    count: inserted.length,
-    found: inserted.filter((t) => t.status === TrackStatus.Found).length,
-    pending: inserted.filter((t) => t.status === TrackStatus.Pending).length,
+    tracks: finalTracks,
+    count: finalTracks.length,
+    found: finalTracks.filter((t) => t.status === TrackStatus.Found).length,
+    pending: finalTracks.filter((t) => t.status === TrackStatus.Pending).length,
   });
 }

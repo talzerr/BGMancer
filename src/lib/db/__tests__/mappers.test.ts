@@ -418,7 +418,6 @@ describe("toPlaylistTrack", () => {
     playlist_id: "pl1",
     game_id: "g1",
     game_title: "Dark Souls",
-    game_steam_appid: 570940,
     track_name: "Firelink Shrine",
     video_id: "abc123",
     video_title: "Firelink Shrine - Dark Souls OST",
@@ -440,7 +439,6 @@ describe("toPlaylistTrack", () => {
       expect(pt.playlist_id).toBe("pl1");
       expect(pt.game_id).toBe("g1");
       expect(pt.game_title).toBe("Dark Souls");
-      expect(pt.game_steam_appid).toBe(570940);
       expect(pt.track_name).toBe("Firelink Shrine");
       expect(pt.video_id).toBe("abc123");
       expect(pt.status).toBe(TrackStatus.Found);
@@ -458,7 +456,6 @@ describe("toPlaylistTrack", () => {
       const pt = toPlaylistTrack({
         ...baseRow,
         game_title: null,
-        game_steam_appid: null,
         track_name: null,
         video_id: null,
         video_title: null,
@@ -469,7 +466,6 @@ describe("toPlaylistTrack", () => {
         synced_at: null,
       });
       expect(pt.game_title).toBeUndefined();
-      expect(pt.game_steam_appid).toBeNull();
       expect(pt.track_name).toBeNull();
       expect(pt.video_id).toBeNull();
       expect(pt.video_title).toBeNull();
