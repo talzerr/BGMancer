@@ -11,12 +11,18 @@ npm run lint         # ESLint
 npm run lint:fix     # ESLint with auto-fix
 npm run format       # Prettier (write)
 npm run format:check # Prettier (check only)
+npm run test         # Run all tests (Vitest)
+npm run test:watch   # Tests in watch mode
+npm run test:coverage # Tests with coverage report
+npm run db:generate  # Generate migration from schema diff
+npm run db:migrate   # Apply pending migrations (standalone)
+npm run db:studio    # Open Drizzle Studio (browser DB inspector)
 npm run db:reset     # Drop and recreate the database
 npm run db:backup    # Snapshot the database
 npm run db:restore   # Restore from snapshot
 ```
 
-There are no automated tests. Lint and format run automatically via husky pre-commit on staged `.ts`/`.tsx` files.
+Tests run via Vitest. Lint and format run automatically via husky pre-commit on staged `.ts`/`.tsx` files.
 
 ## Environment
 
@@ -30,7 +36,7 @@ Requires a `.env.local` (copy from `.env.local.example`) with:
 - `NEXTAUTH_SECRET` — required for next-auth sessions
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — optional; enables "Sync to YouTube"
 
-The DB file is `bgmancer.db` at the project root (or override with `SQLITE_PATH`). Schema is auto-created on first run via `initSchema()` in `src/lib/db/index.ts` — there is no migration system; the schema is idempotent (`CREATE TABLE IF NOT EXISTS`).
+The DB file is `bgmancer.db` at the project root (or override with `SQLITE_PATH`). Schema is managed by Drizzle ORM with migrations applied automatically on first run via `migrate()` in `src/lib/db/index.ts`.
 
 ## Architecture
 
@@ -60,14 +66,18 @@ Use `usePlayerContext()` to access any of these from any client component.
 
 ### Database layer (`src/lib/db/`)
 
-- `index.ts` — singleton `getDB()`, schema init, seed functions
+Uses **Drizzle ORM** with `better-sqlite3` as the local driver. All repo methods are **async** (returns `Promise<T>`) to prepare for Cloudflare D1 migration.
+
+- `index.ts` — singleton `getDB()` returns a Drizzle instance, runs migrations on init, seeds default user
+- `drizzle-schema.ts` — Drizzle schema definition for all tables, indexes, and foreign keys
 - `repo.ts` — barrel re-export for all repos in `repos/`
-- `repos/` — one file per domain: `games`, `users`, `sessions`, `playlist`, `tracks`, `video-tracks`, `review-flags`, `decisions`
-- `mappers.ts` — raw SQLite row → typed object converters
+- `repos/` — one file per domain: `games`, `backstage-games`, `users`, `sessions`, `playlist`, `tracks`, `video-tracks`, `review-flags`, `decisions`
+- `mappers.ts` — row → typed object converters (used by repos that query via `sql` tagged template)
+- `queries.ts` — shared Drizzle subquery helpers
+- `seed.ts` — seeds the local dev user on first run
+- `test-helpers.ts` — `createTestDrizzleDB()` for in-memory test databases
 
-Statements are cached via the `stmt()` helper in `repos/_shared.ts` to avoid repeated `db.prepare()` calls.
-
-The local single-user setup uses stable UUIDs: `LOCAL_USER_ID` and `LOCAL_LIBRARY_ID` (defined in `src/lib/db/index.ts`). All game queries filter by `LOCAL_LIBRARY_SQ` — a subquery that resolves the local user's library.
+The local single-user setup uses stable UUIDs: `LOCAL_USER_ID` and `LOCAL_LIBRARY_ID` (defined in `src/lib/db/seed.ts`).
 
 ### Playlist generation pipeline (`src/lib/pipeline/`)
 
@@ -148,7 +158,15 @@ Backstage API routes (all under `src/app/api/backstage/`):
 
 ## Schema changes
 
-No migration system. There are no production users, so any schema change should be made directly in `src/lib/db/schema.ts` (in the `CREATE TABLE` definition) and applied with `npm run db:reset`. Never use `ALTER TABLE` — just update the schema and reset.
+Schema is defined in `src/lib/db/drizzle-schema.ts` using Drizzle's SQLite schema builders. Migrations are managed by Drizzle Kit and stored in `drizzle/migrations/`.
+
+**Workflow:**
+
+1. Edit `src/lib/db/drizzle-schema.ts`
+2. Run `npm run db:generate` — diffs against the latest snapshot and produces a new `.sql` migration file
+3. Run `npm run db:reset` — deletes the DB; next app start applies all migrations from scratch
+
+While there are no production users, you can collapse to a single migration by deleting `drizzle/migrations/` and re-running `npm run db:generate`. Once there is real user data, use incremental migrations instead.
 
 ### Review flags
 
@@ -159,4 +177,4 @@ Games can be flagged for manual review via `ReviewFlags.markAsNeedsReview(gameId
 - `process.env.NODE_ENV` does **not** work reliably in client components with Turbopack — avoid conditional rendering based on it
 - `useEffect` must be placed **after** all `const` variables it references (temporal dead zone issue in this codebase's hook patterns)
 - Sessions are FIFO-evicted: at most `MAX_PLAYLIST_SESSIONS` (3) sessions are kept per user; the oldest is deleted automatically
-- YouTube OST playlist IDs are cached in `game_yt_playlists` to minimize API quota usage
+- YouTube OST playlist IDs are cached on the `games.yt_playlist_id` column to minimize API quota usage

@@ -8,7 +8,7 @@ BGMancer is feature-complete and needs to move from a local single-user Mac setu
 
 **Project posture:** This is a passion project shared with the world, not a commercial product. There are no monetization plans — at most a "buy me a coffee" link if traffic and expenses justify it. The tone of the app (docs, legal pages, error messages) should reflect this: friendly, honest, low-ceremony. Don't over-engineer for scale or legal edge cases that only matter for commercial SaaS. Security and reliability still matter — but formality and legal armor do not.
 
-The single biggest architectural challenge: the entire database layer uses synchronous `better-sqlite3`, which cannot run on Cloudflare Workers. This cascades into nearly every other decision.
+~~The single biggest architectural challenge: the entire database layer uses synchronous `better-sqlite3`, which cannot run on Cloudflare Workers. This cascades into nearly every other decision.~~ **Resolved in Phase 1** — Drizzle ORM adopted, all repos async, migration system in place. The D1 driver swap is a Phase 3 infrastructure task, not a code change.
 
 ---
 
@@ -30,38 +30,17 @@ These decisions were made during planning and should not be revisited without go
 
 ---
 
-## Phase 0 — Foundation
+## Phase 0 — Foundation ✅
 
-These items create the safety net needed before major refactors begin. Nothing else should start until Phase 0 is complete.
+> **Completed.** Testing infrastructure (Vitest, 776 tests) and CI pipeline (GitHub Actions) are in place.
 
-### 0.1 Testing Infrastructure
+### 0.1 Testing Infrastructure ✅
 
-**Why it matters:** You're about to rewrite the database layer, change the auth system, and restructure middleware. Without tests, you'll have no way to know if refactors broke existing behavior. Tests are insurance — they're most valuable _before_ the risky work, not after.
+Vitest configured with TypeScript + `@/` path alias. 51 test files, 776 tests covering unit tests (pure functions, mappers, Director), integration tests (repository layer with in-memory SQLite), and LLM tagger parsing tests.
 
-**Scope:**
+### 0.2 CI Pipeline ✅
 
-- Install and configure Vitest with TypeScript + `@/` path alias
-- Add `test`, `test:watch`, `test:coverage` npm scripts
-- Write unit tests for pure functions: `parseDuration`, REJECT_KEYWORDS filtering, mapper functions, Director's `assemblePlaylist`
-- Write integration tests for the repository layer using in-memory SQLite
-- Write parsing tests for LLM tagger responses (malformed JSON, missing fields, out-of-range values)
-
-**Decision questions:**
-
-- What's your target coverage threshold? 80% of critical paths is a reasonable starting point — not 100% of everything.
-- Do you want snapshot testing for the Director's arc assembly output, or just assertion-based?
-
----
-
-### 0.2 CI Pipeline
-
-**Why it matters:** CI is the guardrail that catches mistakes before they reach production. Every subsequent session in this plan will produce PRs — CI ensures they don't break the build. It's also table stakes for an open-source project; contributors expect a green checkmark.
-
-**Scope:**
-
-- Create `.github/workflows/ci.yml`: lint, format check, `npm audit`, build, test
-- Ensure CI works with placeholder env vars (no real API keys needed for build/test)
-- Add branch protection rules on `main`: require CI pass before merge
+`.github/workflows/ci.yml` runs lint, format check, tests with coverage, and build on every push/PR to `main`.
 
 **Decision questions:**
 
@@ -69,65 +48,39 @@ These items create the safety net needed before major refactors begin. Nothing e
 
 ---
 
-## Phase 1 — Database Migration
+## Phase 1 — Database Migration ✅
 
-This is the single largest effort in the entire plan. It must happen before Cloudflare deployment because `better-sqlite3` (synchronous, native binary) cannot run on Workers. It also unblocks the need for a real migration system.
+> **Completed.** Drizzle ORM adopted, all repos async, full indexing audit done, migration system in place.
 
-### 1.1 Adopt an ORM / Query Abstraction Layer
+### 1.1 Adopt Drizzle ORM ✅
 
-**Why it matters:** Right now, every repo file hand-writes SQL and uses the synchronous `better-sqlite3` API directly. To deploy on Cloudflare D1 (async API), every single DB call must change. An ORM like Drizzle can target _both_ better-sqlite3 (local dev) and D1 (production) from the same schema definition, so you write the migration once and get both environments working.
+Drizzle ORM adopted with `better-sqlite3` driver for local dev. All 9 repo files rewritten to use Drizzle query builder and `sql` tagged template. All repo methods are `async` (return `Promise<T>`). All 35 consumer files (API routes, pipeline, server components) updated with `await`. Old `schema.ts`, `_shared.ts` (stmt cache), and `getRawDB()` deleted. 776 tests pass.
 
-**Scope:**
+**Decisions made:**
 
-- Evaluate and adopt Drizzle ORM (strong D1 support, TypeScript-native, lightweight)
-- Define the Drizzle schema mirroring the current `CREATE TABLE` statements in `schema.ts`
-- Replace the `stmt()` caching helper and raw `db.prepare()` calls with Drizzle queries
-- Convert all repo files (`games.ts`, `tracks.ts`, `sessions.ts`, `playlist.ts`, `users.ts`, `video-tracks.ts`, `review-flags.ts`, `decisions.ts`) from sync to async
-- Update all API route handlers to `await` the now-async repo calls
-- Verify all existing tests still pass after conversion
+- Drizzle over Kysely/raw D1 — first-class D1 support, TypeScript-native
+- Migrated all repos in one session, simplest-first order
 
-**Decision questions:**
+### 1.2 Database Indexing Audit ✅
 
-- Drizzle vs. Kysely vs. raw D1 API? Drizzle is recommended for its first-class D1 support and type safety. Kysely is lighter but has weaker D1 integration. Raw D1 means rewriting every query twice (once for dev, once for prod).
-- Do you want to do this as one large session or split by repo domain (games, tracks, playlist, etc.)?
+Full audit of all WHERE, JOIN, and ORDER BY clauses. 9 indexes added total:
 
----
+**Composite:** `playlists(user_id, is_archived, created_at)`, `library_games(library_id, curation, added_at)`, `playlist_tracks(playlist_id, status)`, `tracks(game_id, active)`, `video_tracks(game_id, track_name)`
+**Single-column:** `games(published)`, `games(onboarding_phase)`, `games(needs_review)`, `tracks(tagged_at)`
 
-### 1.2 Database Indexing Audit
+**Decisions made:**
 
-**Why it matters:** With a single user, every query is fast regardless of indexing. With hundreds of users and thousands of tracks, an unindexed query that was invisible at 100ms becomes a 2-second bottleneck. The Director queries tracks by `energy`, `role`, `mood`, and `instrumentation` during arc assembly — these need to be fast. Backstage queries filter by `status`, `needs_review`, and join across multiple tables.
+- Director energy/role columns not indexed — filtering happens in-memory post-fetch (acceptable pattern)
+- `game_yt_playlists` table doesn't exist; playlist IDs live on `games.yt_playlist_id`
 
-**Scope:**
+### 1.3 Database Migration System ✅
 
-- Audit all `WHERE`, `JOIN`, and `ORDER BY` clauses across repo files
-- Add indexes for Director-critical columns: `energy`, `role`, and any columns used in scoring queries
-- Add indexes for Backstage-critical columns: `games.status`, `games.needs_review`
-- Add composite indexes where multi-column filtering is common
-- Verify `game_yt_playlists` lookup performance (cached playlist IDs queried on every generation)
-- This must happen _before_ Phase 3 (D1 migration) since D1 index behavior differs slightly from local SQLite
+Drizzle Kit configured (`drizzle.config.ts`). Baseline migration generated. `initSchema()` replaced with `migrate()` in `getDB()`. Workflow documented in CLAUDE.md. Migration SQL files are plain SQLite compatible with D1.
 
-**Decision questions:**
+**Decisions made:**
 
-- Do you want to benchmark before/after with a realistic data volume, or trust the query patterns and add indexes proactively?
-
----
-
-### 1.3 Database Migration System
-
-**Why it matters:** Today, schema changes are made by editing `CREATE TABLE` statements and running `db:reset`, which **drops all data**. That's fine when you're the only user and the DB is disposable. In production, you can't drop everyone's game libraries every time you add a column. A migration system applies incremental schema changes without data loss.
-
-**Scope:**
-
-- Set up Drizzle Kit (Drizzle's migration tooling) or a lightweight alternative
-- Generate an initial migration from the current schema (baseline)
-- Replace the `initSchema()` function with migration runner logic
-- Document the workflow: schema change → generate migration → apply
-- Ensure migrations work for both local SQLite and Cloudflare D1
-
-**Decision questions:**
-
-- Drizzle Kit handles migration generation automatically from schema diffs — is that acceptable, or do you want hand-written SQL migrations for more control?
-- What's the data seeding story for new deployments vs. existing ones?
+- Drizzle Kit auto-generation from schema diffs (not hand-written SQL)
+- New deployments: `migrate()` applies all migrations; `seedDefaultUser()` creates the local dev user
 
 ---
 
