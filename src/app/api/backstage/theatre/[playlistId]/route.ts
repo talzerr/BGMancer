@@ -5,13 +5,13 @@ import { NextResponse } from "next/server";
 export async function GET(_req: Request, { params }: { params: Promise<{ playlistId: string }> }) {
   try {
     const { playlistId } = await params;
-    const session = Sessions.getByIdWithTelemetry(playlistId);
+    const session = await Sessions.getByIdWithTelemetry(playlistId);
     if (!session) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
-    const tracks = Playlist.listAllWithGameTitle(session.user_id, playlistId);
-    const decisions = DirectorDecisions.listByPlaylist(playlistId);
+    const tracks = await Playlist.listAllWithGameTitle(session.user_id, playlistId);
+    const decisions = await DirectorDecisions.listByPlaylist(playlistId);
 
     return NextResponse.json({
       session: {

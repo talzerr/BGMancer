@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type Database from "better-sqlite3";
 import {
-  createTestDB,
+  createTestDrizzleDB,
   clearStmtCache,
   seedTestUser,
   seedTestGame,
@@ -10,12 +10,14 @@ import {
 import { TEST_USER_ID, TEST_GAME_ID, TEST_GAME_TITLE } from "@/test/constants";
 import { parseJson } from "@/test/route-helpers";
 
-let db: Database.Database;
+let db: DrizzleDB;
+let rawDb: Database.Database;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
   return {
     getDB: () => db,
+
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -38,26 +40,30 @@ vi.mock("@/lib/services/session", async () => {
 const { GET } = await import("../route");
 
 beforeEach(() => {
-  db = createTestDB();
+  ({ db, rawDb } = createTestDrizzleDB());
   clearStmtCache();
-  seedTestUser(db);
+  seedTestUser(rawDb);
 });
 
 describe("GET /api/sessions", () => {
   describe("when user has sessions", () => {
     it("should return sessions with track counts", async () => {
-      seedTestGame(db, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
-      const sessionId = seedTestSession(db, TEST_USER_ID, { id: "s1", name: "Session One" });
+      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
+      const sessionId = seedTestSession(rawDb, TEST_USER_ID, { id: "s1", name: "Session One" });
 
       // Add some tracks to the session
-      db.prepare(
-        `INSERT INTO playlist_tracks (id, playlist_id, game_id, track_name, position, status)
+      rawDb
+        .prepare(
+          `INSERT INTO playlist_tracks (id, playlist_id, game_id, track_name, position, status)
          VALUES (?, ?, ?, ?, ?, ?)`,
-      ).run("pt1", sessionId, TEST_GAME_ID, "Track 1", 0, "found");
-      db.prepare(
-        `INSERT INTO playlist_tracks (id, playlist_id, game_id, track_name, position, status)
+        )
+        .run("pt1", sessionId, TEST_GAME_ID, "Track 1", 0, "found");
+      rawDb
+        .prepare(
+          `INSERT INTO playlist_tracks (id, playlist_id, game_id, track_name, position, status)
          VALUES (?, ?, ?, ?, ?, ?)`,
-      ).run("pt2", sessionId, TEST_GAME_ID, "Track 2", 1, "found");
+        )
+        .run("pt2", sessionId, TEST_GAME_ID, "Track 2", 1, "found");
 
       const res = await GET();
       expect(res.status).toBe(200);

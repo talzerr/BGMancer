@@ -30,9 +30,9 @@ export async function POST() {
   try {
     const cookieStore = await cookies();
     const userId = await getOrCreateUserId(cookieStore);
-    Users.getOrCreate(userId);
+    await Users.getOrCreate(userId);
 
-    const pendingRows = Playlist.listPending(userId);
+    const pendingRows = await Playlist.listPending(userId);
 
     if (pendingRows.length === 0) {
       return NextResponse.json({ message: "No pending tracks to search.", updated: 0 });
@@ -44,13 +44,13 @@ export async function POST() {
     await runConcurrent(pendingRows, SEARCH_CONCURRENCY, async (row) => {
       const queries = row.search_queries ?? [];
 
-      Playlist.setSearching(row.id);
+      await Playlist.setSearching(row.id);
 
       try {
         const video = await findBestVideo(queries, true);
 
         if (video) {
-          Playlist.setFound(
+          await Playlist.setFound(
             row.id,
             video.videoId,
             video.title,
@@ -60,17 +60,24 @@ export async function POST() {
           );
           updated++;
         } else {
-          Playlist.setError(row.id, "No suitable video found after trying all queries.");
+          await Playlist.setError(row.id, "No suitable video found after trying all queries.");
           failed++;
         }
       } catch (err) {
         if (err instanceof YouTubeInvalidKeyError) throw err;
-        Playlist.setError(row.id, err instanceof Error ? err.message : "YouTube search failed");
+        await Playlist.setError(
+          row.id,
+          err instanceof Error ? err.message : "YouTube search failed",
+        );
         failed++;
       }
     });
 
-    return NextResponse.json({ updated, failed, tracks: Playlist.listAllWithGameTitle(userId) });
+    return NextResponse.json({
+      updated,
+      failed,
+      tracks: await Playlist.listAllWithGameTitle(userId),
+    });
   } catch (err) {
     console.error("[POST /api/playlist/search]", err);
     const status = err instanceof YouTubeInvalidKeyError ? 503 : 500;

@@ -22,17 +22,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     // empty body — use defaults
   }
 
-  const track = Playlist.getById(id);
+  const track = await Playlist.getById(id);
   if (!track) {
     return NextResponse.json({ error: "Track not found" }, { status: 404 });
   }
 
-  const game = Games.getById(track.game_id);
+  const game = await Games.getById(track.game_id);
   if (!game) {
     return NextResponse.json({ error: "Game not found" }, { status: 404 });
   }
 
-  const existingIds = new Set(Playlist.getVideoIdsForGame(track.game_id));
+  const existingIds = new Set(await Playlist.getVideoIdsForGame(track.game_id));
   existingIds.delete(track.video_id ?? "");
 
   const ytPlaylistId = game.yt_playlist_id;
@@ -97,7 +97,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const durationSeconds = durations.get(picked.videoId) ?? null;
 
   try {
-    Playlist.setFound(
+    await Playlist.setFound(
       id,
       picked.videoId,
       picked.title,
@@ -111,6 +111,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "Failed to update track" }, { status: 500 });
   }
 
-  const updated = Playlist.getById(id);
+  const updated = await Playlist.getById(id);
   return NextResponse.json({ track: updated });
 }

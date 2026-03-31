@@ -1,15 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type Database from "better-sqlite3";
-import { createTestDB, clearStmtCache, seedTestUser, seedTestSession } from "@/lib/db/test-helpers";
+import {
+  createTestDrizzleDB,
+  clearStmtCache,
+  seedTestUser,
+  seedTestSession,
+} from "@/lib/db/test-helpers";
 import { TEST_USER_ID } from "@/test/constants";
 import { makeJsonRequest, parseJson } from "@/test/route-helpers";
 
-let db: Database.Database;
+let db: DrizzleDB;
+let rawDb: Database.Database;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
   return {
     getDB: () => db,
+
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -32,9 +39,9 @@ vi.mock("@/lib/services/session", async () => {
 const { PATCH, DELETE: DELETE_HANDLER } = await import("../route");
 
 beforeEach(() => {
-  db = createTestDB();
+  ({ db, rawDb } = createTestDrizzleDB());
   clearStmtCache();
-  seedTestUser(db);
+  seedTestUser(rawDb);
 });
 
 /** Helper to build the async params object expected by Next.js 16 route handlers. */
@@ -45,7 +52,7 @@ function makeParams(id: string): { params: Promise<{ id: string }> } {
 describe("PATCH /api/sessions/[id]", () => {
   describe("when renaming a session", () => {
     it("should return success", async () => {
-      const sessionId = seedTestSession(db, TEST_USER_ID, { id: "s1", name: "Old Name" });
+      const sessionId = seedTestSession(rawDb, TEST_USER_ID, { id: "s1", name: "Old Name" });
 
       const res = await PATCH(
         makeJsonRequest(`/api/sessions/${sessionId}`, "PATCH", { name: "New Name" }),
@@ -57,7 +64,7 @@ describe("PATCH /api/sessions/[id]", () => {
       expect(body.success).toBe(true);
 
       // Verify the rename persisted
-      const row = db.prepare("SELECT name FROM playlists WHERE id = ?").get(sessionId) as {
+      const row = rawDb.prepare("SELECT name FROM playlists WHERE id = ?").get(sessionId) as {
         name: string;
       };
       expect(row.name).toBe("New Name");
@@ -66,7 +73,7 @@ describe("PATCH /api/sessions/[id]", () => {
 
   describe("when name is missing", () => {
     it("should return 400", async () => {
-      const sessionId = seedTestSession(db, TEST_USER_ID, { id: "s1" });
+      const sessionId = seedTestSession(rawDb, TEST_USER_ID, { id: "s1" });
 
       const res = await PATCH(
         makeJsonRequest(`/api/sessions/${sessionId}`, "PATCH", {}),
@@ -93,8 +100,8 @@ describe("PATCH /api/sessions/[id]", () => {
 describe("DELETE /api/sessions/[id]", () => {
   describe("when deleting a session", () => {
     it("should return success with nextSessionId", async () => {
-      seedTestSession(db, TEST_USER_ID, { id: "s1", name: "First" });
-      seedTestSession(db, TEST_USER_ID, { id: "s2", name: "Second" });
+      seedTestSession(rawDb, TEST_USER_ID, { id: "s1", name: "First" });
+      seedTestSession(rawDb, TEST_USER_ID, { id: "s2", name: "Second" });
 
       const res = await DELETE_HANDLER(
         makeJsonRequest("/api/sessions/s1", "DELETE"),

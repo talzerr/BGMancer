@@ -102,7 +102,7 @@ export async function tagTracks(
   if (allUntagged.length === 0) return;
 
   if (allUntagged.length > TAG_POOL_MAX) {
-    ReviewFlags.markAsNeedsReview(
+    await ReviewFlags.markAsNeedsReview(
       gameId,
       ReviewReason.TrackCapReached,
       `${allUntagged.length - TAG_POOL_MAX} tracks will remain untagged (${allUntagged.length} untagged, cap is ${TAG_POOL_MAX})`,
@@ -129,7 +129,7 @@ export async function tagTracks(
       // Re-throw abort errors — don't flag cancellations as failures
       if (signal?.aborted) throw err;
       console.error(`[tagger] LLM call failed for game "${gameTitle}" batch ${batchNum}:`, err);
-      ReviewFlags.markAsNeedsReview(
+      await ReviewFlags.markAsNeedsReview(
         gameId,
         ReviewReason.LlmCallFailed,
         `batch ${batchNum}: ${String(err)}`,
@@ -145,7 +145,7 @@ export async function tagTracks(
         `[tagger] Failed to parse LLM response for game "${gameTitle}" batch ${batchNum}:`,
         err,
       );
-      ReviewFlags.markAsNeedsReview(
+      await ReviewFlags.markAsNeedsReview(
         gameId,
         ReviewReason.LlmParseFailed,
         `batch ${batchNum}: ${String(err)}`,
@@ -163,15 +163,15 @@ export async function tagTracks(
           item.energy !== 1 && item.energy !== 2 && item.energy !== 3
             ? `invalid energy for "${track.name}": ${JSON.stringify(item.energy)}`
             : `invalid roles for "${track.name}": ${JSON.stringify(item.roles)}`;
-        ReviewFlags.markAsNeedsReview(gameId, ReviewReason.EmptyMetadata, reason);
+        await ReviewFlags.markAsNeedsReview(gameId, ReviewReason.EmptyMetadata, reason);
         continue;
       }
 
       if (!tag.confident) {
-        ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LowConfidence, track.name);
+        await ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LowConfidence, track.name);
       }
 
-      Tracks.updateTags(gameId, track.name, {
+      await Tracks.updateTags(gameId, track.name, {
         energy: tag.energy,
         roles: JSON.stringify(tag.roles),
         moods: JSON.stringify(tag.moods),

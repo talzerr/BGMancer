@@ -7,7 +7,7 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const search = url.searchParams.get("q") ?? undefined;
-    const games = BackstageGames.listPublished(search, CATALOG_PAGE_SIZE);
+    const games = await BackstageGames.listPublished(search, CATALOG_PAGE_SIZE);
     return NextResponse.json(games);
   } catch (err) {
     console.error("[GET /api/games/catalog]", err);

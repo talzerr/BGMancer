@@ -101,13 +101,13 @@ function runDirector(
   };
 }
 
-function persistSession(
+async function persistSession(
   userId: string,
   allTracks: PendingTrack[],
   decisions: TrackDecision[],
   usedRubric?: ScoringRubric,
   gameBudgets?: Record<string, number>,
-): { session: { id: string }; inserted: PlaylistTrack[] } {
+): Promise<{ session: { id: string }; inserted: PlaylistTrack[] }> {
   const gameNames = [...new Set(allTracks.map((t) => t.game_title ?? t.game_id))];
   const rawNameList =
     gameNames.slice(0, SESSION_NAME_MAX_GAMES).join(", ") +
@@ -117,13 +117,13 @@ function persistSession(
       ? `${rawNameList.slice(0, SESSION_NAME_MAX_LENGTH - 1).trimEnd()}…`
       : rawNameList;
 
-  const session = Sessions.create(userId, sessionName);
-  Playlist.replaceAll(session.id, toInsertable(allTracks));
+  const session = await Sessions.create(userId, sessionName);
+  await Playlist.replaceAll(session.id, toInsertable(allTracks));
 
   if (decisions.length > 0 || usedRubric || gameBudgets) {
     try {
-      Sessions.updateTelemetry(session.id, usedRubric, gameBudgets);
-      DirectorDecisions.bulkInsert(session.id, decisions);
+      await Sessions.updateTelemetry(session.id, usedRubric, gameBudgets);
+      await DirectorDecisions.bulkInsert(session.id, decisions);
     } catch (err) {
       console.error("[persistSession] Telemetry failed, session preserved:", err);
     }
@@ -155,7 +155,7 @@ export async function generatePlaylist(
   userId: string,
   config: AppConfig,
 ): Promise<void> {
-  const games = Games.listAll(userId);
+  const games = await Games.listAll(userId);
   if (games.length === 0) {
     send({
       type: "error",
@@ -164,7 +164,7 @@ export async function generatePlaylist(
     return;
   }
 
-  const user = Users.getOrCreate(userId);
+  const user = await Users.getOrCreate(userId);
   const targetCount = config.target_track_count;
 
   const taggedPools = await gatherCandidates(games, send);
@@ -199,7 +199,7 @@ export async function generatePlaylist(
   const slicedDecisions = decisions.filter((d) => d.position < allTracks.length);
 
   send({ type: "progress", message: "Saving playlist…" });
-  const { session, inserted } = persistSession(
+  const { session, inserted } = await persistSession(
     user.id,
     allTracks,
     slicedDecisions,

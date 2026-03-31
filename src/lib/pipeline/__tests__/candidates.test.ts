@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type Database from "better-sqlite3";
 import {
-  createTestDB,
+  createTestDrizzleDB,
   clearStmtCache,
   seedTestUser,
   seedTestGame,
@@ -12,12 +12,14 @@ import { CurationMode, GameProgressStatus } from "@/types";
 import type { GenerateEvent } from "../types";
 import { TEST_USER_ID, TEST_GAME_ID, TEST_GAME_TITLE } from "@/test/constants";
 
-let db: Database.Database;
+let db: DrizzleDB;
+let rawDb: Database.Database;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
   return {
     getDB: () => db,
+
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -43,9 +45,9 @@ function makeGame(id: string, title: string): Game {
 }
 
 beforeEach(() => {
-  db = createTestDB();
+  ({ db, rawDb } = createTestDrizzleDB());
   clearStmtCache();
-  seedTestUser(db);
+  seedTestUser(rawDb);
 });
 
 describe("fetchGameCandidates", () => {
@@ -55,19 +57,28 @@ describe("fetchGameCandidates", () => {
 
     beforeEach(async () => {
       events = [];
-      const gameId = seedTestGame(db, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
-      seedTestTracks(db, gameId, 3, true);
+      const gameId = seedTestGame(rawDb, TEST_USER_ID, {
+        id: TEST_GAME_ID,
+        title: TEST_GAME_TITLE,
+      });
+      seedTestTracks(rawDb, gameId, 3, true);
 
       // Add video mappings for the tracks
-      db.prepare(
-        "INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds, view_count) VALUES (?, ?, ?, ?, ?)",
-      ).run("vid-1", gameId, "Track 1", 200, 50000);
-      db.prepare(
-        "INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds, view_count) VALUES (?, ?, ?, ?, ?)",
-      ).run("vid-2", gameId, "Track 2", 180, 30000);
-      db.prepare(
-        "INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds, view_count) VALUES (?, ?, ?, ?, ?)",
-      ).run("vid-3", gameId, "Track 3", 240, null);
+      rawDb
+        .prepare(
+          "INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds, view_count) VALUES (?, ?, ?, ?, ?)",
+        )
+        .run("vid-1", gameId, "Track 1", 200, 50000);
+      rawDb
+        .prepare(
+          "INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds, view_count) VALUES (?, ?, ?, ?, ?)",
+        )
+        .run("vid-2", gameId, "Track 2", 180, 30000);
+      rawDb
+        .prepare(
+          "INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds, view_count) VALUES (?, ?, ?, ?, ?)",
+        )
+        .run("vid-3", gameId, "Track 3", 240, null);
 
       result = await fetchGameCandidates(makeGame(TEST_GAME_ID, TEST_GAME_TITLE), (e) =>
         events.push(e),
@@ -102,8 +113,8 @@ describe("fetchGameCandidates", () => {
 
   describe("when game has tagged tracks but no video mappings", () => {
     it("should return empty array", async () => {
-      const gameId = seedTestGame(db, TEST_USER_ID, { id: TEST_GAME_ID });
-      seedTestTracks(db, gameId, 3, true);
+      const gameId = seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID });
+      seedTestTracks(rawDb, gameId, 3, true);
 
       const result = await fetchGameCandidates(makeGame(TEST_GAME_ID, "Test"), vi.fn());
       expect(result).toHaveLength(0);
@@ -112,7 +123,7 @@ describe("fetchGameCandidates", () => {
 
   describe("when game has no tracks", () => {
     it("should return empty array with done status", async () => {
-      seedTestGame(db, TEST_USER_ID, { id: TEST_GAME_ID });
+      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID });
       const events: GenerateEvent[] = [];
 
       const result = await fetchGameCandidates(makeGame(TEST_GAME_ID, "Test"), (e) =>
@@ -125,8 +136,8 @@ describe("fetchGameCandidates", () => {
 
   describe("when game has untagged tracks", () => {
     it("should not include untagged tracks", async () => {
-      const gameId = seedTestGame(db, TEST_USER_ID, { id: TEST_GAME_ID });
-      seedTestTracks(db, gameId, 3, false); // untagged
+      const gameId = seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID });
+      seedTestTracks(rawDb, gameId, 3, false); // untagged
 
       const result = await fetchGameCandidates(makeGame(TEST_GAME_ID, "Test"), vi.fn());
       expect(result).toHaveLength(0);
@@ -135,27 +146,31 @@ describe("fetchGameCandidates", () => {
 
   describe("when a tagged track has has_vocals = null in the DB", () => {
     it("should default hasVocals to false in the TaggedTrack", async () => {
-      const gameId = seedTestGame(db, TEST_USER_ID, { id: TEST_GAME_ID });
+      const gameId = seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID });
       // Insert a tagged track with has_vocals explicitly null
-      db.prepare(
-        `INSERT INTO tracks (game_id, name, position, energy, roles, moods, instrumentation, has_vocals, tagged_at)
+      rawDb
+        .prepare(
+          `INSERT INTO tracks (game_id, name, position, energy, roles, moods, instrumentation, has_vocals, tagged_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).run(
-        gameId,
-        "Null Vocal Track",
-        0,
-        2,
-        '["ambient"]',
-        '["peaceful"]',
-        '["piano"]',
-        null,
-        new Date().toISOString(),
-      );
+        )
+        .run(
+          gameId,
+          "Null Vocal Track",
+          0,
+          2,
+          '["ambient"]',
+          '["peaceful"]',
+          '["piano"]',
+          null,
+          new Date().toISOString(),
+        );
 
       // Add video mapping
-      db.prepare(
-        "INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds) VALUES (?, ?, ?, ?)",
-      ).run("vid-null-vocal", gameId, "Null Vocal Track", 200);
+      rawDb
+        .prepare(
+          "INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds) VALUES (?, ?, ?, ?)",
+        )
+        .run("vid-null-vocal", gameId, "Null Vocal Track", 200);
 
       const result = await fetchGameCandidates(makeGame(TEST_GAME_ID, "Test"), vi.fn());
       expect(result).toHaveLength(1);
@@ -165,24 +180,19 @@ describe("fetchGameCandidates", () => {
 
   describe("when game has inactive tracks", () => {
     it("should not include inactive tracks", async () => {
-      const gameId = seedTestGame(db, TEST_USER_ID, { id: TEST_GAME_ID });
-      seedTestTracks(db, gameId, 2, true);
+      const gameId = seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID });
+      seedTestTracks(rawDb, gameId, 2, true);
       // Deactivate one track
-      db.prepare("UPDATE tracks SET active = 0 WHERE game_id = ? AND name = ?").run(
-        gameId,
-        "Track 1",
-      );
+      rawDb
+        .prepare("UPDATE tracks SET active = 0 WHERE game_id = ? AND name = ?")
+        .run(gameId, "Track 1");
       // Add video mapping for both
-      db.prepare("INSERT INTO video_tracks (video_id, game_id, track_name) VALUES (?, ?, ?)").run(
-        "vid-1",
-        gameId,
-        "Track 1",
-      );
-      db.prepare("INSERT INTO video_tracks (video_id, game_id, track_name) VALUES (?, ?, ?)").run(
-        "vid-2",
-        gameId,
-        "Track 2",
-      );
+      rawDb
+        .prepare("INSERT INTO video_tracks (video_id, game_id, track_name) VALUES (?, ?, ?)")
+        .run("vid-1", gameId, "Track 1");
+      rawDb
+        .prepare("INSERT INTO video_tracks (video_id, game_id, track_name) VALUES (?, ?, ?)")
+        .run("vid-2", gameId, "Track 2");
 
       const result = await fetchGameCandidates(makeGame(TEST_GAME_ID, "Test"), vi.fn());
       expect(result).toHaveLength(1);

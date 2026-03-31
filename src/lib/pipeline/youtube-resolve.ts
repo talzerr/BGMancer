@@ -18,7 +18,7 @@ export async function discoverOSTPlaylist(
 
   onProgress?.("Searching YouTube for OST playlist…");
   const playlistId = await searchOSTPlaylist(game.title);
-  if (playlistId) BackstageGames.setPlaylistId(game.id, playlistId);
+  if (playlistId) await BackstageGames.setPlaylistId(game.id, playlistId);
   return playlistId;
 }
 
@@ -30,7 +30,7 @@ export async function ensureVideoMetadata(
   videoIds: string[],
   gameId: string,
 ): Promise<Map<string, { durationSeconds: number; viewCount: number | null }>> {
-  const stored = VideoTracks.getByGame(gameId);
+  const stored = await VideoTracks.getByGame(gameId);
   // Fetch if duration is absent OR if view count hasn't been cached yet (e.g. tracks ingested
   // before view-count support was added, or tracks with Discogs durations that bypassed YouTube).
   const missing = videoIds.filter((id) => {
@@ -41,7 +41,7 @@ export async function ensureVideoMetadata(
   const fetched: Map<string, VideoMetadata> =
     missing.length > 0 ? await fetchVideoMetadata(missing) : new Map();
 
-  VideoTracks.storeDurations(
+  await VideoTracks.storeDurations(
     missing.flatMap((id) => {
       const m = fetched.get(id);
       return m != null

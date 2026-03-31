@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const game = Games.getById(gameId);
+  const game = await Games.getById(gameId);
   if (!game) {
     return new Response(
       `data: ${JSON.stringify({ type: "error", message: "Game not found" })}\n\n`,
@@ -35,9 +35,9 @@ export async function POST(req: Request) {
 
   (async () => {
     try {
-      Tracks.clearTags(gameId);
+      await Tracks.clearTags(gameId);
 
-      const tracks = Tracks.getByGame(gameId);
+      const tracks = await Tracks.getByGame(gameId);
       const total = tracks.length;
 
       send({ type: "progress", current: 0, total, trackName: "Starting…" });
@@ -45,10 +45,10 @@ export async function POST(req: Request) {
       const provider = getTaggingProvider();
       await tagTracks(gameId, game.title, tracks, provider, abort.signal);
 
-      BackstageGames.setPhase(gameId, OnboardingPhase.Tagged);
+      await BackstageGames.setPhase(gameId, OnboardingPhase.Tagged);
 
-      const tagged = Tracks.getByGame(gameId).filter((t) => t.taggedAt !== null).length;
-      const updatedGame = Games.getById(gameId);
+      const tagged = (await Tracks.getByGame(gameId)).filter((t) => t.taggedAt !== null).length;
+      const updatedGame = await Games.getById(gameId);
       const needsReview = updatedGame?.needs_review ? 1 : 0;
 
       send({ type: "done", tagged, needsReview });

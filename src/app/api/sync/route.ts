@@ -31,13 +31,13 @@ export async function POST() {
 
     const cookieStore = await cookies();
     const userId = await getOrCreateUserId(cookieStore);
-    Users.getOrCreate(userId);
+    await Users.getOrCreate(userId);
 
     const accessToken = session.access_token;
-    const trackRows = Playlist.listUnsyncedFound(userId);
+    const trackRows = await Playlist.listUnsyncedFound(userId);
 
     if (trackRows.length === 0) {
-      const alreadySynced = Playlist.countSynced(userId) > 0;
+      const alreadySynced = (await Playlist.countSynced(userId)) > 0;
       return NextResponse.json({
         message: alreadySynced
           ? "All tracks are already synced."
@@ -58,7 +58,7 @@ export async function POST() {
     await runConcurrent(trackRows, SYNC_CONCURRENCY, async (track) => {
       try {
         await addVideoToPlaylist(accessToken, playlistId, track.video_id);
-        Playlist.markSynced(track.id);
+        await Playlist.markSynced(track.id);
         syncedIds.push(track.id);
       } catch (err) {
         errors.push({

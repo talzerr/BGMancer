@@ -25,7 +25,7 @@ export async function loadTracks(
   onProgress?: (message: string) => void,
 ): Promise<{ trackCount: number } | null> {
   // Re-fetch game to get the latest tracklist_source (admin may have edited it)
-  const fresh = Games.getById(game.id);
+  const fresh = await Games.getById(game.id);
   const source = fresh?.tracklist_source ?? game.tracklist_source;
   const match = source?.match(/^(discogs-release|discogs-master|vgmdb):(\d+)$/);
   const sourceType = match?.[1];
@@ -44,7 +44,7 @@ export async function loadTracks(
   } else if (sourceType === "vgmdb" && sourceId) {
     // TODO: implement VGMDB fetching
     onProgress?.(`VGMDB source (${sourceId}) — not yet supported`);
-    ReviewFlags.markAsNeedsReview(
+    await ReviewFlags.markAsNeedsReview(
       game.id,
       ReviewReason.NoTracklistSource,
       `vgmdb:${sourceId} not supported yet`,
@@ -59,7 +59,7 @@ export async function loadTracks(
     const detail = wasPreset
       ? `Configured source "${source}" returned no usable tracks — verify the ID is correct`
       : undefined;
-    ReviewFlags.markAsNeedsReview(game.id, ReviewReason.NoTracklistSource, detail);
+    await ReviewFlags.markAsNeedsReview(game.id, ReviewReason.NoTracklistSource, detail);
     return null;
   }
 
@@ -71,7 +71,7 @@ export async function loadTracks(
     onProgress?.(`Found ${capped.length} tracks…`);
   }
 
-  Tracks.upsertBatch(
+  await Tracks.upsertBatch(
     capped.map((t) => ({
       gameId: game.id,
       name: t.name,
@@ -82,9 +82,9 @@ export async function loadTracks(
 
   // Only set tracklist_source if it was discovered (not admin-preset)
   if (!wasPreset) {
-    BackstageGames.update(game.id, { tracklist_source: `${result.sourceType}:${releaseId}` });
+    await BackstageGames.update(game.id, { tracklist_source: `${result.sourceType}:${releaseId}` });
   }
-  BackstageGames.setPhase(game.id, OnboardingPhase.TracksLoaded);
+  await BackstageGames.setPhase(game.id, OnboardingPhase.TracksLoaded);
 
   return { trackCount: tracks.length };
 }
@@ -100,8 +100,8 @@ export async function tagGameTracks(
   onProgress?: (message: string) => void,
   signal?: AbortSignal,
 ): Promise<{ tagged: number; needsReview: boolean }> {
-  const dbTracks = Tracks.getByGame(game.id);
-  const resolvedMap = VideoTracks.getTrackToVideo(game.id);
+  const dbTracks = await Tracks.getByGame(game.id);
+  const resolvedMap = await VideoTracks.getTrackToVideo(game.id);
   const taggable = dbTracks.filter(
     (t) =>
       resolvedMap.has(t.name) &&
@@ -111,11 +111,11 @@ export async function tagGameTracks(
 
   const provider = getTaggingProvider();
   await tagTracks(game.id, game.title, taggable, provider, signal);
-  BackstageGames.setPhase(game.id, OnboardingPhase.Tagged);
+  await BackstageGames.setPhase(game.id, OnboardingPhase.Tagged);
 
-  const afterTracks = Tracks.getByGame(game.id);
+  const afterTracks = await Tracks.getByGame(game.id);
   const tagged = afterTracks.filter((t) => t.taggedAt !== null).length;
-  const updatedGame = Games.getById(game.id);
+  const updatedGame = await Games.getById(game.id);
 
   return { tagged, needsReview: !!updatedGame?.needs_review };
 }
@@ -141,7 +141,7 @@ export async function resolveVideos(
   onProgress?.("Fetching playlist items…");
   const playlistItems = await fetchPlaylistItems(playlistId);
 
-  const allTracks = Tracks.getByGame(game.id);
+  const allTracks = await Tracks.getByGame(game.id);
   onProgress?.(`Resolving ${allTracks.length} tracks to videos…`);
 
   const provider = getTaggingProvider();
@@ -149,10 +149,10 @@ export async function resolveVideos(
 
   // Fetch metadata for ALL resolved video IDs (including auto-discovered inactive tracks)
   onProgress?.("Fetching video metadata…");
-  const allVideoIds = [...VideoTracks.getTrackToVideo(game.id).values()];
+  const allVideoIds = [...(await VideoTracks.getTrackToVideo(game.id)).values()];
   await ensureVideoMetadata(allVideoIds, game.id);
 
-  BackstageGames.setPhase(game.id, OnboardingPhase.Resolved);
+  await BackstageGames.setPhase(game.id, OnboardingPhase.Resolved);
 
   return { resolved: resolved.length, total: allTracks.length };
 }
@@ -170,7 +170,7 @@ export async function quickOnboard(
   onProgress?.("Phase 1: Loading tracks…", 0, 3);
   const loaded = await loadTracks(game, (msg) => onProgress?.(msg, 0, 3));
   if (!loaded) {
-    BackstageGames.setPhase(game.id, OnboardingPhase.Failed);
+    await BackstageGames.setPhase(game.id, OnboardingPhase.Failed);
     throw new Error(`No Discogs data for "${game.title}"`);
   }
 
@@ -184,7 +184,7 @@ export async function quickOnboard(
   onProgress?.("Phase 3: Tagging tracks…", 2, 3);
   const tagResult = await tagGameTracks(game, (msg) => onProgress?.(msg, 2, 3), signal);
 
-  BackstageGames.setPublished(game.id, true);
+  await BackstageGames.setPublished(game.id, true);
   onProgress?.("Published.", 3, 3);
 
   return {

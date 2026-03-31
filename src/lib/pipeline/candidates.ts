@@ -17,7 +17,7 @@ export async function fetchGameCandidates(game: Game, send: Send): Promise<Tagge
     message: "Loading tracks…",
   });
 
-  const allTracks = Tracks.getByGame(game.id);
+  const allTracks = await Tracks.getByGame(game.id);
   const activeTracks = allTracks.filter((t) => t.active && t.energy !== null && t.roles.length > 0);
 
   if (activeTracks.length === 0) {
@@ -32,8 +32,8 @@ export async function fetchGameCandidates(game: Game, send: Send): Promise<Tagge
   }
 
   // Look up pre-resolved video mappings + metadata
-  const trackToVideo = VideoTracks.getTrackToVideo(game.id);
-  const videoMeta = VideoTracks.getByGame(game.id);
+  const trackToVideo = await VideoTracks.getTrackToVideo(game.id);
+  const videoMeta = await VideoTracks.getByGame(game.id);
 
   const tracks: TaggedTrack[] = [];
   for (const track of activeTracks) {

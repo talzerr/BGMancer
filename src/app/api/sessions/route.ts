@@ -8,9 +8,9 @@ export async function GET() {
   try {
     const cookieStore = await cookies();
     const userId = await getOrCreateUserId(cookieStore);
-    Users.getOrCreate(userId);
+    await Users.getOrCreate(userId);
 
-    return NextResponse.json(Sessions.listAllWithCounts(userId));
+    return NextResponse.json(await Sessions.listAllWithCounts(userId));
   } catch (err) {
     console.error("[GET /api/sessions]", err);
     return NextResponse.json({ error: "Failed to fetch sessions" }, { status: 500 });

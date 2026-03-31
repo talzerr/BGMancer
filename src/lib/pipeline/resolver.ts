@@ -96,7 +96,7 @@ export async function resolveTracksToVideos(
   const trackByName = new Map<string, Track>(activeTracks.map((t) => [t.name, t]));
 
   // ── 1. Early exit: load existing mappings ──────────────────────────────────
-  const existingTrackToVideo = VideoTracks.getTrackToVideo(game.id);
+  const existingTrackToVideo = await VideoTracks.getTrackToVideo(game.id);
   const unresolvedTracks = activeTracks.filter((t) => !existingTrackToVideo.has(t.name));
 
   // Accumulate all rows to persist at the end
@@ -135,7 +135,7 @@ export async function resolveTracksToVideos(
     } catch (err) {
       if (signal?.aborted) throw err;
       console.error(`[resolver] LLM call failed for game "${game.title}" batch ${batchNum}:`, err);
-      ReviewFlags.markAsNeedsReview(
+      await ReviewFlags.markAsNeedsReview(
         game.id,
         ReviewReason.LlmCallFailed,
         `alignment batch ${batchNum}: ${String(err)}`,
@@ -153,7 +153,7 @@ export async function resolveTracksToVideos(
         `[resolver] Failed to parse LLM response for game "${game.title}" batch ${batchNum}:`,
         err,
       );
-      ReviewFlags.markAsNeedsReview(
+      await ReviewFlags.markAsNeedsReview(
         game.id,
         ReviewReason.LlmParseFailed,
         `alignment batch ${batchNum}: ${String(err)}`,
@@ -191,7 +191,7 @@ export async function resolveTracksToVideos(
 
       const confidence = typeof item.confidence === "number" ? item.confidence : 1;
       if (confidence < 0.6) {
-        ReviewFlags.markAsNeedsReview(
+        await ReviewFlags.markAsNeedsReview(
           game.id,
           ReviewReason.LowConfidence,
           `video "${video.title}" → track "${unresolvedTracks[item.track_index - 1]?.name}"`,
@@ -229,7 +229,7 @@ export async function resolveTracksToVideos(
       }
 
       // Insert discovered (inactive) track BEFORE video_tracks row (FK constraint)
-      Tracks.insertDiscovered(game.id, candidateName);
+      await Tracks.insertDiscovered(game.id, candidateName);
       matchedVideoIds.add(video.videoId);
       newRows.push({ videoId: video.videoId, gameId: game.id, trackName: candidateName });
 
@@ -257,7 +257,7 @@ export async function resolveTracksToVideos(
     (r) => r.trackName !== null && !existingTrackNames.has(r.trackName.toLowerCase()),
   ).length;
   if (discoveredCount > 0) {
-    ReviewFlags.markAsNeedsReview(
+    await ReviewFlags.markAsNeedsReview(
       game.id,
       ReviewReason.TrackDiscovered,
       `${discoveredCount} track(s) auto-discovered from YouTube titles`,
@@ -298,7 +298,7 @@ export async function resolveTracksToVideos(
   }
 
   // ── 5. Persist ─────────────────────────────────────────────────────────────
-  VideoTracks.upsertBatch(newRows);
+  await VideoTracks.upsertBatch(newRows);
 
   // ── 6. Return ResolvedTrack[] ──────────────────────────────────────────────
   return buildResults(activeTracks, allResolved, videoMap);

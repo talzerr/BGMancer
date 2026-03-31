@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const game = Games.getById(gameId);
+  const game = await Games.getById(gameId);
   if (!game) {
     return new Response(
       `data: ${JSON.stringify({ type: "error", message: "Game not found" })}\n\n`,
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
 
       send({ type: "done", trackCount: result.trackCount });
     } catch (err) {
-      BackstageGames.setPhase(gameId, OnboardingPhase.Failed);
+      await BackstageGames.setPhase(gameId, OnboardingPhase.Failed);
       console.error("[POST /api/backstage/load-tracks]", err);
       send({ type: "error", message: err instanceof Error ? err.message : String(err) });
     } finally {

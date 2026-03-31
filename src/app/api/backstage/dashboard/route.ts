@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 /** GET /api/backstage/dashboard — aggregate counts for the Backstage dashboard */
 export async function GET() {
   try {
-    const counts = BackstageGames.dashboardCounts();
+    const counts = await BackstageGames.dashboardCounts();
     return NextResponse.json(counts);
   } catch (err) {
     console.error("[GET /api/backstage/dashboard]", err);

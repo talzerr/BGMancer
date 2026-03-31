@@ -94,14 +94,14 @@ export async function resolvePendingSlots(
       const video = await findBestVideo(track.search_queries ?? [], false);
       if (video) {
         if (!allowShortTracks && video.durationSeconds < MIN_TRACK_DURATION_SECONDS) {
-          Playlist.setError(track.id, "Track is too short (intro or stinger).");
+          await Playlist.setError(track.id, "Track is too short (intro or stinger).");
           continue;
         }
         if (!allowLongTracks && video.durationSeconds > MAX_TRACK_DURATION_SECONDS) {
-          Playlist.setError(track.id, "Track exceeds maximum duration.");
+          await Playlist.setError(track.id, "Track exceeds maximum duration.");
           continue;
         }
-        Playlist.setFound(
+        await Playlist.setFound(
           track.id,
           video.videoId,
           video.title,
@@ -122,7 +122,7 @@ export async function resolvePendingSlots(
           };
         }
       } else {
-        Playlist.setError(track.id, "No suitable compilation video found.");
+        await Playlist.setError(track.id, "No suitable compilation video found.");
       }
     } catch (err) {
       if (err instanceof YouTubeQuotaError) throw err; // propagate quota errors immediately

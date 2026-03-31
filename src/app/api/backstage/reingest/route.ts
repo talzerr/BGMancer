@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const game = Games.getById(gameId);
+  const game = await Games.getById(gameId);
   if (!game) {
     return new Response(
       `data: ${JSON.stringify({ type: "error", message: "Game not found" })}\n\n`,
@@ -35,9 +35,9 @@ export async function POST(req: Request) {
   (async () => {
     try {
       send({ type: "progress", message: "Clearing existing tracks…" });
-      Tracks.deleteByGame(gameId);
-      ReviewFlags.clearByGame(gameId);
-      BackstageGames.setPhase(gameId, OnboardingPhase.Draft);
+      await Tracks.deleteByGame(gameId);
+      await ReviewFlags.clearByGame(gameId);
+      await BackstageGames.setPhase(gameId, OnboardingPhase.Draft);
 
       const progress = (message: string) => send({ type: "progress", message });
 
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
         resolveResult = await resolveVideos(game, progress, abort.signal);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        ReviewFlags.markAsNeedsReview(gameId, ReviewReason.NoTracklistSource, msg);
+        await ReviewFlags.markAsNeedsReview(gameId, ReviewReason.NoTracklistSource, msg);
         send({ type: "error", message: `Video resolution failed: ${msg}` });
         return;
       }
@@ -70,7 +70,7 @@ export async function POST(req: Request) {
       if (abort.signal.aborted) {
         send({ type: "error", message: "Cancelled" });
       } else {
-        BackstageGames.setPhase(gameId, OnboardingPhase.Failed);
+        await BackstageGames.setPhase(gameId, OnboardingPhase.Failed);
         console.error("[POST /api/backstage/reingest]", err);
         send({ type: "error", message: err instanceof Error ? err.message : String(err) });
       }

@@ -15,10 +15,10 @@ export async function POST(req: Request) {
     }
 
     if (body.approve?.length) {
-      Tracks.approveDiscovered(body.gameId, body.approve);
+      await Tracks.approveDiscovered(body.gameId, body.approve);
     }
     if (body.reject?.length) {
-      Tracks.rejectDiscovered(body.gameId, body.reject);
+      await Tracks.rejectDiscovered(body.gameId, body.reject);
     }
 
     return NextResponse.json({ ok: true });
