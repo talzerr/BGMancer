@@ -14,16 +14,16 @@ interface PhaseStat {
 const PHASE_LABELS: Record<string, string> = {
   [OnboardingPhase.Draft]: "Draft",
   [OnboardingPhase.TracksLoaded]: "Tracks Loaded",
-  [OnboardingPhase.Tagged]: "Tagged",
   [OnboardingPhase.Resolved]: "Resolved",
+  [OnboardingPhase.Tagged]: "Ready",
   [OnboardingPhase.Failed]: "Failed",
 };
 
 const PHASE_COLORS: Record<string, string> = {
   [OnboardingPhase.Draft]: "border-zinc-600 text-zinc-400",
   [OnboardingPhase.TracksLoaded]: "border-blue-600/50 text-blue-400",
-  [OnboardingPhase.Tagged]: "border-cyan-600/50 text-cyan-400",
   [OnboardingPhase.Resolved]: "border-violet-600/50 text-violet-400",
+  [OnboardingPhase.Tagged]: "border-emerald-600/50 text-emerald-400",
   [OnboardingPhase.Failed]: "border-rose-600/50 text-rose-400",
 };
 

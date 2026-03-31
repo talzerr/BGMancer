@@ -46,9 +46,14 @@ export function useSessionManager() {
       if (!res.ok) return;
       const { nextSessionId } = await res.json();
 
-      const isDeletingActiveSession = id === playlist.currentSessionId;
-      if (isDeletingActiveSession) {
+      // Stop playback if we're deleting the session that's currently playing
+      const isDeletingPlayingSession = id === player.playingSessionId;
+      if (isDeletingPlayingSession) {
         player.reset();
+      }
+
+      const isDeletingViewedSession = id === playlist.currentSessionId;
+      if (isDeletingViewedSession) {
         if (nextSessionId) {
           await playlist.loadForSession(nextSessionId);
         } else {

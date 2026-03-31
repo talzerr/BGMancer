@@ -28,7 +28,7 @@ const CURATION_OPTIONS: {
     mode: CurationMode.Include,
     label: "Include",
     tooltip: "Standard inclusion — normal representation in playlists",
-    activeClass: "bg-teal-600/30 text-teal-300",
+    activeClass: "bg-violet-600/30 text-violet-300",
   },
   {
     mode: CurationMode.Focus,
@@ -65,15 +65,15 @@ export function CurationLegend() {
 
 function SteamCoverArt({ appid, title }: { appid: number; title: string }) {
   const [failed, setFailed] = useState(false);
-  if (failed) return <div className="h-[26px] w-[56px] shrink-0 rounded bg-zinc-800" />;
+  if (failed) return <div className="h-[36px] w-[80px] shrink-0 rounded bg-zinc-800" />;
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={steamHeaderUrl(appid)}
       alt={title}
-      width={56}
-      height={26}
-      className="h-[26px] w-[56px] shrink-0 rounded bg-zinc-800 object-cover"
+      width={80}
+      height={36}
+      className="h-[36px] w-[80px] shrink-0 rounded bg-zinc-800 object-cover"
       onError={() => setFailed(true)}
     />
   );
@@ -111,7 +111,7 @@ export function GameRow({
         {game.steam_appid ? (
           <SteamCoverArt appid={game.steam_appid} title={game.title} />
         ) : (
-          <div className="flex h-[26px] w-[56px] shrink-0 items-center justify-center rounded bg-zinc-800/60">
+          <div className="flex h-[36px] w-[80px] shrink-0 items-center justify-center rounded bg-zinc-800/60">
             <span className="text-[8px] font-bold text-zinc-600">BGM</span>
           </div>
         )}

@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { usePlayerContext } from "@/context/player-context";
 import { SyncButton } from "@/components/SyncButton";
-import { Spinner, SearchIcon, CheckIcon, EyeIcon, EyeOffIcon } from "@/components/Icons";
+import { Spinner, SearchIcon, CheckIcon, EyeIcon, EyeOffIcon, PlayIcon } from "@/components/Icons";
 import { SESSION_NAME_MAX_LENGTH } from "@/lib/constants";
 import { formatSessionName } from "@/components/SessionList";
 import { TrackStatus } from "@/types";
@@ -29,7 +29,7 @@ export function PlaylistHeader({
   onRename,
   onDeleteSession,
 }: PlaylistHeaderProps) {
-  const { playlist, config } = usePlayerContext();
+  const { playlist, config, player } = usePlayerContext();
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleEditValue, setTitleEditValue] = useState("");
   const titleInputRef = useRef<HTMLTextAreaElement>(null);
@@ -85,7 +85,7 @@ export function PlaylistHeader({
             if (e.key === "Escape") setEditingTitle(false);
           }}
           maxLength={SESSION_NAME_MAX_LENGTH}
-          className="-mx-2 -my-1 w-[calc(100%+1rem)] resize-none overflow-hidden border-b border-teal-500 bg-transparent px-2 py-1 text-xl leading-snug font-semibold break-words text-white caret-teal-400 focus:outline-none"
+          className="font-display -mx-2 -my-1 w-[calc(100%+1rem)] resize-none overflow-hidden border-b border-violet-500 bg-transparent px-2 py-1 text-2xl leading-snug font-semibold break-words text-white caret-violet-400 focus:outline-none"
         />
       ) : (
         <button
@@ -95,7 +95,7 @@ export function PlaylistHeader({
             setEditingTitle(true);
             setTimeout(() => titleInputRef.current?.select(), 0);
           }}
-          className="group -mx-2 -my-1 flex w-full min-w-0 cursor-text items-start gap-1.5 rounded-lg px-2 py-1 text-xl font-semibold text-white transition-colors hover:bg-zinc-800/70"
+          className="group font-display -mx-2 -my-1 flex w-full min-w-0 cursor-text items-start gap-1.5 rounded-lg px-2 py-1 text-2xl font-semibold text-white transition-colors hover:bg-zinc-800/70"
         >
           <span className="min-w-0 flex-1 leading-snug break-words">
             {formatSessionName(currentSession?.name ?? "")}
@@ -116,7 +116,7 @@ export function PlaylistHeader({
         {/* Stats */}
         {playlist.tracks.length > 0 && (
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-white tabular-nums">
+            <span className="font-display text-sm font-semibold text-white tabular-nums">
               {playlist.tracks.length}
             </span>
             <span className="text-xs text-zinc-500">
@@ -127,13 +127,15 @@ export function PlaylistHeader({
                 <span className="text-xs text-zinc-700">·</span>
                 <span className="flex items-center gap-1.5 text-xs">
                   <CheckIcon className="h-3 w-3 text-emerald-400" />
-                  <span className="font-semibold text-emerald-400 tabular-nums">{foundCount}</span>
+                  <span className="font-display text-sm font-semibold text-emerald-400 tabular-nums">
+                    {foundCount}
+                  </span>
                   <span className="text-zinc-500">ready</span>
                 </span>
                 {totalDurationSeconds > 0 && (
                   <>
                     <span className="text-xs text-zinc-700">·</span>
-                    <span className="text-xs font-semibold text-orange-400 tabular-nums">
+                    <span className="font-display text-sm font-semibold text-orange-400 tabular-nums">
                       {formatDuration(totalDurationSeconds)}
                     </span>
                   </>
@@ -165,6 +167,19 @@ export function PlaylistHeader({
 
         {/* Actions */}
         <div className="ml-auto flex items-center gap-2">
+          {foundCount > 0 && (
+            <button
+              onClick={() => {
+                const viewedFoundTracks = playlist.tracks.filter((t) => t.status === "found");
+                player.startPlaying(viewedFoundTracks, 0, playlist.currentSessionId);
+              }}
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-violet-500/25 transition-all hover:bg-violet-500 hover:shadow-violet-500/40 active:scale-95"
+            >
+              <PlayIcon className="h-3 w-3" />
+              Play All
+            </button>
+          )}
+
           {pendingCount > 0 && (
             <button
               onClick={playlist.handleFindVideos}

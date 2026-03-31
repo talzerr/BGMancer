@@ -39,9 +39,9 @@ export function SessionList({ sessions, selectedId, onSelect, onDelete }: Sessio
   }, []);
 
   return (
-    <div className="flex flex-col gap-1.5 rounded-2xl border border-white/[0.07] bg-zinc-900/70 p-3 shadow-lg shadow-black/40 backdrop-blur-sm">
+    <div className="flex flex-col gap-1.5 border-t border-white/[0.06] pt-4">
       <div className="flex items-center gap-1.5 px-1">
-        <span className="text-[10px] font-semibold tracking-widest text-zinc-500 uppercase">
+        <span className="font-display text-[11px] font-semibold tracking-widest text-zinc-400 uppercase">
           Playlist History
         </span>
         {sessions.length > 0 && (
@@ -101,7 +101,7 @@ export function SessionList({ sessions, selectedId, onSelect, onDelete }: Sessio
               {/* Selection indicator */}
               <span
                 className={`h-1.5 w-1.5 shrink-0 rounded-full transition-colors ${
-                  isSelected ? "bg-teal-400" : "bg-zinc-700"
+                  isSelected ? "bg-violet-400" : "bg-zinc-700"
                 }`}
               />
 
@@ -155,7 +155,7 @@ export function SessionList({ sessions, selectedId, onSelect, onDelete }: Sessio
                         xmlns="http://www.w3.org/2000/svg"
                         viewBox="0 0 16 16"
                         fill="currentColor"
-                        className="h-3 w-3 text-teal-400"
+                        className="h-3 w-3 text-violet-400"
                       >
                         <path
                           fillRule="evenodd"

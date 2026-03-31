@@ -40,8 +40,8 @@ export enum CurationMode {
 export enum OnboardingPhase {
   Draft = "draft",
   TracksLoaded = "tracks_loaded",
-  Tagged = "tagged",
   Resolved = "resolved",
+  Tagged = "tagged",
   Failed = "failed",
 }
 

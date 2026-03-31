@@ -1,13 +1,5 @@
 # What's Coming
 
-## Testing & Quality
-
-- **Vitest setup** — install Vitest with TypeScript support and `@/` path alias resolution; add `test`, `test:watch`, and `test:coverage` scripts. Foundational before any schema refactors.
-- **Pure function unit tests** — cover `parseDuration`, REJECT_KEYWORDS filtering, and mapper functions (`parseSearchQueries`, `toGame`, `toPlaylistTrack`).
-- **Repository integration tests** — spin up in-memory SQLite per suite; verify session FIFO eviction, game cascading removal, `bulkImportSteam` deduplication.
-- **Director unit tests** — `assemblePlaylist` is pure TS with no I/O; verify arc shape, per-game budget enforcement, no-consecutive-same-game constraint, pool exhaustion fallback.
-- **Tagger response parsing tests** — verify robustness to malformed JSON, missing fields, out-of-range energy values.
-
 ## Player
 
 - **Repeat modes** — off / repeat all / repeat one.
@@ -16,7 +8,6 @@
 
 ## Playlist & UX
 
-- **Play button** — add a play/start button to begin the playlist from the first track without having to click it manually.
 - **Track rating** — thumbs up / down while playing; seed data for future personalization.
 - **Track blacklist** — permanently exclude a video from future generations.
 - **Better session names** — optional LLM side-call to produce evocative names (e.g. "Soulsborne Descent") from track energy and roles.

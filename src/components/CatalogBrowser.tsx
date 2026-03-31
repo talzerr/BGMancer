@@ -17,7 +17,7 @@ const CURATION_ADD_OPTIONS: {
   colorClass: string;
 }[] = [
   { mode: CurationMode.Focus, label: "Focus", colorClass: "text-amber-300" },
-  { mode: CurationMode.Include, label: "Include", colorClass: "text-teal-300" },
+  { mode: CurationMode.Include, label: "Include", colorClass: "text-violet-300" },
   { mode: CurationMode.Lite, label: "Lite", colorClass: "text-blue-300" },
 ];
 
@@ -92,7 +92,7 @@ export function CatalogBrowser({ libraryGameIds, onGameAdded }: CatalogBrowserPr
           {search ? "No games match your search." : "No published games yet."}
         </p>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
           {catalog.map((game) => {
             const inLibrary = libraryGameIds.has(game.id);
             const isAdding = addingId === game.id;
@@ -152,7 +152,7 @@ function CatalogCard({
     <div
       className={`group relative flex flex-col overflow-hidden rounded-xl border transition-colors ${
         inLibrary
-          ? "border-teal-500/30 bg-teal-950/10"
+          ? "border-violet-500/30 bg-violet-950/10"
           : "border-white/[0.07] bg-zinc-900/60 hover:border-white/[0.12]"
       }`}
     >
@@ -178,7 +178,7 @@ function CatalogCard({
 
         <div className="mt-auto">
           {inLibrary ? (
-            <span className="flex items-center gap-1 text-[11px] text-teal-500/80">
+            <span className="flex items-center gap-1 text-[11px] text-violet-500/80">
               <CheckIcon className="h-3 w-3" />
               In library
             </span>
@@ -192,13 +192,13 @@ function CatalogCard({
               <div className="flex overflow-hidden rounded-lg">
                 <button
                   onClick={() => onAdd(game.id, CurationMode.Include)}
-                  className="flex-1 cursor-pointer bg-teal-600/80 px-2 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-teal-500"
+                  className="flex-1 cursor-pointer bg-violet-600/80 px-2 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-violet-500"
                 >
                   + Add
                 </button>
                 <button
                   onClick={() => setDropdownOpen((v) => !v)}
-                  className="cursor-pointer border-l border-teal-700/60 bg-teal-600/80 px-1.5 py-1.5 text-white transition-colors hover:bg-teal-500"
+                  className="cursor-pointer border-l border-violet-700/60 bg-violet-600/80 px-1.5 py-1.5 text-white transition-colors hover:bg-violet-500"
                 >
                   <ChevronDownIcon className="h-3 w-3" />
                 </button>

@@ -85,7 +85,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           onIndexChange={setCurrentTrackIndex}
           onPlayingChange={setIsPlayerPlaying}
           shuffleMode={shuffleMode}
-          onToggleShuffle={foundTracks.length > 0 ? handleToggleShuffle : undefined}
+          onToggleShuffle={effectiveFoundTracks.length > 0 ? handleToggleShuffle : undefined}
           gameThumbnailByGameId={gameThumbnailByGameId}
         />
       )}

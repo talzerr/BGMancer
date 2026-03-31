@@ -49,7 +49,7 @@ const TAB_PRESETS: TabPreset[] = [
 const PHASE_LABELS: Record<string, string> = {
   [OnboardingPhase.Draft]: "Draft",
   [OnboardingPhase.TracksLoaded]: "Tracks Loaded",
-  [OnboardingPhase.Tagged]: "Tagged",
+  [OnboardingPhase.Tagged]: "Ready",
   [OnboardingPhase.Resolved]: "Resolved",
   [OnboardingPhase.Failed]: "Failed",
 };

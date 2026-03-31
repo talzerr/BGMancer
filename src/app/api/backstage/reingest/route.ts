@@ -1,11 +1,11 @@
 import { BackstageGames, Games, Tracks, ReviewFlags } from "@/lib/db/repo";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
-import { loadTracks, tagGameTracks } from "@/lib/pipeline/onboarding";
+import { loadTracks, resolveVideos, tagGameTracks } from "@/lib/pipeline/onboarding";
 import { OnboardingPhase } from "@/types";
 
 type ReingestEvent =
   | { type: "progress"; message: string }
-  | { type: "done"; trackCount: number; tagged: number; needsReview: number }
+  | { type: "done"; trackCount: number; resolved: number; tagged: number; needsReview: number }
   | { type: "error"; message: string };
 
 /** POST /api/backstage/reingest — clear all tracks and re-fetch from Discogs */
@@ -47,11 +47,13 @@ export async function POST(req: Request) {
         return;
       }
 
+      const resolveResult = await resolveVideos(game, progress, abort.signal);
       const tagResult = await tagGameTracks(game, progress, abort.signal);
 
       send({
         type: "done",
         trackCount: loaded.trackCount,
+        resolved: resolveResult.resolved,
         tagged: tagResult.tagged,
         needsReview: tagResult.needsReview ? 1 : 0,
       });
