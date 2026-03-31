@@ -48,6 +48,7 @@ export const games = sqliteTable(
       .where(sql`steam_appid IS NOT NULL`),
     index("idx_games_published").on(table.published),
     index("idx_games_onboarding").on(table.onboarding_phase),
+    index("idx_games_needs_review").on(table.needs_review),
   ],
 );
 
@@ -194,6 +195,7 @@ export const tracks = sqliteTable(
   (table) => [
     primaryKey({ columns: [table.game_id, table.name] }),
     index("idx_tracks_game_active").on(table.game_id, table.active),
+    index("idx_tracks_tagged_at").on(table.tagged_at),
   ],
 );
 
@@ -227,5 +229,8 @@ export const videoTracks = sqliteTable(
     view_count: integer("view_count"),
     aligned_at: text("aligned_at").notNull().default(timestampDefault),
   },
-  (table) => [primaryKey({ columns: [table.video_id, table.game_id] })],
+  (table) => [
+    primaryKey({ columns: [table.video_id, table.game_id] }),
+    index("idx_video_tracks_game_track").on(table.game_id, table.track_name),
+  ],
 );
