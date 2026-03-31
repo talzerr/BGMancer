@@ -1,50 +1,53 @@
 import { getDB } from "@/lib/db";
-import { stmt } from "./_shared";
-import { toUser } from "@/lib/db/mappers";
+import { eq, sql } from "drizzle-orm";
+import { users, libraries } from "@/lib/db/drizzle-schema";
 import type { User } from "@/types";
 import { newId } from "@/lib/uuid";
 
+function rowToUser(row: typeof users.$inferSelect): User {
+  return {
+    id: row.id,
+    email: row.email,
+    username: row.username,
+    created_at: row.created_at,
+  };
+}
+
 export const Users = {
-  /**
-   * Returns the user if they exist, otherwise creates user + library atomically.
-   * Safe to call on every request — INSERT OR IGNORE makes it idempotent.
-   */
-  getOrCreate(id: string): User {
-    const existing = stmt("SELECT * FROM users WHERE id = ?").get(id) as
-      | Record<string, unknown>
-      | undefined;
-    if (existing) return toUser(existing);
-
+  async getOrCreate(id: string): Promise<User> {
     const db = getDB();
-    db.transaction(() => {
-      stmt("INSERT OR IGNORE INTO users (id, email, username) VALUES (?, ?, NULL)").run(
-        id,
-        `anon+${id}@bgmancer.app`,
-      );
-      stmt("INSERT OR IGNORE INTO libraries (id, user_id) VALUES (?, ?)").run(newId(), id);
-    })();
+    const existing = db.select().from(users).where(eq(users.id, id)).get();
+    if (existing) return rowToUser(existing);
 
-    const created = stmt("SELECT * FROM users WHERE id = ?").get(id) as Record<string, unknown>;
-    return toUser(created);
+    db.transaction((tx) => {
+      tx.insert(users)
+        .values({ id, email: `anon+${id}@bgmancer.app` })
+        .onConflictDoNothing()
+        .run();
+      tx.insert(libraries).values({ id: newId(), user_id: id }).onConflictDoNothing().run();
+    });
+
+    const created = db.select().from(users).where(eq(users.id, id)).get();
+    if (!created) throw new Error(`[Users.getOrCreate] user ${id} not found after INSERT`);
+    return rowToUser(created);
   },
 
-  getById(id: string): User | null {
-    const row = stmt("SELECT * FROM users WHERE id = ?").get(id) as
-      | Record<string, unknown>
-      | undefined;
-    return row ? toUser(row) : null;
+  async getById(id: string): Promise<User | null> {
+    const row = getDB().select().from(users).where(eq(users.id, id)).get();
+    return row ? rowToUser(row) : null;
   },
 
-  /**
-   * Atomically checks and acquires the per-user generation lock.
-   * Returns { acquired: true } or { acquired: false, reason: string }.
-   */
-  tryAcquireGenerationLock(id: string, cooldownMs: number): { acquired: boolean; reason?: string } {
+  async tryAcquireGenerationLock(
+    id: string,
+    cooldownMs: number,
+  ): Promise<{ acquired: boolean; reason?: string }> {
     const db = getDB();
-    return db.transaction(() => {
-      const row = stmt("SELECT is_generating, last_generated_at FROM users WHERE id = ?").get(
-        id,
-      ) as { is_generating: number; last_generated_at: string | null } | undefined;
+    return db.transaction((tx) => {
+      const row = tx
+        .select({ is_generating: users.is_generating, last_generated_at: users.last_generated_at })
+        .from(users)
+        .where(eq(users.id, id))
+        .get();
 
       if (!row) return { acquired: false, reason: "User not found" };
 
@@ -64,15 +67,19 @@ export const Users = {
         };
       }
 
-      stmt("UPDATE users SET is_generating = 1 WHERE id = ?").run(id);
+      tx.update(users).set({ is_generating: true }).where(eq(users.id, id)).run();
       return { acquired: true };
-    })();
+    });
   },
 
-  /** Releases the generation lock and stamps the completion time for cooldown tracking. */
-  releaseGenerationLock(id: string): void {
-    stmt(
-      "UPDATE users SET is_generating = 0, last_generated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?",
-    ).run(id);
+  async releaseGenerationLock(id: string): Promise<void> {
+    getDB()
+      .update(users)
+      .set({
+        is_generating: false,
+        last_generated_at: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
+      })
+      .where(eq(users.id, id))
+      .run();
   },
 };

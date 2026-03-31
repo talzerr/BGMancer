@@ -1,13 +1,12 @@
 import { getDB } from "@/lib/db";
-import { stmt } from "./_shared";
+import { eq, sql } from "drizzle-orm";
+import { games, playlistTrackDecisions } from "@/lib/db/drizzle-schema";
 import { toGames } from "@/lib/db/mappers";
 import type { OnboardingPhase } from "@/types";
 import type { Game } from "@/types";
 import { newId } from "@/lib/uuid";
 import { steamHeaderUrl } from "@/lib/constants";
 import { Games } from "./games";
-
-// ─── Backstage-specific types ────────────────────────────────────────────────
 
 export interface BackstageGame {
   id: string;
@@ -46,190 +45,172 @@ function toBackstageGame(r: Record<string, unknown>): BackstageGame {
   };
 }
 
-// ─── Admin / pipeline mutations ──────────────────────────────────────────────
-
 export const BackstageGames = {
-  /** Creates a game record without linking to any user library. */
-  createDraft(title: string, steamAppid?: number | null): Game {
+  async createDraft(title: string, steamAppid?: number | null): Promise<Game> {
     const id = newId();
     const thumbnail = steamAppid ? steamHeaderUrl(steamAppid) : null;
-    stmt("INSERT INTO games (id, title, steam_appid, thumbnail_url) VALUES (?, ?, ?, ?)").run(
-      id,
-      title,
-      steamAppid ?? null,
-      thumbnail,
-    );
-    const created = Games.getById(id);
+    getDB()
+      .insert(games)
+      .values({
+        id,
+        title,
+        steam_appid: steamAppid ?? null,
+        thumbnail_url: thumbnail,
+      })
+      .run();
+    const created = await Games.getById(id);
     if (!created) throw new Error(`[BackstageGames.createDraft] game ${id} not found after INSERT`);
     return created;
   },
 
-  setPlaylistId(id: string, playlistId: string): void {
-    stmt("UPDATE games SET yt_playlist_id = ? WHERE id = ?").run(playlistId, id);
+  async setPlaylistId(id: string, playlistId: string): Promise<void> {
+    getDB().update(games).set({ yt_playlist_id: playlistId }).where(eq(games.id, id)).run();
   },
 
-  setPhase(id: string, phase: OnboardingPhase): void {
-    stmt(
-      `UPDATE games SET onboarding_phase = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`,
-    ).run(phase, id);
+  async setPhase(id: string, phase: OnboardingPhase): Promise<void> {
+    getDB()
+      .update(games)
+      .set({
+        onboarding_phase: phase,
+        updated_at: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
+      })
+      .where(eq(games.id, id))
+      .run();
   },
 
-  setPublished(id: string, published: boolean): void {
-    stmt(
-      `UPDATE games SET published = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`,
-    ).run(published ? 1 : 0, id);
+  async setPublished(id: string, published: boolean): Promise<void> {
+    getDB()
+      .update(games)
+      .set({
+        published,
+        updated_at: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
+      })
+      .where(eq(games.id, id))
+      .run();
   },
 
-  /** Returns published games for the catalog browser (user-facing, but admin-curated data). */
-  listPublished(search?: string, limit?: number): Game[] {
+  async listPublished(search?: string, limit?: number): Promise<Game[]> {
+    const db = getDB();
     if (search?.trim()) {
       return toGames(
-        stmt(
-          "SELECT * FROM games WHERE published = 1 AND title LIKE ? ORDER BY title ASC LIMIT ?",
-        ).all(`%${search.trim()}%`, limit ?? 15),
+        db.all(sql`
+          SELECT * FROM games WHERE published = 1 AND title LIKE ${`%${search.trim()}%`}
+          ORDER BY title ASC LIMIT ${limit ?? 15}
+        `),
       );
     }
     return toGames(
-      stmt("SELECT * FROM games WHERE published = 1 ORDER BY title ASC LIMIT ?").all(limit ?? 15),
+      db.all(sql`
+        SELECT * FROM games WHERE published = 1 ORDER BY title ASC LIMIT ${limit ?? 15}
+      `),
     );
   },
 
-  update(id: string, fields: GameUpdateFields): Game | null {
-    const sets: string[] = [];
-    const params: unknown[] = [];
+  async update(id: string, fields: GameUpdateFields): Promise<Game | null> {
+    const setParts: ReturnType<typeof sql>[] = [];
 
-    const simple: Array<[keyof GameUpdateFields, string]> = [
-      ["title", "title"],
-      ["tracklist_source", "tracklist_source"],
-      ["yt_playlist_id", "yt_playlist_id"],
-      ["thumbnail_url", "thumbnail_url"],
-    ];
-    for (const [key, col] of simple) {
-      if (fields[key] !== undefined) {
-        sets.push(`${col} = ?`);
-        params.push(fields[key]);
-      }
-    }
-    if (fields.steam_appid !== undefined) {
-      sets.push("steam_appid = ?");
-      params.push(fields.steam_appid);
-    }
-    if (fields.needs_review !== undefined) {
-      sets.push("needs_review = ?");
-      params.push(fields.needs_review ? 1 : 0);
-    }
+    if (fields.title !== undefined) setParts.push(sql`title = ${fields.title}`);
+    if (fields.tracklist_source !== undefined)
+      setParts.push(sql`tracklist_source = ${fields.tracklist_source}`);
+    if (fields.yt_playlist_id !== undefined)
+      setParts.push(sql`yt_playlist_id = ${fields.yt_playlist_id}`);
+    if (fields.thumbnail_url !== undefined)
+      setParts.push(sql`thumbnail_url = ${fields.thumbnail_url}`);
+    if (fields.steam_appid !== undefined) setParts.push(sql`steam_appid = ${fields.steam_appid}`);
+    if (fields.needs_review !== undefined)
+      setParts.push(sql`needs_review = ${fields.needs_review ? 1 : 0}`);
 
-    if (sets.length > 0) {
-      sets.push("updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')");
-      params.push(id);
-      getDB()
-        .prepare(`UPDATE games SET ${sets.join(", ")} WHERE id = ?`)
-        .run(...params);
+    if (setParts.length > 0) {
+      setParts.push(sql.raw("updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')"));
+      const setClause = sql.join(setParts, sql.raw(", "));
+      getDB().run(sql`UPDATE games SET ${setClause} WHERE id = ${id}`);
     }
-    return Games.getById(id);
+    return await Games.getById(id);
   },
 
-  /** Permanently deletes a game and all associated data. Refuses to delete published games. */
-  destroy(id: string): void {
-    const game = Games.getById(id);
+  async destroy(id: string): Promise<void> {
+    const game = await Games.getById(id);
     if (!game) return;
     if (game.published) throw new Error("[BackstageGames.destroy] cannot delete a published game");
 
-    const db = getDB();
-    db.transaction(() => {
-      stmt("DELETE FROM playlist_track_decisions WHERE game_id = ?").run(id);
-      stmt("DELETE FROM games WHERE id = ?").run(id);
-    })();
+    getDB().transaction((tx) => {
+      tx.delete(playlistTrackDecisions).where(eq(playlistTrackDecisions.game_id, id)).run();
+      tx.delete(games).where(eq(games.id, id)).run();
+    });
   },
 
-  // ─── Backstage read queries ──────────────────────────────────────────────
-
-  /** All games with aggregate track statistics — Backstage Game Index. */
-  listWithTrackStats(): BackstageGame[] {
-    const rows = stmt(`
+  async listWithTrackStats(): Promise<BackstageGame[]> {
+    const rows = getDB().all(sql`
       SELECT
         g.id, g.title, g.onboarding_phase, g.published, g.tracklist_source, g.needs_review,
         SUM(CASE WHEN t.name IS NOT NULL AND (t.discovered IS NULL OR t.discovered != 'rejected') THEN 1 ELSE 0 END) AS track_count,
-        COUNT(t.tagged_at)                                         AS tagged_count,
-        SUM(CASE WHEN t.active = 1 THEN 1 ELSE 0 END)             AS active_count,
+        COUNT(t.tagged_at) AS tagged_count,
+        SUM(CASE WHEN t.active = 1 THEN 1 ELSE 0 END) AS active_count,
         (SELECT COUNT(*) FROM game_review_flags f WHERE f.game_id = g.id) AS review_flag_count
       FROM games g
       LEFT JOIN tracks t ON t.game_id = g.id
       GROUP BY g.id
       ORDER BY review_flag_count DESC, g.title ASC
-    `).all() as Record<string, unknown>[];
-
-    return rows.map(toBackstageGame);
+    `);
+    return (rows as Record<string, unknown>[]).map(toBackstageGame);
   },
 
-  /** Filtered search for the Backstage Game Index. */
-  searchWithStats(filters: {
+  async searchWithStats(filters: {
     title?: string;
     phase?: string;
     needsReview?: boolean;
     published?: boolean;
-  }): BackstageGame[] {
-    const clauses: string[] = [];
-    const params: unknown[] = [];
+  }): Promise<BackstageGame[]> {
+    const conditions: ReturnType<typeof sql>[] = [];
 
-    if (filters.title) {
-      clauses.push("g.title LIKE ?");
-      params.push(`%${filters.title}%`);
-    }
-    if (filters.phase) {
-      clauses.push("g.onboarding_phase = ?");
-      params.push(filters.phase);
-    }
-    if (filters.needsReview !== undefined) {
-      clauses.push("g.needs_review = ?");
-      params.push(filters.needsReview ? 1 : 0);
-    }
-    if (filters.published !== undefined) {
-      clauses.push("g.published = ?");
-      params.push(filters.published ? 1 : 0);
-    }
+    if (filters.title) conditions.push(sql`g.title LIKE ${`%${filters.title}%`}`);
+    if (filters.phase) conditions.push(sql`g.onboarding_phase = ${filters.phase}`);
+    if (filters.needsReview !== undefined)
+      conditions.push(sql`g.needs_review = ${filters.needsReview ? 1 : 0}`);
+    if (filters.published !== undefined)
+      conditions.push(sql`g.published = ${filters.published ? 1 : 0}`);
 
-    const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
-    const sql = `
+    const whereClause =
+      conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql.raw(" AND "))}` : sql.raw("");
+
+    const rows = getDB().all(sql`
       SELECT
         g.id, g.title, g.onboarding_phase, g.published, g.tracklist_source, g.needs_review,
         SUM(CASE WHEN t.name IS NOT NULL AND (t.discovered IS NULL OR t.discovered != 'rejected') THEN 1 ELSE 0 END) AS track_count,
-        COUNT(t.tagged_at)                                         AS tagged_count,
-        SUM(CASE WHEN t.active = 1 THEN 1 ELSE 0 END)             AS active_count,
+        COUNT(t.tagged_at) AS tagged_count,
+        SUM(CASE WHEN t.active = 1 THEN 1 ELSE 0 END) AS active_count,
         (SELECT COUNT(*) FROM game_review_flags f WHERE f.game_id = g.id) AS review_flag_count
       FROM games g
       LEFT JOIN tracks t ON t.game_id = g.id
-      ${where}
+      ${whereClause}
       GROUP BY g.id
       ORDER BY review_flag_count DESC, g.title ASC
       LIMIT 100
-    `;
-    const rows = getDB()
-      .prepare(sql)
-      .all(...params) as Record<string, unknown>[];
-    return rows.map(toBackstageGame);
+    `);
+    return (rows as Record<string, unknown>[]).map(toBackstageGame);
   },
 
-  /** Aggregate counts by onboarding phase — Backstage dashboard. */
-  dashboardCounts(): {
-    phase: string;
-    count: number;
-    publishedCount: number;
-    needsReviewCount: number;
-  }[] {
-    return stmt(`
-      SELECT
-        onboarding_phase AS phase,
-        COUNT(*)                                                AS count,
-        SUM(CASE WHEN published = 1 THEN 1 ELSE 0 END)        AS publishedCount,
-        SUM(CASE WHEN needs_review = 1 THEN 1 ELSE 0 END)     AS needsReviewCount
-      FROM games
-      GROUP BY onboarding_phase
-    `).all() as {
+  async dashboardCounts(): Promise<
+    {
       phase: string;
       count: number;
       publishedCount: number;
       needsReviewCount: number;
-    }[];
+    }[]
+  > {
+    return getDB().all<{
+      phase: string;
+      count: number;
+      publishedCount: number;
+      needsReviewCount: number;
+    }>(sql`
+      SELECT
+        onboarding_phase AS phase,
+        COUNT(*) AS count,
+        SUM(CASE WHEN published = 1 THEN 1 ELSE 0 END) AS publishedCount,
+        SUM(CASE WHEN needs_review = 1 THEN 1 ELSE 0 END) AS needsReviewCount
+      FROM games
+      GROUP BY onboarding_phase
+    `);
   },
 };

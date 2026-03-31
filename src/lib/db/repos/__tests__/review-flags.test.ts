@@ -1,13 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type Database from "better-sqlite3";
-import { createTestDB, clearStmtCache, seedTestUser, seedTestGame } from "../../test-helpers";
+import type { DrizzleDB } from "@/lib/db";
+import {
+  createTestDrizzleDB,
+  clearStmtCache,
+  seedTestUser,
+  seedTestGame,
+} from "../../test-helpers";
 import { ReviewReason } from "@/types";
-let db: Database.Database;
+let db: DrizzleDB;
+let rawDb: Database.Database;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
   return {
     getDB: () => db,
+
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -20,14 +28,14 @@ let userId: string;
 let gameId: string;
 
 beforeEach(() => {
-  db = createTestDB();
+  ({ db, rawDb } = createTestDrizzleDB());
   clearStmtCache();
-  ({ userId } = seedTestUser(db));
-  gameId = seedTestGame(db, userId, { id: "game-review" });
+  ({ userId } = seedTestUser(rawDb));
+  gameId = seedTestGame(rawDb, userId, { id: "game-review" });
 });
 
 function getNeedsReview(gId: string): number {
-  const row = db.prepare("SELECT needs_review FROM games WHERE id = ?").get(gId) as {
+  const row = rawDb.prepare("SELECT needs_review FROM games WHERE id = ?").get(gId) as {
     needs_review: number;
   };
   return row.needs_review;
@@ -35,10 +43,10 @@ function getNeedsReview(gId: string): number {
 
 describe("ReviewFlags", () => {
   describe("markAsNeedsReview", () => {
-    it("should create a flag and set needs_review to 1", () => {
-      ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LlmCallFailed);
+    it("should create a flag and set needs_review to 1", async () => {
+      await ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LlmCallFailed);
 
-      const flags = db
+      const flags = rawDb
         .prepare("SELECT * FROM game_review_flags WHERE game_id = ?")
         .all(gameId) as Record<string, unknown>[];
 
@@ -48,31 +56,35 @@ describe("ReviewFlags", () => {
       expect(getNeedsReview(gameId)).toBe(1);
     });
 
-    it("should store the optional detail field", () => {
-      ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LowConfidence, "Only 40% confidence");
+    it("should store the optional detail field", async () => {
+      await ReviewFlags.markAsNeedsReview(
+        gameId,
+        ReviewReason.LowConfidence,
+        "Only 40% confidence",
+      );
 
-      const flags = db
+      const flags = rawDb
         .prepare("SELECT detail FROM game_review_flags WHERE game_id = ?")
         .all(gameId) as Record<string, unknown>[];
 
       expect(flags[0].detail).toBe("Only 40% confidence");
     });
 
-    it("should set detail to null when not provided", () => {
-      ReviewFlags.markAsNeedsReview(gameId, ReviewReason.EmptyMetadata);
+    it("should set detail to null when not provided", async () => {
+      await ReviewFlags.markAsNeedsReview(gameId, ReviewReason.EmptyMetadata);
 
-      const flags = db
+      const flags = rawDb
         .prepare("SELECT detail FROM game_review_flags WHERE game_id = ?")
         .all(gameId) as Record<string, unknown>[];
 
       expect(flags[0].detail).toBeNull();
     });
 
-    it("should allow multiple flags on the same game", () => {
-      ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LlmCallFailed);
-      ReviewFlags.markAsNeedsReview(gameId, ReviewReason.EmptyMetadata, "no tags");
+    it("should allow multiple flags on the same game", async () => {
+      await ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LlmCallFailed);
+      await ReviewFlags.markAsNeedsReview(gameId, ReviewReason.EmptyMetadata, "no tags");
 
-      const flags = db
+      const flags = rawDb
         .prepare("SELECT * FROM game_review_flags WHERE game_id = ?")
         .all(gameId) as Record<string, unknown>[];
 
@@ -82,11 +94,11 @@ describe("ReviewFlags", () => {
   });
 
   describe("listByGame", () => {
-    it("should return flags ordered by created_at", () => {
-      ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LlmCallFailed);
-      ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LowConfidence, "second flag");
+    it("should return flags ordered by created_at", async () => {
+      await ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LlmCallFailed);
+      await ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LowConfidence, "second flag");
 
-      const flags = ReviewFlags.listByGame(gameId);
+      const flags = await ReviewFlags.listByGame(gameId);
 
       expect(flags).toHaveLength(2);
       expect(flags[0].reason).toBe(ReviewReason.LlmCallFailed);
@@ -94,28 +106,28 @@ describe("ReviewFlags", () => {
       expect(flags[1].detail).toBe("second flag");
     });
 
-    it("should return an empty array for a game with no flags", () => {
-      const flags = ReviewFlags.listByGame(gameId);
+    it("should return an empty array for a game with no flags", async () => {
+      const flags = await ReviewFlags.listByGame(gameId);
 
       expect(flags).toEqual([]);
     });
 
-    it("should return correctly typed ReviewFlag objects", () => {
-      ReviewFlags.markAsNeedsReview(gameId, ReviewReason.NoTracklistSource);
+    it("should return correctly typed ReviewFlag objects", async () => {
+      await ReviewFlags.markAsNeedsReview(gameId, ReviewReason.NoTracklistSource);
 
-      const [flag] = ReviewFlags.listByGame(gameId);
+      const [flag] = await ReviewFlags.listByGame(gameId);
 
       expect(typeof flag.id).toBe("number");
       expect(flag.gameId).toBe(gameId);
       expect(typeof flag.createdAt).toBe("string");
     });
 
-    it("should not return flags from a different game", () => {
-      const otherGameId = seedTestGame(db, userId, { id: "game-other" });
-      ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LlmCallFailed);
-      ReviewFlags.markAsNeedsReview(otherGameId, ReviewReason.EmptyMetadata);
+    it("should not return flags from a different game", async () => {
+      const otherGameId = seedTestGame(rawDb, userId, { id: "game-other" });
+      await ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LlmCallFailed);
+      await ReviewFlags.markAsNeedsReview(otherGameId, ReviewReason.EmptyMetadata);
 
-      const flags = ReviewFlags.listByGame(gameId);
+      const flags = await ReviewFlags.listByGame(gameId);
 
       expect(flags).toHaveLength(1);
       expect(flags[0].gameId).toBe(gameId);
@@ -123,65 +135,65 @@ describe("ReviewFlags", () => {
   });
 
   describe("dismiss", () => {
-    it("should remove the specified flag", () => {
-      ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LlmCallFailed);
-      const [flag] = ReviewFlags.listByGame(gameId);
+    it("should remove the specified flag", async () => {
+      await ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LlmCallFailed);
+      const [flag] = await ReviewFlags.listByGame(gameId);
 
-      ReviewFlags.dismiss(flag.id, gameId);
+      await ReviewFlags.dismiss(flag.id, gameId);
 
-      const remaining = ReviewFlags.listByGame(gameId);
+      const remaining = await ReviewFlags.listByGame(gameId);
       expect(remaining).toHaveLength(0);
     });
 
-    it("should clear needs_review when the last flag is dismissed", () => {
-      ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LlmCallFailed);
-      const [flag] = ReviewFlags.listByGame(gameId);
+    it("should clear needs_review when the last flag is dismissed", async () => {
+      await ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LlmCallFailed);
+      const [flag] = await ReviewFlags.listByGame(gameId);
 
-      ReviewFlags.dismiss(flag.id, gameId);
+      await ReviewFlags.dismiss(flag.id, gameId);
 
       expect(getNeedsReview(gameId)).toBe(0);
     });
 
-    it("should NOT clear needs_review when other flags remain", () => {
-      ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LlmCallFailed);
-      ReviewFlags.markAsNeedsReview(gameId, ReviewReason.EmptyMetadata);
-      const flags = ReviewFlags.listByGame(gameId);
+    it("should NOT clear needs_review when other flags remain", async () => {
+      await ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LlmCallFailed);
+      await ReviewFlags.markAsNeedsReview(gameId, ReviewReason.EmptyMetadata);
+      const flags = await ReviewFlags.listByGame(gameId);
 
-      ReviewFlags.dismiss(flags[0].id, gameId);
+      await ReviewFlags.dismiss(flags[0].id, gameId);
 
       expect(getNeedsReview(gameId)).toBe(1);
-      expect(ReviewFlags.listByGame(gameId)).toHaveLength(1);
+      expect(await ReviewFlags.listByGame(gameId)).toHaveLength(1);
     });
   });
 
   describe("clearByGame", () => {
-    it("should remove all flags for the game", () => {
-      ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LlmCallFailed);
-      ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LowConfidence);
-      ReviewFlags.markAsNeedsReview(gameId, ReviewReason.EmptyMetadata);
+    it("should remove all flags for the game", async () => {
+      await ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LlmCallFailed);
+      await ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LowConfidence);
+      await ReviewFlags.markAsNeedsReview(gameId, ReviewReason.EmptyMetadata);
 
-      ReviewFlags.clearByGame(gameId);
+      await ReviewFlags.clearByGame(gameId);
 
-      expect(ReviewFlags.listByGame(gameId)).toEqual([]);
+      expect(await ReviewFlags.listByGame(gameId)).toEqual([]);
     });
 
-    it("should reset needs_review to 0", () => {
-      ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LlmCallFailed);
+    it("should reset needs_review to 0", async () => {
+      await ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LlmCallFailed);
       expect(getNeedsReview(gameId)).toBe(1);
 
-      ReviewFlags.clearByGame(gameId);
+      await ReviewFlags.clearByGame(gameId);
 
       expect(getNeedsReview(gameId)).toBe(0);
     });
 
-    it("should not affect flags on other games", () => {
-      const otherGameId = seedTestGame(db, userId, { id: "game-other-clear" });
-      ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LlmCallFailed);
-      ReviewFlags.markAsNeedsReview(otherGameId, ReviewReason.EmptyMetadata);
+    it("should not affect flags on other games", async () => {
+      const otherGameId = seedTestGame(rawDb, userId, { id: "game-other-clear" });
+      await ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LlmCallFailed);
+      await ReviewFlags.markAsNeedsReview(otherGameId, ReviewReason.EmptyMetadata);
 
-      ReviewFlags.clearByGame(gameId);
+      await ReviewFlags.clearByGame(gameId);
 
-      expect(ReviewFlags.listByGame(otherGameId)).toHaveLength(1);
+      expect(await ReviewFlags.listByGame(otherGameId)).toHaveLength(1);
       expect(getNeedsReview(otherGameId)).toBe(1);
     });
   });
