@@ -17,7 +17,7 @@ interface PlayerContextValue {
   player: PlayerState;
   config: ConfigState;
   gameLibrary: GameLibraryState;
-  /** Steam header image URL keyed by game ID. Computed once; use instead of re-deriving. */
+  /** Game thumbnail URL keyed by game ID. Computed once; use instead of re-deriving. */
   gameThumbnailByGameId: Map<string, string>;
 }
 
@@ -28,8 +28,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const config = useConfig();
   const gameLibrary = useGameLibrary();
 
-  const foundTracks = playlist.tracks.filter((t) => t.status === "found");
-  const player = usePlayerState(foundTracks);
+  const player = usePlayerState();
   const {
     playerBarRef,
     currentTrackIndex,

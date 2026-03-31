@@ -4,7 +4,7 @@ import { useRef, useState, useEffect } from "react";
 import type { PlaylistTrack } from "@/types";
 import type { PlayerBarHandle } from "@/components/PlayerBar";
 
-export function usePlayerState(_foundTracks: PlaylistTrack[]) {
+export function usePlayerState() {
   const [currentTrackIndex, setCurrentTrackIndex] = useState<number | null>(null);
   const [isPlayerPlaying, setIsPlayerPlaying] = useState(false);
   const [shuffleMode, setShuffleMode] = useState(false);
@@ -23,6 +23,7 @@ export function usePlayerState(_foundTracks: PlaylistTrack[]) {
     setCurrentTrackIndex(index);
     setShuffleMode(false);
     setShuffleOrder([]);
+    setPlayedTrackIds(new Set());
   }
 
   function reset() {

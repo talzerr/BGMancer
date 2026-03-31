@@ -1,7 +1,7 @@
 import { BackstageGames, Games, Tracks, ReviewFlags } from "@/lib/db/repo";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
 import { loadTracks, resolveVideos, tagGameTracks } from "@/lib/pipeline/onboarding";
-import { OnboardingPhase } from "@/types";
+import { OnboardingPhase, ReviewReason } from "@/types";
 
 type ReingestEvent =
   | { type: "progress"; message: string }
@@ -47,7 +47,16 @@ export async function POST(req: Request) {
         return;
       }
 
-      const resolveResult = await resolveVideos(game, progress, abort.signal);
+      let resolveResult: { resolved: number; total: number };
+      try {
+        resolveResult = await resolveVideos(game, progress, abort.signal);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        ReviewFlags.markAsNeedsReview(gameId, ReviewReason.NoTracklistSource, msg);
+        send({ type: "error", message: `Video resolution failed: ${msg}` });
+        return;
+      }
+
       const tagResult = await tagGameTracks(game, progress, abort.signal);
 
       send({

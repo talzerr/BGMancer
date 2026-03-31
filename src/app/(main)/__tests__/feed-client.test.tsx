@@ -54,6 +54,8 @@ const mockPlayerContext = {
     handleToggleShuffle: vi.fn(),
     clearPlayedTracks: vi.fn(),
     reset: vi.fn(),
+    startPlaying: vi.fn(),
+    playingSessionId: null as string | null,
   },
   config: {
     targetTrackCount: 50,
