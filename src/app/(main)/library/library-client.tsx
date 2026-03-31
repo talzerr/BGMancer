@@ -147,7 +147,7 @@ export function LibraryClient() {
             >
               ← BGMancer
             </Link>
-            <h1 className="text-xl font-bold text-white">Game Library</h1>
+            <h1 className="font-display text-xl font-bold text-white">Game Library</h1>
           </div>
           <div className="text-right">
             <p className="text-sm font-semibold text-white tabular-nums">{activeCount}</p>
@@ -161,7 +161,7 @@ export function LibraryClient() {
             onClick={() => setCatalogOpen((v) => !v)}
             className="flex w-full cursor-pointer items-center justify-between px-5 py-4"
           >
-            <h2 className="text-[11px] font-bold tracking-widest text-zinc-500 uppercase">
+            <h2 className="font-display text-[11px] font-bold tracking-widest text-zinc-500 uppercase">
               Browse Catalog
             </h2>
             {catalogOpen ? (
@@ -216,7 +216,7 @@ export function LibraryClient() {
                 <button
                   onClick={handleIncludeAllShown}
                   disabled={enablingAll}
-                  className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-teal-500/30 bg-teal-600/20 px-3 py-1.5 text-xs font-semibold text-teal-300 transition-colors hover:bg-teal-600/30 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-violet-500/30 bg-violet-600/20 px-3 py-1.5 text-xs font-semibold text-violet-300 transition-colors hover:bg-violet-600/30 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {enablingAll ? (
                     <Spinner className="h-3 w-3" />
@@ -256,7 +256,7 @@ export function LibraryClient() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search games…"
-                className="w-full rounded-lg border border-white/[0.07] bg-zinc-800/60 py-2.5 pr-4 pl-9 text-sm text-white placeholder-zinc-500 focus:ring-2 focus:ring-teal-500/40 focus:outline-none"
+                className="w-full rounded-lg border border-white/[0.07] bg-zinc-800/60 py-2.5 pr-4 pl-9 text-sm text-white placeholder-zinc-500 focus:ring-2 focus:ring-violet-500/40 focus:outline-none"
               />
             </div>
           </div>

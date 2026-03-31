@@ -49,7 +49,6 @@ function makePendingPlaylistTrack(id: string, gameId: string, queries: string[])
     playlist_id: "pl1",
     game_id: gameId,
     game_title: "Test Game",
-    game_steam_appid: null,
     track_name: null,
     video_id: null,
     video_title: null,

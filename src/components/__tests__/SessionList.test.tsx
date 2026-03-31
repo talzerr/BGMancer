@@ -107,15 +107,15 @@ describe("SessionList", () => {
         />,
       );
 
-      // The selected row's indicator dot has the bg-teal-400 class
+      // The selected row's indicator dot has the bg-violet-400 class
       const sessionAName = screen.getByText(SESSION_A_NAME);
       const selectedRow = sessionAName.closest("[class*='bg-zinc-800']");
       expect(selectedRow).toBeInTheDocument();
-      const tealDot = selectedRow!.querySelector(".bg-teal-400");
-      expect(tealDot).toBeInTheDocument();
+      const violetDot = selectedRow!.querySelector(".bg-violet-400");
+      expect(violetDot).toBeInTheDocument();
     });
 
-    it("should NOT show the teal indicator on unselected sessions", () => {
+    it("should NOT show the violet indicator on unselected sessions", () => {
       render(
         <SessionList
           sessions={TWO_SESSIONS}
@@ -128,8 +128,8 @@ describe("SessionList", () => {
       const sessionBName = screen.getByText(SESSION_B_NAME);
       const unselectedRow = sessionBName.closest("[class*='hover']");
       expect(unselectedRow).toBeInTheDocument();
-      const tealDot = unselectedRow!.querySelector(".bg-teal-400");
-      expect(tealDot).not.toBeInTheDocument();
+      const violetDot = unselectedRow!.querySelector(".bg-violet-400");
+      expect(violetDot).not.toBeInTheDocument();
     });
   });
 

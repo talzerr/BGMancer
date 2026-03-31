@@ -90,7 +90,7 @@ export function GameDetailClient({
     }
   }, [activeModal]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const trackCount = tracks.length;
+  const trackCount = tracks.filter((t) => t.discovered !== DiscoveredStatus.Rejected).length;
   const activeCount = tracks.filter((t) => t.active).length;
   const taggedCount = tracks.filter((t) => t.taggedAt !== null).length;
   const phase = game.onboarding_phase;
@@ -375,11 +375,11 @@ export function GameDetailClient({
                   className={`group w-[110px] shrink-0 rounded-lg py-1.5 text-center text-xs font-semibold transition-all ${
                     game.published
                       ? "border border-emerald-600/40 bg-emerald-500/10 text-emerald-400 hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-400"
-                      : phase === OnboardingPhase.Resolved
+                      : phase === OnboardingPhase.Tagged
                         ? "bg-emerald-600 text-white shadow-sm shadow-emerald-500/25 hover:bg-emerald-700"
                         : "cursor-not-allowed border border-zinc-700 text-zinc-600"
                   }`}
-                  disabled={publishing || phase !== OnboardingPhase.Resolved}
+                  disabled={publishing || phase !== OnboardingPhase.Tagged}
                   onClick={togglePublished}
                 >
                   {game.published ? (
@@ -393,7 +393,7 @@ export function GameDetailClient({
                 </button>
               }
             />
-            {phase !== OnboardingPhase.Resolved && !game.published && (
+            {phase !== OnboardingPhase.Tagged && !game.published && (
               <TooltipContent>Complete all pipeline phases before publishing</TooltipContent>
             )}
           </Tooltip>
@@ -829,7 +829,7 @@ export function GameDetailClient({
           <DialogHeader>
             <DialogTitle className="text-zinc-100">Quick Onboard: {game.title}</DialogTitle>
             <DialogDescription className="text-zinc-400">
-              Run all phases (load tracks, tag, resolve) and publish.
+              Run all phases (load tracks, resolve, tag) and publish.
             </DialogDescription>
           </DialogHeader>
           <SSEProgress
@@ -837,7 +837,7 @@ export function GameDetailClient({
             body={{ gameId: game.id }}
             progressLabel={(e) => String(e.message ?? "Working…")}
             doneLabel={(e) =>
-              `Done — ${e.trackCount} tracks, ${e.tagged} tagged, ${e.resolved} resolved`
+              `Done — ${e.trackCount} tracks, ${e.resolved} resolved, ${e.tagged} tagged`
             }
             onDone={() => router.refresh()}
             onClose={() => {
@@ -896,7 +896,9 @@ export function GameDetailClient({
               url="/api/backstage/reingest"
               body={{ gameId: game.id }}
               progressLabel={(e) => String(e.message ?? "Working…")}
-              doneLabel={(e) => `Done — ${e.trackCount} tracks, ${e.tagged} tagged`}
+              doneLabel={(e) =>
+                `Done — ${e.trackCount} tracks, ${e.resolved} resolved, ${e.tagged} tagged`
+              }
               onDone={() => router.refresh()}
               onClose={closeReingest}
             />
@@ -1176,7 +1178,7 @@ function PrimaryAction({
   const hasFlags = reviewFlagCount > 0;
 
   // Any phase with flags → review flags first
-  if (hasFlags && phase !== OnboardingPhase.Resolved) {
+  if (hasFlags && phase !== OnboardingPhase.Tagged) {
     return (
       <Button
         size="sm"
@@ -1204,22 +1206,22 @@ function PrimaryAction({
         <Button
           size="sm"
           className="h-7 bg-violet-600 text-xs text-white hover:bg-violet-700"
-          onClick={onTag}
-        >
-          Run LLM Tagging
-        </Button>
-      );
-    case OnboardingPhase.Tagged:
-      return (
-        <Button
-          size="sm"
-          className="h-7 bg-violet-600 text-xs text-white hover:bg-violet-700"
           onClick={onResolve}
         >
           Resolve Videos
         </Button>
       );
     case OnboardingPhase.Resolved:
+      return (
+        <Button
+          size="sm"
+          className="h-7 bg-violet-600 text-xs text-white hover:bg-violet-700"
+          onClick={onTag}
+        >
+          Run LLM Tagging
+        </Button>
+      );
+    case OnboardingPhase.Tagged:
       return (
         <Button
           size="sm"

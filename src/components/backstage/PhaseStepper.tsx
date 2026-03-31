@@ -4,15 +4,15 @@ import { cn } from "@/lib/utils";
 const STEPS = [
   { phase: OnboardingPhase.Draft, label: "Draft" },
   { phase: OnboardingPhase.TracksLoaded, label: "Tracks Loaded" },
-  { phase: OnboardingPhase.Tagged, label: "Tagged" },
   { phase: OnboardingPhase.Resolved, label: "Resolved" },
+  { phase: OnboardingPhase.Tagged, label: "Tagged" },
 ] as const;
 
 const PHASE_ORDER: Record<string, number> = {
   [OnboardingPhase.Draft]: 0,
   [OnboardingPhase.TracksLoaded]: 1,
-  [OnboardingPhase.Tagged]: 2,
-  [OnboardingPhase.Resolved]: 3,
+  [OnboardingPhase.Resolved]: 2,
+  [OnboardingPhase.Tagged]: 3,
   [OnboardingPhase.Failed]: -1,
 };
 

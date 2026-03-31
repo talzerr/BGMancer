@@ -36,6 +36,12 @@ interface PlaylistTrackCardProps {
   isDragging?: boolean;
 }
 
+function formatTrackDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 const STATUS_CONFIG: Record<string, { dot: string }> = {
   pending: { dot: "bg-zinc-500" },
   searching: { dot: "bg-amber-400 animate-pulse" },
@@ -67,14 +73,14 @@ export function PlaylistTrackCard({
   return (
     <div
       onClick={isPlayable ? onPlay : undefined}
-      className={`group flex items-center gap-3 rounded-xl border border-l-2 border-l-transparent px-3 py-2 transition-all duration-150 ${
+      className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-150 ${
         isPlayable ? "cursor-pointer" : ""
       } ${isDragging ? "opacity-50 shadow-lg shadow-black/40" : ""} ${
         isPlaying
-          ? "border-violet-600/40 bg-violet-950/50 shadow-sm shadow-violet-900/20"
+          ? "bg-violet-950/40 shadow-[inset_3px_0_12px_-4px_rgba(139,92,246,0.4)]"
           : track.status === TrackStatus.Error
-            ? "border-red-800/30 bg-red-950/20"
-            : "border-white/[0.05] bg-zinc-900/60 hover:border-white/[0.10] hover:bg-zinc-900/80"
+            ? "bg-red-950/20"
+            : "bg-white/[0.02] hover:bg-gradient-to-r hover:from-violet-500/[0.06] hover:to-transparent"
       }`}
     >
       {/* Drag handle */}
@@ -91,7 +97,7 @@ export function PlaylistTrackCard({
       {/* Position number -> waves when actively playing */}
       <div className="flex w-6 shrink-0 items-center justify-center">
         {isPlaying ? (
-          <div className="flex h-[14px] items-end gap-px">
+          <div className="flex h-[16px] items-end gap-[2px]">
             <span className={`eq-bar${!isActivelyPlaying ? "eq-bar-paused" : ""}`} />
             <span className={`eq-bar${!isActivelyPlaying ? "eq-bar-paused" : ""}`} />
             <span className={`eq-bar${!isActivelyPlaying ? "eq-bar-paused" : ""}`} />
@@ -102,7 +108,7 @@ export function PlaylistTrackCard({
       </div>
 
       {/* Thumbnail */}
-      <div className="relative h-11 w-16 shrink-0 overflow-hidden rounded-lg bg-zinc-800 ring-1 ring-white/[0.06]">
+      <div className="relative h-12 w-[72px] shrink-0 overflow-hidden rounded-lg bg-zinc-800 ring-1 ring-white/[0.06]">
         {hasVideo && thumbnailSrc ? (
           <>
             <Image
@@ -171,6 +177,13 @@ export function PlaylistTrackCard({
           </p>
         )}
       </div>
+
+      {/* Duration */}
+      {track.duration_seconds != null && track.duration_seconds > 0 && (
+        <span className="shrink-0 font-mono text-xs text-zinc-500 tabular-nums">
+          {formatTrackDuration(track.duration_seconds)}
+        </span>
+      )}
 
       {/* Right side: status dot + action buttons */}
       <div className="flex shrink-0 items-center gap-0.5">

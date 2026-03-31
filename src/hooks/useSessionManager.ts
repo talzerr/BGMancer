@@ -45,14 +45,20 @@ export function useSessionManager() {
       const res = await fetch(`/api/sessions/${id}`, { method: "DELETE" });
       if (!res.ok) return;
       const { nextSessionId } = await res.json();
-      if (player.playingTrackId) {
-        const isFromDeletedSession = playlist.tracks.some((t) => t.id === player.playingTrackId);
-        if (isFromDeletedSession) player.reset();
+
+      // Stop playback if we're deleting the session that's currently playing
+      const isDeletingPlayingSession = id === player.playingSessionId;
+      if (isDeletingPlayingSession) {
+        player.reset();
       }
-      if (nextSessionId) {
-        await playlist.loadForSession(nextSessionId);
-      } else {
-        playlist.clearTracks();
+
+      const isDeletingViewedSession = id === playlist.currentSessionId;
+      if (isDeletingViewedSession) {
+        if (nextSessionId) {
+          await playlist.loadForSession(nextSessionId);
+        } else {
+          playlist.clearTracks();
+        }
       }
       await fetchSessions();
     } catch (err) {

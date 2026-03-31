@@ -41,7 +41,6 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
   // ── Cross-hook action coordinators ────────────────────────────────────────
 
   async function handleGenerate() {
-    player.reset();
     await playlist.handleGenerate(gameLibrary.games, {
       target_track_count: config.targetTrackCount,
       allow_long_tracks: config.allowLongTracks,
@@ -55,7 +54,6 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
   async function handleImport(e: SyntheticEvent<HTMLFormElement>) {
     const success = await playlist.handleImport(e);
     if (success) {
-      player.reset();
       await fetchSessions();
     }
   }
@@ -92,9 +90,11 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
 
   return (
     <>
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[340px_1fr]">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[320px_1fr] lg:gap-8">
         {/* Left panel */}
-        <aside className="flex flex-col gap-4 lg:sticky lg:top-20">
+        <aside className="flex flex-col gap-4 p-4 lg:sticky lg:top-[57px] lg:pl-0">
+          <LibraryWidget />
+
           <GenerateSection
             generating={playlist.generating}
             genProgress={playlist.genProgress}
@@ -127,13 +127,10 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
             )}
             selectedId={playlist.currentSessionId}
             onSelect={(id) => {
-              player.reset();
               playlist.loadForSession(id);
             }}
             onDelete={handleDeleteSession}
           />
-
-          <LibraryWidget />
         </aside>
 
         {/* Right panel: Playlist */}
@@ -172,48 +169,56 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
               onDragEnd={handleDragEnd}
             >
               <SortableContext items={trackIds} strategy={verticalListSortingStrategy}>
-                <div className="flex flex-col gap-1.5 pb-24">
-                  {playlist.tracks.map((track, i) => {
-                    const effectiveIdx = player.effectiveFoundTracks.findIndex(
-                      (ft) => ft.id === track.id,
-                    );
-                    const isCurrentTrack = track.id === player.playingTrackId;
-                    const spoilerHidden =
-                      config.antiSpoilerEnabled &&
-                      track.status === "found" &&
-                      !player.playedTrackIds.has(track.id);
-                    return (
-                      <SortableTrackItem
-                        key={track.id}
-                        track={track}
-                        index={i}
-                        gameThumbnail={gameThumbnailByGameId.get(track.game_id)}
-                        isPlaying={isCurrentTrack}
-                        isActivelyPlaying={isCurrentTrack && player.isPlayerPlaying}
-                        spoilerHidden={spoilerHidden}
-                        isRerolling={playlist.rerollingIds.has(track.id)}
-                        onPlay={
-                          effectiveIdx !== -1
-                            ? () => {
-                                if (isCurrentTrack) {
-                                  player.playerBarRef.current?.togglePlayPause();
-                                } else {
-                                  player.setCurrentTrackIndex(effectiveIdx);
+                <div className="flex flex-col gap-1 pb-24">
+                  {(() => {
+                    const viewingPlayingSession =
+                      player.playingSessionId === playlist.currentSessionId;
+                    const viewedFoundTracks = playlist.tracks.filter((t) => t.status === "found");
+                    return playlist.tracks.map((track, i) => {
+                      const isCurrentTrack =
+                        viewingPlayingSession && track.id === player.playingTrackId;
+                      const foundIdx = viewedFoundTracks.findIndex((ft) => ft.id === track.id);
+                      const spoilerHidden =
+                        config.antiSpoilerEnabled &&
+                        track.status === "found" &&
+                        !player.playedTrackIds.has(track.id);
+                      return (
+                        <SortableTrackItem
+                          key={track.id}
+                          track={track}
+                          index={i}
+                          gameThumbnail={gameThumbnailByGameId.get(track.game_id)}
+                          isPlaying={isCurrentTrack}
+                          isActivelyPlaying={isCurrentTrack && player.isPlayerPlaying}
+                          spoilerHidden={spoilerHidden}
+                          isRerolling={playlist.rerollingIds.has(track.id)}
+                          onPlay={
+                            foundIdx !== -1
+                              ? () => {
+                                  if (isCurrentTrack) {
+                                    player.playerBarRef.current?.togglePlayPause();
+                                  } else {
+                                    player.startPlaying(
+                                      viewedFoundTracks,
+                                      foundIdx,
+                                      playlist.currentSessionId,
+                                    );
+                                  }
                                 }
-                              }
-                            : undefined
-                        }
-                        onRemove={() => initiateRemove(track)}
-                        onReroll={() =>
-                          playlist.rerollTrack(
-                            track.id,
-                            config.allowLongTracks,
-                            config.allowShortTracks,
-                          )
-                        }
-                      />
-                    );
-                  })}
+                              : undefined
+                          }
+                          onRemove={() => initiateRemove(track)}
+                          onReroll={() =>
+                            playlist.rerollTrack(
+                              track.id,
+                              config.allowLongTracks,
+                              config.allowShortTracks,
+                            )
+                          }
+                        />
+                      );
+                    });
+                  })()}
                 </div>
               </SortableContext>
             </DndContext>

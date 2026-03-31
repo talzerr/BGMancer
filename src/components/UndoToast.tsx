@@ -18,7 +18,7 @@ export function UndoToast({ track, onUndo }: UndoToastProps) {
       <div className="h-3.5 w-px bg-zinc-700" />
       <button
         onClick={onUndo}
-        className="cursor-pointer text-sm font-semibold text-teal-400 hover:text-teal-300"
+        className="cursor-pointer text-sm font-semibold text-violet-400 hover:text-violet-300"
       >
         Undo
       </button>
@@ -26,7 +26,7 @@ export function UndoToast({ track, onUndo }: UndoToastProps) {
       <div className="absolute right-0 bottom-0 left-0 h-0.5 overflow-hidden rounded-b-xl bg-zinc-800">
         <div
           key={track.id}
-          className="h-full bg-teal-500"
+          className="h-full bg-violet-500"
           style={{
             animation: `shrink ${UNDO_TOAST_DURATION_MS}ms linear forwards`,
             transformOrigin: "left",

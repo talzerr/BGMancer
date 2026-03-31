@@ -54,6 +54,8 @@ const mockPlayerContext = {
     handleToggleShuffle: vi.fn(),
     clearPlayedTracks: vi.fn(),
     reset: vi.fn(),
+    startPlaying: vi.fn(),
+    playingSessionId: null as string | null,
   },
   config: {
     targetTrackCount: 50,
@@ -169,7 +171,6 @@ function makeTrack(overrides: Partial<PlaylistTrack> = {}): PlaylistTrack {
     playlist_id: TEST_PLAYLIST_ID,
     game_id: TEST_GAME_ID,
     game_title: TEST_GAME_TITLE,
-    game_steam_appid: null,
     track_name: TEST_TRACK_NAME,
     video_id: TEST_VIDEO_ID,
     video_title: TEST_VIDEO_TITLE,

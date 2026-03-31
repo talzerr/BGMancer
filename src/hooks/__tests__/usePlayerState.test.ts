@@ -1,0 +1,251 @@
+// @vitest-environment jsdom
+import { describe, it, expect } from "vitest";
+import { renderHook, act } from "@testing-library/react";
+import { usePlayerState } from "../usePlayerState";
+import { TrackStatus } from "@/types";
+import type { PlaylistTrack } from "@/types";
+import {
+  TEST_PLAYLIST_ID,
+  TEST_GAME_ID,
+  TEST_GAME_TITLE,
+  TEST_TRACK_NAME,
+  TEST_VIDEO_ID,
+  TEST_VIDEO_TITLE,
+  TEST_CHANNEL_TITLE,
+  TEST_THUMBNAIL_URL,
+  TEST_DURATION_SECONDS,
+} from "@/test/constants";
+
+function makeTrack(id: string, overrides: Partial<PlaylistTrack> = {}): PlaylistTrack {
+  return {
+    id,
+    playlist_id: TEST_PLAYLIST_ID,
+    game_id: TEST_GAME_ID,
+    game_title: TEST_GAME_TITLE,
+    track_name: TEST_TRACK_NAME,
+    video_id: TEST_VIDEO_ID,
+    video_title: TEST_VIDEO_TITLE,
+    channel_title: TEST_CHANNEL_TITLE,
+    thumbnail: TEST_THUMBNAIL_URL,
+    search_queries: null,
+    duration_seconds: TEST_DURATION_SECONDS,
+    position: 0,
+    status: TrackStatus.Found,
+    error_message: null,
+    created_at: "2026-01-01T00:00:00Z",
+    synced_at: null,
+    ...overrides,
+  };
+}
+
+describe("usePlayerState", () => {
+  describe("initial state", () => {
+    it("should start with no track playing", () => {
+      const { result } = renderHook(() => usePlayerState());
+      expect(result.current.currentTrackIndex).toBeNull();
+      expect(result.current.playingTrackId).toBeNull();
+      expect(result.current.playingSessionId).toBeNull();
+      expect(result.current.isPlayerPlaying).toBe(false);
+      expect(result.current.shuffleMode).toBe(false);
+      expect(result.current.effectiveFoundTracks).toEqual([]);
+      expect(result.current.playedTrackIds.size).toBe(0);
+    });
+  });
+
+  describe("startPlaying", () => {
+    it("should set playing tracks, index, and session ID", () => {
+      const { result } = renderHook(() => usePlayerState());
+      const tracks = [makeTrack("t1"), makeTrack("t2"), makeTrack("t3")];
+
+      act(() => {
+        result.current.startPlaying(tracks, 1, "session-1");
+      });
+
+      expect(result.current.currentTrackIndex).toBe(1);
+      expect(result.current.playingTrackId).toBe("t2");
+      expect(result.current.playingSessionId).toBe("session-1");
+      expect(result.current.effectiveFoundTracks).toEqual(tracks);
+    });
+
+    it("should reset playedTrackIds when starting new playback", () => {
+      const { result } = renderHook(() => usePlayerState());
+      const tracks = [makeTrack("t1"), makeTrack("t2")];
+
+      // Start playing track 0 — it gets marked as played via the useEffect
+      act(() => {
+        result.current.startPlaying(tracks, 0, "session-1");
+      });
+      expect(result.current.playedTrackIds.has("t1")).toBe(true);
+
+      // Advance to track 1 so t2 also gets marked
+      act(() => {
+        result.current.setCurrentTrackIndex(1);
+      });
+      expect(result.current.playedTrackIds.has("t2")).toBe(true);
+
+      // Start playing a new set at a different index — playedTrackIds should be cleared
+      const newTracks = [makeTrack("t3"), makeTrack("t4")];
+      act(() => {
+        result.current.startPlaying(newTracks, 0, "session-2");
+      });
+
+      // Old track IDs should be gone
+      expect(result.current.playedTrackIds.has("t1")).toBe(false);
+      expect(result.current.playedTrackIds.has("t2")).toBe(false);
+    });
+
+    it("should disable shuffle mode when starting new playback", () => {
+      const { result } = renderHook(() => usePlayerState());
+      const tracks = [makeTrack("t1"), makeTrack("t2"), makeTrack("t3")];
+
+      // Start playing and enable shuffle
+      act(() => {
+        result.current.startPlaying(tracks, 0, "session-1");
+      });
+      act(() => {
+        result.current.handleToggleShuffle();
+      });
+      expect(result.current.shuffleMode).toBe(true);
+
+      // Start new playback — shuffle should be off
+      act(() => {
+        result.current.startPlaying(tracks, 1, "session-2");
+      });
+      expect(result.current.shuffleMode).toBe(false);
+    });
+  });
+
+  describe("reset", () => {
+    it("should clear all player state", () => {
+      const { result } = renderHook(() => usePlayerState());
+      const tracks = [makeTrack("t1"), makeTrack("t2")];
+
+      act(() => {
+        result.current.startPlaying(tracks, 0, "session-1");
+      });
+      expect(result.current.currentTrackIndex).toBe(0);
+
+      act(() => {
+        result.current.reset();
+      });
+
+      expect(result.current.currentTrackIndex).toBeNull();
+      expect(result.current.playingTrackId).toBeNull();
+      expect(result.current.playingSessionId).toBeNull();
+      expect(result.current.effectiveFoundTracks).toEqual([]);
+      expect(result.current.playedTrackIds.size).toBe(0);
+      expect(result.current.shuffleMode).toBe(false);
+    });
+  });
+
+  describe("shuffle", () => {
+    it("should toggle shuffle mode on", () => {
+      const { result } = renderHook(() => usePlayerState());
+      const tracks = [makeTrack("t1"), makeTrack("t2"), makeTrack("t3")];
+
+      act(() => {
+        result.current.startPlaying(tracks, 0, "session-1");
+      });
+      act(() => {
+        result.current.handleToggleShuffle();
+      });
+
+      expect(result.current.shuffleMode).toBe(true);
+      // The effective tracks should still contain the same set of tracks
+      expect(result.current.effectiveFoundTracks).toHaveLength(3);
+      // Current track should be at position 0 after shuffle
+      expect(result.current.currentTrackIndex).toBe(0);
+      // The first track in the shuffled order should be the one that was playing
+      expect(result.current.effectiveFoundTracks[0].id).toBe("t1");
+    });
+
+    it("should toggle shuffle mode off and restore position", () => {
+      const { result } = renderHook(() => usePlayerState());
+      const tracks = [makeTrack("t1"), makeTrack("t2"), makeTrack("t3")];
+
+      act(() => {
+        result.current.startPlaying(tracks, 1, "session-1");
+      });
+      act(() => {
+        result.current.handleToggleShuffle();
+      });
+      act(() => {
+        result.current.handleToggleShuffle();
+      });
+
+      expect(result.current.shuffleMode).toBe(false);
+      // Should be back in original order
+      expect(result.current.effectiveFoundTracks).toEqual(tracks);
+    });
+  });
+
+  describe("playingTrackId", () => {
+    it("should derive the playing track ID from the current index", () => {
+      const { result } = renderHook(() => usePlayerState());
+      const tracks = [makeTrack("t1"), makeTrack("t2")];
+
+      act(() => {
+        result.current.startPlaying(tracks, 0, "session-1");
+      });
+      expect(result.current.playingTrackId).toBe("t1");
+
+      act(() => {
+        result.current.setCurrentTrackIndex(1);
+      });
+      expect(result.current.playingTrackId).toBe("t2");
+    });
+
+    it("should return null when no track is playing", () => {
+      const { result } = renderHook(() => usePlayerState());
+      expect(result.current.playingTrackId).toBeNull();
+    });
+  });
+
+  describe("activeGameId", () => {
+    it("should derive the active game ID from the current track", () => {
+      const { result } = renderHook(() => usePlayerState());
+      const tracks = [
+        makeTrack("t1", { game_id: "game-a" }),
+        makeTrack("t2", { game_id: "game-b" }),
+      ];
+
+      act(() => {
+        result.current.startPlaying(tracks, 1, "session-1");
+      });
+      expect(result.current.activeGameId).toBe("game-b");
+    });
+  });
+
+  describe("playedTrackIds", () => {
+    it("should mark tracks as played when the index changes", () => {
+      const { result } = renderHook(() => usePlayerState());
+      const tracks = [makeTrack("t1"), makeTrack("t2"), makeTrack("t3")];
+
+      act(() => {
+        result.current.startPlaying(tracks, 0, "session-1");
+      });
+      expect(result.current.playedTrackIds.has("t1")).toBe(true);
+
+      act(() => {
+        result.current.setCurrentTrackIndex(2);
+      });
+      expect(result.current.playedTrackIds.has("t1")).toBe(true);
+      expect(result.current.playedTrackIds.has("t3")).toBe(true);
+    });
+
+    it("should clear played tracks when clearPlayedTracks is called", () => {
+      const { result } = renderHook(() => usePlayerState());
+      const tracks = [makeTrack("t1")];
+
+      act(() => {
+        result.current.startPlaying(tracks, 0, "session-1");
+      });
+      expect(result.current.playedTrackIds.size).toBeGreaterThan(0);
+
+      act(() => {
+        result.current.clearPlayedTracks();
+      });
+      expect(result.current.playedTrackIds.size).toBe(0);
+    });
+  });
+});

@@ -29,7 +29,6 @@ function makeTrack(overrides: Partial<PlaylistTrack> = {}): PlaylistTrack {
     playlist_id: TEST_PLAYLIST_ID,
     game_id: TEST_GAME_ID,
     game_title: TEST_GAME_TITLE,
-    game_steam_appid: null,
     track_name: TEST_TRACK_NAME,
     video_id: TEST_VIDEO_ID,
     video_title: TEST_VIDEO_TITLE,
@@ -107,6 +106,11 @@ describe("PlaylistHeader", () => {
       config: {
         antiSpoilerEnabled: false,
         saveAntiSpoiler: vi.fn(),
+      },
+      player: {
+        startPlaying: vi.fn(),
+        playingSessionId: null,
+        playingTrackId: null,
       },
     };
   });
@@ -327,6 +331,63 @@ describe("PlaylistHeader", () => {
 
       render(<PlaylistHeader {...defaultProps} />);
       expect(screen.queryByText(/error/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe("Play All button", () => {
+    it("should show Play All when there are found tracks", async () => {
+      const PlaylistHeader = await importComponent();
+      const tracks = [makeTrack({ status: TrackStatus.Found })];
+      mockContext = {
+        ...mockContext,
+        playlist: {
+          ...(mockContext.playlist as Record<string, unknown>),
+          tracks,
+        },
+      };
+
+      render(<PlaylistHeader {...defaultProps} />);
+      expect(screen.getByText("Play All")).toBeInTheDocument();
+    });
+
+    it("should not show Play All when there are no found tracks", async () => {
+      const PlaylistHeader = await importComponent();
+      const tracks = [makeTrack({ status: TrackStatus.Pending })];
+      mockContext = {
+        ...mockContext,
+        playlist: {
+          ...(mockContext.playlist as Record<string, unknown>),
+          tracks,
+        },
+      };
+
+      render(<PlaylistHeader {...defaultProps} />);
+      expect(screen.queryByText("Play All")).not.toBeInTheDocument();
+    });
+
+    it("should call startPlaying with found tracks when clicked", async () => {
+      const PlaylistHeader = await importComponent();
+      const user = userEvent.setup();
+      const foundTrack = makeTrack({ status: TrackStatus.Found });
+      const tracks = [foundTrack, makeTrack({ status: TrackStatus.Pending })];
+      const startPlayingMock = vi.fn();
+      mockContext = {
+        ...mockContext,
+        playlist: {
+          ...(mockContext.playlist as Record<string, unknown>),
+          tracks,
+        },
+        player: {
+          ...(mockContext.player as Record<string, unknown>),
+          startPlaying: startPlayingMock,
+        },
+      };
+
+      render(<PlaylistHeader {...defaultProps} />);
+      await user.click(screen.getByText("Play All"));
+
+      expect(startPlayingMock).toHaveBeenCalledTimes(1);
+      expect(startPlayingMock).toHaveBeenCalledWith([foundTrack], 0, SESSION_ID);
     });
   });
 });

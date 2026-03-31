@@ -1,4 +1,4 @@
-import { OnboardingPhase, ReviewReason } from "@/types";
+import { OnboardingPhase, ReviewReason, DiscoveredStatus } from "@/types";
 import type { Game } from "@/types";
 import { Games, BackstageGames, Tracks, VideoTracks, ReviewFlags } from "@/lib/db/repo";
 import { GAME_MAX_TRACKS } from "@/lib/constants";
@@ -101,10 +101,16 @@ export async function tagGameTracks(
   signal?: AbortSignal,
 ): Promise<{ tagged: number; needsReview: boolean }> {
   const dbTracks = Tracks.getByGame(game.id);
-  onProgress?.(`Tagging ${dbTracks.length} tracks…`);
+  const resolvedMap = VideoTracks.getTrackToVideo(game.id);
+  const taggable = dbTracks.filter(
+    (t) =>
+      resolvedMap.has(t.name) &&
+      (t.discovered === null || t.discovered === DiscoveredStatus.Approved),
+  );
+  onProgress?.(`Tagging ${taggable.length} resolved tracks (${dbTracks.length} total)…`);
 
   const provider = getTaggingProvider();
-  await tagTracks(game.id, game.title, dbTracks, provider, signal);
+  await tagTracks(game.id, game.title, taggable, provider, signal);
   BackstageGames.setPhase(game.id, OnboardingPhase.Tagged);
 
   const afterTracks = Tracks.getByGame(game.id);
@@ -170,13 +176,13 @@ export async function quickOnboard(
 
   if (signal?.aborted) throw new Error("Cancelled");
 
-  onProgress?.("Phase 2: Tagging tracks…", 1, 3);
-  const tagResult = await tagGameTracks(game, (msg) => onProgress?.(msg, 1, 3), signal);
+  onProgress?.("Phase 2: Resolving videos…", 1, 3);
+  const resolveResult = await resolveVideos(game, (msg) => onProgress?.(msg, 1, 3), signal);
 
   if (signal?.aborted) throw new Error("Cancelled");
 
-  onProgress?.("Phase 3: Resolving videos…", 2, 3);
-  const resolveResult = await resolveVideos(game, (msg) => onProgress?.(msg, 2, 3), signal);
+  onProgress?.("Phase 3: Tagging tracks…", 2, 3);
+  const tagResult = await tagGameTracks(game, (msg) => onProgress?.(msg, 2, 3), signal);
 
   BackstageGames.setPublished(game.id, true);
   onProgress?.("Published.", 3, 3);
