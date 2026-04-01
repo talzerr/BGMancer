@@ -7,13 +7,15 @@ interface YouTubeSearchResult {
   description: string;
 }
 
+import { env } from "@/lib/env";
+
 const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
 
-if (!process.env.YOUTUBE_API_KEY) {
+if (!env.youtubeApiKey) {
   console.warn("[YouTube] WARNING: YOUTUBE_API_KEY is not set — all API calls will fail");
 }
 
-const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY ?? "";
+const YOUTUBE_API_KEY = env.youtubeApiKey ?? "";
 
 /** Thrown when the YouTube Data API quota is exceeded — callers should abort immediately */
 export class YouTubeQuotaError extends Error {

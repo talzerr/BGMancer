@@ -1,49 +1,35 @@
-import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { Playlist, Users } from "@/lib/db/repo";
-import { getOrCreateUserId } from "@/lib/services/session";
+import { Playlist } from "@/lib/db/repo";
+import { withOptionalAuth, withRequiredAuth } from "@/lib/services/route-wrappers";
+import { reorderSchema, zodErrorResponse } from "@/lib/validation";
 
 /** GET /api/playlist — Fetch tracks for the active session, or a specific session via ?sessionId=. */
-export async function GET(req: NextRequest) {
-  try {
-    const cookieStore = await cookies();
-    const userId = await getOrCreateUserId(cookieStore);
-    await Users.getOrCreate(userId);
+export const GET = withOptionalAuth(async (userId, req: NextRequest) => {
+  if (!userId) return NextResponse.json([]);
 
-    const sessionId = req.nextUrl.searchParams.get("sessionId") ?? undefined;
-    return NextResponse.json(await Playlist.listAllWithGameTitle(userId, sessionId));
-  } catch (err) {
-    console.error("[GET /api/playlist]", err);
-    return NextResponse.json({ error: "Failed to fetch playlist" }, { status: 500 });
-  }
-}
+  const sessionId = req.nextUrl.searchParams.get("sessionId") ?? undefined;
+  return NextResponse.json(await Playlist.listAllWithGameTitle(userId, sessionId));
+}, "GET /api/playlist");
 
 /** DELETE /api/playlist — Clear all tracks for the current user. */
-export async function DELETE() {
-  try {
-    const cookieStore = await cookies();
-    const userId = await getOrCreateUserId(cookieStore);
-
-    await Playlist.clearAll(userId);
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("[DELETE /api/playlist]", err);
-    return NextResponse.json({ error: "Failed to clear playlist" }, { status: 500 });
-  }
-}
+export const DELETE = withRequiredAuth(async (userId) => {
+  await Playlist.clearAll(userId);
+  return NextResponse.json({ success: true });
+}, "DELETE /api/playlist");
 
 /** PATCH /api/playlist — Reorder tracks. Body: { orderedIds: string[] }. */
-export async function PATCH(req: NextRequest) {
-  try {
-    const { orderedIds } = (await req.json()) as { orderedIds: string[] };
-    if (!Array.isArray(orderedIds)) {
-      return NextResponse.json({ error: "orderedIds must be an array" }, { status: 400 });
-    }
-    await Playlist.reorder(orderedIds);
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("[PATCH /api/playlist]", err);
-    return NextResponse.json({ error: "Failed to reorder playlist" }, { status: 500 });
+export const PATCH = withOptionalAuth(async (userId, req: Request) => {
+  if (!userId) return NextResponse.json({ success: true });
+
+  const parsed = reorderSchema.safeParse(await req.json());
+  if (!parsed.success) return zodErrorResponse(parsed.error);
+
+  const owned = await Playlist.verifyTrackOwnership(userId, parsed.data.orderedIds);
+  if (!owned) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-}
+
+  await Playlist.reorder(parsed.data.orderedIds);
+  return NextResponse.json({ success: true });
+}, "PATCH /api/playlist");

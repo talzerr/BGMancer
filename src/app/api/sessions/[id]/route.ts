@@ -1,40 +1,41 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { Sessions } from "@/lib/db/repo";
-import { getOrCreateUserId } from "@/lib/services/session";
+import { withRequiredAuth } from "@/lib/services/route-wrappers";
+import { renameSessionSchema, zodErrorResponse } from "@/lib/validation";
 
 /** PATCH /api/sessions/:id — Rename a session. Body: { name: string }. */
-export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
+export const PATCH = withRequiredAuth(
+  async (userId, req: Request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
-    const { name } = (await req.json()) as { name?: string };
 
-    if (!name?.trim()) {
-      return NextResponse.json({ error: "Name is required" }, { status: 400 });
-    }
+    const parsed = renameSessionSchema.safeParse(await req.json());
+    if (!parsed.success) return zodErrorResponse(parsed.error);
 
-    if (!(await Sessions.getById(id))) {
+    const session = await Sessions.getById(id);
+    if (!session) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
+    if (session.user_id !== userId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
-    await Sessions.rename(id, name.trim());
+    await Sessions.rename(id, parsed.data.name);
     return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("[PATCH /api/sessions/[id]]", err);
-    return NextResponse.json({ error: "Failed to rename session" }, { status: 500 });
-  }
-}
+  },
+  "PATCH /api/sessions/[id]",
+);
 
 /** DELETE /api/sessions/:id — Delete a session. Returns the next most recent session ID. */
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const cookieStore = await cookies();
-    const userId = await getOrCreateUserId(cookieStore);
-
+export const DELETE = withRequiredAuth(
+  async (userId, _req: Request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
 
-    if (!(await Sessions.getById(id))) {
+    const session = await Sessions.getById(id);
+    if (!session) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    }
+    if (session.user_id !== userId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     await Sessions.delete(id);
@@ -42,8 +43,6 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     // Return the next most recent session so the client can switch to it.
     const next = await Sessions.getActive(userId);
     return NextResponse.json({ success: true, nextSessionId: next?.id ?? null });
-  } catch (err) {
-    console.error("[DELETE /api/sessions/[id]]", err);
-    return NextResponse.json({ error: "Failed to delete session" }, { status: 500 });
-  }
-}
+  },
+  "DELETE /api/sessions/[id]",
+);

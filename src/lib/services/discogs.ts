@@ -1,10 +1,11 @@
+import { env } from "@/lib/env";
+
 const USER_AGENT = "BGMancer/1.0 +https://github.com/talzerr/bgmancer";
 
 function authHeaders(): Record<string, string> {
-  const token = process.env.DISCOGS_TOKEN;
   return {
     "User-Agent": USER_AGENT,
-    ...(token ? { Authorization: `Discogs token=${token}` } : {}),
+    ...(env.discogsToken ? { Authorization: `Discogs token=${env.discogsToken}` } : {}),
   };
 }
 

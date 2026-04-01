@@ -121,6 +121,38 @@ describe("Games", () => {
     });
   });
 
+  describe("getPublishedByIds", () => {
+    beforeEach(() => {
+      seedTestGame(rawDb, TEST_USER_ID, { id: "g-pub", title: "Published" });
+      // Insert an unpublished game directly (seedTestGame creates published games)
+      rawDb
+        .prepare(
+          "INSERT INTO games (id, title, published, onboarding_phase) VALUES (?, ?, 0, 'draft')",
+        )
+        .run("g-unpub", "Unpublished");
+    });
+
+    it("should return only published games matching the IDs", async () => {
+      const games = await Games.getPublishedByIds(["g-pub", "g-unpub"]);
+      expect(games).toHaveLength(1);
+      expect(games[0].id).toBe("g-pub");
+    });
+
+    it("should return empty array for empty input", async () => {
+      expect(await Games.getPublishedByIds([])).toEqual([]);
+    });
+
+    it("should default curation to include", async () => {
+      const games = await Games.getPublishedByIds(["g-pub"]);
+      expect(games[0].curation).toBe("include");
+    });
+
+    it("should ignore unknown IDs", async () => {
+      const games = await Games.getPublishedByIds(["nonexistent"]);
+      expect(games).toEqual([]);
+    });
+  });
+
   describe("listAllIncludingDisabled", () => {
     describe("when library has skip-curated games", () => {
       beforeEach(() => {

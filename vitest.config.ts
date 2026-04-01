@@ -37,7 +37,8 @@ export default defineConfig({
         "src/lib/**/*.test.ts",
         "src/lib/db/test-helpers.ts",
 
-        // Barrel re-exports, type-only files, schema definitions, and config objects — no testable logic
+        // Barrel re-exports, type-only files, schema definitions, bootstrap, and config objects — no testable logic
+        "src/lib/env.ts",
         "src/lib/db/repo.ts",
         "src/lib/db/index.ts",
         "src/lib/db/seed.ts",

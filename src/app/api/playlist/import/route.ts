@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { Games, Playlist, Users, Sessions } from "@/lib/db/repo";
+import { Games, Playlist, Sessions } from "@/lib/db/repo";
 import { YT_IMPORT_GAME_ID, YT_IMPORT_MAX_TRACKS } from "@/lib/constants";
 import {
   fetchPlaylistItems,
@@ -10,7 +9,9 @@ import {
 import { newId } from "@/lib/uuid";
 import { TrackStatus } from "@/types";
 import type { PlaylistTrack } from "@/types";
-import { getOrCreateUserId } from "@/lib/services/session";
+import { getAuthUserId } from "@/lib/services/auth-helpers";
+import { importPlaylistSchema, zodErrorResponse } from "@/lib/validation";
+import { checkGuestRateLimit } from "@/lib/rate-limit";
 
 function extractPlaylistId(input: string): string | null {
   const trimmed = input.trim();
@@ -28,17 +29,28 @@ function extractPlaylistId(input: string): string | null {
  * POST /api/playlist/import
  *
  * Imports all tracks from a YouTube playlist by URL or ID.
- * Creates a new session (does not replace existing playlist).
- * Tracks are imported as status='found'.
+ * Authenticated: creates a session and persists tracks.
+ * Guest: returns tracks without persistence.
  */
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const userId = await getOrCreateUserId(cookieStore);
-    await Users.getOrCreate(userId);
+    const userId = await getAuthUserId();
 
-    const body = await request.json();
-    const playlistId = extractPlaylistId(body.url ?? "");
+    // Rate-limit guests to protect YouTube API quota
+    if (!userId) {
+      const limited = checkGuestRateLimit(request);
+      if (limited) {
+        return NextResponse.json(
+          { error: `Please wait ${limited.waitSec}s before trying again.` },
+          { status: 429, headers: { "Retry-After": String(limited.waitSec) } },
+        );
+      }
+    }
+
+    const parsed = importPlaylistSchema.safeParse(await request.json());
+    if (!parsed.success) return zodErrorResponse(parsed.error);
+
+    const playlistId = extractPlaylistId(parsed.data.url);
 
     if (!playlistId) {
       return NextResponse.json(
@@ -47,7 +59,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const tracks = await fetchPlaylistItems(playlistId, YT_IMPORT_MAX_TRACKS);
+    let tracks;
+    try {
+      tracks = await fetchPlaylistItems(playlistId, YT_IMPORT_MAX_TRACKS);
+    } catch (err) {
+      if (err instanceof YouTubeQuotaError) {
+        return NextResponse.json({ error: err.message }, { status: 429 });
+      }
+      throw err;
+    }
 
     if (tracks.length === 0) {
       return NextResponse.json(
@@ -56,17 +76,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // Fetch playlist metadata to get the actual title
     const metadata = await fetchPlaylistMetadata(playlistId);
     const playlistTitle = metadata?.title ?? `YouTube Playlist (${playlistId.slice(0, 6)})`;
-    const sessionName = `YouTube: ${playlistTitle}`;
-
-    await Games.ensureExists(userId, YT_IMPORT_GAME_ID, "YouTube Import");
-
-    const session = await Sessions.create(userId, sessionName);
-
     const now = new Date().toISOString();
-    const tracksToInsert = tracks.map((t) => ({
+
+    const baseTracks = tracks.map((t) => ({
       id: newId(),
       game_id: YT_IMPORT_GAME_ID,
       track_name: t.title,
@@ -80,12 +94,34 @@ export async function POST(request: Request) {
       error_message: null,
     }));
 
-    await Playlist.replaceAll(session.id, tracksToInsert);
+    if (userId) {
+      // Authenticated: persist to DB
+      const sessionName = `YouTube: ${playlistTitle}`;
+      await Games.ensureExists(userId, YT_IMPORT_GAME_ID, "YouTube Import");
+      const session = await Sessions.create(userId, sessionName);
+      await Playlist.replaceAll(session.id, baseTracks);
 
-    // Construct the response in-memory — avoids a round-trip JOIN query.
-    const result: PlaylistTrack[] = tracksToInsert.map((t, i) => ({
+      const result: PlaylistTrack[] = baseTracks.map((t, i) => ({
+        ...t,
+        playlist_id: session.id,
+        game_title: "YouTube Import",
+        position: i,
+        created_at: now,
+        synced_at: null,
+      }));
+
+      return NextResponse.json({
+        tracks: result,
+        count: result.length,
+        playlistId,
+        sessionId: session.id,
+      });
+    }
+
+    // Guest: return tracks without persistence
+    const result: PlaylistTrack[] = baseTracks.map((t, i) => ({
       ...t,
-      playlist_id: session.id,
+      playlist_id: "guest",
       game_title: "YouTube Import",
       position: i,
       created_at: now,
@@ -96,12 +132,8 @@ export async function POST(request: Request) {
       tracks: result,
       count: result.length,
       playlistId,
-      sessionId: session.id,
     });
   } catch (err) {
-    if (err instanceof YouTubeQuotaError) {
-      return NextResponse.json({ error: err.message }, { status: 429 });
-    }
     console.error("[POST /api/playlist/import]", err);
     return NextResponse.json(
       { error: "Import failed", detail: err instanceof Error ? err.message : String(err) },

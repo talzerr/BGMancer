@@ -10,7 +10,7 @@ export type GenerateEvent =
     }
   | {
       type: "done";
-      sessionId: string;
+      sessionId?: string;
       tracks: PlaylistTrack[];
       count: number;
       found: number;

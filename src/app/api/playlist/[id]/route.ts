@@ -1,14 +1,22 @@
 import { NextResponse } from "next/server";
 import { Playlist } from "@/lib/db/repo";
+import { withRequiredAuth } from "@/lib/services/route-wrappers";
 
 /** DELETE /api/playlist/:id — Remove a single track from the playlist. */
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
+export const DELETE = withRequiredAuth(
+  async (userId, _req: Request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
+
+    const ownerId = await Playlist.getTrackOwnerId(id);
+    if (!ownerId) {
+      return NextResponse.json({ error: "Track not found" }, { status: 404 });
+    }
+    if (ownerId !== userId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     await Playlist.removeOne(id);
     return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("[DELETE /api/playlist/[id]]", err);
-    return NextResponse.json({ error: "Failed to remove track" }, { status: 500 });
-  }
-}
+  },
+  "DELETE /api/playlist/[id]",
+);

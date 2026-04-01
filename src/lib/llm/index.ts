@@ -1,11 +1,12 @@
 import type { LLMProvider } from "./provider";
 import { AnthropicProvider } from "./anthropic";
+import { env } from "@/lib/env";
 
-function makeAnthropicProvider(modelEnvVar: string): LLMProvider {
-  if (!process.env.ANTHROPIC_API_KEY) {
+function makeAnthropicProvider(modelOverride: string | undefined): LLMProvider {
+  if (!env.anthropicApiKey) {
     throw new Error("ANTHROPIC_API_KEY is required but not set");
   }
-  const model = process.env[modelEnvVar] ?? process.env.ANTHROPIC_MODEL;
+  const model = modelOverride ?? env.anthropicModel;
   return new AnthropicProvider(...(model ? [model] : []));
 }
 
@@ -16,7 +17,7 @@ function makeAnthropicProvider(modelEnvVar: string): LLMProvider {
  *   ANTHROPIC_TAGGING_MODEL=claude-haiku-4-5-20251001
  */
 export function getTaggingProvider(): LLMProvider {
-  return makeAnthropicProvider("ANTHROPIC_TAGGING_MODEL");
+  return makeAnthropicProvider(env.anthropicTaggingModel);
 }
 
 /**
@@ -26,7 +27,7 @@ export function getTaggingProvider(): LLMProvider {
  *   ANTHROPIC_VIBE_MODEL=claude-haiku-4-5-20251001
  */
 export function getVibeProfilerProvider(): LLMProvider {
-  return makeAnthropicProvider("ANTHROPIC_VIBE_MODEL");
+  return makeAnthropicProvider(env.anthropicVibeModel);
 }
 
 export type { LLMProvider } from "./provider";

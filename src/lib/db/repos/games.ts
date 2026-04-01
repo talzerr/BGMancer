@@ -1,5 +1,6 @@
 import { getDB } from "@/lib/db";
-import { sql } from "drizzle-orm";
+import { sql, inArray, and, eq } from "drizzle-orm";
+import { games as gamesTable } from "@/lib/db/drizzle-schema";
 import { toGame, toGames } from "@/lib/db/mappers";
 import { CurationMode } from "@/types";
 import type { Game } from "@/types";
@@ -31,6 +32,18 @@ export const Games = {
         ORDER BY lg.added_at ASC
       `),
     );
+  },
+
+  /** Fetch published games by IDs — no library JOIN. Used for guest generation. */
+  async getPublishedByIds(ids: string[]): Promise<Game[]> {
+    if (ids.length === 0) return [];
+    const rows = getDB()
+      .select()
+      .from(gamesTable)
+      .where(and(inArray(gamesTable.id, ids), eq(gamesTable.published, true)))
+      .all();
+    // Guests have no library — default curation to "include".
+    return rows.map((r) => toGame({ ...r, curation: CurationMode.Include }));
   },
 
   async listAllIncludingDisabled(userId: string): Promise<Game[]> {

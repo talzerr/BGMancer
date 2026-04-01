@@ -1,6 +1,6 @@
-import { Games, Playlist, Users, Sessions, DirectorDecisions } from "@/lib/db/repo";
+import { Games, Playlist, Sessions, DirectorDecisions } from "@/lib/db/repo";
 import { GameProgressStatus, TrackStatus } from "@/types";
-import type { TrackDecision } from "@/types";
+import type { CurationMode, TrackDecision } from "@/types";
 import { fetchGameCandidates } from "@/lib/pipeline/candidates";
 import { toInsertable, resolvePendingSlots, taggedTrackToPending } from "@/lib/pipeline/assembly";
 import { assemblePlaylist } from "@/lib/pipeline/director";
@@ -140,7 +140,77 @@ async function persistSession(
   return { session, inserted };
 }
 
-// ─── Pipeline orchestrator ────────────────────────────────────────────────────
+// ─── Guest pipeline ──────────────────────────────────────────────────────────
+
+/**
+ * Guest generation: Director-only (no Vibe Profiler), no persistence.
+ * Games are loaded by IDs from the published catalog, not from a user library.
+ * Curation modes can be overridden via the gameSelections parameter.
+ */
+export async function generatePlaylistForGuest(
+  send: Send,
+  gameSelections: Array<{ gameId: string; curation?: CurationMode }>,
+  config: AppConfig,
+): Promise<void> {
+  const gameIds = gameSelections.map((s) => s.gameId);
+  const games = await Games.getPublishedByIds(gameIds);
+
+  if (games.length === 0) {
+    send({
+      type: "error",
+      message: "No valid games selected. Browse the Catalog to pick some.",
+    });
+    return;
+  }
+
+  // Apply curation overrides from the request
+  const curationMap = new Map(gameSelections.map((s) => [s.gameId, s.curation]));
+  for (const game of games) {
+    const curation = curationMap.get(game.id);
+    if (curation) {
+      game.curation = curation;
+    }
+  }
+
+  const targetCount = config.target_track_count;
+  const taggedPools = await gatherCandidates(games, send);
+  const filteredPools = filterByDuration(taggedPools, config);
+
+  let tracks: PendingTrack[] = [];
+
+  if (filteredPools.size > 0 && targetCount > 0) {
+    const activeGames = games.filter((g) => filteredPools.has(g.id));
+    send({ type: "progress", message: "Assembling playlist arc…" });
+    const directorResult = runDirector(filteredPools, activeGames, targetCount, undefined, false);
+    tracks = directorResult.pendingTracks;
+  }
+
+  const allTracks = tracks.slice(0, targetCount);
+
+  // Enrich with game thumbnails
+  const gameMap = new Map(games.map((g) => [g.id, g]));
+  const finalTracks: PlaylistTrack[] = allTracks.map((t, position) => {
+    const g = gameMap.get(t.game_id);
+    return {
+      ...t,
+      playlist_id: "guest",
+      position,
+      created_at: new Date().toISOString(),
+      synced_at: null,
+      ...(g ? { game_thumbnail_url: g.thumbnail_url } : {}),
+    };
+  });
+
+  send({
+    type: "done",
+    tracks: finalTracks,
+    count: finalTracks.length,
+    found: finalTracks.filter((t) => t.status === TrackStatus.Found).length,
+    pending: finalTracks.filter((t) => t.status === TrackStatus.Pending).length,
+  });
+}
+
+// ─── Authenticated pipeline ──────────────────────────────────────────────────
 
 /**
  * Core playlist generation pipeline, decoupled from HTTP/SSE transport.
@@ -164,7 +234,6 @@ export async function generatePlaylist(
     return;
   }
 
-  const user = await Users.getOrCreate(userId);
   const targetCount = config.target_track_count;
 
   const taggedPools = await gatherCandidates(games, send);
@@ -200,7 +269,7 @@ export async function generatePlaylist(
 
   send({ type: "progress", message: "Saving playlist…" });
   const { session, inserted } = await persistSession(
-    user.id,
+    userId,
     allTracks,
     slicedDecisions,
     usedRubric,

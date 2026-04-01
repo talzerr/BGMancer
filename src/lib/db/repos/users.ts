@@ -14,6 +14,24 @@ function rowToUser(row: typeof users.$inferSelect): User {
 }
 
 export const Users = {
+  /** Create or fetch a user from an OAuth profile (email is the unique key). */
+  async createFromOAuth(email: string, name?: string | null): Promise<User> {
+    const db = getDB();
+    const existing = db.select().from(users).where(eq(users.email, email)).get();
+    if (existing) return rowToUser(existing);
+
+    const id = newId();
+    db.transaction((tx) => {
+      tx.insert(users)
+        .values({ id, email, username: name ?? null })
+        .onConflictDoNothing()
+        .run();
+      tx.insert(libraries).values({ id: newId(), user_id: id }).onConflictDoNothing().run();
+    });
+
+    return rowToUser(db.select().from(users).where(eq(users.id, id)).get()!);
+  },
+
   async getOrCreate(id: string): Promise<User> {
     const db = getDB();
     const existing = db.select().from(users).where(eq(users.id, id)).get();
