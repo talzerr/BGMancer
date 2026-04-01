@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
 import { Sessions } from "@/lib/db/repo";
 import { withRequiredAuth } from "@/lib/services/route-wrappers";
+import { renameSessionSchema, zodErrorResponse } from "@/lib/validation";
 
 /** PATCH /api/sessions/:id — Rename a session. Body: { name: string }. */
 export const PATCH = withRequiredAuth(
   async (userId, req: Request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
-    const { name } = (await req.json()) as { name?: string };
 
-    if (!name?.trim()) {
-      return NextResponse.json({ error: "Name is required" }, { status: 400 });
-    }
+    const parsed = renameSessionSchema.safeParse(await req.json());
+    if (!parsed.success) return zodErrorResponse(parsed.error);
 
     const session = await Sessions.getById(id);
     if (!session) {
@@ -20,7 +19,7 @@ export const PATCH = withRequiredAuth(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    await Sessions.rename(id, name.trim());
+    await Sessions.rename(id, parsed.data.name);
     return NextResponse.json({ success: true });
   },
   "PATCH /api/sessions/[id]",

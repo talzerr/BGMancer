@@ -10,6 +10,7 @@ import { newId } from "@/lib/uuid";
 import { TrackStatus } from "@/types";
 import type { PlaylistTrack } from "@/types";
 import { withRequiredAuth } from "@/lib/services/route-wrappers";
+import { importPlaylistSchema, zodErrorResponse } from "@/lib/validation";
 
 function extractPlaylistId(input: string): string | null {
   const trimmed = input.trim();
@@ -31,8 +32,10 @@ function extractPlaylistId(input: string): string | null {
  * Tracks are imported as status='found'.
  */
 export const POST = withRequiredAuth(async (userId, request: Request) => {
-  const body = await request.json();
-  const playlistId = extractPlaylistId(body.url ?? "");
+  const parsed = importPlaylistSchema.safeParse(await request.json());
+  if (!parsed.success) return zodErrorResponse(parsed.error);
+
+  const playlistId = extractPlaylistId(parsed.data.url);
 
   if (!playlistId) {
     return NextResponse.json(

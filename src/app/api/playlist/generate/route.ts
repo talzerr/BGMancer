@@ -9,9 +9,17 @@ import { getAuthSession } from "@/lib/services/auth-helpers";
 import { YouTubeQuotaError, YouTubeInvalidKeyError } from "@/lib/services/youtube";
 import { GENERATION_COOLDOWN_MS, DEFAULT_TRACK_COUNT } from "@/lib/constants";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
+import { generateSchema } from "@/lib/validation";
 import type { AppConfig } from "@/types";
 
 export type { GenerateEvent };
+
+function sseError(message: string, status?: number): Response {
+  return new Response(`data: ${JSON.stringify({ type: "error", message })}\n\n`, {
+    headers: SSE_HEADERS,
+    ...(status ? { status } : {}),
+  });
+}
 
 /**
  * POST /api/playlist/generate
@@ -24,9 +32,8 @@ export type { GenerateEvent };
  */
 export async function POST(request: Request) {
   if (!env.youtubeApiKey) {
-    return new Response(
-      `data: ${JSON.stringify({ type: "error", message: "YouTube API key is not configured. Add YOUTUBE_API_KEY to .env.local and restart the server." })}\n\n`,
-      { headers: SSE_HEADERS },
+    return sseError(
+      "YouTube API key is not configured. Add YOUTUBE_API_KEY to .env.local and restart the server.",
     );
   }
 
@@ -37,12 +44,17 @@ export async function POST(request: Request) {
     // empty body is fine — use defaults
   }
 
+  const parsed = generateSchema.safeParse(body);
+  if (!parsed.success) {
+    return sseError("Invalid request body");
+  }
+
   const config: AppConfig = {
-    target_track_count: Number(body.target_track_count) || DEFAULT_TRACK_COUNT,
-    allow_long_tracks: body.allow_long_tracks === true,
-    allow_short_tracks: body.allow_short_tracks === true,
-    anti_spoiler_enabled: body.anti_spoiler_enabled === true,
-    raw_vibes: body.raw_vibes === true,
+    target_track_count: parsed.data.target_track_count ?? DEFAULT_TRACK_COUNT,
+    allow_long_tracks: parsed.data.allow_long_tracks ?? false,
+    allow_short_tracks: parsed.data.allow_short_tracks ?? false,
+    anti_spoiler_enabled: parsed.data.anti_spoiler_enabled ?? false,
+    raw_vibes: parsed.data.raw_vibes ?? false,
   };
 
   const session = await getAuthSession();
@@ -81,13 +93,10 @@ export async function POST(request: Request) {
     })();
   } else {
     // ── Guest: Director-only, no Vibe Profiler, no persistence ──
-    const gameSelections = Array.isArray(body.gameSelections) ? body.gameSelections : [];
+    const gameSelections = parsed.data.gameSelections ?? [];
 
     if (gameSelections.length === 0) {
-      return new Response(
-        `data: ${JSON.stringify({ type: "error", message: "Select some games from the Catalog to generate a playlist." })}\n\n`,
-        { headers: SSE_HEADERS },
-      );
+      return sseError("Select some games from the Catalog to generate a playlist.");
     }
 
     (async () => {

@@ -171,6 +171,16 @@ export const Playlist = {
       .run();
   },
 
+  /** Returns the userId who owns the playlist containing this track, or null. */
+  async getTrackOwnerId(trackId: string): Promise<string | null> {
+    const row = getDB().get<{ user_id: string }>(sql`
+      SELECT p.user_id FROM playlist_tracks pt
+      JOIN playlists p ON p.id = pt.playlist_id
+      WHERE pt.id = ${trackId}
+    `);
+    return row?.user_id ?? null;
+  },
+
   async removeOne(id: string): Promise<void> {
     getDB().delete(playlistTracks).where(eq(playlistTracks.id, id)).run();
   },

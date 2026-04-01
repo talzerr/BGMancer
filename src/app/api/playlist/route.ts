@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { Playlist } from "@/lib/db/repo";
 import { withOptionalAuth, withRequiredAuth } from "@/lib/services/route-wrappers";
+import { reorderSchema, zodErrorResponse } from "@/lib/validation";
 
 /** GET /api/playlist — Fetch tracks for the active session, or a specific session via ?sessionId=. */
 export const GET = withOptionalAuth(async (userId, req: NextRequest) => {
@@ -20,11 +21,10 @@ export const DELETE = withRequiredAuth(async (userId) => {
 /** PATCH /api/playlist — Reorder tracks. Body: { orderedIds: string[] }. */
 export async function PATCH(req: NextRequest) {
   try {
-    const { orderedIds } = (await req.json()) as { orderedIds: string[] };
-    if (!Array.isArray(orderedIds)) {
-      return NextResponse.json({ error: "orderedIds must be an array" }, { status: 400 });
-    }
-    await Playlist.reorder(orderedIds);
+    const parsed = reorderSchema.safeParse(await req.json());
+    if (!parsed.success) return zodErrorResponse(parsed.error);
+
+    await Playlist.reorder(parsed.data.orderedIds);
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[PATCH /api/playlist]", err);

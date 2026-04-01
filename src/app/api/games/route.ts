@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { Games } from "@/lib/db/repo";
-import { VALID_CURATIONS } from "@/lib/db/mappers";
 import { YT_IMPORT_GAME_ID, LIBRARY_MAX_GAMES } from "@/lib/constants";
 import { CurationMode } from "@/types";
 import { withOptionalAuth, withRequiredAuth } from "@/lib/services/route-wrappers";
+import { addGameSchema, updateCurationSchema, zodErrorResponse } from "@/lib/validation";
 
 /** GET /api/games — List active games (curation != skip). Pass ?includeDisabled=true to include skipped games. */
 export const GET = withOptionalAuth(async (userId, request: Request) => {
@@ -19,17 +19,9 @@ export const GET = withOptionalAuth(async (userId, request: Request) => {
 
 /** POST /api/games — Link a published game to the user's library. */
 export const POST = withRequiredAuth(async (userId, request: Request) => {
-  const body = await request.json();
-  const gameId = typeof body.gameId === "string" ? body.gameId : null;
-  const ADD_CURATIONS = new Set([CurationMode.Focus, CurationMode.Include, CurationMode.Lite]);
-  const curation =
-    typeof body.curation === "string" && ADD_CURATIONS.has(body.curation as CurationMode)
-      ? (body.curation as CurationMode)
-      : CurationMode.Include;
-
-  if (!gameId) {
-    return NextResponse.json({ error: "gameId is required" }, { status: 400 });
-  }
+  const parsed = addGameSchema.safeParse(await request.json());
+  if (!parsed.success) return zodErrorResponse(parsed.error);
+  const { gameId, curation = CurationMode.Include } = parsed.data;
 
   const game = await Games.getById(gameId);
   if (!game || !game.published) {
@@ -57,13 +49,10 @@ export const PATCH = withRequiredAuth(async (userId, request: Request) => {
     return NextResponse.json({ error: "Game ID is required" }, { status: 400 });
   }
 
-  const body = await request.json();
+  const parsed = updateCurationSchema.safeParse(await request.json());
+  if (!parsed.success) return zodErrorResponse(parsed.error);
 
-  if (typeof body.curation !== "string" || !VALID_CURATIONS.has(body.curation as CurationMode)) {
-    return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
-  }
-
-  await Games.setCuration(userId, id, body.curation as CurationMode);
+  await Games.setCuration(userId, id, parsed.data.curation);
   const game = await Games.getByIdForUser(userId, id);
   if (!game) {
     return NextResponse.json({ error: "Game not found" }, { status: 404 });
