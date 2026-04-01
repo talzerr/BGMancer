@@ -18,7 +18,7 @@
       "migrations_dir": "drizzle/migrations"
     }
   ],
-  // KV for YouTube API response caching — fill id after running:
+  // KV for rate limiting and caching — fill id after running:
   //   wrangler kv namespace create CACHE
   "kv_namespaces": [
     {
@@ -29,5 +29,32 @@
   // Non-secret env vars. Secrets are set via: wrangler secret put <NAME>
   "vars": {
     "NEXTAUTH_URL": "https://bgmancer.com"
+  },
+  // ─── Staging environment ────────────────────────────────────────────────
+  // Deploy with: opennextjs-cloudflare build && wrangler deploy --env staging
+  // Create resources:
+  //   wrangler d1 create bgmancer-staging
+  //   wrangler kv namespace create CACHE --env staging
+  "env": {
+    "staging": {
+      "name": "bgmancer-staging",
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "bgmancer-staging",
+          "database_id": "<FILL_AFTER_CREATING_D1_STAGING>",
+          "migrations_dir": "drizzle/migrations"
+        }
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "CACHE",
+          "id": "<FILL_AFTER_CREATING_KV_STAGING>"
+        }
+      ],
+      "vars": {
+        "NEXTAUTH_URL": "https://staging.bgmancer.com"
+      }
+    }
   }
 }
