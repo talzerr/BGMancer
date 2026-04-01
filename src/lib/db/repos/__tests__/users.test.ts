@@ -30,6 +30,35 @@ beforeEach(() => {
 });
 
 describe("Users", () => {
+  describe("createFromOAuth", () => {
+    describe("when the email is new", () => {
+      it("should create a user and library", async () => {
+        const user = await Users.createFromOAuth("new@example.com", "New User");
+        expect(user.email).toBe("new@example.com");
+        expect(user.username).toBe("New User");
+        const lib = rawDb.prepare("SELECT * FROM libraries WHERE user_id = ?").get(user.id) as
+          | Record<string, unknown>
+          | undefined;
+        expect(lib).toBeTruthy();
+      });
+    });
+
+    describe("when the email already exists", () => {
+      it("should return the existing user without duplicating", async () => {
+        const user = await Users.createFromOAuth(TEST_USER_EMAIL, "Different Name");
+        expect(user.id).toBe(TEST_USER_ID);
+        expect(user.email).toBe(TEST_USER_EMAIL);
+      });
+    });
+
+    describe("when name is not provided", () => {
+      it("should create a user with null username", async () => {
+        const user = await Users.createFromOAuth("noname@example.com");
+        expect(user.username).toBeNull();
+      });
+    });
+  });
+
   describe("getOrCreate", () => {
     describe("when user already exists", () => {
       it("should return the existing user", async () => {
