@@ -53,6 +53,9 @@ interface Env {
 
   /** Current NODE_ENV. */
   nodeEnv: string;
+
+  /** True in development or test environments. */
+  isDev: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -107,6 +110,8 @@ function loadEnv(): Env {
     authConfigured: !!(googleClientId && googleClientSecret),
 
     nodeEnv,
+
+    isDev: nodeEnv === "development" || nodeEnv === "test",
   };
 }
 

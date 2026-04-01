@@ -1,4 +1,4 @@
-import { Games, Playlist, Users, Sessions, DirectorDecisions } from "@/lib/db/repo";
+import { Games, Playlist, Sessions, DirectorDecisions } from "@/lib/db/repo";
 import { GameProgressStatus, TrackStatus } from "@/types";
 import type { TrackDecision } from "@/types";
 import { fetchGameCandidates } from "@/lib/pipeline/candidates";
@@ -164,7 +164,6 @@ export async function generatePlaylist(
     return;
   }
 
-  const user = await Users.getOrCreate(userId);
   const targetCount = config.target_track_count;
 
   const taggedPools = await gatherCandidates(games, send);
@@ -200,7 +199,7 @@ export async function generatePlaylist(
 
   send({ type: "progress", message: "Saving playlist…" });
   const { session, inserted } = await persistSession(
-    user.id,
+    userId,
     allTracks,
     slicedDecisions,
     usedRubric,

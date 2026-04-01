@@ -1,10 +1,9 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
-import { Playlist, Users } from "@/lib/db/repo";
+import { Playlist } from "@/lib/db/repo";
 import { findBestVideo, YouTubeInvalidKeyError } from "@/lib/services/youtube";
 import { runConcurrent } from "@/lib/concurrency";
-import { getOrCreateUserId } from "@/lib/services/session";
+import { withRequiredAuth } from "@/lib/services/route-wrappers";
 
 const SEARCH_CONCURRENCY = 5;
 
@@ -17,7 +16,7 @@ const SEARCH_CONCURRENCY = 5;
  * Full-OST tracks require a video >= 15 minutes.
  * Individual tracks accept any length.
  */
-export async function POST() {
+export const POST = withRequiredAuth(async (userId) => {
   if (!env.youtubeApiKey) {
     return NextResponse.json(
       {
@@ -28,63 +27,47 @@ export async function POST() {
     );
   }
 
-  try {
-    const cookieStore = await cookies();
-    const userId = await getOrCreateUserId(cookieStore);
-    await Users.getOrCreate(userId);
+  const pendingRows = await Playlist.listPending(userId);
 
-    const pendingRows = await Playlist.listPending(userId);
+  if (pendingRows.length === 0) {
+    return NextResponse.json({ message: "No pending tracks to search.", updated: 0 });
+  }
 
-    if (pendingRows.length === 0) {
-      return NextResponse.json({ message: "No pending tracks to search.", updated: 0 });
-    }
+  let updated = 0;
+  let failed = 0;
 
-    let updated = 0;
-    let failed = 0;
+  await runConcurrent(pendingRows, SEARCH_CONCURRENCY, async (row) => {
+    const queries = row.search_queries ?? [];
 
-    await runConcurrent(pendingRows, SEARCH_CONCURRENCY, async (row) => {
-      const queries = row.search_queries ?? [];
+    await Playlist.setSearching(row.id);
 
-      await Playlist.setSearching(row.id);
+    try {
+      const video = await findBestVideo(queries, true);
 
-      try {
-        const video = await findBestVideo(queries, true);
-
-        if (video) {
-          await Playlist.setFound(
-            row.id,
-            video.videoId,
-            video.title,
-            video.channelTitle,
-            video.thumbnail,
-            video.durationSeconds,
-          );
-          updated++;
-        } else {
-          await Playlist.setError(row.id, "No suitable video found after trying all queries.");
-          failed++;
-        }
-      } catch (err) {
-        if (err instanceof YouTubeInvalidKeyError) throw err;
-        await Playlist.setError(
+      if (video) {
+        await Playlist.setFound(
           row.id,
-          err instanceof Error ? err.message : "YouTube search failed",
+          video.videoId,
+          video.title,
+          video.channelTitle,
+          video.thumbnail,
+          video.durationSeconds,
         );
+        updated++;
+      } else {
+        await Playlist.setError(row.id, "No suitable video found after trying all queries.");
         failed++;
       }
-    });
+    } catch (err) {
+      if (err instanceof YouTubeInvalidKeyError) throw err;
+      await Playlist.setError(row.id, err instanceof Error ? err.message : "YouTube search failed");
+      failed++;
+    }
+  });
 
-    return NextResponse.json({
-      updated,
-      failed,
-      tracks: await Playlist.listAllWithGameTitle(userId),
-    });
-  } catch (err) {
-    console.error("[POST /api/playlist/search]", err);
-    const status = err instanceof YouTubeInvalidKeyError ? 503 : 500;
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Search step failed" },
-      { status },
-    );
-  }
-}
+  return NextResponse.json({
+    updated,
+    failed,
+    tracks: await Playlist.listAllWithGameTitle(userId),
+  });
+}, "POST /api/playlist/search");

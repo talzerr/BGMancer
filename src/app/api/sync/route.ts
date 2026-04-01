@@ -1,14 +1,12 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/services/auth";
-import { Playlist, Users } from "@/lib/db/repo";
+import { Playlist } from "@/lib/db/repo";
 import {
   findBGMancerPlaylist,
   createBGMancerPlaylist,
   addVideoToPlaylist,
 } from "@/lib/services/youtube";
 import { runConcurrent } from "@/lib/concurrency";
-import { getOrCreateUserId } from "@/lib/services/session";
 
 const SYNC_CONCURRENCY = 4;
 
@@ -22,17 +20,14 @@ const SYNC_CONCURRENCY = 4;
 export async function POST() {
   try {
     const session = await auth();
-    if (!session?.access_token) {
+    if (!session?.user?.id || !session.access_token) {
       return NextResponse.json(
         { error: "You must be signed in with Google to sync your playlist." },
         { status: 401 },
       );
     }
 
-    const cookieStore = await cookies();
-    const userId = await getOrCreateUserId(cookieStore);
-    await Users.getOrCreate(userId);
-
+    const userId = session.user.id;
     const accessToken = session.access_token;
     const trackRows = await Playlist.listUnsyncedFound(userId);
 

@@ -1,8 +1,7 @@
-import { cookies } from "next/headers";
 import { env } from "@/lib/env";
 import { generatePlaylist, type GenerateEvent } from "@/lib/pipeline/index";
 import { Users } from "@/lib/db/repo";
-import { getOrCreateUserId } from "@/lib/services/session";
+import { getAuthSession } from "@/lib/services/auth-helpers";
 import { YouTubeQuotaError, YouTubeInvalidKeyError } from "@/lib/services/youtube";
 import { GENERATION_COOLDOWN_MS, DEFAULT_TRACK_COUNT } from "@/lib/constants";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
@@ -16,6 +15,9 @@ export type { GenerateEvent };
  * Thin SSE wrapper around the generate pipeline.
  * Streams progress events while building the playlist.
  * Expects JSON body with optional config overrides: { target_track_count?, allow_long_tracks? }
+ *
+ * Authenticated users: full pipeline (Vibe Profiler + Director), persisted to DB.
+ * Guests: not yet supported — returns 401.
  */
 export async function POST(request: Request) {
   if (!env.youtubeApiKey) {
@@ -24,6 +26,16 @@ export async function POST(request: Request) {
       { headers: SSE_HEADERS },
     );
   }
+
+  const session = await getAuthSession();
+  if (!session.authenticated) {
+    return new Response(
+      `data: ${JSON.stringify({ type: "error", message: "Sign in to generate playlists." })}\n\n`,
+      { headers: SSE_HEADERS, status: 401 },
+    );
+  }
+
+  const userId = session.userId;
 
   // Parse config from request body (sent by the client from localStorage).
   let body: Record<string, unknown> = {};
@@ -40,10 +52,6 @@ export async function POST(request: Request) {
     anti_spoiler_enabled: body.anti_spoiler_enabled === true,
     raw_vibes: body.raw_vibes === true,
   };
-
-  const cookieStore = await cookies();
-  const userId = await getOrCreateUserId(cookieStore);
-  await Users.getOrCreate(userId);
 
   const lock = await Users.tryAcquireGenerationLock(userId, GENERATION_COOLDOWN_MS);
   if (!lock.acquired) {

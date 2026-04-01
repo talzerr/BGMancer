@@ -1,18 +1,9 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { Sessions, Users } from "@/lib/db/repo";
-import { getOrCreateUserId } from "@/lib/services/session";
+import { Sessions } from "@/lib/db/repo";
+import { withOptionalAuth } from "@/lib/services/route-wrappers";
 
 /** GET /api/sessions — List all sessions for the current user with track counts. */
-export async function GET() {
-  try {
-    const cookieStore = await cookies();
-    const userId = await getOrCreateUserId(cookieStore);
-    await Users.getOrCreate(userId);
-
-    return NextResponse.json(await Sessions.listAllWithCounts(userId));
-  } catch (err) {
-    console.error("[GET /api/sessions]", err);
-    return NextResponse.json({ error: "Failed to fetch sessions" }, { status: 500 });
-  }
-}
+export const GET = withOptionalAuth(async (userId) => {
+  if (!userId) return NextResponse.json([]);
+  return NextResponse.json(await Sessions.listAllWithCounts(userId));
+}, "GET /api/sessions");

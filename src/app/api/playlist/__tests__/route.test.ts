@@ -45,17 +45,12 @@ vi.mock("@/lib/db", async () => {
   };
 });
 
-vi.mock("next/headers", () => ({
-  cookies: async () => ({ get: () => undefined }),
-}));
-
-vi.mock("@/lib/services/session", async () => {
+vi.mock("@/lib/services/auth-helpers", async () => {
   const { TEST_USER_ID } = await import("@/test/constants");
   return {
-    getOrCreateUserId: async () => TEST_USER_ID,
-    SESSION_COOKIE: "bgmancer-uid",
-    createSessionJWT: async () => "mock-token",
-    verifySessionJWT: async () => TEST_USER_ID,
+    getAuthUserId: async () => TEST_USER_ID,
+    getAuthSession: async () => ({ authenticated: true, userId: TEST_USER_ID }),
+    AuthRequiredError: class extends Error {},
   };
 });
 
