@@ -24,7 +24,7 @@ export async function GET(req: Request) {
 /** POST /api/backstage/games — create a new draft game */
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const body = (await req.json()) as { title?: string; steamAppid?: number };
     const title = typeof body.title === "string" ? body.title.trim() : "";
     if (!title) {
       return NextResponse.json({ error: "title is required" }, { status: 400 });

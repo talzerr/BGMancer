@@ -44,7 +44,7 @@ export function useSessionManager() {
     try {
       const res = await fetch(`/api/sessions/${id}`, { method: "DELETE" });
       if (!res.ok) return;
-      const { nextSessionId } = await res.json();
+      const { nextSessionId } = (await res.json()) as { nextSessionId?: string };
 
       // Stop playback if we're deleting the session that's currently playing
       const isDeletingPlayingSession = id === player.playingSessionId;

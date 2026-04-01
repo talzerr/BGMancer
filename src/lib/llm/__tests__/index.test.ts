@@ -46,7 +46,7 @@ describe("getTaggingProvider", () => {
     });
 
     it("should fall back to ANTHROPIC_MODEL when tagging model is not set", () => {
-      delete process.env.ANTHROPIC_TAGGING_MODEL;
+      (process.env as Record<string, string | undefined>).ANTHROPIC_TAGGING_MODEL = undefined;
       process.env.ANTHROPIC_MODEL = "claude-opus-4-6";
       _reloadEnvForTest();
       getTaggingProvider();
@@ -54,8 +54,8 @@ describe("getTaggingProvider", () => {
     });
 
     it("should use default model when no model env vars are set", () => {
-      delete process.env.ANTHROPIC_TAGGING_MODEL;
-      delete process.env.ANTHROPIC_MODEL;
+      (process.env as Record<string, string | undefined>).ANTHROPIC_TAGGING_MODEL = undefined;
+      (process.env as Record<string, string | undefined>).ANTHROPIC_MODEL = undefined;
       _reloadEnvForTest();
       getTaggingProvider();
       expect(mockConstructor).toHaveBeenCalledWith();
@@ -64,7 +64,7 @@ describe("getTaggingProvider", () => {
 
   describe("when ANTHROPIC_API_KEY is not set", () => {
     beforeEach(() => {
-      delete process.env.ANTHROPIC_API_KEY;
+      (process.env as Record<string, string | undefined>).ANTHROPIC_API_KEY = undefined;
       _reloadEnvForTest();
     });
 
@@ -95,7 +95,7 @@ describe("getVibeProfilerProvider", () => {
 
   describe("when ANTHROPIC_API_KEY is not set", () => {
     beforeEach(() => {
-      delete process.env.ANTHROPIC_API_KEY;
+      (process.env as Record<string, string | undefined>).ANTHROPIC_API_KEY = undefined;
       _reloadEnvForTest();
     });
 

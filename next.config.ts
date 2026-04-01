@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
 const nextConfig: NextConfig = {
   devIndicators: false,
@@ -14,5 +15,9 @@ const nextConfig: NextConfig = {
     ],
   },
 };
+
+// Makes getCloudflareContext() work during `next dev` by spinning up
+// a local miniflare instance with the bindings from wrangler.jsonc.
+initOpenNextCloudflareForDev();
 
 export default nextConfig;

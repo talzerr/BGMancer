@@ -63,7 +63,7 @@ describe("DELETE /api/playlist/[id]", () => {
         title: TEST_GAME_TITLE,
       });
       const playlistId = seedTestSession(rawDb, TEST_USER_ID, { id: "pl-1" });
-      seedPlaylistTrack(db, playlistId, "pt-1", gameId, 0);
+      seedPlaylistTrack(rawDb, playlistId, "pt-1", gameId, 0);
 
       const res = await DELETE_HANDLER(makeJsonRequest("/api/playlist/pt-1", "DELETE"), {
         params: Promise.resolve({ id: "pt-1" }),
@@ -80,7 +80,7 @@ describe("DELETE /api/playlist/[id]", () => {
         title: TEST_GAME_TITLE,
       });
       const playlistId = seedTestSession(rawDb, TEST_USER_ID, { id: "pl-1" });
-      seedPlaylistTrack(db, playlistId, "pt-1", gameId, 0);
+      seedPlaylistTrack(rawDb, playlistId, "pt-1", gameId, 0);
 
       await DELETE_HANDLER(makeJsonRequest("/api/playlist/pt-1", "DELETE"), {
         params: Promise.resolve({ id: "pt-1" }),
@@ -98,9 +98,9 @@ describe("DELETE /api/playlist/[id]", () => {
         title: TEST_GAME_TITLE,
       });
       const playlistId = seedTestSession(rawDb, TEST_USER_ID, { id: "pl-1" });
-      seedPlaylistTrack(db, playlistId, "pt-1", gameId, 0);
-      seedPlaylistTrack(db, playlistId, "pt-2", gameId, 1);
-      seedPlaylistTrack(db, playlistId, "pt-3", gameId, 2);
+      seedPlaylistTrack(rawDb, playlistId, "pt-1", gameId, 0);
+      seedPlaylistTrack(rawDb, playlistId, "pt-2", gameId, 1);
+      seedPlaylistTrack(rawDb, playlistId, "pt-3", gameId, 2);
 
       await DELETE_HANDLER(makeJsonRequest("/api/playlist/pt-2", "DELETE"), {
         params: Promise.resolve({ id: "pt-2" }),

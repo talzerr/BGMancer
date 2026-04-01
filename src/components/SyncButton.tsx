@@ -38,7 +38,7 @@ export function SyncButton({
 
     try {
       const res = await fetch("/api/sync", { method: "POST" });
-      const data = await res.json();
+      const data = (await res.json()) as SyncResult & { error?: string };
 
       if (!res.ok) throw new Error(data.error ?? "Sync failed");
 

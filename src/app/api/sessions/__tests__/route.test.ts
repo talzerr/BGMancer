@@ -59,7 +59,7 @@ describe("GET /api/sessions", () => {
         )
         .run("pt2", sessionId, TEST_GAME_ID, "Track 2", 1, "found");
 
-      const res = await GET();
+      const res = await GET(new Request("http://localhost:6959/api/sessions"));
       expect(res.status).toBe(200);
 
       const sessions =
@@ -73,7 +73,7 @@ describe("GET /api/sessions", () => {
 
   describe("when user has no sessions", () => {
     it("should return empty array", async () => {
-      const res = await GET();
+      const res = await GET(new Request("http://localhost:6959/api/sessions"));
       expect(res.status).toBe(200);
 
       const sessions = await parseJson<unknown[]>(res);

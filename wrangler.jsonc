@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "main": ".open-next/worker.js",
+  "name": "bgmancer",
+  "compatibility_date": "2025-04-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  // D1 database binding — fill database_id after running:
+  //   wrangler d1 create bgmancer-prod
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bgmancer-prod",
+      "database_id": "<FILL_AFTER_CREATING_D1>",
+      "migrations_dir": "drizzle/migrations"
+    }
+  ],
+  // KV for YouTube API response caching — fill id after running:
+  //   wrangler kv namespace create CACHE
+  "kv_namespaces": [
+    {
+      "binding": "CACHE",
+      "id": "<FILL_AFTER_CREATING_KV>"
+    }
+  ],
+  // Non-secret env vars. Secrets are set via: wrangler secret put <NAME>
+  "vars": {
+    "NEXTAUTH_URL": "https://bgmancer.com"
+  }
+}

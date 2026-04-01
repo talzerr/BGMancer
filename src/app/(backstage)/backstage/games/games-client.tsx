@@ -208,7 +208,9 @@ export function GamesClient() {
       try {
         const res = await fetch(`/api/steam/search?q=${encodeURIComponent(query.trim())}`);
         if (res.ok) {
-          const data = await res.json();
+          const data = (await res.json()) as {
+            results?: { appid: number; name: string; tiny_image: string }[];
+          };
           setSteamResults(data.results ?? []);
         }
       } catch {
@@ -248,7 +250,7 @@ export function GamesClient() {
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const game = await res.json();
+      const game = (await res.json()) as { id: string; title: string };
       setAddDialogOpen(false);
       resetAddDialog();
       router.push(`/backstage/games/${gameSlug(game.title, game.id)}`);

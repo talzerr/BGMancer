@@ -116,7 +116,17 @@ export async function searchYouTube(
     throw new Error(`YouTube search failed: ${searchRes.status} ${searchRes.statusText}`);
   }
 
-  const searchData = await searchRes.json();
+  const searchData = (await searchRes.json()) as {
+    items?: Array<{
+      id: { videoId: string };
+      snippet: {
+        title: string;
+        channelTitle: string;
+        description: string;
+        thumbnails: { high?: { url: string }; default?: { url: string } };
+      };
+    }>;
+  };
   const items: Array<{
     id: { videoId: string };
     snippet: {
@@ -141,7 +151,9 @@ export async function searchYouTube(
     throw new Error(`YouTube videos.list failed: ${videosRes.status} ${videosRes.statusText}`);
   }
 
-  const videosData = await videosRes.json();
+  const videosData = (await videosRes.json()) as {
+    items?: Array<{ id: string; contentDetails?: { duration?: string } }>;
+  };
   const durationMap = new Map<string, number>();
   for (const v of videosData.items ?? []) {
     durationMap.set(v.id, parseDuration(v.contentDetails?.duration ?? "PT0S"));
@@ -222,7 +234,13 @@ export async function fetchVideoMetadata(videoIds: string[]): Promise<Map<string
       continue; // best-effort: skip this chunk, keep results so far
     }
 
-    const data = await res.json();
+    const data = (await res.json()) as {
+      items?: Array<{
+        id: string;
+        contentDetails?: { duration?: string };
+        statistics?: { viewCount?: string };
+      }>;
+    };
     for (const v of data.items ?? []) {
       const rawViews = v.statistics?.viewCount;
       const parsedViews = rawViews != null ? Number(rawViews) : null;
@@ -276,7 +294,12 @@ export async function searchOSTPlaylist(gameTitle: string): Promise<string | nul
       continue;
     }
 
-    const data = await res.json();
+    const data = (await res.json()) as {
+      items?: Array<{
+        id: { playlistId: string };
+        snippet: { title: string; channelTitle: string };
+      }>;
+    };
     const items: Array<{
       id: { playlistId: string };
       snippet: { title: string; channelTitle: string };
@@ -315,7 +338,9 @@ export async function fetchPlaylistMetadata(
     return null;
   }
 
-  const data = await res.json();
+  const data = (await res.json()) as {
+    items?: Array<{ snippet: { title: string; description: string } }>;
+  };
   const items: Array<{ snippet: { title: string; description: string } }> = data.items ?? [];
 
   if (items.length === 0) return null;
@@ -350,7 +375,17 @@ export async function fetchPlaylistItems(playlistId: string, maxTracks = 150): P
       break;
     }
 
-    const data = await res.json();
+    const data = (await res.json()) as {
+      items?: Array<{
+        snippet: {
+          resourceId?: { videoId?: string };
+          title: string;
+          videoOwnerChannelTitle?: string;
+          thumbnails?: { medium?: { url: string }; default?: { url: string } };
+        };
+      }>;
+      nextPageToken?: string;
+    };
     const page: OSTTrack[] = (data.items ?? [])
       .map(
         (item: {
@@ -398,7 +433,7 @@ export async function findBGMancerPlaylist(accessToken: string): Promise<string 
   });
   if (!res.ok) throw new Error(`Failed to list playlists: ${res.status}`);
 
-  const data = await res.json();
+  const data = (await res.json()) as { items?: PlaylistItem[] };
   const playlists: PlaylistItem[] = data.items ?? [];
   const match = playlists.find((p) => p.snippet.title === "BGMancer Journey");
   return match?.id ?? null;
@@ -427,8 +462,8 @@ export async function createBGMancerPlaylist(accessToken: string): Promise<strin
     throw new Error(`Failed to create playlist: ${res.status} — ${err}`);
   }
 
-  const data = await res.json();
-  return data.id as string;
+  const data = (await res.json()) as { id: string };
+  return data.id;
 }
 
 /** Add a video to a playlist. Returns the playlistItem ID. */
@@ -456,6 +491,6 @@ export async function addVideoToPlaylist(
     throw new Error(`Failed to add video to playlist: ${res.status} — ${err}`);
   }
 
-  const data = await res.json();
-  return data.id as string;
+  const data = (await res.json()) as { id: string };
+  return data.id;
 }
