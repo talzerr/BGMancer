@@ -62,3 +62,20 @@ export function getClientIp(request: Request): string {
     "unknown"
   );
 }
+
+// ─── Guest rate limiter ─────────────────────────────────────────────────────
+
+const GUEST_MAX_REQUESTS = 10;
+const GUEST_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+
+/**
+ * Shared rate limiter for all guest (unauthenticated) requests.
+ * Single bucket per IP across all guest-accessible routes.
+ * Returns null if allowed, or a { waitSec } object if rate-limited.
+ */
+export function checkGuestRateLimit(request: Request): { waitSec: number } | null {
+  const ip = getClientIp(request);
+  const result = checkRateLimit(`guest:${ip}`, GUEST_MAX_REQUESTS, GUEST_WINDOW_MS);
+  if (result.allowed) return null;
+  return { waitSec: Math.ceil(result.retryAfterMs / 1000) };
+}

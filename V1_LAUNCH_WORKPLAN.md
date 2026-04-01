@@ -84,11 +84,13 @@ Drizzle Kit configured (`drizzle.config.ts`). Baseline migration generated. `ini
 
 ---
 
-## Phase 2 — Security & Auth
+## Phase 2 — Security & Auth ✅
+
+> **Completed.** NextAuth v5 as sole auth, declarative route config allowlist, guest/logged-in split, Zod validation, ownership checks, IP rate limiting for guests.
 
 With the database layer modernized, security work can proceed. These items are ordered by dependency — earlier items unblock later ones.
 
-### 2.1 User Identity & Tier System
+### 2.1 User Identity & Tier System ✅
 
 **Why it matters:** This is the **#1 blocker for multi-user**. Right now, `src/proxy.ts` contains session-minting logic but is never imported — it's dead code. Every user falls back to `LOCAL_USER_ID`. Beyond just fixing this, the app needs a proper tier model to control what different user types can do and protect expensive API resources.
 
@@ -123,7 +125,7 @@ With the database layer modernized, security work can proceed. These items are o
 
 ---
 
-### 2.2 JWT Hardening & Cookie Security
+### 2.2 JWT Hardening & Cookie Security ✅ (handled by NextAuth)
 
 **Why it matters:** JWTs without expiration are permanent credentials — if one leaks, it's valid forever. The `secure` flag missing from cookies means they'll be sent over HTTP (not just HTTPS), making them interceptable. These are basic hygiene items that security auditors and open-source reviewers will flag immediately.
 
@@ -136,7 +138,7 @@ With the database layer modernized, security work can proceed. These items are o
 
 ---
 
-### 2.3 Secrets Validation
+### 2.3 Secrets Validation ✅
 
 **Why it matters:** The hardcoded fallback secret `"dev-fallback-secret-change-me"` means that if someone deploys without setting `NEXTAUTH_SECRET`, every JWT is signed with a publicly known key — anyone can forge sessions. Fail-fast on missing secrets prevents silent insecurity.
 
@@ -148,7 +150,7 @@ With the database layer modernized, security work can proceed. These items are o
 
 ---
 
-### 2.4 Ownership Checks on Mutation Routes
+### 2.4 Ownership Checks on Mutation Routes ✅
 
 **Why it matters:** Without ownership checks, any user who guesses (or enumerates) a session ID or playlist ID can delete or modify another user's data. This is a classic IDOR (Insecure Direct Object Reference) vulnerability — it's in the OWASP Top 10 and is one of the first things security researchers test.
 
@@ -161,7 +163,7 @@ With the database layer modernized, security work can proceed. These items are o
 
 ---
 
-### 2.5 Backstage Admin Protection
+### 2.5 Backstage Admin Protection ✅
 
 **Why it matters:** The Backstage panel can publish/unpublish games, retag tracks (triggering expensive LLM calls), delete games, and view all user data. In production, anyone who discovers `/backstage` can do all of this. Since you're the sole admin, a simple protection mechanism is sufficient — no need for a full role system.
 
@@ -180,7 +182,7 @@ With the database layer modernized, security work can proceed. These items are o
 
 ---
 
-### 2.6 Input Validation (Zod)
+### 2.6 Input Validation (Zod) ✅
 
 **Why it matters:** Without schema validation, malformed or malicious input can cause crashes, unexpected behavior, or waste resources (e.g., `target_track_count: 999999` triggering an enormous generation). Zod provides type-safe runtime validation that catches bad input at the API boundary before it reaches your business logic.
 
@@ -193,7 +195,7 @@ With the database layer modernized, security work can proceed. These items are o
 
 ---
 
-### 2.7 Security Headers & CORS
+### 2.7 Security Headers & CORS (deferred to Phase 3)
 
 **Why it matters:** HTTP security headers are defense-in-depth mechanisms that browsers enforce. HSTS ensures HTTPS-only. CSP prevents XSS by controlling what scripts/resources can load. X-Frame-Options prevents clickjacking. CORS misconfiguration lets any website make API requests on behalf of your users. These are free protection that cost nothing to add and significantly raise the bar for attackers.
 
@@ -206,7 +208,7 @@ With the database layer modernized, security work can proceed. These items are o
 
 ---
 
-### 2.8 Remove/Guard Dev Routes
+### 2.8 Remove/Guard Dev Routes ✅ (N/A — routes don't exist)
 
 **Why it matters:** Dev-only routes (`/api/dev/*`, `/api/seed/*`) expose internal debugging tools and database seeding operations. In production, these are attack vectors — they bypass normal access controls and can modify data in unexpected ways.
 
@@ -218,7 +220,7 @@ With the database layer modernized, security work can proceed. These items are o
 
 ---
 
-### 2.9 Rate Limiting
+### 2.9 Rate Limiting ✅ (guest IP-based; full rate limiting deferred to Phase 3)
 
 **Why it matters:** Without rate limiting, a single user (or bot) can rack up Anthropic API costs or DoS the app. Rate limiting is your first line of defense against both abuse and accidental overuse.
 

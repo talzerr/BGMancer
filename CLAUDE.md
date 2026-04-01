@@ -26,19 +26,60 @@ Tests run via Vitest. Lint and format run automatically via husky pre-commit on 
 
 ## Environment
 
+All env vars are centralized in `src/lib/env.ts` — a typed singleton that validates at startup. Never use `process.env` directly; import `env` from `@/lib/env` instead.
+
 Requires a `.env.local` (copy from `.env.local.example`) with:
 
+- `NEXTAUTH_SECRET` — **required**; signs NextAuth sessions. Must not be a known insecure value. Generate with `openssl rand -base64 32`
 - `YOUTUBE_API_KEY` — required for all playlist generation
 - `STEAM_API_KEY` — required for Steam import
 - `ANTHROPIC_API_KEY` — required; powers all LLM calls (tagging, vibe profiling)
 - `ANTHROPIC_TAGGING_MODEL` — optional; override Anthropic model for Phase 2 tagging (defaults to `ANTHROPIC_MODEL`)
 - `ANTHROPIC_VIBE_MODEL` — optional; override Anthropic model for Vibe Profiler (defaults to `ANTHROPIC_MODEL`)
-- `NEXTAUTH_SECRET` — required for next-auth sessions
-- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — optional; enables "Sync to YouTube"
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — optional; enables Google OAuth sign-in (production). Without these, a dev Credentials provider is used instead
+- `ADMIN_SECRET` — optional; protects `/backstage` routes. Without it, backstage is completely inaccessible (404). Set it and inject a `bgmancer-admin` cookie with the same value to access backstage
 
 The DB file is `bgmancer.db` at the project root (or override with `SQLITE_PATH`). Schema is managed by Drizzle ORM with migrations applied automatically on first run via `migrate()` in `src/lib/db/index.ts`.
 
 ## Architecture
+
+### Authentication & Security
+
+**Auth system:** NextAuth v5 (beta) as the sole auth provider. In dev, a Credentials provider allows sign-in with any name. In production, Google OAuth.
+
+**User model:** Two modes — Guest (unauthenticated) and Logged-in (Google OAuth). No tier column; the distinction is purely session-based. Users are created in the DB on first OAuth sign-in via `Users.createFromOAuth()`.
+
+**Route auth config (`src/lib/route-config.ts`):** Single source of truth — every accessible route (pages and API) must be registered here. Unregistered routes return 404. Each entry declares its auth level: `Public`, `Optional`, `Required`, or `Admin`.
+
+**Proxy (`src/proxy.ts`):** Runs on all non-static requests. Reads the route config and enforces: (1) allowlist — unregistered routes get 404, (2) admin auth — `ADMIN_SECRET` cookie check for `Admin` routes.
+
+**Route wrappers (`src/lib/services/route-wrappers.ts`):** `withRequiredAuth(handler, label)` and `withOptionalAuth(handler, label)` enforce user auth at the handler level. The proxy can't call `auth()` (NextAuth doesn't work in the proxy layer), so user auth is enforced here.
+
+**Auth helpers (`src/lib/services/auth-helpers.ts`):** `getAuthSession()`, `getAuthUserId()`, `AuthRequiredError`. Used by route wrappers and custom handlers (generate, sync).
+
+**Ownership checks:** Mutation routes for sessions and playlist tracks verify the resource belongs to the requesting user (403 on mismatch).
+
+**Input validation:** All POST/PATCH/DELETE routes validate bodies with Zod schemas defined in `src/lib/validation.ts`.
+
+**Rate limiting:** Guest generation is IP-rate-limited via `src/lib/rate-limit.ts` (in-memory sliding window). Authenticated users have a DB-backed generation cooldown lock.
+
+**Guest vs Logged-in behavior:**
+
+| Feature                  | Guest                          | Logged-in                                           |
+| ------------------------ | ------------------------------ | --------------------------------------------------- |
+| Browse catalog           | Yes                            | Yes                                                 |
+| Generate playlist        | Director-only, no persistence  | Full pipeline (Vibe Profiler + Director), persisted |
+| Import YouTube playlist  | Returns tracks, no persistence | Persisted as session                                |
+| Game library             | No                             | DB-backed                                           |
+| Session history          | No                             | DB-backed                                           |
+| Reroll / Sync to YouTube | No                             | Yes                                                 |
+
+When adding a new API route:
+
+1. Add it to `src/lib/route-config.ts` with the correct `AuthLevel`
+2. Use `withRequiredAuth` or `withOptionalAuth` wrapper
+3. Add a Zod schema in `src/lib/validation.ts` if it accepts a body
+4. Add ownership checks if it operates on user-specific resources
 
 ### Pages and routing
 
@@ -77,11 +118,16 @@ Uses **Drizzle ORM** with `better-sqlite3` as the local driver. All repo methods
 - `seed.ts` — seeds the local dev user on first run
 - `test-helpers.ts` — `createTestDrizzleDB()` for in-memory test databases
 
-The local single-user setup uses stable UUIDs: `LOCAL_USER_ID` and `LOCAL_LIBRARY_ID` (defined in `src/lib/db/seed.ts`).
+The local dev seed uses stable UUIDs: `LOCAL_USER_ID` and `LOCAL_LIBRARY_ID` (defined in `src/lib/db/seed.ts`). In production, users are created via `Users.createFromOAuth()` on first Google OAuth sign-in.
 
 ### Playlist generation pipeline (`src/lib/pipeline/`)
 
-Entry point: `generatePlaylist(send, userId, config)` in `src/lib/pipeline/index.ts`. Called from `POST /api/playlist/generate`, which wraps it in an SSE stream (using the shared `makeSSEStream` factory in `src/lib/sse.ts`).
+Two entry points in `src/lib/pipeline/index.ts`:
+
+- `generatePlaylist(send, userId, config)` — authenticated users, full pipeline with Vibe Profiler + persistence
+- `generatePlaylistForGuest(send, gameSelections, config)` — guests, Director-only, no Vibe Profiler, no persistence
+
+Both called from `POST /api/playlist/generate`, which wraps them in an SSE stream (using the shared `makeSSEStream` factory in `src/lib/sse.ts`).
 
 Four-phase process for individual-track games:
 
@@ -130,18 +176,24 @@ Config persists across sessions and is independent of user identity (all users s
 
 ### API routes
 
-All under `src/app/api/`. Key routes:
+All under `src/app/api/`. Auth levels are defined in `src/lib/route-config.ts`. Key routes:
 
-- `POST /api/playlist/generate` — SSE stream; runs the pipeline
-- `GET/POST/DELETE /api/games` — game library CRUD
-- `POST /api/steam/import` — bulk Steam library import
-- `POST /api/playlist/import` — import tracks from a YouTube playlist URL
-- `GET /api/playlist` / `GET /api/playlist/[id]` — fetch tracks (active or by session ID)
-- `POST /api/playlist/[id]/reroll` — reroll a single track
-- `GET/POST/DELETE /api/sessions/[id]` — session management
-- `POST /api/sync` — sync playlist to YouTube account
+- `POST /api/playlist/generate` — SSE stream; runs the pipeline (Optional — guests get Director-only)
+- `GET /api/games` — user's game library (Optional — guests get `[]`)
+- `POST/PATCH/DELETE /api/games` — game library mutations (Required)
+- `GET /api/games/catalog` — published game catalog (Public)
+- `POST /api/playlist/import` — import tracks from a YouTube playlist (Optional — guests get no persistence)
+- `GET /api/playlist` — fetch tracks (Optional — guests get `[]`)
+- `DELETE /api/playlist` — clear playlist (Required)
+- `PATCH /api/playlist` — reorder tracks (Optional — guests get silent 200)
+- `DELETE /api/playlist/[id]` — remove a track (Required + ownership)
+- `POST /api/playlist/[id]/reroll` — reroll a single track (Required + ownership)
+- `GET /api/sessions` — session list (Optional — guests get `[]`)
+- `PATCH/DELETE /api/sessions/[id]` — session management (Required + ownership)
+- `POST /api/sync` — sync playlist to YouTube account (Required + OAuth access token)
+- `GET /api/steam/games` / `GET /api/steam/search` / `POST /api/steam/import` — Steam lookups for game onboarding (Admin)
 
-Backstage API routes (all under `src/app/api/backstage/`):
+Backstage API routes (all under `src/app/api/backstage/`, auth level: Admin via wildcard):
 
 - `GET /api/backstage/games` — paginated game list with needs-review flag
 - `GET /api/backstage/games/[gameId]/tracks` — tracks for a single game
@@ -174,7 +226,10 @@ Games can be flagged for manual review via `ReviewFlags.markAsNeedsReview(gameId
 
 ## Key constraints
 
-- `process.env.NODE_ENV` does **not** work reliably in client components with Turbopack — avoid conditional rendering based on it
+- **Never use `process.env` directly** — use the typed `env` singleton from `@/lib/env`
+- **Every route must be in `src/lib/route-config.ts`** — unregistered routes return 404 via the proxy
+- **Next.js 16 uses `proxy.ts`** (not `middleware.ts`) — the exported function must be named `proxy`
+- `process.env.NODE_ENV` does **not** work reliably in client components with Turbopack — avoid conditional rendering based on it. Use `env.isDev` on the server instead
 - `useEffect` must be placed **after** all `const` variables it references (temporal dead zone issue in this codebase's hook patterns)
 - Sessions are FIFO-evicted: at most `MAX_PLAYLIST_SESSIONS` (3) sessions are kept per user; the oldest is deleted automatically
 - YouTube OST playlist IDs are cached on the `games.yt_playlist_id` column to minimize API quota usage

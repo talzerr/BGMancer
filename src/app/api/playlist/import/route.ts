@@ -11,6 +11,7 @@ import { TrackStatus } from "@/types";
 import type { PlaylistTrack } from "@/types";
 import { getAuthUserId } from "@/lib/services/auth-helpers";
 import { importPlaylistSchema, zodErrorResponse } from "@/lib/validation";
+import { checkGuestRateLimit } from "@/lib/rate-limit";
 
 function extractPlaylistId(input: string): string | null {
   const trimmed = input.trim();
@@ -33,6 +34,19 @@ function extractPlaylistId(input: string): string | null {
  */
 export async function POST(request: Request) {
   try {
+    const userId = await getAuthUserId();
+
+    // Rate-limit guests to protect YouTube API quota
+    if (!userId) {
+      const limited = checkGuestRateLimit(request);
+      if (limited) {
+        return NextResponse.json(
+          { error: `Please wait ${limited.waitSec}s before trying again.` },
+          { status: 429, headers: { "Retry-After": String(limited.waitSec) } },
+        );
+      }
+    }
+
     const parsed = importPlaylistSchema.safeParse(await request.json());
     if (!parsed.success) return zodErrorResponse(parsed.error);
 
@@ -79,8 +93,6 @@ export async function POST(request: Request) {
       status: TrackStatus.Found,
       error_message: null,
     }));
-
-    const userId = await getAuthUserId();
 
     if (userId) {
       // Authenticated: persist to DB

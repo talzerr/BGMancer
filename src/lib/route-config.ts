@@ -59,10 +59,10 @@ export const routeConfig: Record<string, RouteEntry> = {
   "PATCH /api/sessions/[id]": { auth: AuthLevel.Required },
   "DELETE /api/sessions/[id]": { auth: AuthLevel.Required },
 
-  // ── API: Steam ─────────────────────────────────────────────
-  "GET /api/steam/games": { auth: AuthLevel.Public },
-  "GET /api/steam/search": { auth: AuthLevel.Public },
-  "POST /api/steam/import": { auth: AuthLevel.Public },
+  // ── API: Steam (admin — used by Backstage for game onboarding) ──
+  "GET /api/steam/games": { auth: AuthLevel.Admin },
+  "GET /api/steam/search": { auth: AuthLevel.Admin },
+  "POST /api/steam/import": { auth: AuthLevel.Admin },
 
   // ── API: Sync ──────────────────────────────────────────────
   "POST /api/sync": { auth: AuthLevel.Required },

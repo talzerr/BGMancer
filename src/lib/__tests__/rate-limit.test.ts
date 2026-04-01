@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { checkRateLimit, getClientIp } from "../rate-limit";
+import { checkRateLimit, getClientIp, checkGuestRateLimit } from "../rate-limit";
 
 describe("checkRateLimit", () => {
   beforeEach(() => {
@@ -89,5 +89,34 @@ describe("getClientIp", () => {
 
   it("should return 'unknown' when no headers present", () => {
     expect(getClientIp(makeRequest({}))).toBe("unknown");
+  });
+});
+
+describe("checkGuestRateLimit", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function makeGuestRequest(ip: string): Request {
+    return new Request("http://localhost/test", {
+      headers: { "x-real-ip": ip },
+    });
+  }
+
+  it("should allow requests under the limit", () => {
+    expect(checkGuestRateLimit(makeGuestRequest("guest-1"))).toBeNull();
+  });
+
+  it("should share the bucket across all routes for the same IP", () => {
+    for (let i = 0; i < 10; i++) {
+      checkGuestRateLimit(makeGuestRequest("guest-shared"));
+    }
+    const result = checkGuestRateLimit(makeGuestRequest("guest-shared"));
+    expect(result).not.toBeNull();
+    expect(result!.waitSec).toBeGreaterThan(0);
   });
 });
