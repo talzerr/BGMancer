@@ -19,15 +19,17 @@ export const DELETE = withRequiredAuth(async (userId) => {
 }, "DELETE /api/playlist");
 
 /** PATCH /api/playlist — Reorder tracks. Body: { orderedIds: string[] }. */
-export async function PATCH(req: NextRequest) {
-  try {
-    const parsed = reorderSchema.safeParse(await req.json());
-    if (!parsed.success) return zodErrorResponse(parsed.error);
+export const PATCH = withOptionalAuth(async (userId, req: Request) => {
+  if (!userId) return NextResponse.json({ success: true });
 
-    await Playlist.reorder(parsed.data.orderedIds);
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("[PATCH /api/playlist]", err);
-    return NextResponse.json({ error: "Failed to reorder playlist" }, { status: 500 });
+  const parsed = reorderSchema.safeParse(await req.json());
+  if (!parsed.success) return zodErrorResponse(parsed.error);
+
+  const owned = await Playlist.verifyTrackOwnership(userId, parsed.data.orderedIds);
+  if (!owned) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-}
+
+  await Playlist.reorder(parsed.data.orderedIds);
+  return NextResponse.json({ success: true });
+}, "PATCH /api/playlist");

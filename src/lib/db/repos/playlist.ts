@@ -1,6 +1,6 @@
 import { getDB } from "@/lib/db";
-import { eq, sql } from "drizzle-orm";
-import { playlistTracks } from "@/lib/db/drizzle-schema";
+import { eq, sql, and, inArray } from "drizzle-orm";
+import { playlistTracks, playlists } from "@/lib/db/drizzle-schema";
 import { toPlaylistTracks, parseSearchQueries } from "@/lib/db/mappers";
 import type { PlaylistTrack, TrackStatus } from "@/types";
 
@@ -179,6 +179,18 @@ export const Playlist = {
       WHERE pt.id = ${trackId}
     `);
     return row?.user_id ?? null;
+  },
+
+  /** Verifies all track IDs belong to the given user. Returns false if any don't. */
+  async verifyTrackOwnership(userId: string, trackIds: string[]): Promise<boolean> {
+    if (trackIds.length === 0) return true;
+    const rows = getDB()
+      .select({ id: playlistTracks.id })
+      .from(playlistTracks)
+      .innerJoin(playlists, eq(playlists.id, playlistTracks.playlist_id))
+      .where(and(eq(playlists.user_id, userId), inArray(playlistTracks.id, trackIds)))
+      .all();
+    return rows.length === trackIds.length;
   },
 
   async removeOne(id: string): Promise<void> {

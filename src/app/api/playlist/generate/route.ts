@@ -10,7 +10,11 @@ import { YouTubeQuotaError, YouTubeInvalidKeyError } from "@/lib/services/youtub
 import { GENERATION_COOLDOWN_MS, DEFAULT_TRACK_COUNT } from "@/lib/constants";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
 import { generateSchema } from "@/lib/validation";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import type { AppConfig } from "@/types";
+
+const GUEST_RATE_LIMIT_MAX = 3;
+const GUEST_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
 
 export type { GenerateEvent };
 
@@ -93,6 +97,17 @@ export async function POST(request: Request) {
     })();
   } else {
     // ── Guest: Director-only, no Vibe Profiler, no persistence ──
+    const ip = getClientIp(request);
+    const limit = checkRateLimit(
+      `guest-gen:${ip}`,
+      GUEST_RATE_LIMIT_MAX,
+      GUEST_RATE_LIMIT_WINDOW_MS,
+    );
+    if (!limit.allowed) {
+      const waitSec = Math.ceil(limit.retryAfterMs / 1000);
+      return sseError(`Please wait ${waitSec}s before generating again.`);
+    }
+
     const gameSelections = parsed.data.gameSelections ?? [];
 
     if (gameSelections.length === 0) {
