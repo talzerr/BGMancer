@@ -1,4 +1,3 @@
-import { getDB } from "@/lib/db";
 import { BackstageGames } from "@/lib/db/repo";
 import { NextResponse } from "next/server";
 
@@ -17,11 +16,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "published boolean is required" }, { status: 400 });
     }
 
-    getDB().transaction(() => {
-      for (const id of gameIds) {
-        BackstageGames.setPublished(id, published);
-      }
-    })();
+    for (const id of gameIds) {
+      await BackstageGames.setPublished(id, published);
+    }
 
     return NextResponse.json({ ok: true, count: gameIds.length });
   } catch (err) {

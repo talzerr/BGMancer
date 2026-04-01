@@ -1,19 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type Database from "better-sqlite3";
+import type { DrizzleDB } from "@/lib/db";
 import {
-  createTestDB,
-  clearStmtCache,
+  createTestDrizzleDB,
   seedTestUser,
   seedTestGame,
   seedTestSession,
 } from "../../test-helpers";
 import { ArcPhase, SelectionPass } from "@/types";
-let db: Database.Database;
+let db: DrizzleDB;
+let rawDb: Database.Database;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
   return {
     getDB: () => db,
+
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -27,11 +29,10 @@ let gameId: string;
 let playlistId: string;
 
 beforeEach(() => {
-  db = createTestDB();
-  clearStmtCache();
-  ({ userId } = seedTestUser(db));
-  gameId = seedTestGame(db, userId, { id: "game-decisions" });
-  playlistId = seedTestSession(db, userId, { id: "session-decisions" });
+  ({ db, rawDb } = createTestDrizzleDB());
+  ({ userId } = seedTestUser(rawDb));
+  gameId = seedTestGame(rawDb, userId, { id: "game-decisions" });
+  playlistId = seedTestSession(rawDb, userId, { id: "session-decisions" });
 });
 
 function makeDecision(
@@ -60,15 +61,15 @@ function makeDecision(
 
 describe("DirectorDecisions", () => {
   describe("bulkInsert", () => {
-    it("should insert decisions into the database", () => {
+    it("should insert decisions into the database", async () => {
       const decisions = [
         makeDecision({ position: 0, trackVideoId: "vid-001" }),
         makeDecision({ position: 1, trackVideoId: "vid-002", arcPhase: ArcPhase.Rising }),
       ];
 
-      DirectorDecisions.bulkInsert(playlistId, decisions);
+      await DirectorDecisions.bulkInsert(playlistId, decisions);
 
-      const rows = db
+      const rows = rawDb
         .prepare("SELECT * FROM playlist_track_decisions WHERE playlist_id = ? ORDER BY position")
         .all(playlistId) as Record<string, unknown>[];
 
@@ -81,12 +82,12 @@ describe("DirectorDecisions", () => {
       expect(rows[1].track_video_id).toBe("vid-002");
     });
 
-    it("should store boolean fields as integers (0/1)", () => {
-      DirectorDecisions.bulkInsert(playlistId, [
+    it("should store boolean fields as integers (0/1)", async () => {
+      await DirectorDecisions.bulkInsert(playlistId, [
         makeDecision({ rubricUsed: true, viewBiasActive: false }),
       ]);
 
-      const row = db
+      const row = rawDb
         .prepare(
           "SELECT rubric_used, view_bias_active FROM playlist_track_decisions WHERE playlist_id = ?",
         )
@@ -96,10 +97,10 @@ describe("DirectorDecisions", () => {
       expect(row.view_bias_active).toBe(0);
     });
 
-    it("should be a no-op when given an empty array", () => {
-      DirectorDecisions.bulkInsert(playlistId, []);
+    it("should be a no-op when given an empty array", async () => {
+      await DirectorDecisions.bulkInsert(playlistId, []);
 
-      const rows = db
+      const rows = rawDb
         .prepare("SELECT * FROM playlist_track_decisions WHERE playlist_id = ?")
         .all(playlistId);
 
@@ -108,15 +109,15 @@ describe("DirectorDecisions", () => {
   });
 
   describe("listByPlaylist", () => {
-    it("should return decisions ordered by position", () => {
+    it("should return decisions ordered by position", async () => {
       const decisions = [
         makeDecision({ position: 2, trackVideoId: "vid-c", arcPhase: ArcPhase.Peak }),
         makeDecision({ position: 0, trackVideoId: "vid-a", arcPhase: ArcPhase.Intro }),
         makeDecision({ position: 1, trackVideoId: "vid-b", arcPhase: ArcPhase.Rising }),
       ];
-      DirectorDecisions.bulkInsert(playlistId, decisions);
+      await DirectorDecisions.bulkInsert(playlistId, decisions);
 
-      const result = DirectorDecisions.listByPlaylist(playlistId);
+      const result = await DirectorDecisions.listByPlaylist(playlistId);
 
       expect(result).toHaveLength(3);
       expect(result[0].position).toBe(0);
@@ -126,19 +127,19 @@ describe("DirectorDecisions", () => {
       expect(result[2].trackVideoId).toBe("vid-c");
     });
 
-    it("should return an empty array for an unknown playlist", () => {
-      const result = DirectorDecisions.listByPlaylist("nonexistent");
+    it("should return an empty array for an unknown playlist", async () => {
+      const result = await DirectorDecisions.listByPlaylist("nonexistent");
 
       expect(result).toEqual([]);
     });
 
-    it("should map rubricUsed and viewBiasActive as booleans, not integers", () => {
-      DirectorDecisions.bulkInsert(playlistId, [
+    it("should map rubricUsed and viewBiasActive as booleans, not integers", async () => {
+      await DirectorDecisions.bulkInsert(playlistId, [
         makeDecision({ position: 0, rubricUsed: true, viewBiasActive: true }),
         makeDecision({ position: 1, rubricUsed: false, viewBiasActive: false }),
       ]);
 
-      const result = DirectorDecisions.listByPlaylist(playlistId);
+      const result = await DirectorDecisions.listByPlaylist(playlistId);
 
       expect(result[0].rubricUsed).toBe(true);
       expect(result[0].viewBiasActive).toBe(true);
@@ -151,7 +152,7 @@ describe("DirectorDecisions", () => {
       expect(typeof result[1].viewBiasActive).toBe("boolean");
     });
 
-    it("should correctly map all score fields", () => {
+    it("should correctly map all score fields", async () => {
       const decision = makeDecision({
         roleScore: 0.9,
         moodScore: 0.7,
@@ -165,9 +166,9 @@ describe("DirectorDecisions", () => {
         selectionPass: SelectionPass.FocusPre,
         arcPhase: ArcPhase.Climax,
       });
-      DirectorDecisions.bulkInsert(playlistId, [decision]);
+      await DirectorDecisions.bulkInsert(playlistId, [decision]);
 
-      const [result] = DirectorDecisions.listByPlaylist(playlistId);
+      const [result] = await DirectorDecisions.listByPlaylist(playlistId);
 
       expect(result.roleScore).toBe(0.9);
       expect(result.moodScore).toBe(0.7);
@@ -182,14 +183,14 @@ describe("DirectorDecisions", () => {
       expect(result.arcPhase).toBe(ArcPhase.Climax);
     });
 
-    it("should not return decisions from a different playlist", () => {
-      const otherPlaylistId = seedTestSession(db, userId, { id: "session-other" });
-      DirectorDecisions.bulkInsert(playlistId, [makeDecision({ position: 0 })]);
-      DirectorDecisions.bulkInsert(otherPlaylistId, [
+    it("should not return decisions from a different playlist", async () => {
+      const otherPlaylistId = seedTestSession(rawDb, userId, { id: "session-other" });
+      await DirectorDecisions.bulkInsert(playlistId, [makeDecision({ position: 0 })]);
+      await DirectorDecisions.bulkInsert(otherPlaylistId, [
         makeDecision({ position: 0, trackVideoId: "vid-other" }),
       ]);
 
-      const result = DirectorDecisions.listByPlaylist(playlistId);
+      const result = await DirectorDecisions.listByPlaylist(playlistId);
 
       expect(result).toHaveLength(1);
       expect(result[0].trackVideoId).toBe("vid-001");

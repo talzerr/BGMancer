@@ -70,6 +70,18 @@ const eslintConfig = [
     },
   },
 
+  // ── Relaxed rules for DB repo layer ────────────────────────────────────────
+  // Repos use `!` after queries where SQL guarantees a result (e.g. COUNT(*)
+  // always returns a row, SELECT after INSERT on the same connection). The
+  // TypeScript return type is `T | undefined` because `.get()` is nullable in
+  // general, but these specific queries can never return undefined.
+  {
+    files: ["src/lib/db/repos/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-non-null-assertion": "off",
+    },
+  },
+
   // ── Relaxed rules for test files ───────────────────────────────────────────
   {
     files: ["src/**/*.test.ts", "src/**/*.test.tsx"],

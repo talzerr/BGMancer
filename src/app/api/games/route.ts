@@ -11,13 +11,13 @@ export async function GET(request: Request) {
   try {
     const cookieStore = await cookies();
     const userId = await getOrCreateUserId(cookieStore);
-    Users.getOrCreate(userId);
+    await Users.getOrCreate(userId);
 
     const { searchParams } = new URL(request.url);
     const includeDisabled = searchParams.get("includeDisabled") === "true";
     const games = includeDisabled
-      ? Games.listAllIncludingDisabled(userId).filter((g) => g.id !== YT_IMPORT_GAME_ID)
-      : Games.listAll(userId, YT_IMPORT_GAME_ID);
+      ? (await Games.listAllIncludingDisabled(userId)).filter((g) => g.id !== YT_IMPORT_GAME_ID)
+      : await Games.listAll(userId, YT_IMPORT_GAME_ID);
     return NextResponse.json(games);
   } catch (err) {
     console.error("[GET /api/games]", err);
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   try {
     const cookieStore = await cookies();
     const userId = await getOrCreateUserId(cookieStore);
-    Users.getOrCreate(userId);
+    await Users.getOrCreate(userId);
 
     const body = await request.json();
     const gameId = typeof body.gameId === "string" ? body.gameId : null;
@@ -44,20 +44,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "gameId is required" }, { status: 400 });
     }
 
-    const game = Games.getById(gameId);
+    const game = await Games.getById(gameId);
     if (!game || !game.published) {
       return NextResponse.json({ error: "Game not found or not published" }, { status: 404 });
     }
 
-    if (Games.count(userId) >= LIBRARY_MAX_GAMES) {
+    if ((await Games.count(userId)) >= LIBRARY_MAX_GAMES) {
       return NextResponse.json(
         { error: `Library limit reached (${LIBRARY_MAX_GAMES} games max)` },
         { status: 400 },
       );
     }
 
-    Games.linkToLibrary(userId, gameId, curation);
-    const linked = Games.getByIdForUser(userId, gameId);
+    await Games.linkToLibrary(userId, gameId, curation);
+    const linked = await Games.getByIdForUser(userId, gameId);
     return NextResponse.json(linked ?? game, { status: 201 });
   } catch (err) {
     console.error("[POST /api/games]", err);
@@ -84,8 +84,8 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
     }
 
-    Games.setCuration(userId, id, body.curation as CurationMode);
-    const game = Games.getByIdForUser(userId, id);
+    await Games.setCuration(userId, id, body.curation as CurationMode);
+    const game = await Games.getByIdForUser(userId, id);
     if (!game) {
       return NextResponse.json({ error: "Game not found" }, { status: 404 });
     }
@@ -109,7 +109,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Game ID is required" }, { status: 400 });
     }
 
-    Games.remove(userId, id);
+    await Games.remove(userId, id);
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[DELETE /api/games]", err);

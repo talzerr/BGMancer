@@ -37,10 +37,11 @@ export default defineConfig({
         "src/lib/**/*.test.ts",
         "src/lib/db/test-helpers.ts",
 
-        // Barrel re-exports, type-only files, and config objects — no testable logic
+        // Barrel re-exports, type-only files, schema definitions, and config objects — no testable logic
         "src/lib/db/repo.ts",
         "src/lib/db/index.ts",
         "src/lib/db/seed.ts",
+        "src/lib/db/drizzle-schema.ts",
         "src/lib/llm/provider.ts",
         "src/lib/pipeline/types.ts",
         "src/lib/services/auth.ts",

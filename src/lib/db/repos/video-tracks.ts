@@ -1,22 +1,27 @@
 import { getDB } from "@/lib/db";
-import { stmt } from "./_shared";
+import { eq, and, isNotNull, sql } from "drizzle-orm";
+import { videoTracks } from "@/lib/db/drizzle-schema";
 
 export const VideoTracks = {
-  /** Returns a map of video_id → { trackName, durationSeconds, viewCount } for all rows belonging to a game. */
-  getByGame(
+  async getByGame(
     gameId: string,
-  ): Map<
-    string,
-    { trackName: string | null; durationSeconds: number | null; viewCount: number | null }
+  ): Promise<
+    Map<
+      string,
+      { trackName: string | null; durationSeconds: number | null; viewCount: number | null }
+    >
   > {
-    const rows = stmt(
-      "SELECT video_id, track_name, duration_seconds, view_count FROM video_tracks WHERE game_id = ?",
-    ).all(gameId) as {
-      video_id: string;
-      track_name: string | null;
-      duration_seconds: number | null;
-      view_count: number | null;
-    }[];
+    const rows = getDB()
+      .select({
+        video_id: videoTracks.video_id,
+        track_name: videoTracks.track_name,
+        duration_seconds: videoTracks.duration_seconds,
+        view_count: videoTracks.view_count,
+      })
+      .from(videoTracks)
+      .where(eq(videoTracks.game_id, gameId))
+      .all();
+
     const map = new Map<
       string,
       { trackName: string | null; durationSeconds: number | null; viewCount: number | null }
@@ -31,80 +36,98 @@ export const VideoTracks = {
     return map;
   },
 
-  /** Returns a map of track_name → video_id for tracks that have been resolved (track_name IS NOT NULL). */
-  getTrackToVideo(gameId: string): Map<string, string> {
-    const rows = stmt(
-      "SELECT video_id, track_name FROM video_tracks WHERE game_id = ? AND track_name IS NOT NULL",
-    ).all(gameId) as { video_id: string; track_name: string }[];
+  async getTrackToVideo(gameId: string): Promise<Map<string, string>> {
+    const rows = getDB()
+      .select({ video_id: videoTracks.video_id, track_name: videoTracks.track_name })
+      .from(videoTracks)
+      .where(and(eq(videoTracks.game_id, gameId), isNotNull(videoTracks.track_name)))
+      .all();
+
     const map = new Map<string, string>();
     for (const row of rows) {
-      map.set(row.track_name, row.video_id);
+      map.set(row.track_name!, row.video_id);
     }
     return map;
   },
 
-  upsertBatch(rows: { videoId: string; gameId: string; trackName: string | null }[]): void {
+  async upsertBatch(
+    rows: { videoId: string; gameId: string; trackName: string | null }[],
+  ): Promise<void> {
     if (rows.length === 0) return;
-    const db = getDB();
-    const insert = stmt(
-      `INSERT INTO video_tracks (video_id, game_id, track_name)
-       VALUES (?, ?, ?)
-       ON CONFLICT(video_id, game_id) DO UPDATE SET
-         track_name = excluded.track_name,
-         aligned_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
-    );
-    db.transaction(() => {
+    getDB().transaction((tx) => {
       for (const row of rows) {
-        insert.run(row.videoId, row.gameId, row.trackName ?? null);
+        tx.insert(videoTracks)
+          .values({
+            video_id: row.videoId,
+            game_id: row.gameId,
+            track_name: row.trackName ?? null,
+          })
+          .onConflictDoUpdate({
+            target: [videoTracks.video_id, videoTracks.game_id],
+            set: {
+              track_name: sql`excluded.track_name`,
+              aligned_at: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
+            },
+          })
+          .run();
       }
-    })();
+    });
   },
 
-  /** Upserts a single video track entry — used by TrackEditSheet for manual video metadata editing. */
-  upsertSingle(
+  async upsertSingle(
     gameId: string,
     trackName: string,
     fields: { videoId: string; durationSeconds?: number | null; viewCount?: number | null },
-  ): void {
-    stmt(
-      `INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds, view_count)
-       VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(video_id, game_id) DO UPDATE SET
-         track_name = excluded.track_name,
-         duration_seconds = COALESCE(excluded.duration_seconds, video_tracks.duration_seconds),
-         view_count = COALESCE(excluded.view_count, video_tracks.view_count),
-         aligned_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
-    ).run(
-      fields.videoId,
-      gameId,
-      trackName,
-      fields.durationSeconds ?? null,
-      fields.viewCount ?? null,
-    );
+  ): Promise<void> {
+    getDB()
+      .insert(videoTracks)
+      .values({
+        video_id: fields.videoId,
+        game_id: gameId,
+        track_name: trackName,
+        duration_seconds: fields.durationSeconds ?? null,
+        view_count: fields.viewCount ?? null,
+      })
+      .onConflictDoUpdate({
+        target: [videoTracks.video_id, videoTracks.game_id],
+        set: {
+          track_name: sql`excluded.track_name`,
+          duration_seconds: sql`COALESCE(excluded.duration_seconds, video_tracks.duration_seconds)`,
+          view_count: sql`COALESCE(excluded.view_count, video_tracks.view_count)`,
+          aligned_at: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
+        },
+      })
+      .run();
   },
 
-  /** Caches duration (write-once: preserved if already set) and view count (always refreshed) from YouTube. */
-  storeDurations(
+  async storeDurations(
     entries: {
       videoId: string;
       gameId: string;
       durationSeconds: number;
       viewCount: number | null;
     }[],
-  ): void {
+  ): Promise<void> {
     if (entries.length === 0) return;
-    const db = getDB();
-    const upsert = stmt(
-      `INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds, view_count)
-       VALUES (?, ?, NULL, ?, ?)
-       ON CONFLICT(video_id, game_id) DO UPDATE SET
-         duration_seconds = COALESCE(video_tracks.duration_seconds, excluded.duration_seconds),
-         view_count = excluded.view_count`,
-    );
-    db.transaction(() => {
+    getDB().transaction((tx) => {
       for (const e of entries) {
-        upsert.run(e.videoId, e.gameId, e.durationSeconds, e.viewCount);
+        tx.insert(videoTracks)
+          .values({
+            video_id: e.videoId,
+            game_id: e.gameId,
+            track_name: null,
+            duration_seconds: e.durationSeconds,
+            view_count: e.viewCount,
+          })
+          .onConflictDoUpdate({
+            target: [videoTracks.video_id, videoTracks.game_id],
+            set: {
+              duration_seconds: sql`COALESCE(video_tracks.duration_seconds, excluded.duration_seconds)`,
+              view_count: sql`excluded.view_count`,
+            },
+          })
+          .run();
       }
-    })();
+    });
   },
 };

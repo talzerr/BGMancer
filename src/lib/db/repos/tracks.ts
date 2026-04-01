@@ -1,7 +1,8 @@
 import { getDB } from "@/lib/db";
-import { stmt } from "./_shared";
-import { toTrack, toTracks } from "@/lib/db/mappers";
-import type { Track } from "@/types";
+import { eq, and, count, isNotNull, asc, sql } from "drizzle-orm";
+import { tracks, videoTracks } from "@/lib/db/drizzle-schema";
+import { toTrack } from "@/lib/db/mappers";
+import type { Track, TrackRole, TrackMood, TrackInstrumentation } from "@/types";
 
 export interface BackstageTrackRow extends Track {
   gameTitle: string;
@@ -20,49 +21,95 @@ function toBackstageTrackRow(r: Record<string, unknown>): BackstageTrackRow {
   };
 }
 
+function rowToTrack(row: typeof tracks.$inferSelect): Track {
+  const rawEnergy = row.energy != null ? Number(row.energy) : null;
+  const energy = rawEnergy === 1 || rawEnergy === 2 || rawEnergy === 3 ? rawEnergy : null;
+  return {
+    gameId: row.game_id,
+    name: row.name,
+    position: row.position,
+    durationSeconds: row.duration_seconds,
+    energy,
+    roles: parseJsonArray(row.roles) as TrackRole[],
+    moods: parseJsonArray(row.moods) as TrackMood[],
+    instrumentation: parseJsonArray(row.instrumentation) as TrackInstrumentation[],
+    hasVocals: row.has_vocals != null ? !!row.has_vocals : null,
+    active: row.active,
+    discovered: row.discovered as Track["discovered"],
+    taggedAt: row.tagged_at,
+  };
+}
+
+function parseJsonArray(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 export const Tracks = {
-  getByGame(gameId: string): Track[] {
-    return toTracks(stmt("SELECT * FROM tracks WHERE game_id = ? ORDER BY position").all(gameId));
+  async getByGame(gameId: string): Promise<Track[]> {
+    const rows = getDB()
+      .select()
+      .from(tracks)
+      .where(eq(tracks.game_id, gameId))
+      .orderBy(asc(tracks.position))
+      .all();
+    return rows.map(rowToTrack);
   },
 
-  upsertBatch(
-    tracks: Array<{
+  async upsertBatch(
+    trackList: Array<{
       gameId: string;
       name: string;
       position: number;
       durationSeconds?: number | null;
     }>,
-  ): void {
-    const db = getDB();
-    const insert = stmt(
-      `INSERT INTO tracks (game_id, name, position, duration_seconds)
-       VALUES (?, ?, ?, ?)
-       ON CONFLICT(game_id, name) DO UPDATE SET
-         position = excluded.position,
-         duration_seconds = COALESCE(excluded.duration_seconds, duration_seconds)`,
-    );
-    db.transaction(() => {
-      for (const t of tracks) {
-        insert.run(t.gameId, t.name, t.position, t.durationSeconds ?? null);
+  ): Promise<void> {
+    if (trackList.length === 0) return;
+    getDB().transaction((tx) => {
+      for (const t of trackList) {
+        tx.insert(tracks)
+          .values({
+            game_id: t.gameId,
+            name: t.name,
+            position: t.position,
+            duration_seconds: t.durationSeconds ?? null,
+          })
+          .onConflictDoUpdate({
+            target: [tracks.game_id, tracks.name],
+            set: {
+              position: sql`excluded.position`,
+              duration_seconds: sql`COALESCE(excluded.duration_seconds, tracks.duration_seconds)`,
+            },
+          })
+          .run();
       }
-    })();
+    });
   },
 
-  hasData(gameId: string): boolean {
-    const row = stmt("SELECT COUNT(*) AS cnt FROM tracks WHERE game_id = ?").get(gameId) as {
-      cnt: number;
-    };
+  async hasData(gameId: string): Promise<boolean> {
+    const row = getDB()
+      .select({ cnt: count() })
+      .from(tracks)
+      .where(eq(tracks.game_id, gameId))
+      .get() ?? { cnt: 0 };
     return row.cnt > 0;
   },
 
-  isTagged(gameId: string): boolean {
-    const row = stmt(
-      "SELECT COUNT(*) AS cnt FROM tracks WHERE game_id = ? AND tagged_at IS NOT NULL",
-    ).get(gameId) as { cnt: number };
+  async isTagged(gameId: string): Promise<boolean> {
+    const row = getDB()
+      .select({ cnt: count() })
+      .from(tracks)
+      .where(and(eq(tracks.game_id, gameId), isNotNull(tracks.tagged_at)))
+      .get() ?? { cnt: 0 };
     return row.cnt > 0;
   },
 
-  updateTags(
+  async updateTags(
     gameId: string,
     name: string,
     tags: {
@@ -72,72 +119,71 @@ export const Tracks = {
       instrumentation: string;
       hasVocals: boolean;
     },
-  ): void {
-    // Auto-activate approved discovered tracks when they get tagged
-    stmt(
-      `UPDATE tracks
-       SET energy = ?, roles = ?, moods = ?, instrumentation = ?,
-           has_vocals = ?, tagged_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
-           active = CASE WHEN discovered = 'approved' THEN 1 ELSE active END
-       WHERE game_id = ? AND name = ?`,
-    ).run(
-      tags.energy,
-      tags.roles,
-      tags.moods,
-      tags.instrumentation,
-      tags.hasVocals ? 1 : 0,
-      gameId,
-      name,
-    );
+  ): Promise<void> {
+    getDB().run(sql`
+      UPDATE tracks
+      SET energy = ${tags.energy}, roles = ${tags.roles}, moods = ${tags.moods},
+          instrumentation = ${tags.instrumentation},
+          has_vocals = ${tags.hasVocals ? 1 : 0},
+          tagged_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
+          active = CASE WHEN discovered = 'approved' THEN 1 ELSE active END
+      WHERE game_id = ${gameId} AND name = ${name}
+    `);
   },
 
-  /**
-   * Inserts a discovered track (active = 0, discovered = 'pending', position = max+1).
-   * Uses INSERT OR IGNORE — safe to call multiple times for the same track.
-   */
-  insertDiscovered(gameId: string, name: string): void {
-    stmt(
-      `INSERT OR IGNORE INTO tracks (game_id, name, position, active, discovered)
-       VALUES (?, ?, (SELECT COALESCE(MAX(position), 0) + 1 FROM tracks WHERE game_id = ?), 0, 'pending')`,
-    ).run(gameId, name, gameId);
+  async insertDiscovered(gameId: string, name: string): Promise<void> {
+    getDB().run(sql`
+      INSERT OR IGNORE INTO tracks (game_id, name, position, active, discovered)
+      VALUES (${gameId}, ${name}, (SELECT COALESCE(MAX(position), 0) + 1 FROM tracks WHERE game_id = ${gameId}), 0, 'pending')
+    `);
   },
 
-  /** Approve discovered tracks — marks them as accepted for future tagging. */
-  approveDiscovered(gameId: string, names: string[]): void {
+  async approveDiscovered(gameId: string, names: string[]): Promise<void> {
     if (names.length === 0) return;
-    const update = stmt(
-      "UPDATE tracks SET discovered = 'approved' WHERE game_id = ? AND name = ? AND discovered = 'pending'",
-    );
-    getDB().transaction(() => {
-      for (const name of names) update.run(gameId, name);
-    })();
+    getDB().transaction((tx) => {
+      for (const name of names) {
+        tx.update(tracks)
+          .set({ discovered: "approved" })
+          .where(
+            and(
+              eq(tracks.game_id, gameId),
+              eq(tracks.name, name),
+              eq(tracks.discovered, "pending"),
+            ),
+          )
+          .run();
+      }
+    });
   },
 
-  /** Reject discovered tracks — blocks re-discovery, keeps inactive. */
-  rejectDiscovered(gameId: string, names: string[]): void {
+  async rejectDiscovered(gameId: string, names: string[]): Promise<void> {
     if (names.length === 0) return;
-    const update = stmt(
-      "UPDATE tracks SET discovered = 'rejected', active = 0 WHERE game_id = ? AND name = ?",
-    );
-    getDB().transaction(() => {
-      for (const name of names) update.run(gameId, name);
-    })();
+    getDB().transaction((tx) => {
+      for (const name of names) {
+        tx.update(tracks)
+          .set({ discovered: "rejected", active: false })
+          .where(and(eq(tracks.game_id, gameId), eq(tracks.name, name)))
+          .run();
+      }
+    });
   },
 
-  clearTags(gameId: string): void {
-    stmt(
-      `UPDATE tracks
-       SET energy = NULL, roles = NULL, moods = NULL, instrumentation = NULL,
-           has_vocals = NULL, tagged_at = NULL
-       WHERE game_id = ?`,
-    ).run(gameId);
+  async clearTags(gameId: string): Promise<void> {
+    getDB()
+      .update(tracks)
+      .set({
+        energy: null,
+        roles: null,
+        moods: null,
+        instrumentation: null,
+        has_vocals: null,
+        tagged_at: null,
+      })
+      .where(eq(tracks.game_id, gameId))
+      .run();
   },
 
-  /**
-   * Partial update for any subset of track fields.
-   * Updates `tagged_at` automatically when tag fields (energy/roles/moods/instrumentation/has_vocals) change.
-   */
-  updateFields(
+  async updateFields(
     gameId: string,
     name: string,
     fields: {
@@ -149,79 +195,51 @@ export const Tracks = {
       instrumentation?: string | null;
       hasVocals?: boolean | null;
     },
-  ): void {
+  ): Promise<void> {
     const tagFields = ["energy", "roles", "moods", "instrumentation", "hasVocals"];
     const isTagChange = tagFields.some((k) => fields[k as keyof typeof fields] !== undefined);
 
-    const setClauses: string[] = [];
-    const params: unknown[] = [];
+    const setParts: ReturnType<typeof sql>[] = [];
 
-    if (fields.newName !== undefined) {
-      setClauses.push("name = ?");
-      params.push(fields.newName);
-    }
-    if (fields.active !== undefined) {
-      setClauses.push("active = ?");
-      params.push(fields.active ? 1 : 0);
-    }
-    if (fields.energy !== undefined) {
-      setClauses.push("energy = ?");
-      params.push(fields.energy);
-    }
-    if (fields.roles !== undefined) {
-      setClauses.push("roles = ?");
-      params.push(fields.roles);
-    }
-    if (fields.moods !== undefined) {
-      setClauses.push("moods = ?");
-      params.push(fields.moods);
-    }
-    if (fields.instrumentation !== undefined) {
-      setClauses.push("instrumentation = ?");
-      params.push(fields.instrumentation);
-    }
+    if (fields.newName !== undefined) setParts.push(sql`name = ${fields.newName}`);
+    if (fields.active !== undefined) setParts.push(sql`active = ${fields.active ? 1 : 0}`);
+    if (fields.energy !== undefined) setParts.push(sql`energy = ${fields.energy}`);
+    if (fields.roles !== undefined) setParts.push(sql`roles = ${fields.roles}`);
+    if (fields.moods !== undefined) setParts.push(sql`moods = ${fields.moods}`);
+    if (fields.instrumentation !== undefined)
+      setParts.push(sql`instrumentation = ${fields.instrumentation}`);
     if (fields.hasVocals !== undefined) {
-      setClauses.push("has_vocals = ?");
-      params.push(fields.hasVocals === null ? null : fields.hasVocals ? 1 : 0);
+      const val = fields.hasVocals === null ? null : fields.hasVocals ? 1 : 0;
+      setParts.push(sql`has_vocals = ${val}`);
     }
-    if (isTagChange) {
-      setClauses.push("tagged_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')");
-    }
+    if (isTagChange) setParts.push(sql.raw("tagged_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')"));
 
-    if (setClauses.length === 0) return;
+    if (setParts.length === 0) return;
 
-    params.push(gameId, name);
-    const db = getDB();
-    db.prepare(`UPDATE tracks SET ${setClauses.join(", ")} WHERE game_id = ? AND name = ?`).run(
-      ...params,
-    );
+    const setClause = sql.join(setParts, sql.raw(", "));
+    getDB().run(sql`UPDATE tracks SET ${setClause} WHERE game_id = ${gameId} AND name = ${name}`);
   },
 
-  /** Delete tracks by composite PK in a single transaction. Cascades to video_tracks. */
-  deleteByKeys(keys: { gameId: string; name: string }[]): void {
+  async deleteByKeys(keys: { gameId: string; name: string }[]): Promise<void> {
     if (keys.length === 0) return;
-    const db = getDB();
-    const delVideo = db.prepare("DELETE FROM video_tracks WHERE game_id = ? AND track_name = ?");
-    const delTrack = db.prepare("DELETE FROM tracks WHERE game_id = ? AND name = ?");
-    db.transaction(() => {
+    getDB().transaction((tx) => {
       for (const k of keys) {
-        delVideo.run(k.gameId, k.name);
-        delTrack.run(k.gameId, k.name);
+        tx.delete(videoTracks)
+          .where(and(eq(videoTracks.game_id, k.gameId), eq(videoTracks.track_name, k.name)))
+          .run();
+        tx.delete(tracks)
+          .where(and(eq(tracks.game_id, k.gameId), eq(tracks.name, k.name)))
+          .run();
       }
-    })();
+    });
   },
 
-  /** Delete all tracks for a game (used by re-ingest). */
-  deleteByGame(gameId: string): void {
-    stmt("DELETE FROM tracks WHERE game_id = ?").run(gameId);
+  async deleteByGame(gameId: string): Promise<void> {
+    getDB().delete(tracks).where(eq(tracks.game_id, gameId)).run();
   },
 
-  /**
-   * Returns all tracks across all games with game title and video ID joined.
-   * Used by the Backstage Track Lab for cross-game browsing.
-   */
-  listAllWithVideoIds(): BackstageTrackRow[] {
-    const rows = stmt(`
+  async listAllWithVideoIds(): Promise<BackstageTrackRow[]> {
+    const rows = getDB().all(sql`
       SELECT t.*, g.title AS game_title,
         (SELECT vt.video_id FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS video_id,
         (SELECT vt.duration_seconds FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS duration_seconds,
@@ -229,61 +247,41 @@ export const Tracks = {
       FROM tracks t
       JOIN games g ON g.id = t.game_id
       ORDER BY g.title ASC, t.position ASC
-    `).all() as Record<string, unknown>[];
-
-    return rows.map(toBackstageTrackRow);
+    `);
+    return (rows as Record<string, unknown>[]).map(toBackstageTrackRow);
   },
 
-  searchWithVideoIds(filters: {
+  async searchWithVideoIds(filters: {
     gameId?: string;
     gameTitle?: string;
     name?: string;
     energy?: number;
     active?: boolean;
     untaggedOnly?: boolean;
-  }): BackstageTrackRow[] {
-    const clauses: string[] = [];
-    const params: unknown[] = [];
+  }): Promise<BackstageTrackRow[]> {
+    const conditions: ReturnType<typeof sql>[] = [];
 
-    if (filters.gameId) {
-      clauses.push("t.game_id = ?");
-      params.push(filters.gameId);
-    }
-    if (filters.gameTitle) {
-      clauses.push("g.title LIKE ?");
-      params.push(`%${filters.gameTitle}%`);
-    }
-    if (filters.name) {
-      clauses.push("t.name LIKE ?");
-      params.push(`%${filters.name}%`);
-    }
-    if (filters.energy != null) {
-      clauses.push("t.energy = ?");
-      params.push(filters.energy);
-    }
-    if (filters.active != null) {
-      clauses.push("t.active = ?");
-      params.push(filters.active ? 1 : 0);
-    }
-    if (filters.untaggedOnly) {
-      clauses.push("t.tagged_at IS NULL");
-    }
+    if (filters.gameId) conditions.push(sql`t.game_id = ${filters.gameId}`);
+    if (filters.gameTitle) conditions.push(sql`g.title LIKE ${`%${filters.gameTitle}%`}`);
+    if (filters.name) conditions.push(sql`t.name LIKE ${`%${filters.name}%`}`);
+    if (filters.energy != null) conditions.push(sql`t.energy = ${filters.energy}`);
+    if (filters.active != null) conditions.push(sql`t.active = ${filters.active ? 1 : 0}`);
+    if (filters.untaggedOnly) conditions.push(sql.raw("t.tagged_at IS NULL"));
 
-    const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
-    const sql = `
+    const whereClause =
+      conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql.raw(" AND "))}` : sql.raw("");
+
+    const rows = getDB().all(sql`
       SELECT t.*, g.title AS game_title,
         (SELECT vt.video_id FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS video_id,
         (SELECT vt.duration_seconds FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS duration_seconds,
         (SELECT vt.view_count FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS view_count
       FROM tracks t
       JOIN games g ON g.id = t.game_id
-      ${where}
+      ${whereClause}
       ORDER BY g.title ASC, t.position ASC
       LIMIT 200
-    `;
-    const rows = getDB()
-      .prepare(sql)
-      .all(...params) as Record<string, unknown>[];
-    return rows.map(toBackstageTrackRow);
+    `);
+    return (rows as Record<string, unknown>[]).map(toBackstageTrackRow);
   },
 };

@@ -1,15 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type Database from "better-sqlite3";
-import { createTestDB, clearStmtCache, seedTestUser, seedTestGame } from "@/lib/db/test-helpers";
+import type { DrizzleDB } from "@/lib/db";
+import { createTestDrizzleDB, seedTestUser, seedTestGame } from "@/lib/db/test-helpers";
 import { TEST_USER_ID, TEST_GAME_ID, TEST_GAME_TITLE } from "@/test/constants";
 import { makeJsonRequest, parseJson } from "@/test/route-helpers";
 
-let db: Database.Database;
+let db: DrizzleDB;
+let rawDb: Database.Database;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
   return {
     getDB: () => db,
+
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -18,15 +21,14 @@ vi.mock("@/lib/db", async () => {
 const { PATCH, DELETE: DELETE_HANDLER } = await import("../route");
 
 beforeEach(() => {
-  db = createTestDB();
-  clearStmtCache();
-  seedTestUser(db);
+  ({ db, rawDb } = createTestDrizzleDB());
+  seedTestUser(rawDb);
 });
 
 describe("PATCH /api/backstage/games/[gameId]", () => {
   describe("when updating title", () => {
     it("should return updated game", async () => {
-      seedTestGame(db, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
+      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
 
       const res = await PATCH(
         makeJsonRequest(`/api/backstage/games/${TEST_GAME_ID}`, "PATCH", {
@@ -59,7 +61,7 @@ describe("PATCH /api/backstage/games/[gameId]", () => {
 
   describe("when no fields provided", () => {
     it("should return 400", async () => {
-      seedTestGame(db, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
+      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
 
       const res = await PATCH(
         makeJsonRequest(`/api/backstage/games/${TEST_GAME_ID}`, "PATCH", {}),
@@ -77,7 +79,7 @@ describe("PATCH /api/backstage/games/[gameId]", () => {
 describe("DELETE /api/backstage/games/[gameId]", () => {
   describe("when deleting an unpublished game", () => {
     it("should return success", async () => {
-      seedTestGame(db, TEST_USER_ID, {
+      seedTestGame(rawDb, TEST_USER_ID, {
         id: TEST_GAME_ID,
         title: TEST_GAME_TITLE,
         published: false,
@@ -94,14 +96,14 @@ describe("DELETE /api/backstage/games/[gameId]", () => {
       expect(body.ok).toBe(true);
 
       // Verify game is removed from DB
-      const row = db.prepare("SELECT id FROM games WHERE id = ?").get(TEST_GAME_ID);
+      const row = rawDb.prepare("SELECT id FROM games WHERE id = ?").get(TEST_GAME_ID);
       expect(row).toBeUndefined();
     });
   });
 
   describe("when game is published", () => {
     it("should return 400", async () => {
-      seedTestGame(db, TEST_USER_ID, {
+      seedTestGame(rawDb, TEST_USER_ID, {
         id: TEST_GAME_ID,
         title: TEST_GAME_TITLE,
         published: true,

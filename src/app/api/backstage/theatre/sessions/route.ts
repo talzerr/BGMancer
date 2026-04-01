@@ -6,7 +6,7 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const limit = Math.min(Number(url.searchParams.get("limit") ?? 20), 50);
-    const sessions = Sessions.listRecent(limit);
+    const sessions = await Sessions.listRecent(limit);
     return NextResponse.json(sessions);
   } catch (err) {
     console.error("[GET /api/backstage/theatre/sessions]", err);

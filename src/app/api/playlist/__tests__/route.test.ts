@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type Database from "better-sqlite3";
+import type { DrizzleDB } from "@/lib/db";
 import { NextRequest } from "next/server";
 import {
-  createTestDB,
-  clearStmtCache,
+  createTestDrizzleDB,
   seedTestUser,
   seedTestGame,
   seedTestSession,
@@ -32,12 +32,14 @@ function makeNextRequest(
   return new NextRequest(url.toString(), init);
 }
 
-let db: Database.Database;
+let db: DrizzleDB;
+let rawDb: Database.Database;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
   return {
     getDB: () => db,
+
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -60,9 +62,8 @@ vi.mock("@/lib/services/session", async () => {
 const { GET, DELETE: DELETE_HANDLER, PATCH } = await import("../route");
 
 beforeEach(() => {
-  db = createTestDB();
-  clearStmtCache();
-  seedTestUser(db);
+  ({ db, rawDb } = createTestDrizzleDB());
+  seedTestUser(rawDb);
 });
 
 /** Inserts a playlist track directly into the DB. */
@@ -72,25 +73,27 @@ function insertPlaylistTrack(
   gameId: string,
   opts: { trackName?: string; videoId?: string; position?: number; status?: string } = {},
 ): void {
-  db.prepare(
-    `INSERT INTO playlist_tracks (id, playlist_id, game_id, track_name, video_id, position, status)
+  rawDb
+    .prepare(
+      `INSERT INTO playlist_tracks (id, playlist_id, game_id, track_name, video_id, position, status)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    id,
-    playlistId,
-    gameId,
-    opts.trackName ?? "Track",
-    opts.videoId ?? "vid-1",
-    opts.position ?? 0,
-    opts.status ?? "found",
-  );
+    )
+    .run(
+      id,
+      playlistId,
+      gameId,
+      opts.trackName ?? "Track",
+      opts.videoId ?? "vid-1",
+      opts.position ?? 0,
+      opts.status ?? "found",
+    );
 }
 
 describe("GET /api/playlist", () => {
   describe("when user has an active session with tracks", () => {
     it("should return tracks with game titles", async () => {
-      seedTestGame(db, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
-      const sessionId = seedTestSession(db, TEST_USER_ID, { id: "s1" });
+      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
+      const sessionId = seedTestSession(rawDb, TEST_USER_ID, { id: "s1" });
 
       insertPlaylistTrack("pt1", sessionId, TEST_GAME_ID, {
         trackName: "Firelink Shrine",
@@ -123,9 +126,9 @@ describe("GET /api/playlist", () => {
 
   describe("when sessionId param is passed", () => {
     it("should return tracks for that session", async () => {
-      seedTestGame(db, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
-      const session1 = seedTestSession(db, TEST_USER_ID, { id: "s1", name: "Session 1" });
-      const session2 = seedTestSession(db, TEST_USER_ID, { id: "s2", name: "Session 2" });
+      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
+      const session1 = seedTestSession(rawDb, TEST_USER_ID, { id: "s1", name: "Session 1" });
+      const session2 = seedTestSession(rawDb, TEST_USER_ID, { id: "s2", name: "Session 2" });
 
       insertPlaylistTrack("pt1", session1, TEST_GAME_ID, {
         trackName: "Track A",
@@ -150,8 +153,8 @@ describe("GET /api/playlist", () => {
 describe("DELETE /api/playlist", () => {
   describe("when clearing tracks", () => {
     it("should clear all tracks from active session", async () => {
-      seedTestGame(db, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
-      const sessionId = seedTestSession(db, TEST_USER_ID, { id: "s1" });
+      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
+      const sessionId = seedTestSession(rawDb, TEST_USER_ID, { id: "s1" });
 
       insertPlaylistTrack("pt1", sessionId, TEST_GAME_ID, { position: 0 });
       insertPlaylistTrack("pt2", sessionId, TEST_GAME_ID, { position: 1 });
@@ -163,7 +166,7 @@ describe("DELETE /api/playlist", () => {
       expect(body.success).toBe(true);
 
       // Verify tracks are gone
-      const remaining = db
+      const remaining = rawDb
         .prepare("SELECT COUNT(*) AS cnt FROM playlist_tracks WHERE playlist_id = ?")
         .get(sessionId) as { cnt: number };
       expect(remaining.cnt).toBe(0);
@@ -174,8 +177,8 @@ describe("DELETE /api/playlist", () => {
 describe("PATCH /api/playlist", () => {
   describe("when given orderedIds", () => {
     it("should update positions", async () => {
-      seedTestGame(db, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
-      const sessionId = seedTestSession(db, TEST_USER_ID, { id: "s1" });
+      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
+      const sessionId = seedTestSession(rawDb, TEST_USER_ID, { id: "s1" });
 
       insertPlaylistTrack("pt1", sessionId, TEST_GAME_ID, { position: 0 });
       insertPlaylistTrack("pt2", sessionId, TEST_GAME_ID, { position: 1 });
@@ -191,7 +194,7 @@ describe("PATCH /api/playlist", () => {
       expect(res.status).toBe(200);
 
       // Verify new positions
-      const rows = db
+      const rows = rawDb
         .prepare("SELECT id, position FROM playlist_tracks ORDER BY position ASC")
         .all() as Array<{ id: string; position: number }>;
       expect(rows[0]).toEqual({ id: "pt3", position: 0 });

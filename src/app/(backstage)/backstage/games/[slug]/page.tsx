@@ -6,15 +6,15 @@ import { GameDetailClient } from "./game-detail-client";
 export default async function GameDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const gameId = idFromGameSlug(slug);
-  const game = Games.getById(gameId);
+  const game = await Games.getById(gameId);
   if (!game) notFound();
 
-  const tracks = Tracks.getByGame(game.id);
-  const reviewFlags = ReviewFlags.listByGame(game.id);
-  const videoMap = Object.fromEntries(VideoTracks.getTrackToVideo(game.id));
+  const tracks = await Tracks.getByGame(game.id);
+  const reviewFlags = await ReviewFlags.listByGame(game.id);
+  const videoMap = Object.fromEntries(await VideoTracks.getTrackToVideo(game.id));
 
   // Build track-name → full video metadata for TrackEditSheet
-  const byVideoId = VideoTracks.getByGame(game.id);
+  const byVideoId = await VideoTracks.getByGame(game.id);
   const videoDetailMap: Record<
     string,
     { videoId: string; durationSeconds: number | null; viewCount: number | null }

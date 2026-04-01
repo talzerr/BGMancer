@@ -1,25 +1,21 @@
 import Database from "better-sqlite3";
-import { initSchema } from "./schema";
-import { _stmts } from "./repos/_shared";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import path from "path";
+import * as schema from "./drizzle-schema";
 import { TEST_USER_ID, TEST_USER_EMAIL, TEST_USER_NAME, TEST_SESSION_NAME } from "@/test/constants";
+import type { DrizzleDB } from ".";
 
 /**
- * Creates a fresh in-memory SQLite database with the full schema.
- * Each call returns a new isolated DB instance for test isolation.
+ * Creates a fresh in-memory Drizzle-wrapped database with the full schema
+ * applied via migrations. Returns both the Drizzle instance and the raw DB.
  */
-export function createTestDB(): Database.Database {
-  const db = new Database(":memory:");
-  db.pragma("foreign_keys = ON");
-  initSchema(db);
-  return db;
-}
-
-/**
- * Clears the prepared statement cache so that the next `stmt()` call
- * compiles against the current (test) DB rather than a stale instance.
- */
-export function clearStmtCache(): void {
-  _stmts.clear();
+export function createTestDrizzleDB(): { db: DrizzleDB; rawDb: Database.Database } {
+  const rawDb = new Database(":memory:");
+  rawDb.pragma("foreign_keys = ON");
+  const db = drizzle(rawDb, { schema });
+  migrate(db, { migrationsFolder: path.join(process.cwd(), "drizzle/migrations") });
+  return { db, rawDb };
 }
 
 /** Inserts a test user + library. Returns { userId, libraryId }. */

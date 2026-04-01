@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type Database from "better-sqlite3";
+import type { DrizzleDB } from "@/lib/db";
 import {
-  createTestDB,
-  clearStmtCache,
+  createTestDrizzleDB,
   seedTestUser,
   seedTestGame,
   seedTestSession,
@@ -12,12 +12,14 @@ import { TrackStatus } from "@/types";
 import type { PlaylistTrack } from "@/types";
 import { MIN_TRACK_DURATION_SECONDS, MAX_TRACK_DURATION_SECONDS } from "@/lib/constants";
 
-let db: Database.Database;
+let db: DrizzleDB;
+let rawDb: Database.Database;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
   return {
     getDB: () => db,
+
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -37,9 +39,8 @@ const { resolvePendingSlots } = await import("../assembly");
 const { Playlist } = await import("@/lib/db/repo");
 
 beforeEach(() => {
-  db = createTestDB();
-  clearStmtCache();
-  seedTestUser(db);
+  ({ db, rawDb } = createTestDrizzleDB());
+  seedTestUser(rawDb);
   mockFindBestVideo.mockReset();
 });
 
@@ -68,11 +69,11 @@ describe("resolvePendingSlots", () => {
   let gameId: string;
   let sessionId: string;
 
-  beforeEach(() => {
-    gameId = seedTestGame(db, TEST_USER_ID, { id: "g1" });
-    sessionId = seedTestSession(db, TEST_USER_ID, { id: "pl1" });
+  beforeEach(async () => {
+    gameId = seedTestGame(rawDb, TEST_USER_ID, { id: "g1" });
+    sessionId = seedTestSession(rawDb, TEST_USER_ID, { id: "pl1" });
     // Insert a pending track into the DB
-    Playlist.replaceAll(sessionId, [
+    await Playlist.replaceAll(sessionId, [
       {
         id: "t1",
         game_id: gameId,
@@ -105,7 +106,7 @@ describe("resolvePendingSlots", () => {
       const inserted = [makePendingPlaylistTrack("t1", gameId, ["test query"])];
       await resolvePendingSlots(inserted);
 
-      const dbTrack = Playlist.getById("t1");
+      const dbTrack = await Playlist.getById("t1");
       expect(dbTrack?.status).toBe(TrackStatus.Found);
       expect(dbTrack?.video_id).toBe("vid-found");
     });
@@ -128,7 +129,7 @@ describe("resolvePendingSlots", () => {
       const inserted = [makePendingPlaylistTrack("t1", gameId, ["test query"])];
       await resolvePendingSlots(inserted);
 
-      const dbTrack = Playlist.getById("t1");
+      const dbTrack = await Playlist.getById("t1");
       expect(dbTrack?.status).toBe(TrackStatus.Error);
       expect(dbTrack?.error_message).toContain("No suitable");
     });
@@ -150,7 +151,7 @@ describe("resolvePendingSlots", () => {
       const inserted = [makePendingPlaylistTrack("t1", gameId, ["q"])];
       await resolvePendingSlots(inserted, false, false);
 
-      const dbTrack = Playlist.getById("t1");
+      const dbTrack = await Playlist.getById("t1");
       expect(dbTrack?.status).toBe(TrackStatus.Error);
       expect(dbTrack?.error_message).toContain("too short");
     });
@@ -172,7 +173,7 @@ describe("resolvePendingSlots", () => {
       const inserted = [makePendingPlaylistTrack("t1", gameId, ["q"])];
       await resolvePendingSlots(inserted, false, false);
 
-      const dbTrack = Playlist.getById("t1");
+      const dbTrack = await Playlist.getById("t1");
       expect(dbTrack?.status).toBe(TrackStatus.Error);
       expect(dbTrack?.error_message).toContain("exceeds maximum");
     });
@@ -197,7 +198,7 @@ describe("resolvePendingSlots", () => {
       const inserted = [makePendingPlaylistTrack("t1", gameId, ["q"])];
       await resolvePendingSlots(inserted);
 
-      const dbTrack = Playlist.getById("t1");
+      const dbTrack = await Playlist.getById("t1");
       expect(dbTrack?.status).toBe(TrackStatus.Pending);
     });
   });

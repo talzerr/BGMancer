@@ -12,7 +12,7 @@ export async function GET(req: Request) {
     const active = url.searchParams.get("active");
     const untaggedOnly = url.searchParams.get("untaggedOnly") === "1";
 
-    const tracks = Tracks.searchWithVideoIds({
+    const tracks = await Tracks.searchWithVideoIds({
       gameId,
       gameTitle,
       name,
@@ -53,7 +53,7 @@ export async function PATCH(req: Request) {
     const patches = Array.isArray(body) ? body : [body];
 
     for (const patch of patches) {
-      Tracks.updateFields(patch.gameId, patch.name, {
+      await Tracks.updateFields(patch.gameId, patch.name, {
         newName: patch.updates.name,
         active: patch.updates.active,
         energy: patch.updates.energy,
@@ -64,7 +64,7 @@ export async function PATCH(req: Request) {
       });
 
       if (patch.videoUpdates?.videoId) {
-        VideoTracks.upsertSingle(patch.gameId, patch.name, patch.videoUpdates);
+        await VideoTracks.upsertSingle(patch.gameId, patch.name, patch.videoUpdates);
       }
     }
 
@@ -88,7 +88,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "gameId and name are required" }, { status: 400 });
     }
 
-    Tracks.upsertBatch([{ gameId, name, position: position ?? 0 }]);
+    await Tracks.upsertBatch([{ gameId, name, position: position ?? 0 }]);
     return NextResponse.json({ ok: true }, { status: 201 });
   } catch (err) {
     console.error("[POST /api/backstage/tracks]", err);
@@ -104,9 +104,9 @@ export async function DELETE(req: Request) {
       | { keys: { gameId: string; name: string }[] };
 
     if ("keys" in body) {
-      Tracks.deleteByKeys(body.keys);
+      await Tracks.deleteByKeys(body.keys);
     } else if (body.gameId && Array.isArray(body.names)) {
-      Tracks.deleteByKeys(body.names.map((name) => ({ gameId: body.gameId, name })));
+      await Tracks.deleteByKeys(body.names.map((name) => ({ gameId: body.gameId, name })));
     } else {
       return NextResponse.json({ error: "Provide {keys} or {gameId, names}" }, { status: 400 });
     }

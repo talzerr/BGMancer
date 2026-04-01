@@ -483,9 +483,11 @@ describe("toPlaylistTrack", () => {
         ...baseRow,
         error_message: "Something went wrong",
         synced_at: "2025-06-01",
+        game_thumbnail_url: "https://cdn.steam.com/header.jpg",
       });
       expect(pt.error_message).toBe("Something went wrong");
       expect(pt.synced_at).toBe("2025-06-01");
+      expect(pt.game_thumbnail_url).toBe("https://cdn.steam.com/header.jpg");
     });
   });
 

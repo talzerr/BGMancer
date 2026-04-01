@@ -5,11 +5,11 @@ import { NextResponse } from "next/server";
 export async function GET(_req: Request, { params }: { params: Promise<{ gameId: string }> }) {
   try {
     const { gameId } = await params;
-    const game = Games.getById(gameId);
+    const game = await Games.getById(gameId);
     if (!game) return NextResponse.json({ error: "Game not found" }, { status: 404 });
 
-    const tracks = Tracks.getByGame(gameId);
-    const reviewFlags = ReviewFlags.listByGame(gameId);
+    const tracks = await Tracks.getByGame(gameId);
+    const reviewFlags = await ReviewFlags.listByGame(gameId);
 
     return NextResponse.json({ game, tracks, reviewFlags });
   } catch (err) {

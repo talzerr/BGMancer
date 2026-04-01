@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   try {
     const cookieStore = await cookies();
     const userId = await getOrCreateUserId(cookieStore);
-    Users.getOrCreate(userId);
+    await Users.getOrCreate(userId);
 
     const body = await request.json();
     const playlistId = extractPlaylistId(body.url ?? "");
@@ -61,9 +61,9 @@ export async function POST(request: Request) {
     const playlistTitle = metadata?.title ?? `YouTube Playlist (${playlistId.slice(0, 6)})`;
     const sessionName = `YouTube: ${playlistTitle}`;
 
-    Games.ensureExists(userId, YT_IMPORT_GAME_ID, "YouTube Import");
+    await Games.ensureExists(userId, YT_IMPORT_GAME_ID, "YouTube Import");
 
-    const session = Sessions.create(userId, sessionName);
+    const session = await Sessions.create(userId, sessionName);
 
     const now = new Date().toISOString();
     const tracksToInsert = tracks.map((t) => ({
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
       error_message: null,
     }));
 
-    Playlist.replaceAll(session.id, tracksToInsert);
+    await Playlist.replaceAll(session.id, tracksToInsert);
 
     // Construct the response in-memory — avoids a round-trip JOIN query.
     const result: PlaylistTrack[] = tracksToInsert.map((t, i) => ({

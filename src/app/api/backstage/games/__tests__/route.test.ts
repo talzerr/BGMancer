@@ -1,15 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type Database from "better-sqlite3";
-import { createTestDB, clearStmtCache, seedTestUser, seedTestGame } from "@/lib/db/test-helpers";
+import type { DrizzleDB } from "@/lib/db";
+import { createTestDrizzleDB, seedTestUser, seedTestGame } from "@/lib/db/test-helpers";
 import { TEST_USER_ID, TEST_GAME_ID, TEST_GAME_TITLE } from "@/test/constants";
 import { makeGetRequest, makeJsonRequest, parseJson } from "@/test/route-helpers";
 
-let db: Database.Database;
+let db: DrizzleDB;
+let rawDb: Database.Database;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
   return {
     getDB: () => db,
+
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -18,16 +21,15 @@ vi.mock("@/lib/db", async () => {
 const { GET, POST } = await import("../route");
 
 beforeEach(() => {
-  db = createTestDB();
-  clearStmtCache();
-  seedTestUser(db);
+  ({ db, rawDb } = createTestDrizzleDB());
+  seedTestUser(rawDb);
 });
 
 describe("GET /api/backstage/games", () => {
   describe("when games exist", () => {
     it("should return games with stats", async () => {
-      seedTestGame(db, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
-      seedTestGame(db, TEST_USER_ID, { id: "g2", title: "Hollow Knight" });
+      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
+      seedTestGame(rawDb, TEST_USER_ID, { id: "g2", title: "Hollow Knight" });
 
       const res = await GET(makeGetRequest("/api/backstage/games"));
       expect(res.status).toBe(200);
@@ -47,8 +49,8 @@ describe("GET /api/backstage/games", () => {
 
   describe("when filtering by title", () => {
     it("should filter results", async () => {
-      seedTestGame(db, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
-      seedTestGame(db, TEST_USER_ID, { id: "g2", title: "Hollow Knight" });
+      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
+      seedTestGame(rawDb, TEST_USER_ID, { id: "g2", title: "Hollow Knight" });
 
       const res = await GET(makeGetRequest("/api/backstage/games", { title: "Hollow" }));
       expect(res.status).toBe(200);
@@ -61,8 +63,8 @@ describe("GET /api/backstage/games", () => {
 
   describe("when filtering by published", () => {
     it("should only return published games", async () => {
-      seedTestGame(db, TEST_USER_ID, { id: "pub", title: "Published Game", published: true });
-      seedTestGame(db, TEST_USER_ID, { id: "draft", title: "Draft Game", published: false });
+      seedTestGame(rawDb, TEST_USER_ID, { id: "pub", title: "Published Game", published: true });
+      seedTestGame(rawDb, TEST_USER_ID, { id: "draft", title: "Draft Game", published: false });
 
       const res = await GET(makeGetRequest("/api/backstage/games", { published: "1" }));
       expect(res.status).toBe(200);

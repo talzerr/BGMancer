@@ -1,132 +1,140 @@
 import { getDB } from "@/lib/db";
-import { stmt, LIBRARY_SQ } from "./_shared";
+import { sql } from "drizzle-orm";
 import { toGame, toGames } from "@/lib/db/mappers";
 import { CurationMode } from "@/types";
 import type { Game } from "@/types";
 import { YT_IMPORT_GAME_ID, steamHeaderUrl } from "@/lib/constants";
 
 export const Games = {
-  /** Returns all non-skip published games in the user's library — used for playlist generation. */
-  listAll(userId: string, excludeId?: string): Game[] {
-    const base = `
-      SELECT g.*, lg.curation FROM games g
-      JOIN library_games lg ON lg.game_id = g.id
-      WHERE lg.library_id = ${LIBRARY_SQ}
-        AND lg.curation != 'skip'
-        AND g.published = 1
-    `;
+  async listAll(userId: string, excludeId?: string): Promise<Game[]> {
+    const db = getDB();
     if (excludeId) {
-      return toGames(stmt(`${base} AND g.id != ? ORDER BY lg.added_at ASC`).all(userId, excludeId));
+      return toGames(
+        db.all(sql`
+          SELECT g.*, lg.curation FROM games g
+          JOIN library_games lg ON lg.game_id = g.id
+          WHERE lg.library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
+            AND lg.curation != 'skip'
+            AND g.published = 1
+            AND g.id != ${excludeId}
+          ORDER BY lg.added_at ASC
+        `),
+      );
     }
-    return toGames(stmt(`${base} ORDER BY lg.added_at ASC`).all(userId));
-  },
-
-  /** Returns all published games in the user's library regardless of curation — used by the library page. */
-  listAllIncludingDisabled(userId: string): Game[] {
     return toGames(
-      stmt(`
+      db.all(sql`
         SELECT g.*, lg.curation FROM games g
         JOIN library_games lg ON lg.game_id = g.id
-        WHERE lg.library_id = ${LIBRARY_SQ}
+        WHERE lg.library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
+          AND lg.curation != 'skip'
           AND g.published = 1
         ORDER BY lg.added_at ASC
-      `).all(userId),
+      `),
     );
   },
 
-  /** Returns the number of real games in the user's library, excluding the synthetic YT-import entry. */
-  count(userId: string): number {
-    const row = stmt(`
+  async listAllIncludingDisabled(userId: string): Promise<Game[]> {
+    return toGames(
+      getDB().all(sql`
+        SELECT g.*, lg.curation FROM games g
+        JOIN library_games lg ON lg.game_id = g.id
+        WHERE lg.library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
+          AND g.published = 1
+        ORDER BY lg.added_at ASC
+      `),
+    );
+  },
+
+  async count(userId: string): Promise<number> {
+    const row = getDB().get<{ cnt: number }>(sql`
       SELECT COUNT(*) AS cnt FROM games g
       JOIN library_games lg ON lg.game_id = g.id
-      WHERE lg.library_id = ${LIBRARY_SQ}
-        AND g.id != '${YT_IMPORT_GAME_ID}'
-    `).get(userId) as { cnt: number };
+      WHERE lg.library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
+        AND g.id != ${YT_IMPORT_GAME_ID}
+    `)!;
     return row.cnt;
   },
 
-  findByTitle(title: string): Game | null {
-    const row = stmt("SELECT * FROM games WHERE lower(title) = lower(?)").get(title) as
-      | Record<string, unknown>
-      | undefined;
-    return row ? toGame(row) : null;
+  async findByTitle(title: string): Promise<Game | null> {
+    const row = getDB().get(sql`SELECT * FROM games WHERE lower(title) = lower(${title})`);
+    return row ? toGame(row as Record<string, unknown>) : null;
   },
 
-  getById(id: string): Game | null {
-    const row = stmt("SELECT * FROM games WHERE id = ?").get(id) as
-      | Record<string, unknown>
-      | undefined;
-    return row ? toGame(row) : null;
+  async getById(id: string): Promise<Game | null> {
+    const row = getDB().get(sql`SELECT * FROM games WHERE id = ${id}`);
+    return row ? toGame(row as Record<string, unknown>) : null;
   },
 
-  /** Returns a game with its curation value scoped to the given user's library. */
-  getByIdForUser(userId: string, id: string): Game | null {
-    const row = stmt(`
+  async getByIdForUser(userId: string, id: string): Promise<Game | null> {
+    const row = getDB().get(sql`
       SELECT g.*, lg.curation FROM games g
       JOIN library_games lg ON lg.game_id = g.id
-      WHERE g.id = ? AND lg.library_id = ${LIBRARY_SQ}
-    `).get(id, userId) as Record<string, unknown> | undefined;
-    return row ? toGame(row) : null;
+      WHERE g.id = ${id}
+        AND lg.library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
+    `);
+    return row ? toGame(row as Record<string, unknown>) : null;
   },
 
-  create(
+  async create(
     userId: string,
     id: string,
     title: string,
     curation: CurationMode = CurationMode.Include,
     steamAppid: number | null = null,
-  ): Game {
+  ): Promise<Game> {
     const db = getDB();
     const thumbnail = steamAppid ? steamHeaderUrl(steamAppid) : null;
-    return db.transaction(() => {
-      stmt("INSERT INTO games (id, title, steam_appid, thumbnail_url) VALUES (?, ?, ?, ?)").run(
-        id,
-        title,
-        steamAppid,
-        thumbnail,
-      );
-
-      stmt(
-        `INSERT OR IGNORE INTO library_games (library_id, game_id, curation) VALUES (${LIBRARY_SQ}, ?, ?)`,
-      ).run(userId, id, curation);
-
-      // SELECT inside the transaction — the row we just inserted is guaranteed to exist
-      return toGame(
-        stmt(
-          `SELECT g.*, lg.curation FROM games g
-           JOIN library_games lg ON lg.game_id = g.id
-           WHERE g.id = ? AND lg.library_id = ${LIBRARY_SQ}`,
-        ).get(id, userId) as Record<string, unknown>,
-      );
-    })();
+    return db.transaction((tx) => {
+      tx.run(sql`
+        INSERT INTO games (id, title, steam_appid, thumbnail_url) VALUES (${id}, ${title}, ${steamAppid}, ${thumbnail})
+      `);
+      tx.run(sql`
+        INSERT OR IGNORE INTO library_games (library_id, game_id, curation)
+        VALUES ((SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1), ${id}, ${curation})
+      `);
+      const row = tx.get(sql`
+        SELECT g.*, lg.curation FROM games g
+        JOIN library_games lg ON lg.game_id = g.id
+        WHERE g.id = ${id}
+          AND lg.library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
+      `);
+      return toGame(row as Record<string, unknown>);
+    });
   },
 
-  linkToLibrary(userId: string, gameId: string, curation = CurationMode.Include): void {
-    stmt(
-      `INSERT OR IGNORE INTO library_games (library_id, game_id, curation) VALUES (${LIBRARY_SQ}, ?, ?)`,
-    ).run(userId, gameId, curation);
+  async linkToLibrary(
+    userId: string,
+    gameId: string,
+    curation = CurationMode.Include,
+  ): Promise<void> {
+    getDB().run(sql`
+      INSERT OR IGNORE INTO library_games (library_id, game_id, curation)
+      VALUES ((SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1), ${gameId}, ${curation})
+    `);
   },
 
-  setCuration(userId: string, gameId: string, curation: CurationMode): void {
-    stmt(
-      `UPDATE library_games SET curation = ? WHERE library_id = ${LIBRARY_SQ} AND game_id = ?`,
-    ).run(curation, userId, gameId);
+  async setCuration(userId: string, gameId: string, curation: CurationMode): Promise<void> {
+    getDB().run(sql`
+      UPDATE library_games SET curation = ${curation}
+      WHERE library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
+        AND game_id = ${gameId}
+    `);
   },
 
-  /** Removes the game from the user's library. Only unlinks — never deletes the game record. */
-  remove(userId: string, id: string): void {
-    stmt(`DELETE FROM library_games WHERE library_id = ${LIBRARY_SQ} AND game_id = ?`).run(
-      userId,
-      id,
-    );
+  async remove(userId: string, id: string): Promise<void> {
+    getDB().run(sql`
+      DELETE FROM library_games
+      WHERE library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
+        AND game_id = ${id}
+    `);
   },
 
-  ensureExists(userId: string, id: string, title: string): void {
-    const exists = stmt("SELECT id FROM games WHERE id = ?").get(id);
+  async ensureExists(userId: string, id: string, title: string): Promise<void> {
+    const exists = getDB().get(sql`SELECT id FROM games WHERE id = ${id}`);
     if (!exists) {
-      this.create(userId, id, title, CurationMode.Skip);
+      await this.create(userId, id, title, CurationMode.Skip);
     } else {
-      this.linkToLibrary(userId, id, CurationMode.Skip);
+      await this.linkToLibrary(userId, id, CurationMode.Skip);
     }
   },
 };

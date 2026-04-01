@@ -9,10 +9,10 @@ export async function GET(req: NextRequest) {
   try {
     const cookieStore = await cookies();
     const userId = await getOrCreateUserId(cookieStore);
-    Users.getOrCreate(userId);
+    await Users.getOrCreate(userId);
 
     const sessionId = req.nextUrl.searchParams.get("sessionId") ?? undefined;
-    return NextResponse.json(Playlist.listAllWithGameTitle(userId, sessionId));
+    return NextResponse.json(await Playlist.listAllWithGameTitle(userId, sessionId));
   } catch (err) {
     console.error("[GET /api/playlist]", err);
     return NextResponse.json({ error: "Failed to fetch playlist" }, { status: 500 });
@@ -25,7 +25,7 @@ export async function DELETE() {
     const cookieStore = await cookies();
     const userId = await getOrCreateUserId(cookieStore);
 
-    Playlist.clearAll(userId);
+    await Playlist.clearAll(userId);
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[DELETE /api/playlist]", err);
@@ -40,7 +40,7 @@ export async function PATCH(req: NextRequest) {
     if (!Array.isArray(orderedIds)) {
       return NextResponse.json({ error: "orderedIds must be an array" }, { status: 400 });
     }
-    Playlist.reorder(orderedIds);
+    await Playlist.reorder(orderedIds);
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[PATCH /api/playlist]", err);

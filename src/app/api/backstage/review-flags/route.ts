@@ -10,9 +10,9 @@ export async function DELETE(req: Request) {
     }
 
     if (flagId != null) {
-      ReviewFlags.dismiss(flagId, gameId);
+      await ReviewFlags.dismiss(flagId, gameId);
     } else {
-      ReviewFlags.clearByGame(gameId);
+      await ReviewFlags.clearByGame(gameId);
     }
 
     return NextResponse.json({ ok: true });

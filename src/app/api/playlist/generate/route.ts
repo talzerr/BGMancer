@@ -42,9 +42,9 @@ export async function POST(request: Request) {
 
   const cookieStore = await cookies();
   const userId = await getOrCreateUserId(cookieStore);
-  Users.getOrCreate(userId);
+  await Users.getOrCreate(userId);
 
-  const lock = Users.tryAcquireGenerationLock(userId, GENERATION_COOLDOWN_MS);
+  const lock = await Users.tryAcquireGenerationLock(userId, GENERATION_COOLDOWN_MS);
   if (!lock.acquired) {
     return new Response(`data: ${JSON.stringify({ type: "error", message: lock.reason })}\n\n`, {
       headers: SSE_HEADERS,
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
         });
       }
     } finally {
-      Users.releaseGenerationLock(userId);
+      await Users.releaseGenerationLock(userId);
       close();
     }
   })();
