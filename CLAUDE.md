@@ -18,8 +18,6 @@ pnpm db:generate  # Generate migration from schema diff
 pnpm db:migrate   # Apply pending migrations (standalone)
 pnpm db:studio    # Open Drizzle Studio (browser DB inspector)
 pnpm db:reset     # Drop and recreate the database
-pnpm db:backup    # Snapshot the database
-pnpm db:restore   # Restore from snapshot
 ```
 
 Tests run via Vitest. Lint and format run automatically via husky pre-commit on staged `.ts`/`.tsx` files.
@@ -51,7 +49,7 @@ The DB file is `bgmancer.db` at the project root (or override with `SQLITE_PATH`
 
 **Route auth config (`src/lib/route-config.ts`):** Single source of truth — every accessible route (pages and API) must be registered here. Unregistered routes return 404. Each entry declares its auth level: `Public`, `Optional`, `Required`, or `Admin`.
 
-**Proxy (`src/proxy.ts`):** Runs on all non-static requests. Reads the route config and enforces: (1) allowlist — unregistered routes get 404, (2) admin auth — `ADMIN_SECRET` cookie check for `Admin` routes.
+**Middleware (`src/middleware.ts`):** Runs on all non-static requests. Reads the route config and enforces: (1) allowlist — unregistered routes get 404, (2) admin auth — `ADMIN_SECRET` cookie check for `Admin` routes. Uses the deprecated `middleware.ts` convention (not Next.js 16's `proxy.ts`) for `@opennextjs/cloudflare` compatibility.
 
 **Route wrappers (`src/lib/services/route-wrappers.ts`):** `withRequiredAuth(handler, label)` and `withOptionalAuth(handler, label)` enforce user auth at the handler level. The proxy can't call `auth()` (NextAuth doesn't work in the proxy layer), so user auth is enforced here.
 
@@ -228,7 +226,7 @@ Games can be flagged for manual review via `ReviewFlags.markAsNeedsReview(gameId
 
 - **Never use `process.env` directly** — use the typed `env` singleton from `@/lib/env`
 - **Every route must be in `src/lib/route-config.ts`** — unregistered routes return 404 via the proxy
-- **Next.js 16 uses `proxy.ts`** (not `middleware.ts`) — the exported function must be named `proxy`
+- **Next.js 16 with OpenNext Cloudflare MUST use `middleware.ts`** — `proxy.ts` is not yet supported by `@opennextjs/cloudflare`
 - `process.env.NODE_ENV` does **not** work reliably in client components with Turbopack — avoid conditional rendering based on it. Use `env.isDev` on the server instead
 - `useEffect` must be placed **after** all `const` variables it references (temporal dead zone issue in this codebase's hook patterns)
 - Sessions are FIFO-evicted: at most `MAX_PLAYLIST_SESSIONS` (3) sessions are kept per user; the oldest is deleted automatically

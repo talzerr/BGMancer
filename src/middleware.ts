@@ -6,7 +6,7 @@ import { env } from "./lib/env";
 
 const ADMIN_COOKIE = "bgmancer-admin";
 
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const method = request.method;
 

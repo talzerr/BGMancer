@@ -10,8 +10,6 @@
  *   env.discogsToken    // string | undefined (optional)
  */
 
-import path from "path";
-
 // ---------------------------------------------------------------------------
 // Schema
 // ---------------------------------------------------------------------------
@@ -42,8 +40,8 @@ interface Env {
   /** Default Anthropic model (fallback for tagging + vibe). */
   anthropicModel: string | undefined;
 
-  /** SQLite database path. */
-  sqlitePath: string;
+  /** SQLite database path (only used in local dev, not on Cloudflare Workers). */
+  sqlitePath: string | undefined;
 
   /** Backstage admin secret (protects /backstage in local dev). */
   adminSecret: string | undefined;
@@ -103,7 +101,7 @@ function loadEnv(): Env {
     anthropicVibeModel: process.env.ANTHROPIC_VIBE_MODEL || undefined,
     anthropicModel: process.env.ANTHROPIC_MODEL || undefined,
 
-    sqlitePath: process.env.SQLITE_PATH ?? path.join(process.cwd(), "bgmancer.db"),
+    sqlitePath: process.env.SQLITE_PATH || undefined,
 
     adminSecret: process.env.ADMIN_SECRET || undefined,
 
