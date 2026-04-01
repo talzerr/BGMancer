@@ -1,5 +1,9 @@
 import { env } from "@/lib/env";
-import { generatePlaylist, type GenerateEvent } from "@/lib/pipeline/index";
+import {
+  generatePlaylist,
+  generatePlaylistForGuest,
+  type GenerateEvent,
+} from "@/lib/pipeline/index";
 import { Users } from "@/lib/db/repo";
 import { getAuthSession } from "@/lib/services/auth-helpers";
 import { YouTubeQuotaError, YouTubeInvalidKeyError } from "@/lib/services/youtube";
@@ -14,10 +18,9 @@ export type { GenerateEvent };
  *
  * Thin SSE wrapper around the generate pipeline.
  * Streams progress events while building the playlist.
- * Expects JSON body with optional config overrides: { target_track_count?, allow_long_tracks? }
  *
  * Authenticated users: full pipeline (Vibe Profiler + Director), persisted to DB.
- * Guests: not yet supported — returns 401.
+ * Guests: Director-only, no persistence. Must send gameSelections in body.
  */
 export async function POST(request: Request) {
   if (!env.youtubeApiKey) {
@@ -27,17 +30,6 @@ export async function POST(request: Request) {
     );
   }
 
-  const session = await getAuthSession();
-  if (!session.authenticated) {
-    return new Response(
-      `data: ${JSON.stringify({ type: "error", message: "Sign in to generate playlists." })}\n\n`,
-      { headers: SSE_HEADERS, status: 401 },
-    );
-  }
-
-  const userId = session.userId;
-
-  // Parse config from request body (sent by the client from localStorage).
   let body: Record<string, unknown> = {};
   try {
     body = await request.json();
@@ -53,35 +45,66 @@ export async function POST(request: Request) {
     raw_vibes: body.raw_vibes === true,
   };
 
-  const lock = await Users.tryAcquireGenerationLock(userId, GENERATION_COOLDOWN_MS);
-  if (!lock.acquired) {
-    return new Response(`data: ${JSON.stringify({ type: "error", message: lock.reason })}\n\n`, {
-      headers: SSE_HEADERS,
-    });
-  }
-
+  const session = await getAuthSession();
   const { stream, send, close } = makeSSEStream<GenerateEvent>();
 
-  (async () => {
-    try {
-      await generatePlaylist(send, userId, config);
-    } catch (err) {
-      if (err instanceof YouTubeQuotaError || err instanceof YouTubeInvalidKeyError) {
-        console.error(`[generate] YouTube fatal error — ${err.name}`);
-        send({ type: "error", message: err.message });
-      } else {
-        console.error("[POST /api/playlist/generate]", err);
+  if (session.authenticated) {
+    // ── Authenticated: full pipeline with Vibe Profiler + persistence ──
+    const userId = session.userId;
+
+    const lock = await Users.tryAcquireGenerationLock(userId, GENERATION_COOLDOWN_MS);
+    if (!lock.acquired) {
+      return new Response(`data: ${JSON.stringify({ type: "error", message: lock.reason })}\n\n`, {
+        headers: SSE_HEADERS,
+      });
+    }
+
+    (async () => {
+      try {
+        await generatePlaylist(send, userId, config);
+      } catch (err) {
+        if (err instanceof YouTubeQuotaError || err instanceof YouTubeInvalidKeyError) {
+          console.error(`[generate] YouTube fatal error — ${err.name}`);
+          send({ type: "error", message: err.message });
+        } else {
+          console.error("[POST /api/playlist/generate]", err);
+          send({
+            type: "error",
+            message: "Generation failed",
+            detail: err instanceof Error ? err.message : String(err),
+          });
+        }
+      } finally {
+        await Users.releaseGenerationLock(userId);
+        close();
+      }
+    })();
+  } else {
+    // ── Guest: Director-only, no Vibe Profiler, no persistence ──
+    const gameSelections = Array.isArray(body.gameSelections) ? body.gameSelections : [];
+
+    if (gameSelections.length === 0) {
+      return new Response(
+        `data: ${JSON.stringify({ type: "error", message: "Select some games from the Catalog to generate a playlist." })}\n\n`,
+        { headers: SSE_HEADERS },
+      );
+    }
+
+    (async () => {
+      try {
+        await generatePlaylistForGuest(send, gameSelections, config);
+      } catch (err) {
+        console.error("[POST /api/playlist/generate] (guest)", err);
         send({
           type: "error",
           message: "Generation failed",
           detail: err instanceof Error ? err.message : String(err),
         });
+      } finally {
+        close();
       }
-    } finally {
-      await Users.releaseGenerationLock(userId);
-      close();
-    }
-  })();
+    })();
+  }
 
   return new Response(stream, { headers: SSE_HEADERS });
 }

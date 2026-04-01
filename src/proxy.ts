@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { matchRoute } from "@/lib/route-matcher";
 import { AuthLevel } from "@/lib/route-config";
+import { env } from "./lib/env";
 
 const ADMIN_COOKIE = "bgmancer-admin";
 
@@ -17,7 +18,7 @@ export function proxy(request: NextRequest) {
   }
 
   // Admin routes: ADMIN_SECRET must be configured and cookie must match.
-  if (route.auth === AuthLevel.Admin) {
+  if (!env.isDev && route.auth === AuthLevel.Admin) {
     const adminSecret = process.env.ADMIN_SECRET;
     const adminToken = request.cookies.get(ADMIN_COOKIE)?.value;
     if (!adminSecret || adminToken !== adminSecret) {
