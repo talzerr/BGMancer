@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { env } from "@/lib/env";
 import { generatePlaylist, type GenerateEvent } from "@/lib/pipeline/index";
 import { Users } from "@/lib/db/repo";
 import { getOrCreateUserId } from "@/lib/services/session";
@@ -17,7 +18,7 @@ export type { GenerateEvent };
  * Expects JSON body with optional config overrides: { target_track_count?, allow_long_tracks? }
  */
 export async function POST(request: Request) {
-  if (!process.env.YOUTUBE_API_KEY) {
+  if (!env.youtubeApiKey) {
     return new Response(
       `data: ${JSON.stringify({ type: "error", message: "YouTube API key is not configured. Add YOUTUBE_API_KEY to .env.local and restart the server." })}\n\n`,
       { headers: SSE_HEADERS },

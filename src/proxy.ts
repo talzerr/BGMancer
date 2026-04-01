@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { SignJWT, jwtVerify } from "jose";
+import { env } from "@/lib/env";
 
 const COOKIE_NAME = "bgmancer-uid";
 const ALG = "HS256";
 
 function getSecret(): Uint8Array {
-  const s = process.env.NEXTAUTH_SECRET ?? "dev-fallback-secret-change-me";
-  return new TextEncoder().encode(s);
+  return new TextEncoder().encode(env.nextAuthSecret);
 }
 
 export async function proxy(request: NextRequest) {

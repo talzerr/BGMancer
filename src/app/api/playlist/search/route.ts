@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { env } from "@/lib/env";
 import { Playlist, Users } from "@/lib/db/repo";
 import { findBestVideo, YouTubeInvalidKeyError } from "@/lib/services/youtube";
 import { runConcurrent } from "@/lib/concurrency";
@@ -17,7 +18,7 @@ const SEARCH_CONCURRENCY = 5;
  * Individual tracks accept any length.
  */
 export async function POST() {
-  if (!process.env.YOUTUBE_API_KEY) {
+  if (!env.youtubeApiKey) {
     return NextResponse.json(
       {
         error:

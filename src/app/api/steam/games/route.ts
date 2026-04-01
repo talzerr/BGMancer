@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { env } from "@/lib/env";
 
 export interface SteamGame {
   appid: number;
@@ -51,7 +52,7 @@ async function resolveSteamId(vanity: string, apiKey: string): Promise<string | 
  * Accepts a SteamID64, vanity name, or steamcommunity.com profile URL.
  */
 export async function GET(request: Request) {
-  const apiKey = process.env.STEAM_API_KEY;
+  const apiKey = env.steamApiKey;
   if (!apiKey) {
     return NextResponse.json({ error: "missing_key" }, { status: 500 });
   }

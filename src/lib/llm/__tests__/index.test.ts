@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { _reloadEnvForTest } from "@/lib/env";
 
 const mockConstructor = vi.fn();
 
@@ -21,12 +22,14 @@ beforeEach(() => {
 
 afterEach(() => {
   process.env = { ...originalEnv };
+  _reloadEnvForTest();
 });
 
 describe("getTaggingProvider", () => {
   describe("when ANTHROPIC_API_KEY is set", () => {
     beforeEach(() => {
       process.env.ANTHROPIC_API_KEY = "test-key";
+      _reloadEnvForTest();
     });
 
     it("should return a provider", () => {
@@ -37,6 +40,7 @@ describe("getTaggingProvider", () => {
 
     it("should use ANTHROPIC_TAGGING_MODEL when set", () => {
       process.env.ANTHROPIC_TAGGING_MODEL = "claude-sonnet-4-6";
+      _reloadEnvForTest();
       getTaggingProvider();
       expect(mockConstructor).toHaveBeenCalledWith("claude-sonnet-4-6");
     });
@@ -44,6 +48,7 @@ describe("getTaggingProvider", () => {
     it("should fall back to ANTHROPIC_MODEL when tagging model is not set", () => {
       delete process.env.ANTHROPIC_TAGGING_MODEL;
       process.env.ANTHROPIC_MODEL = "claude-opus-4-6";
+      _reloadEnvForTest();
       getTaggingProvider();
       expect(mockConstructor).toHaveBeenCalledWith("claude-opus-4-6");
     });
@@ -51,6 +56,7 @@ describe("getTaggingProvider", () => {
     it("should use default model when no model env vars are set", () => {
       delete process.env.ANTHROPIC_TAGGING_MODEL;
       delete process.env.ANTHROPIC_MODEL;
+      _reloadEnvForTest();
       getTaggingProvider();
       expect(mockConstructor).toHaveBeenCalledWith();
     });
@@ -59,6 +65,7 @@ describe("getTaggingProvider", () => {
   describe("when ANTHROPIC_API_KEY is not set", () => {
     beforeEach(() => {
       delete process.env.ANTHROPIC_API_KEY;
+      _reloadEnvForTest();
     });
 
     it("should throw", () => {
@@ -71,6 +78,7 @@ describe("getVibeProfilerProvider", () => {
   describe("when ANTHROPIC_API_KEY is set", () => {
     beforeEach(() => {
       process.env.ANTHROPIC_API_KEY = "test-key";
+      _reloadEnvForTest();
     });
 
     it("should return a provider", () => {
@@ -79,6 +87,7 @@ describe("getVibeProfilerProvider", () => {
 
     it("should use ANTHROPIC_VIBE_MODEL when set", () => {
       process.env.ANTHROPIC_VIBE_MODEL = "claude-sonnet-4-6";
+      _reloadEnvForTest();
       getVibeProfilerProvider();
       expect(mockConstructor).toHaveBeenCalledWith("claude-sonnet-4-6");
     });
@@ -87,6 +96,7 @@ describe("getVibeProfilerProvider", () => {
   describe("when ANTHROPIC_API_KEY is not set", () => {
     beforeEach(() => {
       delete process.env.ANTHROPIC_API_KEY;
+      _reloadEnvForTest();
     });
 
     it("should throw", () => {

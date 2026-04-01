@@ -1,5 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
+import { _reloadEnvForTest } from "@/lib/env";
 import { createSessionJWT, verifySessionJWT, getOrCreateUserId, SESSION_COOKIE } from "../session";
+
+beforeAll(() => {
+  process.env.NEXTAUTH_SECRET = "test-secret-not-real";
+  _reloadEnvForTest();
+});
 
 describe("createSessionJWT / verifySessionJWT", () => {
   describe("when creating and verifying a valid token", () => {

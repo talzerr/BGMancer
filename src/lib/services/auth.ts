@@ -1,15 +1,16 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
+import { env } from "@/lib/env";
 
 // OAuth is optional — only needed for the "Sync to YouTube" feature.
 // The curator (search + AI) works with just YOUTUBE_API_KEY + GOOGLE_AI_API_KEY.
-export const AUTH_CONFIGURED = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+export const AUTH_CONFIGURED = env.authConfigured;
 
 const providers = AUTH_CONFIGURED
   ? [
       Google({
-        clientId: process.env.GOOGLE_CLIENT_ID ?? "",
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+        clientId: env.googleClientId ?? "",
+        clientSecret: env.googleClientSecret ?? "",
         authorization: {
           params: {
             scope: ["openid", "email", "profile", "https://www.googleapis.com/auth/youtube"].join(

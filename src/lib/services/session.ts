@@ -1,13 +1,13 @@
 import { SignJWT, jwtVerify } from "jose";
 import type { ReadonlyRequestCookies } from "next/dist/server/web/spec-extension/adapters/request-cookies";
+import { env } from "@/lib/env";
 import { LOCAL_USER_ID } from "@/lib/db";
 
 export const SESSION_COOKIE = "bgmancer-uid";
 const ALG = "HS256";
 
 function getSecret(): Uint8Array {
-  const s = process.env.NEXTAUTH_SECRET ?? "dev-fallback-secret-change-me";
-  return new TextEncoder().encode(s);
+  return new TextEncoder().encode(env.nextAuthSecret);
 }
 
 export async function createSessionJWT(uid: string): Promise<string> {
