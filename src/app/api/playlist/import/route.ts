@@ -38,7 +38,7 @@ export async function POST(request: Request) {
 
     // Rate-limit guests to protect YouTube API quota
     if (!userId) {
-      const limited = checkGuestRateLimit(request);
+      const limited = await checkGuestRateLimit(request);
       if (limited) {
         return NextResponse.json(
           { error: `Please wait ${limited.waitSec}s before trying again.` },
