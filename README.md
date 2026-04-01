@@ -6,12 +6,12 @@ Uses [Anthropic Claude](https://anthropic.com) as the LLM backend. YouTube playb
 
 ## Running locally
 
-**Requirements:** Node.js ≥ 18, a [YouTube Data API v3 key](https://console.cloud.google.com/), a [Steam API key](https://steamcommunity.com/dev/apikey), and an [Anthropic API key](https://console.anthropic.com).
+**Requirements:** Node.js ≥ 22, pnpm, a [YouTube Data API v3 key](https://console.cloud.google.com/), a [Steam API key](https://steamcommunity.com/dev/apikey), and an [Anthropic API key](https://console.anthropic.com).
 
 ```bash
 git clone https://github.com/talzerr/bgmancer.git
 cd bgmancer
-npm install
+pnpm install
 cp .env.local.example .env.local
 ```
 
@@ -29,7 +29,7 @@ NEXTAUTH_SECRET=          # any random string
 ```
 
 ```bash
-npm run dev   # → http://localhost:6959
+pnpm dev   # → http://localhost:6959
 ```
 
 ## Built with

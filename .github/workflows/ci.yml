@@ -17,24 +17,26 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
-          cache: npm
+          node-version: 22
+          cache: pnpm
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
 
       - name: Load test env
         run: cp .env.test .env.local
 
       - name: Lint
-        run: npm run lint
+        run: pnpm lint
 
       - name: Format check
-        run: npm run format:check
+        run: pnpm format:check
 
       - name: Tests + Coverage
-        run: npm run test:coverage
+        run: pnpm test:coverage
 
       - name: Build
-        run: npm run build
+        run: pnpm build

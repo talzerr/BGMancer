@@ -1,5 +1,5 @@
 // Creates a bit-perfect backup of the database using SQLite's native Backup API.
-// Usage: npm run db:snapshot [-- --name my-backup]
+// Usage: pnpm db:snapshot [-- --name my-backup]
 //        Creates: backups/<name|timestamp>.db
 
 const Database = require("better-sqlite3");

@@ -1,5 +1,5 @@
 // Restores the database from a .db backup file.
-// Usage: npm run db:restore [-- path/to/backup.db]
+// Usage: pnpm db:restore [-- path/to/backup.db]
 //        If no path is given, uses the most recently modified file in backups/.
 //
 // WARNING: The current database will be replaced entirely.

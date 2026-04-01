@@ -569,7 +569,7 @@ Final items that round out the production experience.
 
 **Scope:**
 
-- Create a set of admin npm scripts (e.g., `npm run admin:sql`, `npm run admin:user-info`) that wrap `wrangler d1 execute` for common operations
+- Create a set of admin scripts (e.g., `pnpm admin:sql`, `pnpm admin:user-info`) that wrap `wrangler d1 execute` for common operations
 - Add a protected `POST /api/backstage/admin/execute-sql` endpoint for emergencies (behind Cloudflare Access + additional confirmation)
 - Document the "how to do X in production" runbook: common admin operations and which tool to use
 - Ensure Backstage UI covers 90% of admin needs so raw SQL is rarely needed

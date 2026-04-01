@@ -1,5 +1,5 @@
 // Deletes the database file so the app recreates the full schema on next server start.
-// Usage: npm run db:reset
+// Usage: pnpm db:reset
 // WARNING: All data will be lost.
 
 const fs = require("fs");

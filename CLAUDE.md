@@ -5,21 +5,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run dev          # Start dev server (Turbopack, port 6959)
-npm run build        # Production build
-npm run lint         # ESLint
-npm run lint:fix     # ESLint with auto-fix
-npm run format       # Prettier (write)
-npm run format:check # Prettier (check only)
-npm run test         # Run all tests (Vitest)
-npm run test:watch   # Tests in watch mode
-npm run test:coverage # Tests with coverage report
-npm run db:generate  # Generate migration from schema diff
-npm run db:migrate   # Apply pending migrations (standalone)
-npm run db:studio    # Open Drizzle Studio (browser DB inspector)
-npm run db:reset     # Drop and recreate the database
-npm run db:backup    # Snapshot the database
-npm run db:restore   # Restore from snapshot
+pnpm dev          # Start dev server (Turbopack, port 6959)
+pnpm build        # Production build
+pnpm lint         # ESLint
+pnpm lint:fix     # ESLint with auto-fix
+pnpm format       # Prettier (write)
+pnpm format:check # Prettier (check only)
+pnpm test         # Run all tests (Vitest)
+pnpm test:watch   # Tests in watch mode
+pnpm test:coverage # Tests with coverage report
+pnpm db:generate  # Generate migration from schema diff
+pnpm db:migrate   # Apply pending migrations (standalone)
+pnpm db:studio    # Open Drizzle Studio (browser DB inspector)
+pnpm db:reset     # Drop and recreate the database
+pnpm db:backup    # Snapshot the database
+pnpm db:restore   # Restore from snapshot
 ```
 
 Tests run via Vitest. Lint and format run automatically via husky pre-commit on staged `.ts`/`.tsx` files.
@@ -163,10 +163,10 @@ Schema is defined in `src/lib/db/drizzle-schema.ts` using Drizzle's SQLite schem
 **Workflow:**
 
 1. Edit `src/lib/db/drizzle-schema.ts`
-2. Run `npm run db:generate` — diffs against the latest snapshot and produces a new `.sql` migration file
-3. Run `npm run db:reset` — deletes the DB; next app start applies all migrations from scratch
+2. Run `pnpm db:generate` — diffs against the latest snapshot and produces a new `.sql` migration file
+3. Run `pnpm db:reset` — deletes the DB; next app start applies all migrations from scratch
 
-While there are no production users, you can collapse to a single migration by deleting `drizzle/migrations/` and re-running `npm run db:generate`. Once there is real user data, use incremental migrations instead.
+While there are no production users, you can collapse to a single migration by deleting `drizzle/migrations/` and re-running `pnpm db:generate`. Once there is real user data, use incremental migrations instead.
 
 ### Review flags
 

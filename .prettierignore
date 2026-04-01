@@ -5,3 +5,4 @@ node_modules/
 *.db-wal
 backups/
 snapshots/
+pnpm-lock.yaml
