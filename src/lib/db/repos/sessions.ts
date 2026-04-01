@@ -26,23 +26,21 @@ export const Sessions = {
   async create(userId: string, name: string, description?: string): Promise<PlaylistSession> {
     const db = getDB();
 
-    const result = db
+    const { cnt } = db
       .select({ cnt: count() })
       .from(playlists)
       .where(eq(playlists.user_id, userId))
-      .get() ?? { cnt: 0 };
+      .get()!;
 
-    if (result.cnt >= MAX_PLAYLIST_SESSIONS) {
+    if (cnt >= MAX_PLAYLIST_SESSIONS) {
       const oldest = db
         .select({ id: playlists.id })
         .from(playlists)
         .where(eq(playlists.user_id, userId))
         .orderBy(asc(playlists.created_at))
         .limit(1)
-        .get();
-      if (oldest) {
-        db.delete(playlists).where(eq(playlists.id, oldest.id)).run();
-      }
+        .get()!;
+      db.delete(playlists).where(eq(playlists.id, oldest.id)).run();
     }
 
     const id = newId();
@@ -50,9 +48,7 @@ export const Sessions = {
       .values({ id, user_id: userId, name, description: description ?? null })
       .run();
 
-    const created = db.select().from(playlists).where(eq(playlists.id, id)).get();
-    if (!created) throw new Error(`[Sessions.create] session ${id} not found after INSERT`);
-    return rowToSession(created);
+    return rowToSession(db.select().from(playlists).where(eq(playlists.id, id)).get()!);
   },
 
   /** Returns the most recently created non-archived session for the user, or null if none exist. */

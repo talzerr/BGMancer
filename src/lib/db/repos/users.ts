@@ -27,9 +27,7 @@ export const Users = {
       tx.insert(libraries).values({ id: newId(), user_id: id }).onConflictDoNothing().run();
     });
 
-    const created = db.select().from(users).where(eq(users.id, id)).get();
-    if (!created) throw new Error(`[Users.getOrCreate] user ${id} not found after INSERT`);
-    return rowToUser(created);
+    return rowToUser(db.select().from(users).where(eq(users.id, id)).get()!);
   },
 
   async getById(id: string): Promise<User | null> {

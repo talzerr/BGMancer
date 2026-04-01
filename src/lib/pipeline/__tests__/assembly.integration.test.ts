@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type Database from "better-sqlite3";
+import type { DrizzleDB } from "@/lib/db";
 import {
   createTestDrizzleDB,
-  clearStmtCache,
   seedTestUser,
   seedTestGame,
   seedTestSession,
@@ -40,7 +40,6 @@ const { Playlist } = await import("@/lib/db/repo");
 
 beforeEach(() => {
   ({ db, rawDb } = createTestDrizzleDB());
-  clearStmtCache();
   seedTestUser(rawDb);
   mockFindBestVideo.mockReset();
 });

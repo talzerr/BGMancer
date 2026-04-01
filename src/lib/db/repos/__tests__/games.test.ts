@@ -1,12 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type Database from "better-sqlite3";
 import type { DrizzleDB } from "@/lib/db";
-import {
-  createTestDrizzleDB,
-  clearStmtCache,
-  seedTestUser,
-  seedTestGame,
-} from "../../test-helpers";
+import { createTestDrizzleDB, seedTestUser, seedTestGame } from "../../test-helpers";
 import { TEST_USER_ID, TEST_GAME_ID } from "@/test/constants";
 
 let db: DrizzleDB;
@@ -27,7 +22,6 @@ const { CurationMode } = await import("@/types");
 
 beforeEach(() => {
   ({ db, rawDb } = createTestDrizzleDB());
-  clearStmtCache();
   seedTestUser(rawDb);
 });
 

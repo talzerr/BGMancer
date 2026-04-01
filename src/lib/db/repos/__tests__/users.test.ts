@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type Database from "better-sqlite3";
-import { createTestDrizzleDB, clearStmtCache, seedTestUser } from "../../test-helpers";
+import { createTestDrizzleDB, seedTestUser } from "../../test-helpers";
 import { TEST_USER_ID, TEST_USER_EMAIL } from "@/test/constants";
 import type { DrizzleDB } from "@/lib/db";
 
@@ -26,7 +26,6 @@ beforeEach(() => {
   const testDb = createTestDrizzleDB();
   db = testDb.db;
   rawDb = testDb.rawDb;
-  clearStmtCache();
   seedTestUser(rawDb);
 });
 

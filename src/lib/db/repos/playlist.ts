@@ -85,8 +85,8 @@ export const Playlist = {
       SELECT COUNT(*) AS cnt FROM playlist_tracks
       WHERE synced_at IS NOT NULL
         AND playlist_id = (SELECT id FROM playlists WHERE user_id = ${userId} AND is_archived = 0 ORDER BY created_at DESC LIMIT 1)
-    `);
-    return row?.cnt ?? 0;
+    `)!;
+    return row.cnt;
   },
 
   async replaceAll(playlistId: string, tracks: InsertableTrack[]): Promise<void> {

@@ -1,11 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type Database from "better-sqlite3";
-import {
-  createTestDrizzleDB,
-  clearStmtCache,
-  seedTestUser,
-  seedTestGame,
-} from "@/lib/db/test-helpers";
+import type { DrizzleDB } from "@/lib/db";
+import { createTestDrizzleDB, seedTestUser, seedTestGame } from "@/lib/db/test-helpers";
 import { TEST_USER_ID, TEST_GAME_ID, TEST_GAME_TITLE } from "@/test/constants";
 import { makeJsonRequest, parseJson } from "@/test/route-helpers";
 
@@ -26,7 +22,6 @@ const { DELETE: DELETE_HANDLER } = await import("../route");
 
 beforeEach(() => {
   ({ db, rawDb } = createTestDrizzleDB());
-  clearStmtCache();
   seedTestUser(rawDb);
 });
 

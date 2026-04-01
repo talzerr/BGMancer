@@ -55,7 +55,7 @@ export const ReviewFlags = {
         .select({ cnt: count() })
         .from(gameReviewFlags)
         .where(eq(gameReviewFlags.game_id, gameId))
-        .get() ?? { cnt: 0 };
+        .get()!;
       if (remaining.cnt === 0) {
         tx.update(games)
           .set({

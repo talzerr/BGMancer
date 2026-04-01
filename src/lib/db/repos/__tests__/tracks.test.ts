@@ -3,7 +3,6 @@ import type Database from "better-sqlite3";
 import type { DrizzleDB } from "@/lib/db";
 import {
   createTestDrizzleDB,
-  clearStmtCache,
   seedTestUser,
   seedTestGame,
   seedTestTracks,
@@ -28,7 +27,6 @@ let gameId: string;
 
 beforeEach(() => {
   ({ db, rawDb } = createTestDrizzleDB());
-  clearStmtCache();
   ({ userId } = seedTestUser(rawDb));
   gameId = seedTestGame(rawDb, userId);
 });
@@ -100,6 +98,22 @@ describe("Tracks", () => {
     describe("when no tracks exist", () => {
       it("should return an empty array", async () => {
         expect(await Tracks.getByGame(gameId)).toEqual([]);
+      });
+    });
+
+    describe("when tracks have malformed JSON in tag columns", () => {
+      it("should return empty arrays for roles/moods/instrumentation", async () => {
+        rawDb
+          .prepare(
+            "INSERT INTO tracks (game_id, name, position, roles, moods, instrumentation) VALUES (?, ?, ?, ?, ?, ?)",
+          )
+          .run(gameId, "Bad JSON Track", 0, "{not json", "also bad", "nope");
+
+        const tracks = await Tracks.getByGame(gameId);
+        expect(tracks).toHaveLength(1);
+        expect(tracks[0].roles).toEqual([]);
+        expect(tracks[0].moods).toEqual([]);
+        expect(tracks[0].instrumentation).toEqual([]);
       });
     });
   });

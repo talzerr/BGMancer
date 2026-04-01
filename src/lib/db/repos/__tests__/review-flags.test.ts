@@ -1,12 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type Database from "better-sqlite3";
 import type { DrizzleDB } from "@/lib/db";
-import {
-  createTestDrizzleDB,
-  clearStmtCache,
-  seedTestUser,
-  seedTestGame,
-} from "../../test-helpers";
+import { createTestDrizzleDB, seedTestUser, seedTestGame } from "../../test-helpers";
 import { ReviewReason } from "@/types";
 let db: DrizzleDB;
 let rawDb: Database.Database;
@@ -29,7 +24,6 @@ let gameId: string;
 
 beforeEach(() => {
   ({ db, rawDb } = createTestDrizzleDB());
-  clearStmtCache();
   ({ userId } = seedTestUser(rawDb));
   gameId = seedTestGame(rawDb, userId, { id: "game-review" });
 });

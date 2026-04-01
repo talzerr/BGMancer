@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type Database from "better-sqlite3";
+import type { DrizzleDB } from "@/lib/db";
 import { NextRequest } from "next/server";
 import {
   createTestDrizzleDB,
-  clearStmtCache,
   seedTestUser,
   seedTestGame,
   seedTestSession,
@@ -63,7 +63,6 @@ const { GET, DELETE: DELETE_HANDLER, PATCH } = await import("../route");
 
 beforeEach(() => {
   ({ db, rawDb } = createTestDrizzleDB());
-  clearStmtCache();
   seedTestUser(rawDb);
 });
 

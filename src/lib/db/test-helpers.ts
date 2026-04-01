@@ -18,14 +18,6 @@ export function createTestDrizzleDB(): { db: DrizzleDB; rawDb: Database.Database
   return { db, rawDb };
 }
 
-/**
- * No-op — previously cleared the prepared statement cache.
- * Kept for backward compatibility with existing test files.
- */
-export function clearStmtCache(): void {
-  // No longer needed — Drizzle manages its own statement lifecycle.
-}
-
 /** Inserts a test user + library. Returns { userId, libraryId }. */
 export function seedTestUser(
   db: Database.Database,

@@ -3,7 +3,6 @@ import type Database from "better-sqlite3";
 import type { DrizzleDB } from "@/lib/db";
 import {
   createTestDrizzleDB,
-  clearStmtCache,
   seedTestUser,
   seedTestGame,
   seedTestTracks,
@@ -29,7 +28,6 @@ const { OnboardingPhase } = await import("@/types");
 
 beforeEach(() => {
   ({ db, rawDb } = createTestDrizzleDB());
-  clearStmtCache();
   seedTestUser(rawDb);
 });
 
@@ -160,6 +158,26 @@ describe("BackstageGames", () => {
         const updated = await BackstageGames.update(game.id, { steam_appid: null });
         expect(updated).not.toBeNull();
         expect(updated!.steam_appid).toBeNull();
+      });
+    });
+
+    describe("when updating yt_playlist_id", () => {
+      it("should set the playlist ID", async () => {
+        const game = await BackstageGames.createDraft("YT Game");
+        const updated = await BackstageGames.update(game.id, {
+          yt_playlist_id: "PLxxxxxxxx",
+        });
+        expect(updated!.yt_playlist_id).toBe("PLxxxxxxxx");
+      });
+    });
+
+    describe("when updating thumbnail_url", () => {
+      it("should set the thumbnail URL", async () => {
+        const game = await BackstageGames.createDraft("Thumb Game");
+        const updated = await BackstageGames.update(game.id, {
+          thumbnail_url: "https://example.com/thumb.jpg",
+        });
+        expect(updated!.thumbnail_url).toBe("https://example.com/thumb.jpg");
       });
     });
   });

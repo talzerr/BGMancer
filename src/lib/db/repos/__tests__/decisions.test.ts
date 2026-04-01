@@ -3,7 +3,6 @@ import type Database from "better-sqlite3";
 import type { DrizzleDB } from "@/lib/db";
 import {
   createTestDrizzleDB,
-  clearStmtCache,
   seedTestUser,
   seedTestGame,
   seedTestSession,
@@ -31,7 +30,6 @@ let playlistId: string;
 
 beforeEach(() => {
   ({ db, rawDb } = createTestDrizzleDB());
-  clearStmtCache();
   ({ userId } = seedTestUser(rawDb));
   gameId = seedTestGame(rawDb, userId, { id: "game-decisions" });
   playlistId = seedTestSession(rawDb, userId, { id: "session-decisions" });

@@ -45,7 +45,7 @@ export const VideoTracks = {
 
     const map = new Map<string, string>();
     for (const row of rows) {
-      if (row.track_name) map.set(row.track_name, row.video_id);
+      map.set(row.track_name!, row.video_id);
     }
     return map;
   },

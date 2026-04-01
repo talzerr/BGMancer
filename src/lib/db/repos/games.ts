@@ -51,8 +51,8 @@ export const Games = {
       JOIN library_games lg ON lg.game_id = g.id
       WHERE lg.library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
         AND g.id != ${YT_IMPORT_GAME_ID}
-    `);
-    return row?.cnt ?? 0;
+    `)!;
+    return row.cnt;
   },
 
   async findByTitle(title: string): Promise<Game | null> {

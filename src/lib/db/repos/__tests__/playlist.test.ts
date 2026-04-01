@@ -3,7 +3,6 @@ import type Database from "better-sqlite3";
 import type { DrizzleDB } from "@/lib/db";
 import {
   createTestDrizzleDB,
-  clearStmtCache,
   seedTestUser,
   seedTestGame,
   seedTestSession,
@@ -46,7 +45,6 @@ function makeTrack(overrides: Partial<InsertableTrack> & { id: string }): Insert
 
 beforeEach(() => {
   ({ db, rawDb } = createTestDrizzleDB());
-  clearStmtCache();
   ({ userId } = seedTestUser(rawDb));
   gameId = seedTestGame(rawDb, userId);
   sessionId = seedTestSession(rawDb, userId);
