@@ -16,6 +16,9 @@ const SYNC_CONCURRENCY = 4;
  * Syncs all unsynced found tracks to a YouTube playlist ("BGMancer Journey").
  * Requires the user to be signed in with Google (OAuth access token via NextAuth).
  * Creates the YouTube playlist if it doesn't exist yet.
+ *
+ * Does not use withRequiredAuth because it needs the full NextAuth session
+ * (OAuth access_token) — not just the userId.
  */
 export async function POST() {
   try {

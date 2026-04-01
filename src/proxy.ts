@@ -18,10 +18,10 @@ export function proxy(request: NextRequest) {
   }
 
   // Admin routes: ADMIN_SECRET must be configured and cookie must match.
+  // Dev: skip admin auth so Backstage is accessible without ADMIN_SECRET locally.
   if (!env.isDev && route.auth === AuthLevel.Admin) {
-    const adminSecret = process.env.ADMIN_SECRET;
     const adminToken = request.cookies.get(ADMIN_COOKIE)?.value;
-    if (!adminSecret || adminToken !== adminSecret) {
+    if (!env.adminSecret || adminToken !== env.adminSecret) {
       return new NextResponse(null, { status: 404 });
     }
   }

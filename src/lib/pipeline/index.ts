@@ -1,6 +1,6 @@
 import { Games, Playlist, Sessions, DirectorDecisions } from "@/lib/db/repo";
-import { CurationMode, GameProgressStatus, TrackStatus } from "@/types";
-import type { TrackDecision } from "@/types";
+import { GameProgressStatus, TrackStatus } from "@/types";
+import type { CurationMode, TrackDecision } from "@/types";
 import { fetchGameCandidates } from "@/lib/pipeline/candidates";
 import { toInsertable, resolvePendingSlots, taggedTrackToPending } from "@/lib/pipeline/assembly";
 import { assemblePlaylist } from "@/lib/pipeline/director";
@@ -149,7 +149,7 @@ async function persistSession(
  */
 export async function generatePlaylistForGuest(
   send: Send,
-  gameSelections: Array<{ gameId: string; curation?: string }>,
+  gameSelections: Array<{ gameId: string; curation?: CurationMode }>,
   config: AppConfig,
 ): Promise<void> {
   const gameIds = gameSelections.map((s) => s.gameId);
@@ -167,8 +167,8 @@ export async function generatePlaylistForGuest(
   const curationMap = new Map(gameSelections.map((s) => [s.gameId, s.curation]));
   for (const game of games) {
     const curation = curationMap.get(game.id);
-    if (curation && Object.values(CurationMode).includes(curation as CurationMode)) {
-      game.curation = curation as CurationMode;
+    if (curation) {
+      game.curation = curation;
     }
   }
 
