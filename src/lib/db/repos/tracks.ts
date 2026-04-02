@@ -52,7 +52,7 @@ function parseJsonArray(raw: string | null): string[] {
 
 export const Tracks = {
   async getByGame(gameId: string): Promise<Track[]> {
-    const rows = getDB()
+    const rows = await getDB()
       .select()
       .from(tracks)
       .where(eq(tracks.game_id, gameId))
@@ -92,20 +92,20 @@ export const Tracks = {
   },
 
   async hasData(gameId: string): Promise<boolean> {
-    const row = getDB()
+    const row = (await getDB()
       .select({ cnt: count() })
       .from(tracks)
       .where(eq(tracks.game_id, gameId))
-      .get() ?? { cnt: 0 };
+      .get()) ?? { cnt: 0 };
     return row.cnt > 0;
   },
 
   async isTagged(gameId: string): Promise<boolean> {
-    const row = getDB()
+    const row = (await getDB()
       .select({ cnt: count() })
       .from(tracks)
       .where(and(eq(tracks.game_id, gameId), isNotNull(tracks.tagged_at)))
-      .get() ?? { cnt: 0 };
+      .get()) ?? { cnt: 0 };
     return row.cnt > 0;
   },
 
@@ -120,7 +120,7 @@ export const Tracks = {
       hasVocals: boolean;
     },
   ): Promise<void> {
-    getDB().run(sql`
+    await getDB().run(sql`
       UPDATE tracks
       SET energy = ${tags.energy}, roles = ${tags.roles}, moods = ${tags.moods},
           instrumentation = ${tags.instrumentation},
@@ -132,7 +132,7 @@ export const Tracks = {
   },
 
   async insertDiscovered(gameId: string, name: string): Promise<void> {
-    getDB().run(sql`
+    await getDB().run(sql`
       INSERT OR IGNORE INTO tracks (game_id, name, position, active, discovered)
       VALUES (${gameId}, ${name}, (SELECT COALESCE(MAX(position), 0) + 1 FROM tracks WHERE game_id = ${gameId}), 0, 'pending')
     `);
@@ -169,7 +169,7 @@ export const Tracks = {
   },
 
   async clearTags(gameId: string): Promise<void> {
-    getDB()
+    await getDB()
       .update(tracks)
       .set({
         energy: null,
@@ -217,7 +217,9 @@ export const Tracks = {
     if (setParts.length === 0) return;
 
     const setClause = sql.join(setParts, sql.raw(", "));
-    getDB().run(sql`UPDATE tracks SET ${setClause} WHERE game_id = ${gameId} AND name = ${name}`);
+    await getDB().run(
+      sql`UPDATE tracks SET ${setClause} WHERE game_id = ${gameId} AND name = ${name}`,
+    );
   },
 
   async deleteByKeys(keys: { gameId: string; name: string }[]): Promise<void> {
@@ -235,11 +237,11 @@ export const Tracks = {
   },
 
   async deleteByGame(gameId: string): Promise<void> {
-    getDB().delete(tracks).where(eq(tracks.game_id, gameId)).run();
+    await getDB().delete(tracks).where(eq(tracks.game_id, gameId)).run();
   },
 
   async listAllWithVideoIds(): Promise<BackstageTrackRow[]> {
-    const rows = getDB().all(sql`
+    const rows = await getDB().all(sql`
       SELECT t.*, g.title AS game_title,
         (SELECT vt.video_id FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS video_id,
         (SELECT vt.duration_seconds FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS duration_seconds,
@@ -271,7 +273,7 @@ export const Tracks = {
     const whereClause =
       conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql.raw(" AND "))}` : sql.raw("");
 
-    const rows = getDB().all(sql`
+    const rows = await getDB().all(sql`
       SELECT t.*, g.title AS game_title,
         (SELECT vt.video_id FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS video_id,
         (SELECT vt.duration_seconds FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS duration_seconds,

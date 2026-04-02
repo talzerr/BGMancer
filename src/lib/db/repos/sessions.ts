@@ -26,34 +26,35 @@ export const Sessions = {
   async create(userId: string, name: string, description?: string): Promise<PlaylistSession> {
     const db = getDB();
 
-    const { cnt } = db
+    const { cnt } = (await db
       .select({ cnt: count() })
       .from(playlists)
       .where(eq(playlists.user_id, userId))
-      .get()!;
+      .get())!;
 
     if (cnt >= MAX_PLAYLIST_SESSIONS) {
-      const oldest = db
+      const oldest = (await db
         .select({ id: playlists.id })
         .from(playlists)
         .where(eq(playlists.user_id, userId))
         .orderBy(asc(playlists.created_at))
         .limit(1)
-        .get()!;
-      db.delete(playlists).where(eq(playlists.id, oldest.id)).run();
+        .get())!;
+      await db.delete(playlists).where(eq(playlists.id, oldest.id)).run();
     }
 
     const id = newId();
-    db.insert(playlists)
+    await db
+      .insert(playlists)
       .values({ id, user_id: userId, name, description: description ?? null })
       .run();
 
-    return rowToSession(db.select().from(playlists).where(eq(playlists.id, id)).get()!);
+    return rowToSession((await db.select().from(playlists).where(eq(playlists.id, id)).get())!);
   },
 
   /** Returns the most recently created non-archived session for the user, or null if none exist. */
   async getActive(userId: string): Promise<PlaylistSession | null> {
-    const row = getDB()
+    const row = await getDB()
       .select()
       .from(playlists)
       .where(and(eq(playlists.user_id, userId), eq(playlists.is_archived, false)))
@@ -64,7 +65,7 @@ export const Sessions = {
   },
 
   async getById(id: string): Promise<PlaylistSession | null> {
-    const row = getDB().select().from(playlists).where(eq(playlists.id, id)).get();
+    const row = await getDB().select().from(playlists).where(eq(playlists.id, id)).get();
     return row ? rowToSession(row) : null;
   },
 
@@ -72,7 +73,7 @@ export const Sessions = {
   async listAllWithCounts(
     userId: string,
   ): Promise<Array<PlaylistSession & { track_count: number }>> {
-    const rows = getDB()
+    const rows = await getDB()
       .select({
         id: playlists.id,
         user_id: playlists.user_id,
@@ -103,7 +104,7 @@ export const Sessions = {
   },
 
   async rename(id: string, name: string): Promise<void> {
-    getDB().update(playlists).set({ name }).where(eq(playlists.id, id)).run();
+    await getDB().update(playlists).set({ name }).where(eq(playlists.id, id)).run();
   },
 
   /** Stores rubric + game budgets on a session after generation. */
@@ -112,7 +113,7 @@ export const Sessions = {
     rubric?: ScoringRubric,
     gameBudgets?: Record<string, number>,
   ): Promise<void> {
-    getDB()
+    await getDB()
       .update(playlists)
       .set({
         rubric: rubric ? JSON.stringify(rubric) : null,
@@ -124,7 +125,7 @@ export const Sessions = {
 
   /** Returns a session with its telemetry columns parsed. */
   async getByIdWithTelemetry(id: string): Promise<SessionWithTelemetry | null> {
-    const row = getDB().select().from(playlists).where(eq(playlists.id, id)).get();
+    const row = await getDB().select().from(playlists).where(eq(playlists.id, id)).get();
     if (!row) return null;
     let rubric: ScoringRubric | null = null;
     let gameBudgets: Record<string, number> | null = null;
@@ -147,7 +148,7 @@ export const Sessions = {
 
   /** Returns recent sessions across all users — used by Backstage Theatre. */
   async listRecent(limit = 20): Promise<Array<PlaylistSession & { track_count: number }>> {
-    const rows = getDB()
+    const rows = await getDB()
       .select({
         id: playlists.id,
         user_id: playlists.user_id,
@@ -179,6 +180,6 @@ export const Sessions = {
 
   /** Hard-deletes a session and all its tracks (via CASCADE). */
   async delete(id: string): Promise<void> {
-    getDB().delete(playlists).where(eq(playlists.id, id)).run();
+    await getDB().delete(playlists).where(eq(playlists.id, id)).run();
   },
 };

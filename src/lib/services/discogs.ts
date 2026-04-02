@@ -14,8 +14,9 @@ async function discogsGet(url: string): Promise<{ data: unknown; remaining: numb
   if (!res.ok) {
     // 404 = genuinely not found — return null so callers can try alternatives
     if (res.status === 404) return null;
-    // Everything else is an operational error — surface it
-    throw new Error(`Discogs API error: ${res.status} ${url}`);
+    if (res.status === 429)
+      throw new Error("Discogs rate limit exceeded. Wait a moment and try again.");
+    throw new Error(`Discogs API error (${res.status}). Check server logs for details.`);
   }
   const remaining = Number(res.headers.get("X-Discogs-Ratelimit-Remaining") ?? "99");
   const data = await res.json();

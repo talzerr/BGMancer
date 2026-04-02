@@ -34,7 +34,7 @@ export const DirectorDecisions = {
   },
 
   async listByPlaylist(playlistId: string): Promise<TrackDecision[]> {
-    const rows = getDB()
+    const rows = await getDB()
       .select()
       .from(playlistTrackDecisions)
       .where(eq(playlistTrackDecisions.playlist_id, playlistId))

@@ -17,7 +17,7 @@ export const Users = {
   /** Create or fetch a user from an OAuth profile (email is the unique key). */
   async createFromOAuth(email: string, name?: string | null): Promise<User> {
     const db = getDB();
-    const existing = db.select().from(users).where(eq(users.email, email)).get();
+    const existing = await db.select().from(users).where(eq(users.email, email)).get();
     if (existing) return rowToUser(existing);
 
     const id = newId();
@@ -29,12 +29,12 @@ export const Users = {
       tx.insert(libraries).values({ id: newId(), user_id: id }).onConflictDoNothing().run();
     });
 
-    return rowToUser(db.select().from(users).where(eq(users.id, id)).get()!);
+    return rowToUser((await db.select().from(users).where(eq(users.id, id)).get())!);
   },
 
   async getOrCreate(id: string): Promise<User> {
     const db = getDB();
-    const existing = db.select().from(users).where(eq(users.id, id)).get();
+    const existing = await db.select().from(users).where(eq(users.id, id)).get();
     if (existing) return rowToUser(existing);
 
     db.transaction((tx) => {
@@ -45,11 +45,11 @@ export const Users = {
       tx.insert(libraries).values({ id: newId(), user_id: id }).onConflictDoNothing().run();
     });
 
-    return rowToUser(db.select().from(users).where(eq(users.id, id)).get()!);
+    return rowToUser((await db.select().from(users).where(eq(users.id, id)).get())!);
   },
 
   async getById(id: string): Promise<User | null> {
-    const row = getDB().select().from(users).where(eq(users.id, id)).get();
+    const row = await getDB().select().from(users).where(eq(users.id, id)).get();
     return row ? rowToUser(row) : null;
   },
 
@@ -89,7 +89,7 @@ export const Users = {
   },
 
   async releaseGenerationLock(id: string): Promise<void> {
-    getDB()
+    await getDB()
       .update(users)
       .set({
         is_generating: false,

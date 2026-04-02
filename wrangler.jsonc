@@ -10,6 +10,12 @@
 		"directory": ".open-next/assets",
 		"binding": "ASSETS"
 	},
+	"observability": {
+		"logs": {
+			"enabled": true,
+			"invocation_logs": true
+		}
+	},
 	// D1 database binding — fill database_id after running:
 	//   wrangler d1 create bgmancer-prod
 	"d1_databases": [
@@ -31,7 +37,8 @@
 	// Non-secret env vars. Secrets are set via: wrangler secret put <NAME>
 	"vars": {
 		"NODE_ENV": "production",
-		"NEXTAUTH_URL": "https://bgmancer.com"
+		"NEXTAUTH_URL": "https://bgmancer.com",
+		"AUTH_TRUST_HOST": "true"
 	},
 	// ─── Staging environment ────────────────────────────────────────────────
 	// Deploy with: opennextjs-cloudflare build && wrangler deploy --env staging
@@ -55,7 +62,8 @@
 			],
 			"vars": {
 				"NODE_ENV": "production",
-				"NEXTAUTH_URL": "https://staging.bgmancer.com"
+				"NEXTAUTH_URL": "https://staging.bgmancer.com",
+				"AUTH_TRUST_HOST": "true"
 			}
 		}
 	}

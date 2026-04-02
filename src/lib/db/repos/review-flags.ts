@@ -39,7 +39,7 @@ export const ReviewFlags = {
   },
 
   async listByGame(gameId: string): Promise<ReviewFlag[]> {
-    const rows = getDB()
+    const rows = await getDB()
       .select()
       .from(gameReviewFlags)
       .where(eq(gameReviewFlags.game_id, gameId))

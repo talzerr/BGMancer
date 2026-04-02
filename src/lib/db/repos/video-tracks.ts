@@ -11,7 +11,7 @@ export const VideoTracks = {
       { trackName: string | null; durationSeconds: number | null; viewCount: number | null }
     >
   > {
-    const rows = getDB()
+    const rows = await getDB()
       .select({
         video_id: videoTracks.video_id,
         track_name: videoTracks.track_name,
@@ -37,7 +37,7 @@ export const VideoTracks = {
   },
 
   async getTrackToVideo(gameId: string): Promise<Map<string, string>> {
-    const rows = getDB()
+    const rows = await getDB()
       .select({ video_id: videoTracks.video_id, track_name: videoTracks.track_name })
       .from(videoTracks)
       .where(and(eq(videoTracks.game_id, gameId), isNotNull(videoTracks.track_name)))
@@ -79,7 +79,7 @@ export const VideoTracks = {
     trackName: string,
     fields: { videoId: string; durationSeconds?: number | null; viewCount?: number | null },
   ): Promise<void> {
-    getDB()
+    await getDB()
       .insert(videoTracks)
       .values({
         video_id: fields.videoId,

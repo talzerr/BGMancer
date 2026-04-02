@@ -9,9 +9,10 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "i.ytimg.com" },
       { protocol: "https", hostname: "img.youtube.com" },
-      // Steam cover art (library page)
-      { protocol: "https", hostname: "cdn.akamai.steamstatic.com" },
-      { protocol: "https", hostname: "cdn.cloudflare.steamstatic.com" },
+      // Steam cover art (library page) — multiple CDN subdomains
+      { protocol: "https", hostname: "**.steamstatic.com" },
+      // Google profile avatars
+      { protocol: "https", hostname: "lh3.googleusercontent.com" },
     ],
   },
   async headers() {
@@ -42,7 +43,7 @@ const nextConfig: NextConfig = {
               // Next.js injects inline scripts for hydration; 'unsafe-inline' required
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
               // Images: YouTube thumbnails + Steam cover art
-              "img-src 'self' data: https://i.ytimg.com https://img.youtube.com https://cdn.akamai.steamstatic.com https://cdn.cloudflare.steamstatic.com",
+              "img-src 'self' data: https://i.ytimg.com https://img.youtube.com https://*.steamstatic.com https://lh3.googleusercontent.com",
               // API calls to Anthropic (server-side, but including for completeness)
               "connect-src 'self' https://api.anthropic.com",
               // Fonts loaded from same origin
