@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "./drizzle-schema";
@@ -13,7 +14,6 @@ export function getDB(): DrizzleDB {
 /**
  * Execute multiple queries in a single batch (D1 sends them in one HTTP roundtrip).
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function batch(queries: any[]): Promise<void> {
   if (queries.length === 0) return;
   await getDB().batch(queries as [any]);
