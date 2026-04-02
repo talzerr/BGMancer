@@ -1,4 +1,4 @@
-import { getDB } from "@/lib/db";
+import { getDB, batch } from "@/lib/db";
 import { eq, sql } from "drizzle-orm";
 import { users, libraries } from "@/lib/db/drizzle-schema";
 import type { User } from "@/types";
@@ -21,13 +21,14 @@ export const Users = {
     if (existing) return rowToUser(existing);
 
     const id = newId();
-    db.transaction((tx) => {
-      tx.insert(users)
+
+    await batch([
+      db
+        .insert(users)
         .values({ id, email, username: name ?? null })
-        .onConflictDoNothing()
-        .run();
-      tx.insert(libraries).values({ id: newId(), user_id: id }).onConflictDoNothing().run();
-    });
+        .onConflictDoNothing(),
+      db.insert(libraries).values({ id: newId(), user_id: id }).onConflictDoNothing(),
+    ]);
 
     return rowToUser((await db.select().from(users).where(eq(users.id, id)).get())!);
   },
@@ -37,13 +38,13 @@ export const Users = {
     const existing = await db.select().from(users).where(eq(users.id, id)).get();
     if (existing) return rowToUser(existing);
 
-    db.transaction((tx) => {
-      tx.insert(users)
+    await batch([
+      db
+        .insert(users)
         .values({ id, email: `anon+${id}@bgmancer.app` })
-        .onConflictDoNothing()
-        .run();
-      tx.insert(libraries).values({ id: newId(), user_id: id }).onConflictDoNothing().run();
-    });
+        .onConflictDoNothing(),
+      db.insert(libraries).values({ id: newId(), user_id: id }).onConflictDoNothing(),
+    ]);
 
     return rowToUser((await db.select().from(users).where(eq(users.id, id)).get())!);
   },
@@ -58,34 +59,32 @@ export const Users = {
     cooldownMs: number,
   ): Promise<{ acquired: boolean; reason?: string }> {
     const db = getDB();
-    return db.transaction((tx) => {
-      const row = tx
-        .select({ is_generating: users.is_generating, last_generated_at: users.last_generated_at })
-        .from(users)
-        .where(eq(users.id, id))
-        .get();
+    const row = await db
+      .select({ is_generating: users.is_generating, last_generated_at: users.last_generated_at })
+      .from(users)
+      .where(eq(users.id, id))
+      .get();
 
-      if (!row) return { acquired: false, reason: "User not found" };
+    if (!row) return { acquired: false, reason: "User not found" };
 
-      if (row.is_generating) {
-        return {
-          acquired: false,
-          reason: "A generation is already in progress. Please wait for it to finish.",
-        };
-      }
+    if (row.is_generating) {
+      return {
+        acquired: false,
+        reason: "A generation is already in progress. Please wait for it to finish.",
+      };
+    }
 
-      const lastGenTime = row.last_generated_at ? new Date(row.last_generated_at).getTime() : 0;
-      const cooldownRemaining = cooldownMs - (Date.now() - lastGenTime);
-      if (cooldownRemaining > 0) {
-        return {
-          acquired: false,
-          reason: `Please wait ${Math.ceil(cooldownRemaining / 1000)}s before generating again.`,
-        };
-      }
+    const lastGenTime = row.last_generated_at ? new Date(row.last_generated_at).getTime() : 0;
+    const cooldownRemaining = cooldownMs - (Date.now() - lastGenTime);
+    if (cooldownRemaining > 0) {
+      return {
+        acquired: false,
+        reason: `Please wait ${Math.ceil(cooldownRemaining / 1000)}s before generating again.`,
+      };
+    }
 
-      tx.update(users).set({ is_generating: true }).where(eq(users.id, id)).run();
-      return { acquired: true };
-    });
+    await db.update(users).set({ is_generating: true }).where(eq(users.id, id)).run();
+    return { acquired: true };
   },
 
   async releaseGenerationLock(id: string): Promise<void> {

@@ -1,4 +1,4 @@
-import { getDB } from "@/lib/db";
+import { getDB, batch } from "@/lib/db";
 import { eq, and, isNotNull, sql } from "drizzle-orm";
 import { videoTracks } from "@/lib/db/drizzle-schema";
 
@@ -54,9 +54,11 @@ export const VideoTracks = {
     rows: { videoId: string; gameId: string; trackName: string | null }[],
   ): Promise<void> {
     if (rows.length === 0) return;
-    getDB().transaction((tx) => {
-      for (const row of rows) {
-        tx.insert(videoTracks)
+
+    await batch(
+      rows.map((row) =>
+        getDB()
+          .insert(videoTracks)
           .values({
             video_id: row.videoId,
             game_id: row.gameId,
@@ -68,10 +70,9 @@ export const VideoTracks = {
               track_name: sql`excluded.track_name`,
               aligned_at: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
             },
-          })
-          .run();
-      }
-    });
+          }),
+      ),
+    );
   },
 
   async upsertSingle(
@@ -109,9 +110,11 @@ export const VideoTracks = {
     }[],
   ): Promise<void> {
     if (entries.length === 0) return;
-    getDB().transaction((tx) => {
-      for (const e of entries) {
-        tx.insert(videoTracks)
+
+    await batch(
+      entries.map((e) =>
+        getDB()
+          .insert(videoTracks)
           .values({
             video_id: e.videoId,
             game_id: e.gameId,
@@ -125,9 +128,8 @@ export const VideoTracks = {
               duration_seconds: sql`COALESCE(video_tracks.duration_seconds, excluded.duration_seconds)`,
               view_count: sql`excluded.view_count`,
             },
-          })
-          .run();
-      }
-    });
+          }),
+      ),
+    );
   },
 };

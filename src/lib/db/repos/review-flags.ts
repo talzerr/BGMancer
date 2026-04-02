@@ -1,4 +1,4 @@
-import { getDB } from "@/lib/db";
+import { getDB, batch } from "@/lib/db";
 import { eq, asc, count } from "drizzle-orm";
 import { gameReviewFlags, games } from "@/lib/db/drizzle-schema";
 import { sql } from "drizzle-orm";
@@ -24,18 +24,18 @@ function rowToFlag(row: typeof gameReviewFlags.$inferSelect): ReviewFlag {
 
 export const ReviewFlags = {
   async markAsNeedsReview(gameId: string, reason: ReviewReason, detail?: string): Promise<void> {
-    getDB().transaction((tx) => {
-      tx.insert(gameReviewFlags)
-        .values({ game_id: gameId, reason, detail: detail ?? null })
-        .run();
-      tx.update(games)
+    await batch([
+      getDB()
+        .insert(gameReviewFlags)
+        .values({ game_id: gameId, reason, detail: detail ?? null }),
+      getDB()
+        .update(games)
         .set({
           needs_review: true,
           updated_at: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
         })
-        .where(eq(games.id, gameId))
-        .run();
-    });
+        .where(eq(games.id, gameId)),
+    ]);
   },
 
   async listByGame(gameId: string): Promise<ReviewFlag[]> {
@@ -49,35 +49,35 @@ export const ReviewFlags = {
   },
 
   async dismiss(flagId: number, gameId: string): Promise<void> {
-    getDB().transaction((tx) => {
-      tx.delete(gameReviewFlags).where(eq(gameReviewFlags.id, flagId)).run();
-      const remaining = tx
-        .select({ cnt: count() })
-        .from(gameReviewFlags)
-        .where(eq(gameReviewFlags.game_id, gameId))
-        .get()!;
-      if (remaining.cnt === 0) {
-        tx.update(games)
-          .set({
-            needs_review: false,
-            updated_at: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
-          })
-          .where(eq(games.id, gameId))
-          .run();
-      }
-    });
-  },
-
-  async clearByGame(gameId: string): Promise<void> {
-    getDB().transaction((tx) => {
-      tx.delete(gameReviewFlags).where(eq(gameReviewFlags.game_id, gameId)).run();
-      tx.update(games)
+    const db = getDB();
+    await db.delete(gameReviewFlags).where(eq(gameReviewFlags.id, flagId)).run();
+    const remaining = (await db
+      .select({ cnt: count() })
+      .from(gameReviewFlags)
+      .where(eq(gameReviewFlags.game_id, gameId))
+      .get()) ?? { cnt: 0 };
+    if (remaining.cnt === 0) {
+      await db
+        .update(games)
         .set({
           needs_review: false,
           updated_at: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
         })
         .where(eq(games.id, gameId))
         .run();
-    });
+    }
+  },
+
+  async clearByGame(gameId: string): Promise<void> {
+    await batch([
+      getDB().delete(gameReviewFlags).where(eq(gameReviewFlags.game_id, gameId)),
+      getDB()
+        .update(games)
+        .set({
+          needs_review: false,
+          updated_at: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
+        })
+        .where(eq(games.id, gameId)),
+    ]);
   },
 };

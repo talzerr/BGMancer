@@ -97,22 +97,20 @@ export const Games = {
   ): Promise<Game> {
     const db = getDB();
     const thumbnail = steamAppid ? steamHeaderUrl(steamAppid) : null;
-    return db.transaction((tx) => {
-      tx.run(sql`
-        INSERT INTO games (id, title, steam_appid, thumbnail_url) VALUES (${id}, ${title}, ${steamAppid}, ${thumbnail})
-      `);
-      tx.run(sql`
-        INSERT OR IGNORE INTO library_games (library_id, game_id, curation)
-        VALUES ((SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1), ${id}, ${curation})
-      `);
-      const row = tx.get(sql`
-        SELECT g.*, lg.curation FROM games g
-        JOIN library_games lg ON lg.game_id = g.id
-        WHERE g.id = ${id}
-          AND lg.library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
-      `);
-      return toGame(row as Record<string, unknown>);
-    });
+    await db.run(sql`
+      INSERT INTO games (id, title, steam_appid, thumbnail_url) VALUES (${id}, ${title}, ${steamAppid}, ${thumbnail})
+    `);
+    await db.run(sql`
+      INSERT OR IGNORE INTO library_games (library_id, game_id, curation)
+      VALUES ((SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1), ${id}, ${curation})
+    `);
+    const row = await db.get(sql`
+      SELECT g.*, lg.curation FROM games g
+      JOIN library_games lg ON lg.game_id = g.id
+      WHERE g.id = ${id}
+        AND lg.library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
+    `);
+    return toGame(row as Record<string, unknown>);
   },
 
   async linkToLibrary(

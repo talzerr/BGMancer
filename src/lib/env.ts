@@ -40,9 +40,6 @@ interface Env {
   /** Default Anthropic model (fallback for tagging + vibe). */
   anthropicModel: string | undefined;
 
-  /** SQLite database path (only used in local dev, not on Cloudflare Workers). */
-  sqlitePath: string | undefined;
-
   /** Current NODE_ENV. */
   nodeEnv: string;
 
@@ -95,8 +92,6 @@ function loadEnv(): Env {
     anthropicVibeModel: process.env.ANTHROPIC_VIBE_MODEL || undefined,
     anthropicModel: process.env.ANTHROPIC_MODEL || undefined,
 
-    sqlitePath: process.env.SQLITE_PATH || undefined,
-
     nodeEnv,
 
     isDev: nodeEnv === "development" || nodeEnv === "test",
@@ -104,12 +99,27 @@ function loadEnv(): Env {
 }
 
 // ---------------------------------------------------------------------------
-// Singleton export
+// Lazy singleton — loaded on first access, not at module load time.
+// In Cloudflare Workers, process.env is populated per-request,
+// so reading it at module initialization would miss secrets.
 // ---------------------------------------------------------------------------
 
-export let env: Env = loadEnv();
+let _env: Env | null = null;
+
+export function getEnv(): Env {
+  if (!_env) _env = loadEnv();
+  return _env;
+}
+
+// Convenience alias — most consumers use `env.foo` directly.
+// Uses a getter so the first access triggers lazy initialization.
+export const env: Env = new Proxy({} as Env, {
+  get(_target, prop) {
+    return getEnv()[prop as keyof Env];
+  },
+});
 
 /** Re-read process.env and rebuild the env object. Test-only. */
 export function _reloadEnvForTest(): void {
-  env = loadEnv();
+  _env = loadEnv();
 }

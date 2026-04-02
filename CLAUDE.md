@@ -15,9 +15,10 @@ pnpm test         # Run all tests (Vitest)
 pnpm test:watch   # Tests in watch mode
 pnpm test:coverage # Tests with coverage report
 pnpm db:generate  # Generate migration from schema diff
-pnpm db:migrate   # Apply pending migrations (standalone)
+pnpm db:migrate   # Apply pending migrations to local D1
 pnpm db:studio    # Open Drizzle Studio (browser DB inspector)
-pnpm db:reset     # Drop and recreate the database
+pnpm db:reset     # Wipe local D1 state (run db:migrate after)
+pnpm preview      # Build + preview in Cloudflare Workers runtime
 ```
 
 Tests run via Vitest. Lint and format run automatically via husky pre-commit on staged `.ts`/`.tsx` files.
@@ -105,18 +106,17 @@ Use `usePlayerContext()` to access any of these from any client component.
 
 ### Database layer (`src/lib/db/`)
 
-Uses **Drizzle ORM** with `better-sqlite3` as the local driver. All repo methods are **async** (returns `Promise<T>`) to prepare for Cloudflare D1 migration.
+Uses **Drizzle ORM** with **Cloudflare D1** as the database driver everywhere (dev, staging, production). Local dev uses D1 emulation via miniflare (provided by `initOpenNextCloudflareForDev()` in `next.config.ts`). Tests use better-sqlite3 in-memory databases wrapped with a D1-compat layer.
 
-- `index.ts` — singleton `getDB()` returns a Drizzle instance, runs migrations on init, seeds default user
+- `index.ts` — `getDB()` returns a D1-backed Drizzle instance via `getCloudflareContext().env.DB`
 - `drizzle-schema.ts` — Drizzle schema definition for all tables, indexes, and foreign keys
 - `repo.ts` — barrel re-export for all repos in `repos/`
 - `repos/` — one file per domain: `games`, `backstage-games`, `users`, `sessions`, `playlist`, `tracks`, `video-tracks`, `review-flags`, `decisions`
 - `mappers.ts` — row → typed object converters (used by repos that query via `sql` tagged template)
 - `queries.ts` — shared Drizzle subquery helpers
-- `seed.ts` — seeds the local dev user on first run
-- `test-helpers.ts` — `createTestDrizzleDB()` for in-memory test databases
+- `test-helpers.ts` — `createTestDrizzleDB()` for in-memory test databases with D1-compat wrapper
 
-The local dev seed uses stable UUIDs: `LOCAL_USER_ID` and `LOCAL_LIBRARY_ID` (defined in `src/lib/db/seed.ts`). In production, users are created via `Users.createFromOAuth()` on first Google OAuth sign-in.
+Users are created via `Users.createFromOAuth()` on first Google OAuth sign-in. In local dev, the Credentials provider creates users on the fly.
 
 ### Playlist generation pipeline (`src/lib/pipeline/`)
 

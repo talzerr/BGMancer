@@ -10,9 +10,12 @@ function authHeaders(): Record<string, string> {
 }
 
 async function discogsGet(url: string): Promise<{ data: unknown; remaining: number } | null> {
-  const res = await fetch(url, { headers: authHeaders() });
+  const headers = authHeaders();
+  const res = await fetch(url, { headers });
   if (!res.ok) {
-    // 404 = genuinely not found — return null so callers can try alternatives
+    console.error(
+      `[Discogs] ${res.status} ${url.split("?")[0]} — remaining: ${res.headers.get("X-Discogs-Ratelimit-Remaining")}, auth: ${headers.Authorization ? "yes" : "no"}`,
+    );
     if (res.status === 404) return null;
     if (res.status === 429)
       throw new Error("Discogs rate limit exceeded. Wait a moment and try again.");

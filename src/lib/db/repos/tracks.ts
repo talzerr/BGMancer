@@ -1,4 +1,4 @@
-import { getDB } from "@/lib/db";
+import { getDB, batch } from "@/lib/db";
 import { eq, and, count, isNotNull, asc, sql } from "drizzle-orm";
 import { tracks, videoTracks } from "@/lib/db/drizzle-schema";
 import { toTrack } from "@/lib/db/mappers";
@@ -70,9 +70,11 @@ export const Tracks = {
     }>,
   ): Promise<void> {
     if (trackList.length === 0) return;
-    getDB().transaction((tx) => {
-      for (const t of trackList) {
-        tx.insert(tracks)
+
+    await batch(
+      trackList.map((t) =>
+        getDB()
+          .insert(tracks)
           .values({
             game_id: t.gameId,
             name: t.name,
@@ -85,10 +87,9 @@ export const Tracks = {
               position: sql`excluded.position`,
               duration_seconds: sql`COALESCE(excluded.duration_seconds, tracks.duration_seconds)`,
             },
-          })
-          .run();
-      }
-    });
+          }),
+      ),
+    );
   },
 
   async hasData(gameId: string): Promise<boolean> {
@@ -140,9 +141,11 @@ export const Tracks = {
 
   async approveDiscovered(gameId: string, names: string[]): Promise<void> {
     if (names.length === 0) return;
-    getDB().transaction((tx) => {
-      for (const name of names) {
-        tx.update(tracks)
+
+    await batch(
+      names.map((name) =>
+        getDB()
+          .update(tracks)
           .set({ discovered: "approved" })
           .where(
             and(
@@ -150,22 +153,22 @@ export const Tracks = {
               eq(tracks.name, name),
               eq(tracks.discovered, "pending"),
             ),
-          )
-          .run();
-      }
-    });
+          ),
+      ),
+    );
   },
 
   async rejectDiscovered(gameId: string, names: string[]): Promise<void> {
     if (names.length === 0) return;
-    getDB().transaction((tx) => {
-      for (const name of names) {
-        tx.update(tracks)
+
+    await batch(
+      names.map((name) =>
+        getDB()
+          .update(tracks)
           .set({ discovered: "rejected", active: false })
-          .where(and(eq(tracks.game_id, gameId), eq(tracks.name, name)))
-          .run();
-      }
-    });
+          .where(and(eq(tracks.game_id, gameId), eq(tracks.name, name))),
+      ),
+    );
   },
 
   async clearTags(gameId: string): Promise<void> {
@@ -224,16 +227,17 @@ export const Tracks = {
 
   async deleteByKeys(keys: { gameId: string; name: string }[]): Promise<void> {
     if (keys.length === 0) return;
-    getDB().transaction((tx) => {
-      for (const k of keys) {
-        tx.delete(videoTracks)
-          .where(and(eq(videoTracks.game_id, k.gameId), eq(videoTracks.track_name, k.name)))
-          .run();
-        tx.delete(tracks)
-          .where(and(eq(tracks.game_id, k.gameId), eq(tracks.name, k.name)))
-          .run();
-      }
-    });
+
+    await batch(
+      keys.flatMap((k) => [
+        getDB()
+          .delete(videoTracks)
+          .where(and(eq(videoTracks.game_id, k.gameId), eq(videoTracks.track_name, k.name))),
+        getDB()
+          .delete(tracks)
+          .where(and(eq(tracks.game_id, k.gameId), eq(tracks.name, k.name))),
+      ]),
+    );
   },
 
   async deleteByGame(gameId: string): Promise<void> {

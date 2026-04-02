@@ -1,4 +1,4 @@
-import { getDB } from "@/lib/db";
+import { getDB, batch } from "@/lib/db";
 import { eq, sql, and, inArray } from "drizzle-orm";
 import { playlistTracks, playlists } from "@/lib/db/drizzle-schema";
 import { toPlaylistTracks, parseSearchQueries } from "@/lib/db/mappers";
@@ -90,11 +90,11 @@ export const Playlist = {
   },
 
   async replaceAll(playlistId: string, tracks: InsertableTrack[]): Promise<void> {
-    getDB().transaction((tx) => {
-      tx.delete(playlistTracks).where(eq(playlistTracks.playlist_id, playlistId)).run();
-      for (let position = 0; position < tracks.length; position++) {
-        const t = tracks[position];
-        tx.insert(playlistTracks)
+    await batch([
+      getDB().delete(playlistTracks).where(eq(playlistTracks.playlist_id, playlistId)),
+      ...tracks.map((t, position) =>
+        getDB()
+          .insert(playlistTracks)
           .values({
             id: t.id,
             playlist_id: playlistId,
@@ -109,10 +109,9 @@ export const Playlist = {
             position,
             status: t.status,
             error_message: t.error_message,
-          })
-          .run();
-      }
-    });
+          }),
+      ),
+    ]);
   },
 
   async clearAll(userId: string): Promise<void> {
@@ -221,14 +220,11 @@ export const Playlist = {
   },
 
   async reorder(orderedIds: string[]): Promise<void> {
-    getDB().transaction((tx) => {
-      for (let i = 0; i < orderedIds.length; i++) {
-        tx.update(playlistTracks)
-          .set({ position: i })
-          .where(eq(playlistTracks.id, orderedIds[i]))
-          .run();
-      }
-    });
+    await batch(
+      orderedIds.map((id, i) =>
+        getDB().update(playlistTracks).set({ position: i }).where(eq(playlistTracks.id, id)),
+      ),
+    );
   },
 
   async getRecentTrackNames(

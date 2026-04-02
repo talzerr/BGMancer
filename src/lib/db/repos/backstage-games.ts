@@ -1,4 +1,4 @@
-import { getDB } from "@/lib/db";
+import { getDB, batch } from "@/lib/db";
 import { eq, sql } from "drizzle-orm";
 import { games, playlistTrackDecisions } from "@/lib/db/drizzle-schema";
 import { toGames } from "@/lib/db/mappers";
@@ -133,10 +133,10 @@ export const BackstageGames = {
     if (!game) return;
     if (game.published) throw new Error("[BackstageGames.destroy] cannot delete a published game");
 
-    getDB().transaction((tx) => {
-      tx.delete(playlistTrackDecisions).where(eq(playlistTrackDecisions.game_id, id)).run();
-      tx.delete(games).where(eq(games.id, id)).run();
-    });
+    await batch([
+      getDB().delete(playlistTrackDecisions).where(eq(playlistTrackDecisions.game_id, id)),
+      getDB().delete(games).where(eq(games.id, id)),
+    ]);
   },
 
   async listWithTrackStats(): Promise<BackstageGame[]> {
