@@ -1,4 +1,7 @@
+import { createLogger } from "@/lib/logger";
 import type { Track } from "@/types";
+
+const log = createLogger("tagger");
 import {
   DiscoveredStatus,
   ReviewReason,
@@ -128,7 +131,7 @@ export async function tagTracks(
     } catch (err) {
       // Re-throw abort errors — don't flag cancellations as failures
       if (signal?.aborted) throw err;
-      console.error(`[tagger] LLM call failed for game "${gameTitle}" batch ${batchNum}:`, err);
+      log.error("LLM call failed", { gameTitle, batch: batchNum }, err);
       await ReviewFlags.markAsNeedsReview(
         gameId,
         ReviewReason.LlmCallFailed,
@@ -141,10 +144,7 @@ export async function tagTracks(
     try {
       parsed = extractTagArray(raw);
     } catch (err) {
-      console.error(
-        `[tagger] Failed to parse LLM response for game "${gameTitle}" batch ${batchNum}:`,
-        err,
-      );
+      log.error("failed to parse LLM response", { gameTitle, batch: batchNum }, err);
       await ReviewFlags.markAsNeedsReview(
         gameId,
         ReviewReason.LlmParseFailed,

@@ -33,10 +33,10 @@ beforeEach(() => {
 describe("Users", () => {
   describe("createFromOAuth", () => {
     describe("when the email is new", () => {
-      it("should create a user and library", async () => {
-        const user = await Users.createFromOAuth("new@example.com", "New User");
+      it("should create a user and library with username derived from email", async () => {
+        const user = await Users.createFromOAuth("new@example.com");
         expect(user.email).toBe("new@example.com");
-        expect(user.username).toBe("New User");
+        expect(user.username).toBe("new");
         const lib = rawDb.prepare("SELECT * FROM libraries WHERE user_id = ?").get(user.id) as
           | Record<string, unknown>
           | undefined;
@@ -46,16 +46,9 @@ describe("Users", () => {
 
     describe("when the email already exists", () => {
       it("should return the existing user without duplicating", async () => {
-        const user = await Users.createFromOAuth(TEST_USER_EMAIL, "Different Name");
+        const user = await Users.createFromOAuth(TEST_USER_EMAIL);
         expect(user.id).toBe(TEST_USER_ID);
         expect(user.email).toBe(TEST_USER_EMAIL);
-      });
-    });
-
-    describe("when name is not provided", () => {
-      it("should create a user with null username", async () => {
-        const user = await Users.createFromOAuth("noname@example.com");
-        expect(user.username).toBeNull();
       });
     });
   });

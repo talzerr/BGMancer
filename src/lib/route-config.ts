@@ -28,6 +28,7 @@ export const routeConfig: Record<string, RouteEntry> = {
   // ── Pages ──────────────────────────────────────────────────
   "/": { auth: AuthLevel.Public },
   "/library": { auth: AuthLevel.Public }, // Renders empty for guests — auth resolved client-side
+  "/legal": { auth: AuthLevel.Public },
   "/backstage": { auth: AuthLevel.Admin },
   "/backstage/games": { auth: AuthLevel.Admin },
   "/backstage/games/[slug]": { auth: AuthLevel.Admin },

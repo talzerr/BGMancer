@@ -1,4 +1,7 @@
+import { createLogger } from "@/lib/logger";
 import type { Game, Track, ResolvedTrack } from "@/types";
+
+const log = createLogger("resolver");
 import { DiscoveredStatus, ReviewReason } from "@/types";
 import type { LLMProvider } from "@/lib/llm/provider";
 import type { OSTTrack } from "@/lib/services/youtube";
@@ -134,7 +137,7 @@ export async function resolveTracksToVideos(
       });
     } catch (err) {
       if (signal?.aborted) throw err;
-      console.error(`[resolver] LLM call failed for game "${game.title}" batch ${batchNum}:`, err);
+      log.error("LLM call failed", { gameTitle: game.title, batch: batchNum }, err);
       await ReviewFlags.markAsNeedsReview(
         game.id,
         ReviewReason.LlmCallFailed,
@@ -149,10 +152,7 @@ export async function resolveTracksToVideos(
       if (!jsonMatch) throw new Error("No JSON array found in response");
       parsed = JSON.parse(jsonMatch[0]) as AlignmentItem[];
     } catch (err) {
-      console.error(
-        `[resolver] Failed to parse LLM response for game "${game.title}" batch ${batchNum}:`,
-        err,
-      );
+      log.error("failed to parse LLM response", { gameTitle: game.title, batch: batchNum }, err);
       await ReviewFlags.markAsNeedsReview(
         game.id,
         ReviewReason.LlmParseFailed,
@@ -276,7 +276,7 @@ export async function resolveTracksToVideos(
     const query = `${game.title} ${track.name} OST`;
     fallbackCount++;
     try {
-      const results = await searchYouTube(query, true);
+      const results = await searchYouTube(query);
       if (results.length > 0) {
         const result = results[0];
         allResolved.set(track.name, result.videoId);
@@ -293,7 +293,7 @@ export async function resolveTracksToVideos(
       }
     } catch (err) {
       if (err instanceof YouTubeQuotaError || err instanceof YouTubeInvalidKeyError) throw err;
-      console.error(`[resolver] Fallback search failed for "${track.name}":`, err);
+      log.error("fallback search failed", { trackName: track.name }, err);
     }
   }
 

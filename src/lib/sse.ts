@@ -1,3 +1,7 @@
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("sse");
+
 export const SSE_HEADERS = {
   "Content-Type": "text/event-stream",
   "Cache-Control": "no-cache",
@@ -21,6 +25,7 @@ export function makeSSEStream<T>() {
       controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
     } catch {
       closed = true;
+      log.warn("enqueue failed — stream closed by client");
     }
   };
 
@@ -30,7 +35,7 @@ export function makeSSEStream<T>() {
     try {
       controller.close();
     } catch {
-      /* already closed */
+      log.warn("close failed — stream already closed");
     }
   };
 

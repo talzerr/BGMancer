@@ -13,8 +13,7 @@ const SEARCH_CONCURRENCY = 5;
  * Searches YouTube for all "pending" playlist tracks and updates them.
  * Each pending track has pre-generated search_queries from the LLM step.
  *
- * Full-OST tracks require a video >= 15 minutes.
- * Individual tracks accept any length.
+ * Videos longer than 15 minutes are rejected (likely compilations, not individual tracks).
  */
 export const POST = withRequiredAuth(async (userId) => {
   if (!env.youtubeApiKey) {
@@ -42,7 +41,7 @@ export const POST = withRequiredAuth(async (userId) => {
     await Playlist.setSearching(row.id);
 
     try {
-      const video = await findBestVideo(queries, true);
+      const video = await findBestVideo(queries);
 
       if (video) {
         await Playlist.setFound(

@@ -156,13 +156,14 @@ All providers implement `LLMProvider` (`src/lib/llm/provider.ts`): `complete(sys
 
 Config is stored in **localStorage** (not the DB). `useConfig` (`src/hooks/useConfig.ts`) reads/writes via `localStorage` with the following keys:
 
-| Key                        | Type       | Default | Purpose                                                |
-| -------------------------- | ---------- | ------- | ------------------------------------------------------ |
-| `bgm_target_track_count`   | number     | 50      | Target playlist length                                 |
-| `bgm_anti_spoiler_enabled` | "1" \| "0" | "0"     | Blur unplayed track titles                             |
-| `bgm_allow_long_tracks`    | "1" \| "0" | "0"     | Allow tracks >9min                                     |
-| `bgm_allow_short_tracks`   | "1" \| "0" | "1"     | Allow tracks <90s (note: always false in practice)     |
-| `bgm_raw_vibes`            | "1" \| "0" | "0"     | Disable view bias scoring — score on musical tags only |
+| Key                        | Type       | Default | Purpose                                                 |
+| -------------------------- | ---------- | ------- | ------------------------------------------------------- |
+| `bgm_target_track_count`   | number     | 50      | Target playlist length                                  |
+| `bgm_anti_spoiler_enabled` | "1" \| "0" | "0"     | Blur unplayed track titles                              |
+| `bgm_allow_long_tracks`    | "1" \| "0" | "0"     | Allow tracks >9min                                      |
+| `bgm_allow_short_tracks`   | "1" \| "0" | "1"     | Allow tracks <90s (note: always false in practice)      |
+| `bgm_raw_vibes`            | "1" \| "0" | "0"     | Disable view bias scoring — score on musical tags only  |
+| `bgm_skip_llm`             | "1" \| "0" | "0"     | Express Mode — skip Vibe Profiler for faster generation |
 
 There is no `/api/config` route. The hook uses `localStorage.getItem()` / `localStorage.setItem()` directly with boolean parsing via `v === "1"`. To add a new config key:
 
@@ -233,3 +234,31 @@ Games can be flagged for manual review via `ReviewFlags.markAsNeedsReview(gameId
 - `useEffect` must be placed **after** all `const` variables it references (temporal dead zone issue in this codebase's hook patterns)
 - Sessions are FIFO-evicted: at most `MAX_PLAYLIST_SESSIONS` (3) sessions are kept per user; the oldest is deleted automatically
 - YouTube OST playlist IDs are cached on the `games.yt_playlist_id` column to minimize API quota usage
+
+## Deployment
+
+The app runs on Cloudflare Workers via `@opennextjs/cloudflare`. Infrastructure is defined in `wrangler.jsonc`.
+
+```bash
+# Production
+pnpm cf-typegen                                          # generate Cloudflare env types
+pnpm opennextjs-cloudflare build                         # build for Workers
+wrangler deploy                                          # deploy to production
+wrangler d1 migrations apply bgmancer-prod --remote      # apply DB migrations
+
+# Staging
+wrangler deploy --env staging
+wrangler d1 migrations apply bgmancer-staging --remote --env staging
+
+# Secrets
+wrangler secret put <NAME>                               # push a secret to production
+wrangler secret put <NAME> --env staging                 # push a secret to staging
+
+# Rollback
+wrangler rollback                                        # revert to previous deployment
+
+# Logs
+wrangler tail                                            # live-stream Worker logs
+```
+
+The Cloudflare dashboard build command is: `pnpm cf-typegen && pnpm opennextjs-cloudflare build`

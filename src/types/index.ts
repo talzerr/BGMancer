@@ -159,6 +159,7 @@ export interface AppConfig {
   allow_long_tracks: boolean;
   allow_short_tracks: boolean;
   raw_vibes: boolean;
+  skip_llm: boolean;
 }
 
 // ─── Director telemetry ──────────────────────────────────────────────────────

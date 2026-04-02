@@ -41,6 +41,12 @@ describe("GET /api/games/catalog", () => {
       expect(ids).toContain("pub-a");
       expect(ids).toContain("pub-b");
     });
+
+    it("should set Cache-Control header for edge caching", async () => {
+      seedTestGame(rawDb, TEST_USER_ID, { id: "pub-c", title: "Cached Game", published: true });
+      const res = await GET(makeGetRequest("/api/games/catalog"));
+      expect(res.headers.get("Cache-Control")).toBe("public, s-maxage=300");
+    });
   });
 
   describe("when search query is provided", () => {

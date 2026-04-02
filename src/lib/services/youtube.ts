@@ -8,6 +8,9 @@ interface YouTubeSearchResult {
 }
 
 import { env } from "@/lib/env";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("youtube");
 
 const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
 
@@ -38,18 +41,22 @@ export class YouTubeInvalidKeyError extends Error {
 /** Parse a YouTube error response body and throw a fatal error if applicable */
 async function throwIfFatalError(res: Response): Promise<void> {
   const body = await res.text().catch(() => "");
-  console.error(`[YouTube] ${res.url.split("?")[0]} failed — ${res.status} ${res.statusText}`);
+  log.error("API request failed", {
+    url: res.url.split("?")[0],
+    status: res.status,
+    statusText: res.statusText,
+  });
   try {
     const parsed = JSON.parse(body);
     const reason = parsed?.error?.errors?.[0]?.reason;
-    console.error(`[YouTube] reason: ${reason ?? "unknown"}`);
+    log.error("error reason", { reason: reason ?? "unknown" });
     if (reason === "quotaExceeded") throw new YouTubeQuotaError();
     const details: Array<{ reason?: string }> = parsed?.error?.details ?? [];
     if (details.some((d) => d.reason === "API_KEY_INVALID")) throw new YouTubeInvalidKeyError();
   } catch (e) {
     if (e instanceof YouTubeQuotaError || e instanceof YouTubeInvalidKeyError) throw e;
   }
-  console.error(`[YouTube] response body: ${body}`);
+  log.error("response body", { body });
 }
 
 const REJECT_KEYWORDS = [
@@ -72,7 +79,7 @@ const REJECT_KEYWORDS = [
   "orchestral remix",
 ];
 
-const MIN_DURATION_SECONDS = 15 * 60; // 15 minutes
+import { YT_MAX_VIDEO_DURATION_SECONDS, YT_VIDEOS_PAGE_SIZE } from "@/lib/constants";
 
 /** Parse ISO 8601 duration string (PT1H23M45S) to seconds */
 export function parseDuration(iso: string): number {
@@ -94,10 +101,7 @@ export function isRejected(title: string, description: string): boolean {
  * Search YouTube and return validated results.
  * Uses search.list (100 units) + videos.list for duration (1 unit per video, max 10).
  */
-export async function searchYouTube(
-  query: string,
-  allowShortVideo = false,
-): Promise<YouTubeSearchResult[]> {
+export async function searchYouTube(query: string): Promise<YouTubeSearchResult[]> {
   const searchUrl = new URL(`${YOUTUBE_API_BASE}/search`);
   searchUrl.searchParams.set("key", getYouTubeApiKey());
   searchUrl.searchParams.set("q", query);
@@ -109,7 +113,7 @@ export async function searchYouTube(
 
   const searchRes = await fetch(searchUrl.toString());
   if (!searchRes.ok) {
-    console.error(`[YouTube] search.list — query: "${query}"`);
+    log.error("search.list failed", { query });
     await throwIfFatalError(searchRes);
     throw new Error(`YouTube search failed: ${searchRes.status} ${searchRes.statusText}`);
   }
@@ -171,7 +175,7 @@ export async function searchYouTube(
     const durationSeconds = durationMap.get(videoId) ?? 0;
 
     if (isRejected(title, description)) continue;
-    if (!allowShortVideo && durationSeconds < MIN_DURATION_SECONDS) continue;
+    if (durationSeconds > YT_MAX_VIDEO_DURATION_SECONDS) continue;
 
     results.push({ videoId, title, channelTitle, thumbnail, durationSeconds, description });
   }
@@ -183,12 +187,9 @@ export async function searchYouTube(
  * Given multiple search queries (tried in order), return the best result.
  * Returns the first accepted video from the first query that produces results.
  */
-export async function findBestVideo(
-  queries: string[],
-  allowShortVideo = false,
-): Promise<YouTubeSearchResult | null> {
+export async function findBestVideo(queries: string[]): Promise<YouTubeSearchResult | null> {
   for (const query of queries) {
-    const results = await searchYouTube(query, allowShortVideo);
+    const results = await searchYouTube(query);
     if (results.length > 0) {
       return results[0];
     }
@@ -202,7 +203,6 @@ export async function findBestVideo(
  * Adding `statistics` alongside `contentDetails` does not increase the quota cost for videos.list —
  * it remains 1 unit per call regardless of how many parts are requested.
  */
-const YT_VIDEOS_PAGE_SIZE = 50; // YouTube videos.list max IDs per request
 
 export interface VideoMetadata {
   durationSeconds: number;
@@ -226,9 +226,12 @@ export async function fetchVideoMetadata(videoIds: string[]): Promise<Map<string
     if (!res.ok) {
       // throwIfFatalError re-throws on quota/auth errors; for other failures, skip this chunk
       await throwIfFatalError(res);
-      console.warn(
-        `[YouTube] fetchVideoMetadata chunk ${i}–${i + chunk.length - 1} failed (${res.status}) — ${chunk.length} video IDs will have no view data`,
-      );
+      log.warn("fetchVideoMetadata chunk failed", {
+        chunkStart: i,
+        chunkEnd: i + chunk.length - 1,
+        status: res.status,
+        skipped: chunk.length,
+      });
       continue; // best-effort: skip this chunk, keep results so far
     }
 
@@ -287,7 +290,7 @@ export async function searchOSTPlaylist(gameTitle: string): Promise<string | nul
 
     const res = await fetch(url.toString());
     if (!res.ok) {
-      console.error(`[YouTube] searchOSTPlaylist — query: "${query}"`);
+      log.error("searchOSTPlaylist failed", { query });
       await throwIfFatalError(res);
       continue;
     }
@@ -331,7 +334,7 @@ export async function fetchPlaylistMetadata(
 
   const res = await fetch(url.toString());
   if (!res.ok) {
-    console.error(`[YouTube] fetchPlaylistMetadata — playlistId: ${playlistId}`);
+    log.error("fetchPlaylistMetadata failed", { playlistId });
     await throwIfFatalError(res);
     return null;
   }
@@ -368,7 +371,7 @@ export async function fetchPlaylistItems(playlistId: string, maxTracks = 150): P
 
     const res = await fetch(url.toString());
     if (!res.ok) {
-      console.error(`[YouTube] fetchPlaylistItems — playlistId: ${playlistId}`);
+      log.error("fetchPlaylistItems failed", { playlistId });
       await throwIfFatalError(res);
       break;
     }

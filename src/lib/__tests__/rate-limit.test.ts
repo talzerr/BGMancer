@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { checkRateLimit, getClientIp, checkGuestRateLimit } from "../rate-limit";
+import {
+  checkRateLimit,
+  getClientIp,
+  checkGuestRateLimit,
+  acquireLlmGeneration,
+} from "../rate-limit";
 
 describe("checkRateLimit", () => {
   beforeEach(() => {
@@ -117,5 +122,31 @@ describe("checkGuestRateLimit", () => {
     const result = await checkGuestRateLimit(makeGuestRequest("guest-shared"));
     expect(result).not.toBeNull();
     expect(result!.waitSec).toBeGreaterThan(0);
+  });
+});
+
+describe("acquireLlmGeneration", () => {
+  it("should allow and increment when under the cap", async () => {
+    expect(await acquireLlmGeneration("user-acq-1")).toBeNull();
+    expect(await acquireLlmGeneration("user-acq-1")).toBeNull();
+  });
+
+  it("should reject when at the cap", async () => {
+    const userId = "user-acq-2";
+    for (let i = 0; i < 10; i++) {
+      expect(await acquireLlmGeneration(userId)).toBeNull();
+    }
+    const result = await acquireLlmGeneration(userId);
+    expect(result).not.toBeNull();
+    expect(result!.error).toContain("Daily generation limit");
+  });
+
+  it("should allow exactly up to the cap", async () => {
+    const userId = "user-acq-3";
+    for (let i = 0; i < 9; i++) {
+      await acquireLlmGeneration(userId);
+    }
+    expect(await acquireLlmGeneration(userId)).toBeNull(); // 10th — allowed
+    expect(await acquireLlmGeneration(userId)).not.toBeNull(); // 11th — rejected
   });
 });

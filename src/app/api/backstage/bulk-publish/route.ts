@@ -1,5 +1,8 @@
 import { BackstageGames } from "@/lib/db/repo";
 import { NextResponse } from "next/server";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("backstage-publish");
 
 /** POST /api/backstage/bulk-publish — batch publish/unpublish games */
 export async function POST(req: Request) {
@@ -22,7 +25,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, count: gameIds.length });
   } catch (err) {
-    console.error("[POST /api/backstage/bulk-publish]", err);
+    log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to bulk update" }, { status: 500 });
   }
 }

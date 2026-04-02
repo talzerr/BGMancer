@@ -18,8 +18,7 @@
 
 ## Library & Integration
 
-- **Steam game list import** — let users import their Steam game lists, resolved against the existing game catalog in the database, to build their game library.
-- **YouTube OAuth login for playlist sync** — let users log in with YouTube privileges so curated playlists are created directly in their YouTube account.
+- **User-facing Steam import** — let users import their Steam game list directly (currently admin-only via Backstage).
 
 ## Walled Garden (Curated Library Model)
 
@@ -40,6 +39,10 @@ Current Vibe Check uses random 2.5× sample. For large libraries, only ~8% of tr
 
 - **Vibe input UI** _(depends on Vibe Profiler)_ — structured selectors: **Energy** (Calm / Balanced / Intense) + **Activity** (Study, Gaming, Commute, Exercise, Relaxing).
 
+## Per-user Generation Caps
+
+- **Admin-configurable cap** — move the daily LLM generation limit from a hardcoded constant to a DB-backed setting with per-user admin overrides via Backstage.
+
 ## Bugs
 
 ## Backstage
@@ -55,10 +58,6 @@ Current Vibe Check uses random 2.5× sample. For large libraries, only ~8% of tr
 
 ---
 
-## Deferred (Next Major Phase)
+## Deferred
 
-These are solid but blocked on auth or infrastructure changes:
-
-- **Production hardening** — multi-user auth, ownership checks, rate limiting, token expiration. See PRODUCTION_HARDENING_WORKDOC.md.
-- **Free/Account tier split** — localStorage for free users, backend for account users, capability gating. Requires auth.
-- **Playlist seed share** — encode playlists as compact strings; `/share/[seed]` read-only view. Lower priority.
+- **Playlist seed share** — encode playlists as compact strings; `/share/[seed]` read-only view.

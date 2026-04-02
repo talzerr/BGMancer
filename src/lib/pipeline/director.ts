@@ -1,3 +1,5 @@
+import { createLogger } from "@/lib/logger";
+import { VIEW_BIAS_LOG_MIN, VIEW_BIAS_LOG_MAX } from "@/lib/constants";
 import type {
   TaggedTrack,
   Game,
@@ -27,6 +29,8 @@ import {
   SCORE_VOCALS_PENALTY_MULTIPLIER,
   DIRECTOR_TOP_N_POOL,
 } from "@/lib/constants";
+
+const log = createLogger("director");
 
 export interface ArcSlot {
   phase: ArcPhase;
@@ -171,9 +175,6 @@ export function jaccard(a: string[], b: string[]): number {
 }
 
 // ─── View Bias computation ───────────────────────────────────────────────────
-
-const VIEW_BIAS_LOG_MIN = 3; // log10(1,000)
-const VIEW_BIAS_LOG_MAX = 7; // log10(10,000,000)
 
 export function computeGlobalHeat(viewCount: number | null): number {
   // Tracks with no view data get the baseline (0.3) rather than 0.0, to avoid penalising
@@ -525,10 +526,10 @@ export function assemblePlaylist(
     .map((d) => ({ ...d, position: slotToCompact.get(d.position) ?? d.position }));
 
   if (compactTracks.length < targetCount) {
-    console.warn(
-      `[director] Pool exhausted: assembled ${compactTracks.length}/${targetCount} tracks. ` +
-        `Consider adding more games or tracks.`,
-    );
+    log.warn("pool exhausted", {
+      assembled: compactTracks.length,
+      target: targetCount,
+    });
   }
 
   const gameBudgets: Record<string, number> = {};

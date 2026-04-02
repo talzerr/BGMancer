@@ -1,6 +1,9 @@
 import { BackstageGames, Games } from "@/lib/db/repo";
 import type { GameUpdateFields } from "@/lib/db/repos/backstage-games";
 import { NextResponse } from "next/server";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("backstage-games");
 
 /** PATCH /api/backstage/games/[gameId] — update game metadata */
 export async function PATCH(req: Request, { params }: { params: Promise<{ gameId: string }> }) {
@@ -30,7 +33,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ gameId
     }
     return NextResponse.json(updated);
   } catch (err) {
-    console.error("[PATCH /api/backstage/games]", err);
+    log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to update game" }, { status: 500 });
   }
 }
@@ -53,7 +56,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ game
     await BackstageGames.destroy(gameId);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("[DELETE /api/backstage/games]", err);
+    log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to delete game" }, { status: 500 });
   }
 }

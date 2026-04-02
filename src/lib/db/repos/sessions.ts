@@ -1,4 +1,7 @@
+import { createLogger } from "@/lib/logger";
 import { getDB } from "@/lib/db";
+
+const log = createLogger("sessions");
 import { eq, desc, asc, and, count } from "drizzle-orm";
 import { playlists, playlistTracks } from "@/lib/db/drizzle-schema";
 import type { PlaylistSession, ScoringRubric } from "@/types";
@@ -133,14 +136,14 @@ export const Sessions = {
       try {
         rubric = JSON.parse(row.rubric) as ScoringRubric;
       } catch {
-        console.error(`[Sessions] Failed to parse rubric for session ${id}`);
+        log.error("failed to parse rubric", { sessionId: id });
       }
     }
     if (row.game_budgets) {
       try {
         gameBudgets = JSON.parse(row.game_budgets) as Record<string, number>;
       } catch {
-        console.error(`[Sessions] Failed to parse game_budgets for session ${id}`);
+        log.error("failed to parse game_budgets", { sessionId: id });
       }
     }
     return { ...rowToSession(row), rubric, gameBudgets };

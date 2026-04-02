@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useCallback, useState } from "react";
+import Script from "next/script";
 import type { SyntheticEvent } from "react";
 import {
   DndContext,
@@ -27,27 +28,64 @@ import { PlaylistHeader } from "@/components/PlaylistHeader";
 import { SortableTrackItem } from "@/components/SortableTrackItem";
 import { PlaylistEmptyState } from "@/components/PlaylistEmptyState";
 import { UndoToast } from "@/components/UndoToast";
+import { InfoToast } from "@/components/InfoToast";
 
 interface FeedClientProps {
   isSignedIn: boolean;
   isDev: boolean;
+  turnstileSiteKey?: string;
 }
 
-export function FeedClient({ isSignedIn, isDev }: FeedClientProps) {
+export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientProps) {
   const { playlist, player, config, gameLibrary, gameThumbnailByGameId } = usePlayerContext();
   const { sessions, fetchSessions, handleRenameSession, handleDeleteSession } = useSessionManager();
+  const [llmCapReached, setLlmCapReached] = useState(false);
+  const [showLlmCapToast, setShowLlmCapToast] = useState(false);
   const { pendingDelete, initiateRemove, undoRemove } = useTrackDeleteUndo();
+
+  // ── Turnstile (guest bot protection) ──────────────────────────────────────
+
+  const turnstileRef = useRef<HTMLDivElement>(null);
+
+  const getTurnstileToken = useCallback((): Promise<string> => {
+    const turnstile = (window as unknown as { turnstile?: TurnstileApi }).turnstile;
+    if (!turnstile || !turnstileSiteKey) return Promise.resolve("");
+
+    const container = turnstileRef.current;
+    if (!container) return Promise.resolve("");
+
+    return new Promise<string>((resolve) => {
+      turnstile.render(container, {
+        sitekey: turnstileSiteKey,
+        callback: resolve,
+        "error-callback": () => resolve(""),
+        "expired-callback": () => resolve(""),
+      });
+    });
+  }, [turnstileSiteKey]);
 
   // ── Cross-hook action coordinators ────────────────────────────────────────
 
   async function handleGenerate() {
-    await playlist.handleGenerate(gameLibrary.games, {
-      target_track_count: config.targetTrackCount,
-      allow_long_tracks: config.allowLongTracks,
-      allow_short_tracks: config.allowShortTracks,
-      anti_spoiler_enabled: config.antiSpoilerEnabled,
-      raw_vibes: config.rawVibes,
-    });
+    const turnstileToken = !isSignedIn ? await getTurnstileToken() : undefined;
+
+    await playlist.handleGenerate(
+      gameLibrary.games,
+      {
+        target_track_count: config.targetTrackCount,
+        allow_long_tracks: config.allowLongTracks,
+        allow_short_tracks: config.allowShortTracks,
+        anti_spoiler_enabled: config.antiSpoilerEnabled,
+        raw_vibes: config.rawVibes,
+        skip_llm: config.skipLlm,
+        turnstileToken,
+      },
+      () => {
+        config.saveSkipLlm(true);
+        setLlmCapReached(true);
+        setShowLlmCapToast(true);
+      },
+    );
     await fetchSessions();
   }
 
@@ -90,6 +128,15 @@ export function FeedClient({ isSignedIn, isDev }: FeedClientProps) {
 
   return (
     <>
+      {!isSignedIn && turnstileSiteKey && (
+        <>
+          <Script
+            src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+            strategy="lazyOnload"
+          />
+          <div ref={turnstileRef} className="hidden" />
+        </>
+      )}
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[320px_1fr] lg:gap-8">
         {/* Left panel */}
         <aside className="flex flex-col gap-4 p-4 lg:sticky lg:top-[57px] lg:pl-0">
@@ -112,6 +159,10 @@ export function FeedClient({ isSignedIn, isDev }: FeedClientProps) {
             onToggleShortTracks={config.saveAllowShortTracks}
             rawVibes={config.rawVibes}
             onToggleRawVibes={config.saveRawVibes}
+            isSignedIn={isSignedIn}
+            skipLlm={config.skipLlm}
+            onToggleSkipLlm={config.saveSkipLlm}
+            llmCapReached={llmCapReached}
             importUrl={playlist.importUrl}
             onImportUrlChange={playlist.setImportUrl}
             importing={playlist.importing}
@@ -227,6 +278,12 @@ export function FeedClient({ isSignedIn, isDev }: FeedClientProps) {
       </div>
 
       {pendingDelete && <UndoToast track={pendingDelete.track} onUndo={undoRemove} />}
+      {showLlmCapToast && (
+        <InfoToast
+          message="Daily AI limit reached — switched to Express Mode."
+          onDone={() => setShowLlmCapToast(false)}
+        />
+      )}
     </>
   );
 }

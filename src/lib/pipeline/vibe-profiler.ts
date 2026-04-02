@@ -1,4 +1,7 @@
+import { createLogger } from "@/lib/logger";
 import type { LLMProvider } from "@/lib/llm/provider";
+
+const log = createLogger("vibe-profiler");
 import { TrackMood, TrackInstrumentation, TrackRole } from "@/types";
 import type { ScoringRubric } from "@/types";
 
@@ -62,13 +65,13 @@ export async function generateRubric(
       maxTokens: 1024,
     });
   } catch (err) {
-    console.error("[vibe-profiler] LLM call failed:", err);
+    log.error("LLM call failed", {}, err);
     return null;
   }
 
   const match = raw.match(/\{[\s\S]*\}/);
   if (!match) {
-    console.error("[vibe-profiler] No JSON object found in response:", raw);
+    log.error("no JSON object found in response", { raw });
     return null;
   }
 
@@ -76,7 +79,7 @@ export async function generateRubric(
   try {
     parsed = JSON.parse(match[0]) as Record<string, unknown>;
   } catch (err) {
-    console.error("[vibe-profiler] JSON parse failed:", err, match[0]);
+    log.error("JSON parse failed", { raw: match[0] }, err);
     return null;
   }
 
@@ -87,7 +90,7 @@ export async function generateRubric(
 
   const preferredMoods = filterMoods(parsed.preferredMoods, 5);
   if (preferredMoods.length === 0) {
-    console.error("[vibe-profiler] No valid preferredMoods after validation — discarding rubric");
+    log.error("no valid preferredMoods after validation — discarding rubric");
     return null;
   }
 

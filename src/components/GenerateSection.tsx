@@ -23,6 +23,10 @@ interface GenerateSectionProps {
   onToggleShortTracks: (enabled: boolean) => void;
   rawVibes: boolean;
   onToggleRawVibes: (enabled: boolean) => void;
+  isSignedIn: boolean;
+  skipLlm: boolean;
+  onToggleSkipLlm: (enabled: boolean) => void;
+  llmCapReached: boolean;
   // Import-related props
   importUrl: string;
   onImportUrlChange: (url: string) => void;
@@ -50,6 +54,10 @@ export function GenerateSection({
   onToggleShortTracks,
   rawVibes,
   onToggleRawVibes,
+  isSignedIn,
+  skipLlm,
+  onToggleSkipLlm,
+  llmCapReached,
   importUrl,
   onImportUrlChange,
   importing,
@@ -231,79 +239,110 @@ export function GenerateSection({
                 </div>
               </div>
 
-              {/* Options */}
-              <div className="flex flex-col gap-1">
-                <span className="font-display text-[11px] font-semibold tracking-widest text-zinc-400 uppercase">
-                  Options
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {/* Allow long tracks toggle */}
-                  <div className="group relative">
-                    <button
-                      onClick={() => onToggleLongTracks(!allowLongTracks)}
-                      className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
-                        allowLongTracks
-                          ? "border-orange-500/40 bg-orange-900/30 text-orange-300 hover:bg-orange-900/50"
-                          : "border-white/[0.06] bg-zinc-950/60 text-zinc-500 hover:border-white/[0.12] hover:text-zinc-300"
-                      }`}
-                    >
-                      <span>{allowLongTracks ? "⏱ Long tracks: on" : "⏱ Long tracks: off"}</span>
-                    </button>
-                    {/* Tooltip */}
-                    <div className="pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-56 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 opacity-0 shadow-xl shadow-black/50 transition-opacity group-hover:opacity-100">
-                      <p className="text-xs font-medium text-zinc-200">Allow long tracks</p>
-                      <p className="mt-0.5 text-[11px] leading-snug text-zinc-400">
-                        When off (default), tracks longer than 10 minutes are excluded. Useful for
-                        keeping a playlist focused — OST medleys and extended suites are skipped.
-                      </p>
+              {/* Options (logged-in only) */}
+              {isSignedIn && (
+                <div className="flex flex-col gap-1">
+                  <span className="font-display text-[11px] font-semibold tracking-widest text-zinc-400 uppercase">
+                    Options
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {/* Express Mode toggle */}
+                    <div className="group relative">
+                      <button
+                        onClick={() => !llmCapReached && onToggleSkipLlm(!skipLlm)}
+                        disabled={llmCapReached}
+                        className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
+                          llmCapReached
+                            ? "cursor-not-allowed border-zinc-700/40 bg-zinc-900/30 text-zinc-600"
+                            : skipLlm
+                              ? "cursor-pointer border-cyan-500/40 bg-cyan-900/30 text-cyan-300 hover:bg-cyan-900/50"
+                              : "cursor-pointer border-white/[0.06] bg-zinc-950/60 text-zinc-500 hover:border-white/[0.12] hover:text-zinc-300"
+                        }`}
+                      >
+                        <span>
+                          {llmCapReached
+                            ? "🎯 Express: always on"
+                            : skipLlm
+                              ? "🎯 Express: on"
+                              : "🎯 Express: off"}
+                        </span>
+                      </button>
+                      <div className="pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-56 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 opacity-0 shadow-xl shadow-black/50 transition-opacity group-hover:opacity-100">
+                        <p className="text-xs font-medium text-zinc-200">
+                          {llmCapReached ? "Daily AI limit reached" : "Express Mode"}
+                        </p>
+                        <p className="mt-0.5 text-[11px] leading-snug text-zinc-400">
+                          {llmCapReached
+                            ? "You've used all your AI-powered generations for today. Playlists are still curated, just without AI vibe scoring. Resets tomorrow."
+                            : "When on, skips the AI Vibe Profiler for faster generation. Playlists are still curated by the Director engine, just without AI-tuned mood scoring."}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  {/* Allow short tracks toggle */}
-                  <div className="group relative">
-                    <button
-                      onClick={() => onToggleShortTracks(!allowShortTracks)}
-                      className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
-                        allowShortTracks
-                          ? "border-violet-500/40 bg-violet-900/30 text-violet-300 hover:bg-violet-900/50"
-                          : "border-white/[0.06] bg-zinc-950/60 text-zinc-500 hover:border-white/[0.12] hover:text-zinc-300"
-                      }`}
-                    >
-                      <span>
-                        {allowShortTracks ? "⚡ Short tracks: on" : "⚡ Short tracks: off"}
-                      </span>
-                    </button>
-                    {/* Tooltip */}
-                    <div className="pointer-events-none absolute right-0 bottom-full z-10 mb-2 w-56 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 opacity-0 shadow-xl shadow-black/50 transition-opacity group-hover:opacity-100">
-                      <p className="text-xs font-medium text-zinc-200">Allow short tracks</p>
-                      <p className="mt-0.5 text-[11px] leading-snug text-zinc-400">
-                        When off (default), tracks under 90 seconds are excluded. Useful for keeping
-                        things flowing — intros, stingers, and short jingles are skipped.
-                      </p>
+                    {/* Allow long tracks toggle */}
+                    <div className="group relative">
+                      <button
+                        onClick={() => onToggleLongTracks(!allowLongTracks)}
+                        className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
+                          allowLongTracks
+                            ? "border-orange-500/40 bg-orange-900/30 text-orange-300 hover:bg-orange-900/50"
+                            : "border-white/[0.06] bg-zinc-950/60 text-zinc-500 hover:border-white/[0.12] hover:text-zinc-300"
+                        }`}
+                      >
+                        <span>{allowLongTracks ? "⏱ Long tracks: on" : "⏱ Long tracks: off"}</span>
+                      </button>
+                      <div className="pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-56 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 opacity-0 shadow-xl shadow-black/50 transition-opacity group-hover:opacity-100">
+                        <p className="text-xs font-medium text-zinc-200">Allow long tracks</p>
+                        <p className="mt-0.5 text-[11px] leading-snug text-zinc-400">
+                          When off (default), tracks longer than 10 minutes are excluded. Useful for
+                          keeping a playlist focused — OST medleys and extended suites are skipped.
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  {/* Raw vibes toggle */}
-                  <div className="group relative">
-                    <button
-                      onClick={() => onToggleRawVibes(!rawVibes)}
-                      className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
-                        rawVibes
-                          ? "border-purple-500/40 bg-purple-900/30 text-purple-300 hover:bg-purple-900/50"
-                          : "border-white/[0.06] bg-zinc-950/60 text-zinc-500 hover:border-white/[0.12] hover:text-zinc-300"
-                      }`}
-                    >
-                      <span>{rawVibes ? "♫ Raw vibes: on" : "♫ Raw vibes: off"}</span>
-                    </button>
-                    {/* Tooltip */}
-                    <div className="pointer-events-none absolute right-0 bottom-full z-10 mb-2 w-56 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 opacity-0 shadow-xl shadow-black/50 transition-opacity group-hover:opacity-100">
-                      <p className="text-xs font-medium text-zinc-200">Raw vibes</p>
-                      <p className="mt-0.5 text-[11px] leading-snug text-zinc-400">
-                        When on, ignores YouTube view counts — all tracks scored purely on musical
-                        tags. May surface more obscure tracks.
-                      </p>
+                    {/* Allow short tracks toggle */}
+                    <div className="group relative">
+                      <button
+                        onClick={() => onToggleShortTracks(!allowShortTracks)}
+                        className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
+                          allowShortTracks
+                            ? "border-violet-500/40 bg-violet-900/30 text-violet-300 hover:bg-violet-900/50"
+                            : "border-white/[0.06] bg-zinc-950/60 text-zinc-500 hover:border-white/[0.12] hover:text-zinc-300"
+                        }`}
+                      >
+                        <span>
+                          {allowShortTracks ? "⚡ Short tracks: on" : "⚡ Short tracks: off"}
+                        </span>
+                      </button>
+                      <div className="pointer-events-none absolute right-0 bottom-full z-10 mb-2 w-56 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 opacity-0 shadow-xl shadow-black/50 transition-opacity group-hover:opacity-100">
+                        <p className="text-xs font-medium text-zinc-200">Allow short tracks</p>
+                        <p className="mt-0.5 text-[11px] leading-snug text-zinc-400">
+                          When off (default), tracks under 90 seconds are excluded. Useful for
+                          keeping things flowing — intros, stingers, and short jingles are skipped.
+                        </p>
+                      </div>
+                    </div>
+                    {/* Raw vibes toggle */}
+                    <div className="group relative">
+                      <button
+                        onClick={() => onToggleRawVibes(!rawVibes)}
+                        className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
+                          rawVibes
+                            ? "border-purple-500/40 bg-purple-900/30 text-purple-300 hover:bg-purple-900/50"
+                            : "border-white/[0.06] bg-zinc-950/60 text-zinc-500 hover:border-white/[0.12] hover:text-zinc-300"
+                        }`}
+                      >
+                        <span>{rawVibes ? "♫ Raw vibes: on" : "♫ Raw vibes: off"}</span>
+                      </button>
+                      <div className="pointer-events-none absolute right-0 bottom-full z-10 mb-2 w-56 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 opacity-0 shadow-xl shadow-black/50 transition-opacity group-hover:opacity-100">
+                        <p className="text-xs font-medium text-zinc-200">Raw vibes</p>
+                        <p className="mt-0.5 text-[11px] leading-snug text-zinc-400">
+                          When on, ignores YouTube view counts — all tracks scored purely on musical
+                          tags. May surface more obscure tracks.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Action */}
               <div className="flex flex-col gap-2">
