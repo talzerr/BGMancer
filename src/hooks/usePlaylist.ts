@@ -28,7 +28,6 @@ export function usePlaylist() {
   const [tracksLoading, setTracksLoading] = useState(true);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
-  const [searching, setSearching] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [genProgress, setGenProgress] = useState<GameProgressEntry[]>([]);
   const [genGlobalMsg, setGenGlobalMsg] = useState<string>("");
@@ -247,19 +246,6 @@ export function usePlaylist() {
     }
   }
 
-  async function handleFindVideos() {
-    setSearching(true);
-    try {
-      const res = await fetch("/api/playlist/search", { method: "POST" });
-      const data = (await res.json()) as { tracks?: PlaylistTrack[] };
-      if (res.ok && data.tracks) setTracks(data.tracks);
-    } catch (err) {
-      console.error("Failed to search videos:", err);
-    } finally {
-      setSearching(false);
-    }
-  }
-
   async function handleClearPlaylist() {
     try {
       await fetch("/api/playlist", { method: "DELETE" });
@@ -313,7 +299,6 @@ export function usePlaylist() {
     tracksLoading,
     currentSessionId,
     generating,
-    searching,
     genError,
     genProgress,
     genGlobalMsg,
@@ -335,7 +320,6 @@ export function usePlaylist() {
     rerollTrack,
     reorderTracks,
     handleGenerate,
-    handleFindVideos,
     handleClearPlaylist,
     handleImport,
   };

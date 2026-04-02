@@ -3,7 +3,6 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { TrackStatus } from "@/types";
 import type { PlaylistTrack, PlaylistSessionWithCount } from "@/types";
 import {
   TEST_PLAYLIST_ID,
@@ -34,11 +33,8 @@ function makeTrack(overrides: Partial<PlaylistTrack> = {}): PlaylistTrack {
     video_title: TEST_VIDEO_TITLE,
     channel_title: TEST_CHANNEL_TITLE,
     thumbnail: TEST_THUMBNAIL_URL,
-    search_queries: null,
     duration_seconds: TEST_DURATION_SECONDS,
     position: 0,
-    status: TrackStatus.Found,
-    error_message: null,
     created_at: "2026-01-01T00:00:00Z",
     synced_at: null,
     ...overrides,
@@ -98,10 +94,8 @@ describe("PlaylistHeader", () => {
       playlist: {
         tracks: [],
         currentSessionId: SESSION_ID,
-        searching: false,
         confirmClear: false,
         setConfirmClear: vi.fn(),
-        handleFindVideos: vi.fn(),
       },
       config: {
         antiSpoilerEnabled: false,
@@ -148,7 +142,7 @@ describe("PlaylistHeader", () => {
   describe("when session exists with tracks", () => {
     it("should show track count", async () => {
       const PlaylistHeader = await importComponent();
-      const tracks = [makeTrack(), makeTrack({ status: TrackStatus.Pending }), makeTrack()];
+      const tracks = [makeTrack(), makeTrack(), makeTrack()];
       mockContext = {
         ...mockContext,
         playlist: {
@@ -178,10 +172,10 @@ describe("PlaylistHeader", () => {
     });
   });
 
-  describe("when session has found tracks", () => {
+  describe("when session has tracks", () => {
     it("should show total duration", async () => {
       const PlaylistHeader = await importComponent();
-      // Two found tracks: 240s + 360s = 600s = 10m
+      // Two tracks: 240s + 360s = 600s = 10m
       const tracks = [makeTrack({ duration_seconds: 240 }), makeTrack({ duration_seconds: 360 })];
       mockContext = {
         ...mockContext,
@@ -195,15 +189,9 @@ describe("PlaylistHeader", () => {
       expect(screen.getByText("10m")).toBeInTheDocument();
     });
 
-    it("should show found count with ready label", async () => {
+    it("should show track count with tracks label", async () => {
       const PlaylistHeader = await importComponent();
-      // 3 found tracks + 1 pending so the total count (4) differs from found count (3)
-      const tracks = [
-        makeTrack(),
-        makeTrack(),
-        makeTrack(),
-        makeTrack({ status: TrackStatus.Pending }),
-      ];
+      const tracks = [makeTrack(), makeTrack(), makeTrack()];
       mockContext = {
         ...mockContext,
         playlist: {
@@ -214,7 +202,7 @@ describe("PlaylistHeader", () => {
 
       render(<PlaylistHeader {...defaultProps} />);
       expect(screen.getByText("3")).toBeInTheDocument();
-      expect(screen.getByText("ready")).toBeInTheDocument();
+      expect(screen.getByText("tracks")).toBeInTheDocument();
     });
   });
 
@@ -266,17 +254,10 @@ describe("PlaylistHeader", () => {
     });
   });
 
-  describe("when tracks have different statuses", () => {
-    it("should show correct counts for pending, found, and error tracks", async () => {
+  describe("when all tracks are present", () => {
+    it("should show track count and tracks label", async () => {
       const PlaylistHeader = await importComponent();
-      const tracks = [
-        makeTrack({ status: TrackStatus.Found }),
-        makeTrack({ status: TrackStatus.Found }),
-        makeTrack({ status: TrackStatus.Pending }),
-        makeTrack({ status: TrackStatus.Pending }),
-        makeTrack({ status: TrackStatus.Pending }),
-        makeTrack({ status: TrackStatus.Error }),
-      ];
+      const tracks = [makeTrack(), makeTrack(), makeTrack()];
       mockContext = {
         ...mockContext,
         playlist: {
@@ -287,57 +268,15 @@ describe("PlaylistHeader", () => {
 
       render(<PlaylistHeader {...defaultProps} />);
 
-      // Total track count
-      expect(screen.getByText("6")).toBeInTheDocument();
-
-      // Found count
-      expect(screen.getByText("2")).toBeInTheDocument();
-      expect(screen.getByText("ready")).toBeInTheDocument();
-
-      // Pending count
+      expect(screen.getByText("tracks")).toBeInTheDocument();
       expect(screen.getByText("3")).toBeInTheDocument();
-      expect(screen.getByText("pending")).toBeInTheDocument();
-
-      // Error count
-      expect(screen.getByText("1")).toBeInTheDocument();
-      expect(screen.getByText("error")).toBeInTheDocument();
-    });
-
-    it("should not show pending section when there are no pending tracks", async () => {
-      const PlaylistHeader = await importComponent();
-      const tracks = [makeTrack({ status: TrackStatus.Found })];
-      mockContext = {
-        ...mockContext,
-        playlist: {
-          ...(mockContext.playlist as Record<string, unknown>),
-          tracks,
-        },
-      };
-
-      render(<PlaylistHeader {...defaultProps} />);
-      expect(screen.queryByText("pending")).not.toBeInTheDocument();
-    });
-
-    it("should not show error section when there are no error tracks", async () => {
-      const PlaylistHeader = await importComponent();
-      const tracks = [makeTrack({ status: TrackStatus.Found })];
-      mockContext = {
-        ...mockContext,
-        playlist: {
-          ...(mockContext.playlist as Record<string, unknown>),
-          tracks,
-        },
-      };
-
-      render(<PlaylistHeader {...defaultProps} />);
-      expect(screen.queryByText(/error/)).not.toBeInTheDocument();
     });
   });
 
   describe("Play All button", () => {
-    it("should show Play All when there are found tracks", async () => {
+    it("should show Play All when there are tracks", async () => {
       const PlaylistHeader = await importComponent();
-      const tracks = [makeTrack({ status: TrackStatus.Found })];
+      const tracks = [makeTrack()];
       mockContext = {
         ...mockContext,
         playlist: {
@@ -350,14 +289,13 @@ describe("PlaylistHeader", () => {
       expect(screen.getByText("Play All")).toBeInTheDocument();
     });
 
-    it("should not show Play All when there are no found tracks", async () => {
+    it("should not show Play All when there are no tracks", async () => {
       const PlaylistHeader = await importComponent();
-      const tracks = [makeTrack({ status: TrackStatus.Pending })];
       mockContext = {
         ...mockContext,
         playlist: {
           ...(mockContext.playlist as Record<string, unknown>),
-          tracks,
+          tracks: [],
         },
       };
 
@@ -365,11 +303,11 @@ describe("PlaylistHeader", () => {
       expect(screen.queryByText("Play All")).not.toBeInTheDocument();
     });
 
-    it("should call startPlaying with found tracks when clicked", async () => {
+    it("should call startPlaying with tracks when clicked", async () => {
       const PlaylistHeader = await importComponent();
       const user = userEvent.setup();
-      const foundTrack = makeTrack({ status: TrackStatus.Found });
-      const tracks = [foundTrack, makeTrack({ status: TrackStatus.Pending })];
+      const track = makeTrack();
+      const tracks = [track];
       const startPlayingMock = vi.fn();
       mockContext = {
         ...mockContext,
@@ -387,7 +325,7 @@ describe("PlaylistHeader", () => {
       await user.click(screen.getByText("Play All"));
 
       expect(startPlayingMock).toHaveBeenCalledTimes(1);
-      expect(startPlayingMock).toHaveBeenCalledWith([foundTrack], 0, SESSION_ID);
+      expect(startPlayingMock).toHaveBeenCalledWith([track], 0, SESSION_ID);
     });
   });
 });

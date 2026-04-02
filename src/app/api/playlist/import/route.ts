@@ -8,7 +8,6 @@ import {
   YouTubeQuotaError,
 } from "@/lib/services/youtube";
 import { newId } from "@/lib/uuid";
-import { TrackStatus } from "@/types";
 import type { PlaylistTrack } from "@/types";
 import { getAuthUserId } from "@/lib/services/auth-helpers";
 import { importPlaylistSchema, zodErrorResponse } from "@/lib/validation";
@@ -91,10 +90,7 @@ export async function POST(request: Request) {
       video_title: t.title,
       channel_title: t.channelTitle,
       thumbnail: t.thumbnail,
-      search_queries: null,
       duration_seconds: null,
-      status: TrackStatus.Found,
-      error_message: null,
     }));
 
     if (userId) {

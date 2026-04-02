@@ -1,9 +1,9 @@
 import { createLogger } from "@/lib/logger";
 import { Games, Playlist, Sessions, DirectorDecisions } from "@/lib/db/repo";
-import { GameProgressStatus, TrackStatus } from "@/types";
+import { GameProgressStatus } from "@/types";
 import type { CurationMode, TrackDecision } from "@/types";
 import { fetchGameCandidates } from "@/lib/pipeline/candidates";
-import { toInsertable, resolvePendingSlots, taggedTrackToPending } from "@/lib/pipeline/assembly";
+import { toInsertable, taggedTrackToPending } from "@/lib/pipeline/assembly";
 import { assemblePlaylist } from "@/lib/pipeline/director";
 import { generateRubric } from "@/lib/pipeline/vibe-profiler";
 import { getVibeProfilerProvider } from "@/lib/llm";
@@ -208,8 +208,6 @@ export async function generatePlaylistForGuest(
     type: "done",
     tracks: finalTracks,
     count: finalTracks.length,
-    found: finalTracks.filter((t) => t.status === TrackStatus.Found).length,
-    pending: finalTracks.filter((t) => t.status === TrackStatus.Pending).length,
   });
 }
 
@@ -279,8 +277,6 @@ export async function generatePlaylist(
     gameBudgets,
   );
 
-  await resolvePendingSlots(inserted, config.allow_long_tracks, config.allow_short_tracks);
-
   // Enrich with JOIN-derived fields from the games already in memory.
   const gameMap = new Map(games.map((g) => [g.id, g]));
   const finalTracks = inserted.map((t) => {
@@ -293,7 +289,5 @@ export async function generatePlaylist(
     sessionId: session.id,
     tracks: finalTracks,
     count: finalTracks.length,
-    found: finalTracks.filter((t) => t.status === TrackStatus.Found).length,
-    pending: finalTracks.filter((t) => t.status === TrackStatus.Pending).length,
   });
 }

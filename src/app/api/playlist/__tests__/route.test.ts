@@ -69,12 +69,12 @@ function insertPlaylistTrack(
   id: string,
   playlistId: string,
   gameId: string,
-  opts: { trackName?: string; videoId?: string; position?: number; status?: string } = {},
+  opts: { trackName?: string; videoId?: string; position?: number } = {},
 ): void {
   rawDb
     .prepare(
-      `INSERT INTO playlist_tracks (id, playlist_id, game_id, track_name, video_id, position, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO playlist_tracks (id, playlist_id, game_id, track_name, video_id, position)
+     VALUES (?, ?, ?, ?, ?, ?)`,
     )
     .run(
       id,
@@ -83,7 +83,6 @@ function insertPlaylistTrack(
       opts.trackName ?? "Track",
       opts.videoId ?? "vid-1",
       opts.position ?? 0,
-      opts.status ?? "found",
     );
 }
 

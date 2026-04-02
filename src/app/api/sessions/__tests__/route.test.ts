@@ -49,16 +49,16 @@ describe("GET /api/sessions", () => {
       // Add some tracks to the session
       rawDb
         .prepare(
-          `INSERT INTO playlist_tracks (id, playlist_id, game_id, track_name, position, status)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO playlist_tracks (id, playlist_id, game_id, track_name, position)
+         VALUES (?, ?, ?, ?, ?)`,
         )
-        .run("pt1", sessionId, TEST_GAME_ID, "Track 1", 0, "found");
+        .run("pt1", sessionId, TEST_GAME_ID, "Track 1", 0);
       rawDb
         .prepare(
-          `INSERT INTO playlist_tracks (id, playlist_id, game_id, track_name, position, status)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO playlist_tracks (id, playlist_id, game_id, track_name, position)
+         VALUES (?, ?, ?, ?, ?)`,
         )
-        .run("pt2", sessionId, TEST_GAME_ID, "Track 2", 1, "found");
+        .run("pt2", sessionId, TEST_GAME_ID, "Track 2", 1);
 
       const res = await GET(new Request("http://localhost:6959/api/sessions"));
       expect(res.status).toBe(200);

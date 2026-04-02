@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "39879e72-01ea-4b90-9ead-1aa160f29cbd",
-  "prevId": "408550b7-af03-410b-ae8d-f1b7ffe551d8",
+  "id": "1f1ff542-bd79-4ac0-bbc9-b72c696a1f36",
+  "prevId": "39879e72-01ea-4b90-9ead-1aa160f29cbd",
   "tables": {
     "game_review_flags": {
       "name": "game_review_flags",
@@ -523,13 +523,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "search_queries": {
-          "name": "search_queries",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "duration_seconds": {
           "name": "duration_seconds",
           "type": "integer",
@@ -544,21 +537,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": 0
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'pending'"
-        },
-        "error_message": {
-          "name": "error_message",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         },
         "created_at": {
           "name": "created_at",
@@ -590,16 +568,6 @@
         "idx_tracks_position": {
           "name": "idx_tracks_position",
           "columns": ["position"],
-          "isUnique": false
-        },
-        "idx_tracks_status": {
-          "name": "idx_tracks_status",
-          "columns": ["status"],
-          "isUnique": false
-        },
-        "idx_pt_playlist_status": {
-          "name": "idx_pt_playlist_status",
-          "columns": ["playlist_id", "status"],
           "isUnique": false
         }
       },

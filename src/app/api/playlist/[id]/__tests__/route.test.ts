@@ -50,8 +50,8 @@ function seedPlaylistTrack(
 ): void {
   rawDb
     .prepare(
-      `INSERT INTO playlist_tracks (id, playlist_id, game_id, track_name, position, status)
-     VALUES (?, ?, ?, ?, ?, 'found')`,
+      `INSERT INTO playlist_tracks (id, playlist_id, game_id, track_name, position)
+     VALUES (?, ?, ?, ?, ?)`,
     )
     .run(trackId, playlistId, gameId, `Track ${position}`, position);
 }

@@ -77,6 +77,13 @@ export async function POST() {
       playlist_url: `https://www.youtube.com/playlist?list=${playlistId}`,
     });
   } catch (err) {
+    // YouTube 403 means the token lacks playlist scope — prompt re-auth
+    if (err instanceof Error && err.message.includes("403")) {
+      return NextResponse.json(
+        { error: "YouTube access not granted. Please re-authenticate with YouTube permissions." },
+        { status: 401 },
+      );
+    }
     log.error("handler failed", {}, err);
     return NextResponse.json(
       { error: "Sync failed", detail: err instanceof Error ? err.message : String(err) },

@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import { TrackStatus } from "@/types";
 import type { PlaylistTrack } from "@/types";
 import {
   YouTubeLogo,
@@ -42,13 +41,6 @@ function formatTrackDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-const STATUS_CONFIG: Record<string, { dot: string }> = {
-  pending: { dot: "bg-zinc-500" },
-  searching: { dot: "bg-amber-400 animate-pulse" },
-  found: { dot: "bg-emerald-400" },
-  error: { dot: "bg-red-400" },
-};
-
 export function PlaylistTrackCard({
   track,
   index,
@@ -65,7 +57,6 @@ export function PlaylistTrackCard({
 }: PlaylistTrackCardProps) {
   const hasVideo = !!track.video_id;
   const isImported = track.game_title === "YouTube Import";
-  const statusCfg = STATUS_CONFIG[track.status] ?? STATUS_CONFIG.pending;
   const thumbnailSrc = gameThumbnail ?? track.thumbnail;
 
   const isPlayable = hasVideo && !!onPlay;
@@ -78,9 +69,7 @@ export function PlaylistTrackCard({
       } ${isDragging ? "opacity-50 shadow-lg shadow-black/40" : ""} ${
         isPlaying
           ? "bg-violet-950/40 shadow-[inset_3px_0_12px_-4px_rgba(139,92,246,0.4)]"
-          : track.status === TrackStatus.Error
-            ? "bg-red-950/20"
-            : "bg-white/[0.02] hover:bg-gradient-to-r hover:from-violet-500/[0.06] hover:to-transparent"
+          : "bg-white/[0.02] hover:bg-gradient-to-r hover:from-violet-500/[0.06] hover:to-transparent"
       }`}
     >
       {/* Drag handle */}
@@ -150,25 +139,17 @@ export function PlaylistTrackCard({
             {track.game_title}
           </span>
         </div>
-        {hasVideo && track.video_title ? (
-          spoilerHidden ? (
-            <p className="line-clamp-1 text-sm leading-tight font-medium text-zinc-400 blur-sm select-none">
-              {track.track_name ?? track.video_title}
-            </p>
-          ) : (
-            <p
-              className={`line-clamp-1 text-sm leading-tight font-medium ${
-                isPlaying ? "text-violet-300" : "text-zinc-100"
-              }`}
-            >
-              {track.track_name ?? track.video_title}
-            </p>
-          )
-        ) : track.status === TrackStatus.Error ? (
-          <p className="line-clamp-1 text-xs leading-tight text-red-400/80">Something went wrong</p>
+        {spoilerHidden ? (
+          <p className="line-clamp-1 text-sm leading-tight font-medium text-zinc-400 blur-sm select-none">
+            {track.track_name ?? track.video_title}
+          </p>
         ) : (
-          <p className="line-clamp-1 text-sm leading-tight text-zinc-400">
-            {track.track_name ?? "Pending search"}
+          <p
+            className={`line-clamp-1 text-sm leading-tight font-medium ${
+              isPlaying ? "text-violet-300" : "text-zinc-100"
+            }`}
+          >
+            {track.track_name ?? track.video_title}
           </p>
         )}
         {hasVideo && track.channel_title && !spoilerHidden && (
@@ -185,12 +166,8 @@ export function PlaylistTrackCard({
         </span>
       )}
 
-      {/* Right side: status dot + action buttons */}
+      {/* Right side: action buttons */}
       <div className="flex shrink-0 items-center gap-0.5">
-        {track.status !== "found" && (
-          <div className={`h-1.5 w-1.5 shrink-0 rounded-full ${statusCfg.dot}`} />
-        )}
-
         {onReroll && (
           <div className="group/reroll relative ml-1">
             <button
@@ -198,7 +175,7 @@ export function PlaylistTrackCard({
                 e.stopPropagation();
                 onReroll();
               }}
-              disabled={isRerolling || track.status === "searching" || isImported}
+              disabled={isRerolling || isImported}
               className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-zinc-700/60 hover:text-zinc-300 disabled:cursor-not-allowed disabled:opacity-30"
             >
               {isRerolling ? <Spinner className="h-3 w-3" /> : <RefreshIcon className="h-3 w-3" />}
@@ -216,8 +193,7 @@ export function PlaylistTrackCard({
                 e.stopPropagation();
                 onRemove();
               }}
-              disabled={track.status === "searching"}
-              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-900/40 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30"
+              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-900/40 hover:text-red-400"
             >
               <XIcon className="h-3 w-3" />
             </button>
