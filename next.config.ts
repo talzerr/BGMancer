@@ -6,14 +6,9 @@ const nextConfig: NextConfig = {
   // Prevent Next.js from bundling the native sqlite3 binary — it must run in Node.js only
   serverExternalPackages: ["better-sqlite3"],
   images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "i.ytimg.com" },
-      { protocol: "https", hostname: "img.youtube.com" },
-      // Steam cover art (library page) — multiple CDN subdomains
-      { protocol: "https", hostname: "**.steamstatic.com" },
-      // Google profile avatars
-      { protocol: "https", hostname: "lh3.googleusercontent.com" },
-    ],
+    // Image optimization on Cloudflare requires a paid Cloudflare Images subscription.
+    // With unoptimized, images load directly from their source CDNs (Steam, YouTube, Google).
+    unoptimized: true,
   },
   async headers() {
     return [
@@ -40,16 +35,16 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               // Next.js requires 'unsafe-inline' for styled-jsx and inline styles
               "style-src 'self' 'unsafe-inline'",
-              // Next.js injects inline scripts for hydration; 'unsafe-inline' required
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-              // Images: YouTube thumbnails + Steam cover art
+              // Next.js injects inline scripts for hydration; YouTube iframe API loaded dynamically
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.youtube.com",
+              // Images: YouTube thumbnails + Steam cover art + Google avatars
               "img-src 'self' data: https://i.ytimg.com https://img.youtube.com https://*.steamstatic.com https://lh3.googleusercontent.com",
-              // API calls to Anthropic (server-side, but including for completeness)
-              "connect-src 'self' https://api.anthropic.com",
+              // API calls + YouTube iframe communication
+              "connect-src 'self' https://api.anthropic.com https://www.youtube.com",
               // Fonts loaded from same origin
               "font-src 'self'",
-              // No iframes needed
-              "frame-src 'none'",
+              // YouTube embedded player
+              "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
               // No form submissions to external origins
               "form-action 'self'",
               // Only allow this origin as base URI

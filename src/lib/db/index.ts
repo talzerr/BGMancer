@@ -12,7 +12,6 @@ export function getDB(): DrizzleDB {
 
 /**
  * Execute multiple queries in a single batch (D1 sends them in one HTTP roundtrip).
- * Typed wrapper around db.batch() to avoid `as any` casts in every repo file.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function batch(queries: any[]): Promise<void> {
