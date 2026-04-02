@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { Games, Playlist, Sessions } from "@/lib/db/repo";
 import { createLogger } from "@/lib/logger";
-
-const log = createLogger("import");
 import { YT_IMPORT_GAME_ID, YT_IMPORT_MAX_TRACKS } from "@/lib/constants";
 import {
   fetchPlaylistItems,
@@ -15,6 +13,8 @@ import type { PlaylistTrack } from "@/types";
 import { getAuthUserId } from "@/lib/services/auth-helpers";
 import { importPlaylistSchema, zodErrorResponse } from "@/lib/validation";
 import { checkGuestRateLimit } from "@/lib/rate-limit";
+
+const log = createLogger("import");
 
 function extractPlaylistId(input: string): string | null {
   const trimmed = input.trim();

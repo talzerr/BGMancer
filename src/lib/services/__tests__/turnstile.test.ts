@@ -97,4 +97,13 @@ describe("verifyTurnstileToken", () => {
       expect(result.error).toContain("Bot verification failed");
     });
   });
+
+  describe("when the siteverify API is unreachable", () => {
+    it("should fail open and return success", async () => {
+      fetchSpy.mockRejectedValue(new Error("network error"));
+
+      const result = await verifyTurnstileToken("some-token");
+      expect(result).toEqual({ success: true });
+    });
+  });
 });

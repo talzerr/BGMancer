@@ -28,21 +28,26 @@ export async function verifyTurnstileToken(
     return { success: false, error: "Bot verification required. Please try again." };
   }
 
-  const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      secret,
-      response: token,
-      ...(remoteIp ? { remoteip: remoteIp } : {}),
-    }),
-  });
+  try {
+    const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        secret,
+        response: token,
+        ...(remoteIp ? { remoteip: remoteIp } : {}),
+      }),
+    });
 
-  const data = (await res.json()) as { success: boolean; "error-codes"?: string[] };
-  if (!data.success) {
-    log.warn("verification failed", { errors: data["error-codes"] });
-    return { success: false, error: "Bot verification failed. Please try again." };
+    const data = (await res.json()) as { success: boolean; "error-codes"?: string[] };
+    if (!data.success) {
+      log.warn("verification failed", { errors: data["error-codes"] });
+      return { success: false, error: "Bot verification failed. Please try again." };
+    }
+
+    return { success: true };
+  } catch (err) {
+    log.error("siteverify request failed, allowing through", {}, err);
+    return { success: true };
   }
-
-  return { success: true };
 }

@@ -41,11 +41,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, account, profile, user }) {
       if (account) {
         // First sign-in: create or fetch the DB user.
-        // Google OAuth provides profile.email; Credentials provides user.email.
         const email = profile?.email ?? user?.email;
-        const name = profile?.name ?? user?.name;
         if (email) {
-          const dbUser = await Users.createFromOAuth(email, name);
+          const dbUser = await Users.createFromOAuth(email);
           token.userId = dbUser.id;
         }
         token.access_token = account.access_token;

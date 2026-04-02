@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/services/auth";
 import { Playlist } from "@/lib/db/repo";
 import { createLogger } from "@/lib/logger";
-
-const log = createLogger("sync");
 import {
   findBGMancerPlaylist,
   createBGMancerPlaylist,
   addVideoToPlaylist,
 } from "@/lib/services/youtube";
 import { runConcurrent } from "@/lib/concurrency";
+
+const log = createLogger("sync");
 
 const SYNC_CONCURRENCY = 4;
 

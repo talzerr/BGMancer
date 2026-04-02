@@ -156,13 +156,14 @@ All providers implement `LLMProvider` (`src/lib/llm/provider.ts`): `complete(sys
 
 Config is stored in **localStorage** (not the DB). `useConfig` (`src/hooks/useConfig.ts`) reads/writes via `localStorage` with the following keys:
 
-| Key                        | Type       | Default | Purpose                                                |
-| -------------------------- | ---------- | ------- | ------------------------------------------------------ |
-| `bgm_target_track_count`   | number     | 50      | Target playlist length                                 |
-| `bgm_anti_spoiler_enabled` | "1" \| "0" | "0"     | Blur unplayed track titles                             |
-| `bgm_allow_long_tracks`    | "1" \| "0" | "0"     | Allow tracks >9min                                     |
-| `bgm_allow_short_tracks`   | "1" \| "0" | "1"     | Allow tracks <90s (note: always false in practice)     |
-| `bgm_raw_vibes`            | "1" \| "0" | "0"     | Disable view bias scoring — score on musical tags only |
+| Key                        | Type       | Default | Purpose                                                 |
+| -------------------------- | ---------- | ------- | ------------------------------------------------------- |
+| `bgm_target_track_count`   | number     | 50      | Target playlist length                                  |
+| `bgm_anti_spoiler_enabled` | "1" \| "0" | "0"     | Blur unplayed track titles                              |
+| `bgm_allow_long_tracks`    | "1" \| "0" | "0"     | Allow tracks >9min                                      |
+| `bgm_allow_short_tracks`   | "1" \| "0" | "1"     | Allow tracks <90s (note: always false in practice)      |
+| `bgm_raw_vibes`            | "1" \| "0" | "0"     | Disable view bias scoring — score on musical tags only  |
+| `bgm_skip_llm`             | "1" \| "0" | "0"     | Express Mode — skip Vibe Profiler for faster generation |
 
 There is no `/api/config` route. The hook uses `localStorage.getItem()` / `localStorage.setItem()` directly with boolean parsing via `v === "1"`. To add a new config key:
 

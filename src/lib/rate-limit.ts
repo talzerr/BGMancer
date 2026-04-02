@@ -68,8 +68,9 @@ function dailyCapKey(userId: string): string {
 }
 
 /**
- * Check and consume a daily generation slot for a logged-in user.
+ * Check and consume a daily LLM generation slot for a logged-in user.
  * Returns null if allowed (and increments the count), or an error message if capped.
+ * Resets at midnight UTC.
  */
 export async function acquireLlmGeneration(userId: string): Promise<{ error: string } | null> {
   const key = dailyCapKey(userId);

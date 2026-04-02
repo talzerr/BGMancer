@@ -1,6 +1,4 @@
 import { createLogger } from "@/lib/logger";
-
-const log = createLogger("generate");
 import { Games, Playlist, Sessions, DirectorDecisions } from "@/lib/db/repo";
 import { GameProgressStatus, TrackStatus } from "@/types";
 import type { CurationMode, TrackDecision } from "@/types";
@@ -17,6 +15,8 @@ import {
   SESSION_NAME_MAX_GAMES,
   SESSION_NAME_MAX_LENGTH,
 } from "@/lib/constants";
+
+const log = createLogger("generate");
 
 export type { GenerateEvent };
 

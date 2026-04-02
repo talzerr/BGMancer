@@ -30,6 +30,8 @@ import {
   DIRECTOR_TOP_N_POOL,
 } from "@/lib/constants";
 
+const log = createLogger("director");
+
 export interface ArcSlot {
   phase: ArcPhase;
   energyPrefs: Array<1 | 2 | 3>;
@@ -524,7 +526,7 @@ export function assemblePlaylist(
     .map((d) => ({ ...d, position: slotToCompact.get(d.position) ?? d.position }));
 
   if (compactTracks.length < targetCount) {
-    createLogger("director").warn("pool exhausted", {
+    log.warn("pool exhausted", {
       assembled: compactTracks.length,
       target: targetCount,
     });

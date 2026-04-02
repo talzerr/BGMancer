@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const TOAST_DURATION_MS = 5000;
 
@@ -11,14 +11,19 @@ interface InfoToastProps {
 
 export function InfoToast({ message, onDone }: InfoToastProps) {
   const [visible, setVisible] = useState(true);
+  const onDoneRef = useRef(onDone);
+
+  useEffect(() => {
+    onDoneRef.current = onDone;
+  }, [onDone]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setVisible(false);
-      onDone();
+      onDoneRef.current();
     }, TOAST_DURATION_MS);
     return () => clearTimeout(timer);
-  }, [onDone]);
+  }, []);
 
   if (!visible) return null;
 
