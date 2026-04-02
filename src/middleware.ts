@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { matchRoute } from "@/lib/route-matcher";
 import { AuthLevel } from "@/lib/route-config";
+import { hasCloudflareAccessToken } from "@/lib/services/cloudflare-access";
 import { env } from "./lib/env";
-
-const ADMIN_COOKIE = "bgmancer-admin";
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -12,16 +11,13 @@ export function middleware(request: NextRequest) {
 
   const route = matchRoute(method, pathname);
 
-  // Unregistered route → 404
   if (!route) {
     return new NextResponse(null, { status: 404 });
   }
 
-  // Admin routes: ADMIN_SECRET must be configured and cookie must match.
-  // Dev: skip admin auth so Backstage is accessible without ADMIN_SECRET locally.
+  // Backstage: open in dev, requires Cloudflare Access in production.
   if (!env.isDev && route.auth === AuthLevel.Admin) {
-    const adminToken = request.cookies.get(ADMIN_COOKIE)?.value;
-    if (!env.adminSecret || adminToken !== env.adminSecret) {
+    if (!hasCloudflareAccessToken(request)) {
       return new NextResponse(null, { status: 404 });
     }
   }

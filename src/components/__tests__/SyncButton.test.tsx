@@ -13,14 +13,14 @@ afterEach(() => {
 function renderSyncButton(
   overrides: Partial<{
     isSignedIn: boolean;
-    authConfigured: boolean;
+    isDev: boolean;
     hasFoundTracks: boolean;
     onSyncComplete: () => void;
   }> = {},
 ) {
   const props = {
     isSignedIn: true,
-    authConfigured: true,
+    isDev: false,
     hasFoundTracks: true,
     onSyncComplete: vi.fn(),
     ...overrides,
@@ -29,9 +29,9 @@ function renderSyncButton(
 }
 
 describe("SyncButton", () => {
-  describe("when authConfigured is false", () => {
+  describe("when isDev is true", () => {
     it("should render nothing", () => {
-      const { container } = renderSyncButton({ authConfigured: false });
+      const { container } = renderSyncButton({ isDev: true });
       expect(container.innerHTML).toBe("");
     });
   });

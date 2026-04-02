@@ -16,7 +16,7 @@ export enum AuthLevel {
   Optional = "optional",
   /** Must be logged in — 401 otherwise. */
   Required = "required",
-  /** Must have ADMIN_SECRET cookie — 404 otherwise. */
+  /** Backstage — gated by Cloudflare Access in production, open in dev. */
   Admin = "admin",
 }
 

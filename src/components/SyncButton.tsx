@@ -12,22 +12,17 @@ interface SyncResult {
 
 interface SyncButtonProps {
   isSignedIn: boolean;
-  authConfigured: boolean;
+  isDev: boolean;
   hasFoundTracks: boolean;
   onSyncComplete: () => void;
 }
 
-export function SyncButton({
-  isSignedIn,
-  authConfigured,
-  hasFoundTracks,
-  onSyncComplete,
-}: SyncButtonProps) {
+export function SyncButton({ isSignedIn, isDev, hasFoundTracks, onSyncComplete }: SyncButtonProps) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SyncResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  if (!authConfigured) return null;
+  if (isDev) return null;
 
   const disabled = !isSignedIn || !hasFoundTracks || loading;
 

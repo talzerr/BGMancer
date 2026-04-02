@@ -34,8 +34,8 @@ Requires a `.env.local` (copy from `.env.local.example`) with:
 - `ANTHROPIC_API_KEY` — required; powers all LLM calls (tagging, vibe profiling)
 - `ANTHROPIC_TAGGING_MODEL` — optional; override Anthropic model for Phase 2 tagging (defaults to `ANTHROPIC_MODEL`)
 - `ANTHROPIC_VIBE_MODEL` — optional; override Anthropic model for Vibe Profiler (defaults to `ANTHROPIC_MODEL`)
-- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — optional; enables Google OAuth sign-in (production). Without these, a dev Credentials provider is used instead
-- `ADMIN_SECRET` — optional; protects `/backstage` routes. Without it, backstage is completely inaccessible (404). Set it and inject a `bgmancer-admin` cookie with the same value to access backstage
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — required in production for Google OAuth sign-in. In local dev, a Credentials provider is used instead
+- Backstage (`/backstage/*`) is open in local dev. In production, it's gated by Cloudflare Access on `bgmancer.com/backstage*`
 
 The DB file is `bgmancer.db` at the project root (or override with `SQLITE_PATH`). Schema is managed by Drizzle ORM with migrations applied automatically on first run via `migrate()` in `src/lib/db/index.ts`.
 
@@ -49,7 +49,7 @@ The DB file is `bgmancer.db` at the project root (or override with `SQLITE_PATH`
 
 **Route auth config (`src/lib/route-config.ts`):** Single source of truth — every accessible route (pages and API) must be registered here. Unregistered routes return 404. Each entry declares its auth level: `Public`, `Optional`, `Required`, or `Admin`.
 
-**Middleware (`src/middleware.ts`):** Runs on all non-static requests. Reads the route config and enforces: (1) allowlist — unregistered routes get 404, (2) admin auth — `ADMIN_SECRET` cookie check for `Admin` routes. Uses the deprecated `middleware.ts` convention (not Next.js 16's `proxy.ts`) for `@opennextjs/cloudflare` compatibility.
+**Middleware (`src/middleware.ts`):** Runs on all non-static requests. Reads the route config and enforces: (1) allowlist — unregistered routes get 404, (2) admin routes — in production, blocks backstage access from unexpected hosts as defense in depth behind Cloudflare Access. Uses the deprecated `middleware.ts` convention (not Next.js 16's `proxy.ts`) for `@opennextjs/cloudflare` compatibility.
 
 **Route wrappers (`src/lib/services/route-wrappers.ts`):** `withRequiredAuth(handler, label)` and `withOptionalAuth(handler, label)` enforce user auth at the handler level. The proxy can't call `auth()` (NextAuth doesn't work in the proxy layer), so user auth is enforced here.
 

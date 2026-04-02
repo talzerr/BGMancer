@@ -20,7 +20,7 @@ interface Env {
   /** NextAuth callback URL. */
   nextAuthUrl: string | undefined;
 
-  /** Google OAuth — enables "Sign in with Google". */
+  /** Google OAuth — required in production for "Sign in with Google". */
   googleClientId: string | undefined;
   googleClientSecret: string | undefined;
 
@@ -42,12 +42,6 @@ interface Env {
 
   /** SQLite database path (only used in local dev, not on Cloudflare Workers). */
   sqlitePath: string | undefined;
-
-  /** Backstage admin secret (protects /backstage in local dev). */
-  adminSecret: string | undefined;
-
-  /** True when Google OAuth credentials are fully configured. */
-  authConfigured: boolean;
 
   /** Current NODE_ENV. */
   nodeEnv: string;
@@ -102,10 +96,6 @@ function loadEnv(): Env {
     anthropicModel: process.env.ANTHROPIC_MODEL || undefined,
 
     sqlitePath: process.env.SQLITE_PATH || undefined,
-
-    adminSecret: process.env.ADMIN_SECRET || undefined,
-
-    authConfigured: !!(googleClientId && googleClientSecret),
 
     nodeEnv,
 

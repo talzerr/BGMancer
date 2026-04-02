@@ -81,7 +81,7 @@ async function importComponent() {
 const defaultProps = {
   sessions: [makeSession()],
   isSignedIn: false,
-  authConfigured: false,
+  isDev: true,
   onRename: vi.fn().mockResolvedValue(undefined),
   onDeleteSession: vi.fn().mockResolvedValue(undefined),
 };

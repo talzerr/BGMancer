@@ -4,8 +4,7 @@ import Credentials from "next-auth/providers/credentials";
 import { env } from "@/lib/env";
 import { Users } from "@/lib/db/repos/users";
 
-// Google OAuth is optional — if creds aren't set, a dev-only Credentials provider is used instead.
-export const AUTH_CONFIGURED = env.authConfigured;
+// Production uses Google OAuth; dev uses a Credentials provider for convenience.
 
 const googleProvider = Google({
   clientId: env.googleClientId ?? "",

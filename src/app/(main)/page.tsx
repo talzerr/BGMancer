@@ -1,5 +1,6 @@
 import Image from "next/image";
-import { auth, AUTH_CONFIGURED } from "@/lib/services/auth";
+import { auth } from "@/lib/services/auth";
+import { env } from "@/lib/env";
 import { AuthButtons } from "@/components/AuthButtons";
 import { FeedClient } from "./feed-client";
 
@@ -34,13 +35,13 @@ export default async function HomePage() {
           </div>
 
           {/* Auth */}
-          <AuthButtons user={session?.user ?? null} authConfigured={AUTH_CONFIGURED} />
+          <AuthButtons user={session?.user ?? null} isDev={env.isDev} />
         </div>
       </header>
 
       {/* Main content */}
       <main className="relative mx-auto max-w-6xl px-4 py-6 sm:px-6">
-        <FeedClient isSignedIn={!!session?.user} authConfigured={AUTH_CONFIGURED} />
+        <FeedClient isSignedIn={!!session?.user} isDev={env.isDev} />
       </main>
     </div>
   );
