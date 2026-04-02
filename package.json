@@ -58,7 +58,7 @@
     "@vitest/coverage-v8": "^4.1.2",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.4",
-    "eslint-config-next": "^16.1.6",
+    "eslint-config-next": "^16.2.2",
     "husky": "^9.1.7",
     "jsdom": "^29.0.1",
     "lint-staged": "^16.4.0",
