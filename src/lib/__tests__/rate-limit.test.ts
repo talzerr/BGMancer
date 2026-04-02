@@ -3,7 +3,6 @@ import { checkRateLimit, getClientIp, checkGuestRateLimit } from "../rate-limit"
 
 describe("checkRateLimit", () => {
   beforeEach(() => {
-    // Use a unique key prefix per test to avoid cross-test interference
     vi.useFakeTimers();
   });
 
@@ -12,24 +11,24 @@ describe("checkRateLimit", () => {
   });
 
   describe("when under the limit", () => {
-    it("should allow requests", () => {
-      const result = checkRateLimit("test-under", 3, 60_000);
+    it("should allow requests", async () => {
+      const result = await checkRateLimit("test-under", 3, 60_000);
       expect(result.allowed).toBe(true);
     });
 
-    it("should allow up to maxRequests", () => {
+    it("should allow up to maxRequests", async () => {
       for (let i = 0; i < 3; i++) {
-        expect(checkRateLimit("test-max", 3, 60_000).allowed).toBe(true);
+        expect((await checkRateLimit("test-max", 3, 60_000)).allowed).toBe(true);
       }
     });
   });
 
   describe("when at the limit", () => {
-    it("should reject the next request", () => {
+    it("should reject the next request", async () => {
       for (let i = 0; i < 3; i++) {
-        checkRateLimit("test-reject", 3, 60_000);
+        await checkRateLimit("test-reject", 3, 60_000);
       }
-      const result = checkRateLimit("test-reject", 3, 60_000);
+      const result = await checkRateLimit("test-reject", 3, 60_000);
       expect(result.allowed).toBe(false);
       if (!result.allowed) {
         expect(result.retryAfterMs).toBeGreaterThan(0);
@@ -39,26 +38,26 @@ describe("checkRateLimit", () => {
   });
 
   describe("when the window expires", () => {
-    it("should allow requests again", () => {
+    it("should allow requests again", async () => {
       for (let i = 0; i < 3; i++) {
-        checkRateLimit("test-expire", 3, 60_000);
+        await checkRateLimit("test-expire", 3, 60_000);
       }
-      expect(checkRateLimit("test-expire", 3, 60_000).allowed).toBe(false);
+      expect((await checkRateLimit("test-expire", 3, 60_000)).allowed).toBe(false);
 
       // Advance past the window
       vi.advanceTimersByTime(60_001);
 
-      expect(checkRateLimit("test-expire", 3, 60_000).allowed).toBe(true);
+      expect((await checkRateLimit("test-expire", 3, 60_000)).allowed).toBe(true);
     });
   });
 
   describe("with different keys", () => {
-    it("should track independently", () => {
+    it("should track independently", async () => {
       for (let i = 0; i < 3; i++) {
-        checkRateLimit("key-a", 3, 60_000);
+        await checkRateLimit("key-a", 3, 60_000);
       }
-      expect(checkRateLimit("key-a", 3, 60_000).allowed).toBe(false);
-      expect(checkRateLimit("key-b", 3, 60_000).allowed).toBe(true);
+      expect((await checkRateLimit("key-a", 3, 60_000)).allowed).toBe(false);
+      expect((await checkRateLimit("key-b", 3, 60_000)).allowed).toBe(true);
     });
   });
 });
@@ -107,15 +106,15 @@ describe("checkGuestRateLimit", () => {
     });
   }
 
-  it("should allow requests under the limit", () => {
-    expect(checkGuestRateLimit(makeGuestRequest("guest-1"))).toBeNull();
+  it("should allow requests under the limit", async () => {
+    expect(await checkGuestRateLimit(makeGuestRequest("guest-1"))).toBeNull();
   });
 
-  it("should share the bucket across all routes for the same IP", () => {
+  it("should share the bucket across all routes for the same IP", async () => {
     for (let i = 0; i < 10; i++) {
-      checkGuestRateLimit(makeGuestRequest("guest-shared"));
+      await checkGuestRateLimit(makeGuestRequest("guest-shared"));
     }
-    const result = checkGuestRateLimit(makeGuestRequest("guest-shared"));
+    const result = await checkGuestRateLimit(makeGuestRequest("guest-shared"));
     expect(result).not.toBeNull();
     expect(result!.waitSec).toBeGreaterThan(0);
   });

@@ -10,8 +10,6 @@
  *   env.discogsToken    // string | undefined (optional)
  */
 
-import path from "path";
-
 // ---------------------------------------------------------------------------
 // Schema
 // ---------------------------------------------------------------------------
@@ -22,7 +20,7 @@ interface Env {
   /** NextAuth callback URL. */
   nextAuthUrl: string | undefined;
 
-  /** Google OAuth — enables "Sign in with Google". */
+  /** Google OAuth — required in production for "Sign in with Google". */
   googleClientId: string | undefined;
   googleClientSecret: string | undefined;
 
@@ -41,15 +39,6 @@ interface Env {
   anthropicVibeModel: string | undefined;
   /** Default Anthropic model (fallback for tagging + vibe). */
   anthropicModel: string | undefined;
-
-  /** SQLite database path. */
-  sqlitePath: string;
-
-  /** Backstage admin secret (protects /backstage in local dev). */
-  adminSecret: string | undefined;
-
-  /** True when Google OAuth credentials are fully configured. */
-  authConfigured: boolean;
 
   /** Current NODE_ENV. */
   nodeEnv: string;
@@ -103,12 +92,6 @@ function loadEnv(): Env {
     anthropicVibeModel: process.env.ANTHROPIC_VIBE_MODEL || undefined,
     anthropicModel: process.env.ANTHROPIC_MODEL || undefined,
 
-    sqlitePath: process.env.SQLITE_PATH ?? path.join(process.cwd(), "bgmancer.db"),
-
-    adminSecret: process.env.ADMIN_SECRET || undefined,
-
-    authConfigured: !!(googleClientId && googleClientSecret),
-
     nodeEnv,
 
     isDev: nodeEnv === "development" || nodeEnv === "test",
@@ -116,12 +99,27 @@ function loadEnv(): Env {
 }
 
 // ---------------------------------------------------------------------------
-// Singleton export
+// Lazy singleton — loaded on first access, not at module load time.
+// In Cloudflare Workers, process.env is populated per-request,
+// so reading it at module initialization would miss secrets.
 // ---------------------------------------------------------------------------
 
-export let env: Env = loadEnv();
+let _env: Env | null = null;
+
+export function getEnv(): Env {
+  if (!_env) _env = loadEnv();
+  return _env;
+}
+
+// Convenience alias — most consumers use `env.foo` directly.
+// Uses a getter so the first access triggers lazy initialization.
+export const env: Env = new Proxy({} as Env, {
+  get(_target, prop) {
+    return getEnv()[prop as keyof Env];
+  },
+});
 
 /** Re-read process.env and rebuild the env object. Test-only. */
 export function _reloadEnvForTest(): void {
-  env = loadEnv();
+  _env = loadEnv();
 }

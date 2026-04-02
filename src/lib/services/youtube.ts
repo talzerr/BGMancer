@@ -11,11 +11,9 @@ import { env } from "@/lib/env";
 
 const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
 
-if (!env.youtubeApiKey) {
-  console.warn("[YouTube] WARNING: YOUTUBE_API_KEY is not set — all API calls will fail");
+function getYouTubeApiKey(): string {
+  return env.youtubeApiKey ?? "";
 }
-
-const YOUTUBE_API_KEY = env.youtubeApiKey ?? "";
 
 /** Thrown when the YouTube Data API quota is exceeded — callers should abort immediately */
 export class YouTubeQuotaError extends Error {
@@ -101,7 +99,7 @@ export async function searchYouTube(
   allowShortVideo = false,
 ): Promise<YouTubeSearchResult[]> {
   const searchUrl = new URL(`${YOUTUBE_API_BASE}/search`);
-  searchUrl.searchParams.set("key", YOUTUBE_API_KEY);
+  searchUrl.searchParams.set("key", getYouTubeApiKey());
   searchUrl.searchParams.set("q", query);
   searchUrl.searchParams.set("part", "snippet");
   searchUrl.searchParams.set("type", "video");
@@ -116,7 +114,17 @@ export async function searchYouTube(
     throw new Error(`YouTube search failed: ${searchRes.status} ${searchRes.statusText}`);
   }
 
-  const searchData = await searchRes.json();
+  const searchData = (await searchRes.json()) as {
+    items?: Array<{
+      id: { videoId: string };
+      snippet: {
+        title: string;
+        channelTitle: string;
+        description: string;
+        thumbnails: { high?: { url: string }; default?: { url: string } };
+      };
+    }>;
+  };
   const items: Array<{
     id: { videoId: string };
     snippet: {
@@ -131,7 +139,7 @@ export async function searchYouTube(
 
   const videoIds = items.map((i) => i.id.videoId).join(",");
   const videosUrl = new URL(`${YOUTUBE_API_BASE}/videos`);
-  videosUrl.searchParams.set("key", YOUTUBE_API_KEY);
+  videosUrl.searchParams.set("key", getYouTubeApiKey());
   videosUrl.searchParams.set("id", videoIds);
   videosUrl.searchParams.set("part", "contentDetails");
 
@@ -141,7 +149,9 @@ export async function searchYouTube(
     throw new Error(`YouTube videos.list failed: ${videosRes.status} ${videosRes.statusText}`);
   }
 
-  const videosData = await videosRes.json();
+  const videosData = (await videosRes.json()) as {
+    items?: Array<{ id: string; contentDetails?: { duration?: string } }>;
+  };
   const durationMap = new Map<string, number>();
   for (const v of videosData.items ?? []) {
     durationMap.set(v.id, parseDuration(v.contentDetails?.duration ?? "PT0S"));
@@ -208,7 +218,7 @@ export async function fetchVideoMetadata(videoIds: string[]): Promise<Map<string
     const chunk = videoIds.slice(i, i + YT_VIDEOS_PAGE_SIZE);
 
     const url = new URL(`${YOUTUBE_API_BASE}/videos`);
-    url.searchParams.set("key", YOUTUBE_API_KEY);
+    url.searchParams.set("key", getYouTubeApiKey());
     url.searchParams.set("id", chunk.join(","));
     url.searchParams.set("part", "contentDetails,statistics");
 
@@ -222,7 +232,13 @@ export async function fetchVideoMetadata(videoIds: string[]): Promise<Map<string
       continue; // best-effort: skip this chunk, keep results so far
     }
 
-    const data = await res.json();
+    const data = (await res.json()) as {
+      items?: Array<{
+        id: string;
+        contentDetails?: { duration?: string };
+        statistics?: { viewCount?: string };
+      }>;
+    };
     for (const v of data.items ?? []) {
       const rawViews = v.statistics?.viewCount;
       const parsedViews = rawViews != null ? Number(rawViews) : null;
@@ -263,7 +279,7 @@ export async function searchOSTPlaylist(gameTitle: string): Promise<string | nul
 
   for (const query of queries) {
     const url = new URL(`${YOUTUBE_API_BASE}/search`);
-    url.searchParams.set("key", YOUTUBE_API_KEY);
+    url.searchParams.set("key", getYouTubeApiKey());
     url.searchParams.set("q", query);
     url.searchParams.set("part", "snippet");
     url.searchParams.set("type", "playlist");
@@ -276,7 +292,12 @@ export async function searchOSTPlaylist(gameTitle: string): Promise<string | nul
       continue;
     }
 
-    const data = await res.json();
+    const data = (await res.json()) as {
+      items?: Array<{
+        id: { playlistId: string };
+        snippet: { title: string; channelTitle: string };
+      }>;
+    };
     const items: Array<{
       id: { playlistId: string };
       snippet: { title: string; channelTitle: string };
@@ -304,7 +325,7 @@ export async function fetchPlaylistMetadata(
   playlistId: string,
 ): Promise<{ title: string; description: string } | null> {
   const url = new URL(`${YOUTUBE_API_BASE}/playlists`);
-  url.searchParams.set("key", YOUTUBE_API_KEY);
+  url.searchParams.set("key", getYouTubeApiKey());
   url.searchParams.set("id", playlistId);
   url.searchParams.set("part", "snippet");
 
@@ -315,7 +336,9 @@ export async function fetchPlaylistMetadata(
     return null;
   }
 
-  const data = await res.json();
+  const data = (await res.json()) as {
+    items?: Array<{ snippet: { title: string; description: string } }>;
+  };
   const items: Array<{ snippet: { title: string; description: string } }> = data.items ?? [];
 
   if (items.length === 0) return null;
@@ -337,7 +360,7 @@ export async function fetchPlaylistItems(playlistId: string, maxTracks = 150): P
 
   do {
     const url = new URL(`${YOUTUBE_API_BASE}/playlistItems`);
-    url.searchParams.set("key", YOUTUBE_API_KEY);
+    url.searchParams.set("key", getYouTubeApiKey());
     url.searchParams.set("playlistId", playlistId);
     url.searchParams.set("part", "snippet");
     url.searchParams.set("maxResults", "50");
@@ -350,7 +373,17 @@ export async function fetchPlaylistItems(playlistId: string, maxTracks = 150): P
       break;
     }
 
-    const data = await res.json();
+    const data = (await res.json()) as {
+      items?: Array<{
+        snippet: {
+          resourceId?: { videoId?: string };
+          title: string;
+          videoOwnerChannelTitle?: string;
+          thumbnails?: { medium?: { url: string }; default?: { url: string } };
+        };
+      }>;
+      nextPageToken?: string;
+    };
     const page: OSTTrack[] = (data.items ?? [])
       .map(
         (item: {
@@ -398,7 +431,7 @@ export async function findBGMancerPlaylist(accessToken: string): Promise<string 
   });
   if (!res.ok) throw new Error(`Failed to list playlists: ${res.status}`);
 
-  const data = await res.json();
+  const data = (await res.json()) as { items?: PlaylistItem[] };
   const playlists: PlaylistItem[] = data.items ?? [];
   const match = playlists.find((p) => p.snippet.title === "BGMancer Journey");
   return match?.id ?? null;
@@ -427,8 +460,8 @@ export async function createBGMancerPlaylist(accessToken: string): Promise<strin
     throw new Error(`Failed to create playlist: ${res.status} — ${err}`);
   }
 
-  const data = await res.json();
-  return data.id as string;
+  const data = (await res.json()) as { id: string };
+  return data.id;
 }
 
 /** Add a video to a playlist. Returns the playlistItem ID. */
@@ -456,6 +489,6 @@ export async function addVideoToPlaylist(
     throw new Error(`Failed to add video to playlist: ${res.status} — ${err}`);
   }
 
-  const data = await res.json();
-  return data.id as string;
+  const data = (await res.json()) as { id: string };
+  return data.id;
 }

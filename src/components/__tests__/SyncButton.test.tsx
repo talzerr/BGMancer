@@ -5,6 +5,11 @@ import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SyncButton } from "../SyncButton";
 
+const mockSignIn = vi.fn();
+vi.mock("next-auth/react", () => ({
+  signIn: (...args: unknown[]) => mockSignIn(...args),
+}));
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -13,14 +18,14 @@ afterEach(() => {
 function renderSyncButton(
   overrides: Partial<{
     isSignedIn: boolean;
-    authConfigured: boolean;
+    isDev: boolean;
     hasFoundTracks: boolean;
     onSyncComplete: () => void;
   }> = {},
 ) {
   const props = {
     isSignedIn: true,
-    authConfigured: true,
+    isDev: false,
     hasFoundTracks: true,
     onSyncComplete: vi.fn(),
     ...overrides,
@@ -29,9 +34,9 @@ function renderSyncButton(
 }
 
 describe("SyncButton", () => {
-  describe("when authConfigured is false", () => {
+  describe("when isDev is true", () => {
     it("should render nothing", () => {
-      const { container } = renderSyncButton({ authConfigured: false });
+      const { container } = renderSyncButton({ isDev: true });
       expect(container.innerHTML).toBe("");
     });
   });
@@ -110,14 +115,14 @@ describe("SyncButton", () => {
       renderSyncButton();
       await userEvent.click(screen.getByRole("button", { name: /sync to youtube/i }));
 
-      expect(await screen.findByText(/2 item\(s\) failed to add/)).toBeInTheDocument();
+      expect(await screen.findByText(/2 track\(s\) failed to sync/)).toBeInTheDocument();
     });
   });
 
-  describe("when sync fails", () => {
-    it("should show error message", async () => {
+  describe("when API returns 401 (no YouTube scope)", () => {
+    it("should trigger incremental Google OAuth", async () => {
       vi.spyOn(global, "fetch").mockResolvedValueOnce(
-        new Response(JSON.stringify({ error: "Token expired" }), {
+        new Response(JSON.stringify({ error: "You must be signed in with Google" }), {
           status: 401,
           headers: { "Content-Type": "application/json" },
         }),
@@ -126,13 +131,17 @@ describe("SyncButton", () => {
       renderSyncButton();
       await userEvent.click(screen.getByRole("button", { name: /sync to youtube/i }));
 
-      expect(await screen.findByText("Token expired")).toBeInTheDocument();
+      expect(mockSignIn).toHaveBeenCalledWith(
+        "google",
+        expect.objectContaining({ callbackUrl: expect.any(String) }),
+        expect.objectContaining({ scope: expect.stringContaining("youtube") }),
+      );
     });
 
     it("should NOT call onSyncComplete", async () => {
       const onSyncComplete = vi.fn();
       vi.spyOn(global, "fetch").mockResolvedValueOnce(
-        new Response(JSON.stringify({ error: "Token expired" }), {
+        new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401,
           headers: { "Content-Type": "application/json" },
         }),
@@ -141,8 +150,25 @@ describe("SyncButton", () => {
       renderSyncButton({ onSyncComplete });
       await userEvent.click(screen.getByRole("button", { name: /sync to youtube/i }));
 
-      await screen.findByText("Token expired");
+      // Wait for the signIn call to confirm the handler ran
+      await vi.waitFor(() => expect(mockSignIn).toHaveBeenCalled());
       expect(onSyncComplete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("when sync fails (non-401)", () => {
+    it("should show error message", async () => {
+      vi.spyOn(global, "fetch").mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: "Server error" }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      renderSyncButton();
+      await userEvent.click(screen.getByRole("button", { name: /sync to youtube/i }));
+
+      expect(await screen.findByText("Server error")).toBeInTheDocument();
     });
   });
 
@@ -160,7 +186,6 @@ describe("SyncButton", () => {
 
       expect(screen.getByText("Syncing\u2026")).toBeInTheDocument();
 
-      // Resolve to avoid hanging promise
       resolveRequest(
         new Response(JSON.stringify({ message: "ok", synced: 0 }), {
           status: 200,

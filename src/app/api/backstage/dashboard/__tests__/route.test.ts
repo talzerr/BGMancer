@@ -3,7 +3,7 @@ import type Database from "better-sqlite3";
 import type { DrizzleDB } from "@/lib/db";
 import { createTestDrizzleDB, seedTestUser, seedTestGame } from "@/lib/db/test-helpers";
 import { TEST_USER_ID } from "@/test/constants";
-import { makeGetRequest, parseJson } from "@/test/route-helpers";
+import { parseJson } from "@/test/route-helpers";
 
 let db: DrizzleDB;
 let rawDb: Database.Database;
@@ -54,7 +54,7 @@ describe("GET /api/backstage/dashboard", () => {
         published: false,
       });
 
-      const res = await GET(makeGetRequest("/api/backstage/dashboard"));
+      const res = await GET();
       expect(res.status).toBe(200);
 
       const rows = await parseJson<DashboardRow[]>(res);
@@ -74,7 +74,7 @@ describe("GET /api/backstage/dashboard", () => {
 
   describe("when no games exist", () => {
     it("should return empty array", async () => {
-      const res = await GET(makeGetRequest("/api/backstage/dashboard"));
+      const res = await GET();
       expect(res.status).toBe(200);
 
       const rows = await parseJson<DashboardRow[]>(res);

@@ -14,6 +14,12 @@
 # production
 /build
 
+# cloudflare adapter build output
+.open-next/
+
+# cloudflare local dev
+.wrangler/
+
 # sqlite database
 *.db
 *.db-shm
@@ -36,7 +42,10 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
-.env*.local
+.env*
+!.env.test
+!.env*.example
+.dev.vars
 
 # vercel
 .vercel
@@ -44,3 +53,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# cloudflare generated types (regenerate with: pnpm cf-typegen)
+cloudflare-env.d.ts

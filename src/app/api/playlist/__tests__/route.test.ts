@@ -24,7 +24,9 @@ function makeNextRequest(
       url.searchParams.set(key, value);
     }
   }
-  const init: RequestInit = { method: opts?.method ?? "GET" };
+  const init: { method: string; headers?: Record<string, string>; body?: string } = {
+    method: opts?.method ?? "GET",
+  };
   if (opts?.body !== undefined) {
     init.headers = { "Content-Type": "application/json" };
     init.body = JSON.stringify(opts.body);
@@ -39,6 +41,7 @@ vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
   return {
     getDB: () => db,
+    batch: async (queries: any[]) => db.batch(queries),
 
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
@@ -154,7 +157,9 @@ describe("DELETE /api/playlist", () => {
       insertPlaylistTrack("pt1", sessionId, TEST_GAME_ID, { position: 0 });
       insertPlaylistTrack("pt2", sessionId, TEST_GAME_ID, { position: 1 });
 
-      const res = await DELETE_HANDLER();
+      const res = await DELETE_HANDLER(
+        new Request("http://localhost:6959/api/playlist", { method: "DELETE" }),
+      );
       expect(res.status).toBe(200);
 
       const body = await parseJson<{ success: boolean }>(res);

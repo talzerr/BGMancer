@@ -114,7 +114,9 @@ describe("PlaylistTrackCard", () => {
     it("should disable the reroll button", () => {
       render(<PlaylistTrackCard track={makeTrack()} index={0} onReroll={vi.fn()} isRerolling />);
       const buttons = screen.getAllByRole("button");
-      const rerollBtn = buttons.find((b) => b.textContent?.includes("Imported") || b.disabled);
+      const rerollBtn = buttons.find(
+        (b) => b.textContent?.includes("Imported") || (b as HTMLButtonElement).disabled,
+      );
       expect(rerollBtn).toBeDefined();
       expect(rerollBtn!).toBeDisabled();
     });

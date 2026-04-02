@@ -18,7 +18,7 @@ import {
   TEST_DURATION_SECONDS,
 } from "@/test/constants";
 
-const mockUseSortable = vi.fn(() => ({
+const mockUseSortable = vi.fn((_arg?: unknown) => ({
   attributes: { role: "button", tabIndex: 0 },
   listeners: {},
   setNodeRef: vi.fn(),
@@ -28,7 +28,7 @@ const mockUseSortable = vi.fn(() => ({
 }));
 
 vi.mock("@dnd-kit/sortable", () => ({
-  useSortable: (...args: unknown[]) => mockUseSortable(...args),
+  useSortable: (arg: any) => mockUseSortable(arg),
 }));
 
 vi.mock("@dnd-kit/utilities", () => ({

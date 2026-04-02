@@ -30,10 +30,10 @@ import { UndoToast } from "@/components/UndoToast";
 
 interface FeedClientProps {
   isSignedIn: boolean;
-  authConfigured: boolean;
+  isDev: boolean;
 }
 
-export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
+export function FeedClient({ isSignedIn, isDev }: FeedClientProps) {
   const { playlist, player, config, gameLibrary, gameThumbnailByGameId } = usePlayerContext();
   const { sessions, fetchSessions, handleRenameSession, handleDeleteSession } = useSessionManager();
   const { pendingDelete, initiateRemove, undoRemove } = useTrackDeleteUndo();
@@ -138,7 +138,7 @@ export function FeedClient({ isSignedIn, authConfigured }: FeedClientProps) {
           <PlaylistHeader
             sessions={sessions}
             isSignedIn={isSignedIn}
-            authConfigured={authConfigured}
+            isDev={isDev}
             onRename={handleRenameSession}
             onDeleteSession={handleDeleteSession}
           />

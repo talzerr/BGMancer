@@ -240,7 +240,7 @@ export function usePlaylist() {
     setSearching(true);
     try {
       const res = await fetch("/api/playlist/search", { method: "POST" });
-      const data = await res.json();
+      const data = (await res.json()) as { tracks?: PlaylistTrack[] };
       if (res.ok && data.tracks) setTracks(data.tracks);
     } catch (err) {
       console.error("Failed to search videos:", err);
@@ -271,7 +271,11 @@ export function usePlaylist() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: importUrl.trim() }),
       });
-      const data = await res.json();
+      const data = (await res.json()) as {
+        error?: string;
+        sessionId?: string;
+        tracks?: PlaylistTrack[];
+      };
       if (!res.ok) {
         setImportError(data.error ?? "Import failed");
         return false;

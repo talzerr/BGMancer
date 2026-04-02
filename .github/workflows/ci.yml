@@ -38,5 +38,8 @@ jobs:
       - name: Tests + Coverage
         run: pnpm test:coverage
 
+      - name: Generate Cloudflare types
+        run: pnpm cf-typegen
+
       - name: Build
         run: pnpm build

@@ -6,6 +6,24 @@ import * as schema from "./drizzle-schema";
 import { TEST_USER_ID, TEST_USER_EMAIL, TEST_USER_NAME, TEST_SESSION_NAME } from "@/test/constants";
 import type { DrizzleDB } from ".";
 
+function addBatchSupport(
+  sqliteDb: ReturnType<typeof drizzle<typeof schema>>,
+  rawDb: Database.Database,
+): DrizzleDB {
+  const db = sqliteDb as unknown as DrizzleDB;
+  // Add .batch() that D1 Drizzle has but better-sqlite3 doesn't
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (db as any).batch = (queries: any[]) => {
+    rawDb.transaction(() => {
+      for (const q of queries) {
+        q.run();
+      }
+    })();
+    return Promise.resolve([]);
+  };
+  return db;
+}
+
 /**
  * Creates a fresh in-memory Drizzle-wrapped database with the full schema
  * applied via migrations. Returns both the Drizzle instance and the raw DB.
@@ -13,8 +31,9 @@ import type { DrizzleDB } from ".";
 export function createTestDrizzleDB(): { db: DrizzleDB; rawDb: Database.Database } {
   const rawDb = new Database(":memory:");
   rawDb.pragma("foreign_keys = ON");
-  const db = drizzle(rawDb, { schema });
-  migrate(db, { migrationsFolder: path.join(process.cwd(), "drizzle/migrations") });
+  const sqliteDb = drizzle(rawDb, { schema });
+  migrate(sqliteDb, { migrationsFolder: path.join(process.cwd(), "drizzle/migrations") });
+  const db = addBatchSupport(sqliteDb, rawDb);
   return { db, rawDb };
 }
 

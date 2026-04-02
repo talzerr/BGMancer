@@ -41,7 +41,7 @@ describe("withRequiredAuth", () => {
 
       expect(res.status).toBe(401);
       expect(handler).not.toHaveBeenCalled();
-      const body = await res.json();
+      const body = (await res.json()) as { error?: string };
       expect(body.error).toBe("Authentication required");
     });
   });
@@ -55,7 +55,7 @@ describe("withRequiredAuth", () => {
       const res = await wrapped(dummyRequest());
 
       expect(res.status).toBe(500);
-      const body = await res.json();
+      const body = (await res.json()) as { error?: string };
       expect(body.error).toBe("Internal server error");
     });
   });
@@ -97,7 +97,7 @@ describe("withOptionalAuth", () => {
       const res = await wrapped(dummyRequest());
 
       expect(res.status).toBe(500);
-      const body = await res.json();
+      const body = (await res.json()) as { error?: string };
       expect(body.error).toBe("Internal server error");
     });
   });

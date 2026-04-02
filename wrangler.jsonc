@@ -1,0 +1,71 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "main": ".open-next/worker.js",
+  "name": "bgmancer",
+  "compatibility_date": "2025-04-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS",
+  },
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true,
+    },
+  },
+  // D1 database binding — fill database_id after running:
+  //   wrangler d1 create bgmancer-prod
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bgmancer-prod",
+      "database_id": "a6007448-8750-4494-9acd-3aae6ed8d79a",
+      "migrations_dir": "drizzle/migrations",
+    },
+  ],
+  // KV for rate limiting and caching — fill id after running:
+  //   wrangler kv namespace create CACHE
+  "kv_namespaces": [
+    {
+      "binding": "CACHE",
+      "id": "9cf03a3fe9b44b3cb719aa2d28891379",
+    },
+  ],
+  // Non-secret env vars. Secrets are set via: wrangler secret put <NAME>
+  "vars": {
+    "NODE_ENV": "production",
+    "NEXTAUTH_URL": "https://bgmancer.com",
+    "AUTH_TRUST_HOST": "true",
+  },
+  // ─── Staging environment ────────────────────────────────────────────────
+  // Deploy with: opennextjs-cloudflare build && wrangler deploy --env staging
+  // Create resources:
+  //   wrangler d1 create bgmancer-staging
+  //   wrangler kv namespace create CACHE --env staging
+  "env": {
+    "staging": {
+      "name": "bgmancer-staging",
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "bgmancer-staging",
+          "database_id": "1ea7f6cd-35a9-4583-b3ef-e27bf8cc9774",
+          "migrations_dir": "drizzle/migrations",
+        },
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "CACHE",
+          "id": "03a26e6ac6d64bb9bc1a15de535658f7",
+        },
+      ],
+      "vars": {
+        "NODE_ENV": "production",
+        "NEXTAUTH_URL": "https://staging.bgmancer.com",
+        "AUTH_TRUST_HOST": "true",
+      },
+    },
+  },
+}

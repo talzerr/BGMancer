@@ -10,7 +10,7 @@ import type { PlaylistSessionWithCount } from "@/types";
 interface PlaylistHeaderProps {
   sessions: PlaylistSessionWithCount[];
   isSignedIn: boolean;
-  authConfigured: boolean;
+  isDev: boolean;
   onRename: (id: string, name: string) => Promise<void>;
   onDeleteSession: (id: string) => Promise<void>;
 }
@@ -25,7 +25,7 @@ function formatDuration(seconds: number): string {
 export function PlaylistHeader({
   sessions,
   isSignedIn,
-  authConfigured,
+  isDev,
   onRename,
   onDeleteSession,
 }: PlaylistHeaderProps) {
@@ -200,10 +200,10 @@ export function PlaylistHeader({
             </button>
           )}
 
-          {authConfigured && (
+          {!isDev && (
             <SyncButton
               isSignedIn={isSignedIn}
-              authConfigured={authConfigured}
+              isDev={isDev}
               hasFoundTracks={hasFoundTracks}
               onSyncComplete={() => {}}
             />

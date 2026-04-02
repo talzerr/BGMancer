@@ -187,13 +187,8 @@ function makeTrack(overrides: Partial<PlaylistTrack> = {}): PlaylistTrack {
   };
 }
 
-function renderFeedClient(props: Partial<{ isSignedIn: boolean; authConfigured: boolean }> = {}) {
-  return render(
-    <FeedClient
-      isSignedIn={props.isSignedIn ?? false}
-      authConfigured={props.authConfigured ?? false}
-    />,
-  );
+function renderFeedClient(props: Partial<{ isSignedIn: boolean; isDev: boolean }> = {}) {
+  return render(<FeedClient isSignedIn={props.isSignedIn ?? false} isDev={props.isDev ?? false} />);
 }
 
 // ─── Tests ─────────────────────────────────────────────────────────────────

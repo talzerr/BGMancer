@@ -7,6 +7,7 @@ import {
   seedTestGame,
   seedTestSession,
 } from "../../test-helpers";
+import { TrackStatus } from "@/types";
 import type { InsertableTrack } from "../playlist";
 let db: DrizzleDB;
 let rawDb: Database.Database;
@@ -15,6 +16,7 @@ vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
   return {
     getDB: () => db,
+    batch: async (queries: any[]) => db.batch(queries),
 
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
@@ -37,7 +39,7 @@ function makeTrack(overrides: Partial<InsertableTrack> & { id: string }): Insert
     thumbnail: null,
     search_queries: null,
     duration_seconds: null,
-    status: "pending" as const,
+    status: TrackStatus.Pending,
     error_message: null,
     ...overrides,
   };
@@ -114,7 +116,7 @@ describe("Playlist", () => {
     describe("when transitioning pending -> searching -> found -> synced", () => {
       it("should update status at each step", async () => {
         await Playlist.setSearching("status-1");
-        let row = rawDb
+        const row = rawDb
           .prepare("SELECT status FROM playlist_tracks WHERE id = ?")
           .get("status-1") as {
           status: string;
@@ -130,12 +132,12 @@ describe("Playlist", () => {
           180,
           "Clean Name",
         );
-        row = rawDb
+        const foundRow = rawDb
           .prepare("SELECT status, video_id, track_name FROM playlist_tracks WHERE id = ?")
           .get("status-1") as { status: string; video_id: string; track_name: string };
-        expect(row.status).toBe("found");
-        expect(row.video_id).toBe("vid-123");
-        expect(row.track_name).toBe("Clean Name");
+        expect(foundRow.status).toBe("found");
+        expect(foundRow.video_id).toBe("vid-123");
+        expect(foundRow.track_name).toBe("Clean Name");
 
         await Playlist.markSynced("status-1");
         const synced = rawDb
@@ -215,9 +217,9 @@ describe("Playlist", () => {
     describe("when pending tracks exist", () => {
       it("should return only pending tracks", async () => {
         await Playlist.replaceAll(sessionId, [
-          makeTrack({ id: "p1", status: "pending", search_queries: ["q1"] }),
-          makeTrack({ id: "p2", status: "found", video_id: "v1" }),
-          makeTrack({ id: "p3", status: "pending", search_queries: ["q2"] }),
+          makeTrack({ id: "p1", status: TrackStatus.Pending, search_queries: ["q1"] }),
+          makeTrack({ id: "p2", status: TrackStatus.Found, video_id: "v1" }),
+          makeTrack({ id: "p3", status: TrackStatus.Pending, search_queries: ["q2"] }),
         ]);
 
         const pending = await Playlist.listPending(userId);
@@ -229,8 +231,8 @@ describe("Playlist", () => {
     describe("when no pending tracks exist", () => {
       it("should not return found or error tracks", async () => {
         await Playlist.replaceAll(sessionId, [
-          makeTrack({ id: "f1", status: "found", video_id: "v1" }),
-          makeTrack({ id: "e1", status: "error", error_message: "fail" }),
+          makeTrack({ id: "f1", status: TrackStatus.Found, video_id: "v1" }),
+          makeTrack({ id: "e1", status: TrackStatus.Error, error_message: "fail" }),
         ]);
 
         const pending = await Playlist.listPending(userId);
@@ -243,9 +245,9 @@ describe("Playlist", () => {
     describe("when unsynced found tracks exist", () => {
       it("should return only found tracks with video_id and no synced_at", async () => {
         await Playlist.replaceAll(sessionId, [
-          makeTrack({ id: "uf1", status: "found", video_id: "v1" }),
-          makeTrack({ id: "uf2", status: "pending" }),
-          makeTrack({ id: "uf3", status: "found", video_id: "v2" }),
+          makeTrack({ id: "uf1", status: TrackStatus.Found, video_id: "v1" }),
+          makeTrack({ id: "uf2", status: TrackStatus.Pending }),
+          makeTrack({ id: "uf3", status: TrackStatus.Found, video_id: "v2" }),
         ]);
         // Sync one of them
         await Playlist.markSynced("uf1");
@@ -260,7 +262,7 @@ describe("Playlist", () => {
     describe("when found tracks have no video_id", () => {
       it("should not include them", async () => {
         await Playlist.replaceAll(sessionId, [
-          makeTrack({ id: "nv1", status: "found", video_id: null }),
+          makeTrack({ id: "nv1", status: TrackStatus.Found, video_id: null }),
         ]);
 
         const unsynced = await Playlist.listUnsyncedFound(userId);
@@ -273,9 +275,9 @@ describe("Playlist", () => {
     describe("when some tracks are synced", () => {
       it("should return the count of synced tracks", async () => {
         await Playlist.replaceAll(sessionId, [
-          makeTrack({ id: "cs1", status: "found", video_id: "v1" }),
-          makeTrack({ id: "cs2", status: "found", video_id: "v2" }),
-          makeTrack({ id: "cs3", status: "found", video_id: "v3" }),
+          makeTrack({ id: "cs1", status: TrackStatus.Found, video_id: "v1" }),
+          makeTrack({ id: "cs2", status: TrackStatus.Found, video_id: "v2" }),
+          makeTrack({ id: "cs3", status: TrackStatus.Found, video_id: "v3" }),
         ]);
         await Playlist.markSynced("cs1");
         await Playlist.markSynced("cs2");
@@ -287,7 +289,7 @@ describe("Playlist", () => {
     describe("when no tracks are synced", () => {
       it("should return 0", async () => {
         await Playlist.replaceAll(sessionId, [
-          makeTrack({ id: "ns1", status: "found", video_id: "v1" }),
+          makeTrack({ id: "ns1", status: TrackStatus.Found, video_id: "v1" }),
         ]);
         expect(await Playlist.countSynced(userId)).toBe(0);
       });
@@ -333,9 +335,19 @@ describe("Playlist", () => {
     describe("when found tracks with names exist", () => {
       it("should return track names with game titles", async () => {
         await Playlist.replaceAll(sessionId, [
-          makeTrack({ id: "rn1", track_name: "Overworld", status: "found", video_id: "v1" }),
-          makeTrack({ id: "rn2", track_name: "Boss Fight", status: "found", video_id: "v2" }),
-          makeTrack({ id: "rn3", track_name: null, status: "found", video_id: "v3" }),
+          makeTrack({
+            id: "rn1",
+            track_name: "Overworld",
+            status: TrackStatus.Found,
+            video_id: "v1",
+          }),
+          makeTrack({
+            id: "rn2",
+            track_name: "Boss Fight",
+            status: TrackStatus.Found,
+            video_id: "v2",
+          }),
+          makeTrack({ id: "rn3", track_name: null, status: TrackStatus.Found, video_id: "v3" }),
         ]);
 
         const names = await Playlist.getRecentTrackNames(userId, 10);
@@ -348,7 +360,7 @@ describe("Playlist", () => {
     describe("when no found tracks exist", () => {
       it("should not return pending tracks", async () => {
         await Playlist.replaceAll(sessionId, [
-          makeTrack({ id: "pn1", track_name: "Pending Track", status: "pending" }),
+          makeTrack({ id: "pn1", track_name: "Pending Track", status: TrackStatus.Pending }),
         ]);
 
         const names = await Playlist.getRecentTrackNames(userId, 10);

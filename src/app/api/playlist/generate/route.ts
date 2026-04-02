@@ -94,7 +94,7 @@ export async function POST(request: Request) {
     })();
   } else {
     // ── Guest: Director-only, no Vibe Profiler, no persistence ──
-    const limited = checkGuestRateLimit(request);
+    const limited = await checkGuestRateLimit(request);
     if (limited) {
       return sseError(`Please wait ${limited.waitSec}s before trying again.`);
     }

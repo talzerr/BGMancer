@@ -4,15 +4,14 @@ import Credentials from "next-auth/providers/credentials";
 import { env } from "@/lib/env";
 import { Users } from "@/lib/db/repos/users";
 
-// Google OAuth is optional — if creds aren't set, a dev-only Credentials provider is used instead.
-export const AUTH_CONFIGURED = env.authConfigured;
+// Production uses Google OAuth; dev uses a Credentials provider for convenience.
 
 const googleProvider = Google({
   clientId: env.googleClientId ?? "",
   clientSecret: env.googleClientSecret ?? "",
   authorization: {
     params: {
-      scope: ["openid", "email", "profile", "https://www.googleapis.com/auth/youtube"].join(" "),
+      scope: "openid email profile",
       access_type: "offline",
       prompt: "consent",
     },
@@ -52,6 +51,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.access_token = account.access_token;
         token.refresh_token = account.refresh_token;
         token.expires_at = account.expires_at;
+        token.scope = account.scope;
       }
       return token;
     },
@@ -60,6 +60,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.userId as string;
       }
       session.access_token = token.access_token as string | undefined;
+      session.scope = token.scope as string | undefined;
       return session;
     },
   },
@@ -70,6 +71,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 declare module "next-auth" {
   interface Session {
     access_token?: string;
+    scope?: string;
     user: {
       id: string;
       email: string;
@@ -83,5 +85,6 @@ declare module "next-auth" {
     access_token?: string;
     refresh_token?: string;
     expires_at?: number;
+    scope?: string;
   }
 }

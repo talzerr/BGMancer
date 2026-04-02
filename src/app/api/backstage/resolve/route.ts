@@ -34,13 +34,6 @@ export async function POST(req: Request) {
     );
   }
 
-  if (!(await Tracks.isTagged(gameId))) {
-    return new Response(
-      `data: ${JSON.stringify({ type: "error", message: "Tracks not tagged — run Tag first" })}\n\n`,
-      { headers: SSE_HEADERS },
-    );
-  }
-
   const abort = new AbortController();
   const { stream, send, close } = makeSSEStream<ResolveEvent>();
 

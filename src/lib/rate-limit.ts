@@ -1,55 +1,35 @@
 /**
- * Simple in-memory IP-based rate limiter.
- * Uses a sliding window per key. Not distributed — works for single-process deployments.
- * In production on Cloudflare Workers, replace with Workers Rate Limiting binding.
+ * IP-based rate limiter backed by the KV service.
+ *
+ * Stores an array of timestamps per key. Entries auto-expire via KV TTL.
  */
 
-interface RateLimitEntry {
-  timestamps: number[];
-}
-
-const store = new Map<string, RateLimitEntry>();
-
-/** Periodically purge expired entries to prevent memory leaks. */
-const CLEANUP_INTERVAL_MS = 60_000;
-let lastCleanup = Date.now();
-
-function cleanup(windowMs: number): void {
-  const now = Date.now();
-  if (now - lastCleanup < CLEANUP_INTERVAL_MS) return;
-  lastCleanup = now;
-  const cutoff = now - windowMs;
-  for (const [key, entry] of store) {
-    entry.timestamps = entry.timestamps.filter((t) => t > cutoff);
-    if (entry.timestamps.length === 0) store.delete(key);
-  }
-}
+import { KV } from "@/lib/services/kv";
 
 /**
  * Check if a request from `key` is within the rate limit.
  * Returns { allowed: true } or { allowed: false, retryAfterMs }.
  */
-export function checkRateLimit(
+export async function checkRateLimit(
   key: string,
   maxRequests: number,
   windowMs: number,
-): { allowed: true } | { allowed: false; retryAfterMs: number } {
-  cleanup(windowMs);
-
+): Promise<{ allowed: true } | { allowed: false; retryAfterMs: number }> {
+  const kvKey = `ratelimit:${key}`;
   const now = Date.now();
   const cutoff = now - windowMs;
-  const entry = store.get(key) ?? { timestamps: [] };
 
-  entry.timestamps = entry.timestamps.filter((t) => t > cutoff);
+  const stored = await KV.get<number[]>(kvKey);
+  const timestamps = Array.isArray(stored) ? stored.filter((t) => t > cutoff) : [];
 
-  if (entry.timestamps.length >= maxRequests) {
-    const oldestInWindow = entry.timestamps[0];
+  if (timestamps.length >= maxRequests) {
+    const oldestInWindow = timestamps[0];
     const retryAfterMs = oldestInWindow + windowMs - now;
     return { allowed: false, retryAfterMs };
   }
 
-  entry.timestamps.push(now);
-  store.set(key, entry);
+  timestamps.push(now);
+  await KV.set(kvKey, timestamps, Math.ceil(windowMs / 1000));
   return { allowed: true };
 }
 
@@ -73,9 +53,9 @@ const GUEST_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
  * Single bucket per IP across all guest-accessible routes.
  * Returns null if allowed, or a { waitSec } object if rate-limited.
  */
-export function checkGuestRateLimit(request: Request): { waitSec: number } | null {
+export async function checkGuestRateLimit(request: Request): Promise<{ waitSec: number } | null> {
   const ip = getClientIp(request);
-  const result = checkRateLimit(`guest:${ip}`, GUEST_MAX_REQUESTS, GUEST_WINDOW_MS);
+  const result = await checkRateLimit(`guest:${ip}`, GUEST_MAX_REQUESTS, GUEST_WINDOW_MS);
   if (result.allowed) return null;
   return { waitSec: Math.ceil(result.retryAfterMs / 1000) };
 }

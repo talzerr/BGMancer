@@ -17,6 +17,7 @@ vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
   return {
     getDB: () => db,
+    batch: async (queries: any[]) => db.batch(queries),
 
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
@@ -59,7 +60,7 @@ describe("GET /api/sessions", () => {
         )
         .run("pt2", sessionId, TEST_GAME_ID, "Track 2", 1, "found");
 
-      const res = await GET();
+      const res = await GET(new Request("http://localhost:6959/api/sessions"));
       expect(res.status).toBe(200);
 
       const sessions =
@@ -73,7 +74,7 @@ describe("GET /api/sessions", () => {
 
   describe("when user has no sessions", () => {
     it("should return empty array", async () => {
-      const res = await GET();
+      const res = await GET(new Request("http://localhost:6959/api/sessions"));
       expect(res.status).toBe(200);
 
       const sessions = await parseJson<unknown[]>(res);

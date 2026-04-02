@@ -41,11 +41,13 @@ export default defineConfig({
         "src/lib/env.ts",
         "src/lib/db/repo.ts",
         "src/lib/db/index.ts",
-        "src/lib/db/seed.ts",
         "src/lib/db/drizzle-schema.ts",
         "src/lib/llm/provider.ts",
         "src/lib/pipeline/types.ts",
         "src/lib/services/auth.ts",
+
+        // KV production paths require Cloudflare Workers runtime
+        "src/lib/services/kv.ts",
 
         // Heavy orchestrators chaining 3+ external services (LLM + YouTube + DB).
         // Appropriate for E2E tests, not unit/integration tests.

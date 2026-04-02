@@ -12,6 +12,7 @@ vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
   return {
     getDB: () => db,
+    batch: async (queries: any[]) => db.batch(queries),
 
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
@@ -38,8 +39,8 @@ describe("DELETE /api/backstage/review-flags", () => {
   describe("when clearing all flags for a game", () => {
     it("should return success", async () => {
       seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
-      seedReviewFlag(db, TEST_GAME_ID, "no_tracks");
-      seedReviewFlag(db, TEST_GAME_ID, "bad_playlist");
+      seedReviewFlag(rawDb, TEST_GAME_ID, "no_tracks");
+      seedReviewFlag(rawDb, TEST_GAME_ID, "bad_playlist");
 
       const res = await DELETE_HANDLER(
         makeJsonRequest("/api/backstage/review-flags", "DELETE", { gameId: TEST_GAME_ID }),
@@ -69,8 +70,8 @@ describe("DELETE /api/backstage/review-flags", () => {
   describe("when dismissing a single flag", () => {
     it("should return success", async () => {
       seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
-      const flagId1 = seedReviewFlag(db, TEST_GAME_ID, "no_tracks");
-      seedReviewFlag(db, TEST_GAME_ID, "bad_playlist");
+      const flagId1 = seedReviewFlag(rawDb, TEST_GAME_ID, "no_tracks");
+      seedReviewFlag(rawDb, TEST_GAME_ID, "bad_playlist");
 
       const res = await DELETE_HANDLER(
         makeJsonRequest("/api/backstage/review-flags", "DELETE", {
@@ -87,8 +88,8 @@ describe("DELETE /api/backstage/review-flags", () => {
 
     it("should NOT remove other flags", async () => {
       seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
-      const flagId1 = seedReviewFlag(db, TEST_GAME_ID, "no_tracks");
-      const flagId2 = seedReviewFlag(db, TEST_GAME_ID, "bad_playlist");
+      const flagId1 = seedReviewFlag(rawDb, TEST_GAME_ID, "no_tracks");
+      const flagId2 = seedReviewFlag(rawDb, TEST_GAME_ID, "bad_playlist");
 
       await DELETE_HANDLER(
         makeJsonRequest("/api/backstage/review-flags", "DELETE", {

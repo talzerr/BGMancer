@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { signIn } from "next-auth/react";
 import { Spinner, YouTubeLogo } from "@/components/Icons";
 
 interface SyncResult {
@@ -10,24 +11,21 @@ interface SyncResult {
   errors?: Array<{ game_id: string; error: string }>;
 }
 
+const YOUTUBE_SCOPE = "https://www.googleapis.com/auth/youtube";
+
 interface SyncButtonProps {
   isSignedIn: boolean;
-  authConfigured: boolean;
+  isDev: boolean;
   hasFoundTracks: boolean;
   onSyncComplete: () => void;
 }
 
-export function SyncButton({
-  isSignedIn,
-  authConfigured,
-  hasFoundTracks,
-  onSyncComplete,
-}: SyncButtonProps) {
+export function SyncButton({ isSignedIn, isDev, hasFoundTracks, onSyncComplete }: SyncButtonProps) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SyncResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  if (!authConfigured) return null;
+  if (isDev) return null;
 
   const disabled = !isSignedIn || !hasFoundTracks || loading;
 
@@ -38,7 +36,19 @@ export function SyncButton({
 
     try {
       const res = await fetch("/api/sync", { method: "POST" });
-      const data = await res.json();
+      const data = (await res.json()) as SyncResult & { error?: string };
+
+      if (res.status === 401) {
+        // No YouTube access token — trigger incremental OAuth to request the YouTube scope.
+        signIn(
+          "google",
+          { callbackUrl: window.location.pathname },
+          {
+            scope: `openid email profile ${YOUTUBE_SCOPE}`,
+          },
+        );
+        return;
+      }
 
       if (!res.ok) throw new Error(data.error ?? "Sync failed");
 
@@ -83,12 +93,12 @@ export function SyncButton({
               rel="noopener noreferrer"
               className="text-xs text-violet-400 underline underline-offset-2 hover:text-violet-300"
             >
-              Open BGMancer Journey →
+              Open playlist
             </a>
           )}
           {result.errors && result.errors.length > 0 && (
-            <p className="mt-0.5 text-xs text-amber-400">
-              {result.errors.length} item(s) failed to add.
+            <p className="mt-1 text-xs text-amber-400">
+              {result.errors.length} track(s) failed to sync.
             </p>
           )}
         </div>

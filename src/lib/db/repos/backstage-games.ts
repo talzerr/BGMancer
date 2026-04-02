@@ -1,4 +1,4 @@
-import { getDB } from "@/lib/db";
+import { getDB, batch } from "@/lib/db";
 import { eq, sql } from "drizzle-orm";
 import { games, playlistTrackDecisions } from "@/lib/db/drizzle-schema";
 import { toGames } from "@/lib/db/mappers";
@@ -49,7 +49,7 @@ export const BackstageGames = {
   async createDraft(title: string, steamAppid?: number | null): Promise<Game> {
     const id = newId();
     const thumbnail = steamAppid ? steamHeaderUrl(steamAppid) : null;
-    getDB()
+    await getDB()
       .insert(games)
       .values({
         id,
@@ -64,11 +64,11 @@ export const BackstageGames = {
   },
 
   async setPlaylistId(id: string, playlistId: string): Promise<void> {
-    getDB().update(games).set({ yt_playlist_id: playlistId }).where(eq(games.id, id)).run();
+    await getDB().update(games).set({ yt_playlist_id: playlistId }).where(eq(games.id, id)).run();
   },
 
   async setPhase(id: string, phase: OnboardingPhase): Promise<void> {
-    getDB()
+    await getDB()
       .update(games)
       .set({
         onboarding_phase: phase,
@@ -79,7 +79,7 @@ export const BackstageGames = {
   },
 
   async setPublished(id: string, published: boolean): Promise<void> {
-    getDB()
+    await getDB()
       .update(games)
       .set({
         published,
@@ -93,14 +93,14 @@ export const BackstageGames = {
     const db = getDB();
     if (search?.trim()) {
       return toGames(
-        db.all(sql`
+        await db.all(sql`
           SELECT * FROM games WHERE published = 1 AND title LIKE ${`%${search.trim()}%`}
           ORDER BY title ASC LIMIT ${limit ?? 15}
         `),
       );
     }
     return toGames(
-      db.all(sql`
+      await db.all(sql`
         SELECT * FROM games WHERE published = 1 ORDER BY title ASC LIMIT ${limit ?? 15}
       `),
     );
@@ -123,7 +123,7 @@ export const BackstageGames = {
     if (setParts.length > 0) {
       setParts.push(sql.raw("updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')"));
       const setClause = sql.join(setParts, sql.raw(", "));
-      getDB().run(sql`UPDATE games SET ${setClause} WHERE id = ${id}`);
+      await getDB().run(sql`UPDATE games SET ${setClause} WHERE id = ${id}`);
     }
     return await Games.getById(id);
   },
@@ -133,14 +133,14 @@ export const BackstageGames = {
     if (!game) return;
     if (game.published) throw new Error("[BackstageGames.destroy] cannot delete a published game");
 
-    getDB().transaction((tx) => {
-      tx.delete(playlistTrackDecisions).where(eq(playlistTrackDecisions.game_id, id)).run();
-      tx.delete(games).where(eq(games.id, id)).run();
-    });
+    await batch([
+      getDB().delete(playlistTrackDecisions).where(eq(playlistTrackDecisions.game_id, id)),
+      getDB().delete(games).where(eq(games.id, id)),
+    ]);
   },
 
   async listWithTrackStats(): Promise<BackstageGame[]> {
-    const rows = getDB().all(sql`
+    const rows = await getDB().all(sql`
       SELECT
         g.id, g.title, g.onboarding_phase, g.published, g.tracklist_source, g.needs_review,
         SUM(CASE WHEN t.name IS NOT NULL AND (t.discovered IS NULL OR t.discovered != 'rejected') THEN 1 ELSE 0 END) AS track_count,
@@ -173,7 +173,7 @@ export const BackstageGames = {
     const whereClause =
       conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql.raw(" AND "))}` : sql.raw("");
 
-    const rows = getDB().all(sql`
+    const rows = await getDB().all(sql`
       SELECT
         g.id, g.title, g.onboarding_phase, g.published, g.tracklist_source, g.needs_review,
         SUM(CASE WHEN t.name IS NOT NULL AND (t.discovered IS NULL OR t.discovered != 'rejected') THEN 1 ELSE 0 END) AS track_count,
@@ -198,7 +198,7 @@ export const BackstageGames = {
       needsReviewCount: number;
     }[]
   > {
-    return getDB().all<{
+    return await getDB().all<{
       phase: string;
       count: number;
       publishedCount: number;

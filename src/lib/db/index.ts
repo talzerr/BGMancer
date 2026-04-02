@@ -1,27 +1,20 @@
-import { env } from "@/lib/env";
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import path from "path";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { drizzle } from "drizzle-orm/d1";
 import * as schema from "./drizzle-schema";
-import { seedDefaultUser } from "./seed";
-
-export { LOCAL_USER_ID, LOCAL_LIBRARY_ID } from "./seed";
 
 export type DrizzleDB = ReturnType<typeof drizzle<typeof schema>>;
 
-let _db: DrizzleDB | null = null;
-
-/** Returns the Drizzle-wrapped database instance. */
+/** Returns a Drizzle-wrapped D1 database instance. */
 export function getDB(): DrizzleDB {
-  if (!_db) {
-    const dbPath = env.sqlitePath;
-    const raw = new Database(dbPath);
-    raw.pragma("journal_mode = WAL");
-    raw.pragma("foreign_keys = ON");
-    _db = drizzle(raw, { schema });
-    migrate(_db, { migrationsFolder: path.join(process.cwd(), "drizzle/migrations") });
-    seedDefaultUser(_db);
-  }
-  return _db;
+  const { env } = getCloudflareContext();
+  return drizzle(env.DB, { schema });
+}
+
+/**
+ * Execute multiple queries in a single batch (D1 sends them in one HTTP roundtrip).
+ */
+export async function batch(queries: any[]): Promise<void> {
+  if (queries.length === 0) return;
+  await getDB().batch(queries as [any]);
 }

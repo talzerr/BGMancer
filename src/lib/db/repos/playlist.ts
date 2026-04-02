@@ -1,4 +1,4 @@
-import { getDB } from "@/lib/db";
+import { getDB, batch } from "@/lib/db";
 import { eq, sql, and, inArray } from "drizzle-orm";
 import { playlistTracks, playlists } from "@/lib/db/drizzle-schema";
 import { toPlaylistTracks, parseSearchQueries } from "@/lib/db/mappers";
@@ -34,7 +34,7 @@ export const Playlist = {
     const db = getDB();
     if (sessionId) {
       return toPlaylistTracks(
-        db.all(sql`
+        await db.all(sql`
           SELECT pt.*, g.title AS game_title, g.thumbnail_url AS game_thumbnail_url
           FROM playlist_tracks pt
           JOIN games g ON g.id = pt.game_id
@@ -44,7 +44,7 @@ export const Playlist = {
       );
     }
     return toPlaylistTracks(
-      db.all(sql`
+      await db.all(sql`
         SELECT pt.*, g.title AS game_title, g.thumbnail_url AS game_thumbnail_url
         FROM playlist_tracks pt
         JOIN games g ON g.id = pt.game_id
@@ -55,7 +55,7 @@ export const Playlist = {
   },
 
   async listPending(userId: string): Promise<PendingTrackRow[]> {
-    const rows = getDB().all<{ id: string; search_queries: string | null }>(sql`
+    const rows = await getDB().all<{ id: string; search_queries: string | null }>(sql`
       SELECT pt.id, pt.search_queries
       FROM playlist_tracks pt
       WHERE pt.status = 'pending'
@@ -69,7 +69,7 @@ export const Playlist = {
   },
 
   async listUnsyncedFound(userId: string): Promise<SyncableTrackRow[]> {
-    return getDB().all<SyncableTrackRow>(sql`
+    return await getDB().all<SyncableTrackRow>(sql`
       SELECT id, video_id, position
       FROM playlist_tracks
       WHERE status = 'found'
@@ -81,20 +81,20 @@ export const Playlist = {
   },
 
   async countSynced(userId: string): Promise<number> {
-    const row = getDB().get<{ cnt: number }>(sql`
+    const row = (await getDB().get<{ cnt: number }>(sql`
       SELECT COUNT(*) AS cnt FROM playlist_tracks
       WHERE synced_at IS NOT NULL
         AND playlist_id = (SELECT id FROM playlists WHERE user_id = ${userId} AND is_archived = 0 ORDER BY created_at DESC LIMIT 1)
-    `)!;
+    `))!;
     return row.cnt;
   },
 
   async replaceAll(playlistId: string, tracks: InsertableTrack[]): Promise<void> {
-    getDB().transaction((tx) => {
-      tx.delete(playlistTracks).where(eq(playlistTracks.playlist_id, playlistId)).run();
-      for (let position = 0; position < tracks.length; position++) {
-        const t = tracks[position];
-        tx.insert(playlistTracks)
+    await batch([
+      getDB().delete(playlistTracks).where(eq(playlistTracks.playlist_id, playlistId)),
+      ...tracks.map((t, position) =>
+        getDB()
+          .insert(playlistTracks)
           .values({
             id: t.id,
             playlist_id: playlistId,
@@ -109,21 +109,20 @@ export const Playlist = {
             position,
             status: t.status,
             error_message: t.error_message,
-          })
-          .run();
-      }
-    });
+          }),
+      ),
+    ]);
   },
 
   async clearAll(userId: string): Promise<void> {
-    getDB().run(sql`
+    await getDB().run(sql`
       DELETE FROM playlist_tracks
       WHERE playlist_id = (SELECT id FROM playlists WHERE user_id = ${userId} AND is_archived = 0 ORDER BY created_at DESC LIMIT 1)
     `);
   },
 
   async setSearching(id: string): Promise<void> {
-    getDB()
+    await getDB()
       .update(playlistTracks)
       .set({ status: "searching" })
       .where(eq(playlistTracks.id, id))
@@ -139,7 +138,7 @@ export const Playlist = {
     durationSeconds: number | null = null,
     trackName: string | null = null,
   ): Promise<void> {
-    getDB()
+    await getDB()
       .update(playlistTracks)
       .set({
         status: "found",
@@ -156,7 +155,7 @@ export const Playlist = {
   },
 
   async setError(id: string, message: string): Promise<void> {
-    getDB()
+    await getDB()
       .update(playlistTracks)
       .set({ status: "error", error_message: message })
       .where(eq(playlistTracks.id, id))
@@ -164,7 +163,7 @@ export const Playlist = {
   },
 
   async markSynced(id: string): Promise<void> {
-    getDB()
+    await getDB()
       .update(playlistTracks)
       .set({ synced_at: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')` })
       .where(eq(playlistTracks.id, id))
@@ -173,7 +172,7 @@ export const Playlist = {
 
   /** Returns the userId who owns the playlist containing this track, or null. */
   async getTrackOwnerId(trackId: string): Promise<string | null> {
-    const row = getDB().get<{ user_id: string }>(sql`
+    const row = await getDB().get<{ user_id: string }>(sql`
       SELECT p.user_id FROM playlist_tracks pt
       JOIN playlists p ON p.id = pt.playlist_id
       WHERE pt.id = ${trackId}
@@ -184,7 +183,7 @@ export const Playlist = {
   /** Verifies all track IDs belong to the given user. Returns false if any don't. */
   async verifyTrackOwnership(userId: string, trackIds: string[]): Promise<boolean> {
     if (trackIds.length === 0) return true;
-    const rows = getDB()
+    const rows = await getDB()
       .select({ id: playlistTracks.id })
       .from(playlistTracks)
       .innerJoin(playlists, eq(playlists.id, playlistTracks.playlist_id))
@@ -194,12 +193,12 @@ export const Playlist = {
   },
 
   async removeOne(id: string): Promise<void> {
-    getDB().delete(playlistTracks).where(eq(playlistTracks.id, id)).run();
+    await getDB().delete(playlistTracks).where(eq(playlistTracks.id, id)).run();
   },
 
   async getById(id: string): Promise<PlaylistTrack | undefined> {
     const rows = toPlaylistTracks(
-      getDB().all(sql`
+      await getDB().all(sql`
         SELECT pt.*, g.title AS game_title, g.thumbnail_url AS game_thumbnail_url
         FROM playlist_tracks pt
         JOIN games g ON g.id = pt.game_id
@@ -210,7 +209,7 @@ export const Playlist = {
   },
 
   async getVideoIdsForGame(gameId: string): Promise<string[]> {
-    const rows = getDB()
+    const rows = await getDB()
       .select({ video_id: playlistTracks.video_id })
       .from(playlistTracks)
       .where(eq(playlistTracks.game_id, gameId))
@@ -221,21 +220,18 @@ export const Playlist = {
   },
 
   async reorder(orderedIds: string[]): Promise<void> {
-    getDB().transaction((tx) => {
-      for (let i = 0; i < orderedIds.length; i++) {
-        tx.update(playlistTracks)
-          .set({ position: i })
-          .where(eq(playlistTracks.id, orderedIds[i]))
-          .run();
-      }
-    });
+    await batch(
+      orderedIds.map((id, i) =>
+        getDB().update(playlistTracks).set({ position: i }).where(eq(playlistTracks.id, id)),
+      ),
+    );
   },
 
   async getRecentTrackNames(
     userId: string,
     limit: number,
   ): Promise<Array<{ cleanName: string; gameTitle: string }>> {
-    return getDB().all<{ cleanName: string; gameTitle: string }>(sql`
+    return await getDB().all<{ cleanName: string; gameTitle: string }>(sql`
       SELECT pt.track_name AS cleanName, g.title AS gameTitle
       FROM playlist_tracks pt
       JOIN playlists p ON p.id = pt.playlist_id

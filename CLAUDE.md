@@ -15,18 +15,17 @@ pnpm test         # Run all tests (Vitest)
 pnpm test:watch   # Tests in watch mode
 pnpm test:coverage # Tests with coverage report
 pnpm db:generate  # Generate migration from schema diff
-pnpm db:migrate   # Apply pending migrations (standalone)
+pnpm db:migrate   # Apply pending migrations to local D1
 pnpm db:studio    # Open Drizzle Studio (browser DB inspector)
-pnpm db:reset     # Drop and recreate the database
-pnpm db:backup    # Snapshot the database
-pnpm db:restore   # Restore from snapshot
+pnpm db:reset     # Wipe local D1 state (run db:migrate after)
+pnpm preview      # Build + preview in Cloudflare Workers runtime
 ```
 
 Tests run via Vitest. Lint and format run automatically via husky pre-commit on staged `.ts`/`.tsx` files.
 
 ## Environment
 
-All env vars are centralized in `src/lib/env.ts` — a typed singleton that validates at startup. Never use `process.env` directly; import `env` from `@/lib/env` instead.
+All env vars are centralized in `src/lib/env.ts` — a typed lazy-loaded singleton. Never use `process.env` directly; import `env` from `@/lib/env` instead. In Cloudflare Workers, `env` is initialized on first access (not at module load time) because secrets are available per-request.
 
 Requires a `.env.local` (copy from `.env.local.example`) with:
 
@@ -36,10 +35,10 @@ Requires a `.env.local` (copy from `.env.local.example`) with:
 - `ANTHROPIC_API_KEY` — required; powers all LLM calls (tagging, vibe profiling)
 - `ANTHROPIC_TAGGING_MODEL` — optional; override Anthropic model for Phase 2 tagging (defaults to `ANTHROPIC_MODEL`)
 - `ANTHROPIC_VIBE_MODEL` — optional; override Anthropic model for Vibe Profiler (defaults to `ANTHROPIC_MODEL`)
-- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — optional; enables Google OAuth sign-in (production). Without these, a dev Credentials provider is used instead
-- `ADMIN_SECRET` — optional; protects `/backstage` routes. Without it, backstage is completely inaccessible (404). Set it and inject a `bgmancer-admin` cookie with the same value to access backstage
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — required in production for Google OAuth sign-in. In local dev, a Credentials provider is used instead
+- Backstage (`/backstage/*`) is open in local dev. In production, it's gated by Cloudflare Access on `bgmancer.com/backstage*`
 
-The DB file is `bgmancer.db` at the project root (or override with `SQLITE_PATH`). Schema is managed by Drizzle ORM with migrations applied automatically on first run via `migrate()` in `src/lib/db/index.ts`.
+Schema is managed by Drizzle ORM with migrations stored in `drizzle/migrations/`. Locally, apply with `pnpm db:migrate`. In production, apply with `wrangler d1 migrations apply bgmancer-prod --remote`.
 
 ## Architecture
 
@@ -51,9 +50,9 @@ The DB file is `bgmancer.db` at the project root (or override with `SQLITE_PATH`
 
 **Route auth config (`src/lib/route-config.ts`):** Single source of truth — every accessible route (pages and API) must be registered here. Unregistered routes return 404. Each entry declares its auth level: `Public`, `Optional`, `Required`, or `Admin`.
 
-**Proxy (`src/proxy.ts`):** Runs on all non-static requests. Reads the route config and enforces: (1) allowlist — unregistered routes get 404, (2) admin auth — `ADMIN_SECRET` cookie check for `Admin` routes.
+**Middleware (`src/middleware.ts`):** Runs on all non-static requests. Reads the route config and enforces: (1) allowlist — unregistered routes get 404, (2) admin routes — in production, requires `CF_Authorization` cookie (set by Cloudflare Access) as defense in depth. Uses the deprecated `middleware.ts` convention (not Next.js 16's `proxy.ts`) for `@opennextjs/cloudflare` compatibility.
 
-**Route wrappers (`src/lib/services/route-wrappers.ts`):** `withRequiredAuth(handler, label)` and `withOptionalAuth(handler, label)` enforce user auth at the handler level. The proxy can't call `auth()` (NextAuth doesn't work in the proxy layer), so user auth is enforced here.
+**Route wrappers (`src/lib/services/route-wrappers.ts`):** `withRequiredAuth(handler, label)` and `withOptionalAuth(handler, label)` enforce user auth at the handler level. Middleware can't call `auth()` (NextAuth doesn't work in the middleware layer), so user auth is enforced here.
 
 **Auth helpers (`src/lib/services/auth-helpers.ts`):** `getAuthSession()`, `getAuthUserId()`, `AuthRequiredError`. Used by route wrappers and custom handlers (generate, sync).
 
@@ -61,7 +60,7 @@ The DB file is `bgmancer.db` at the project root (or override with `SQLITE_PATH`
 
 **Input validation:** All POST/PATCH/DELETE routes validate bodies with Zod schemas defined in `src/lib/validation.ts`.
 
-**Rate limiting:** Guest generation is IP-rate-limited via `src/lib/rate-limit.ts` (in-memory sliding window). Authenticated users have a DB-backed generation cooldown lock.
+**Rate limiting:** Guest generation is IP-rate-limited via `src/lib/rate-limit.ts` (KV-backed sliding window in production, in-memory in dev). Authenticated users have a DB-backed generation cooldown lock.
 
 **Guest vs Logged-in behavior:**
 
@@ -107,18 +106,17 @@ Use `usePlayerContext()` to access any of these from any client component.
 
 ### Database layer (`src/lib/db/`)
 
-Uses **Drizzle ORM** with `better-sqlite3` as the local driver. All repo methods are **async** (returns `Promise<T>`) to prepare for Cloudflare D1 migration.
+Uses **Drizzle ORM** with **Cloudflare D1** as the database driver everywhere (dev, staging, production). Local dev uses D1 emulation via miniflare (provided by `initOpenNextCloudflareForDev()` in `next.config.ts`). Tests use better-sqlite3 in-memory databases wrapped with a D1-compat layer.
 
-- `index.ts` — singleton `getDB()` returns a Drizzle instance, runs migrations on init, seeds default user
+- `index.ts` — `getDB()` returns a D1-backed Drizzle instance via `getCloudflareContext().env.DB`
 - `drizzle-schema.ts` — Drizzle schema definition for all tables, indexes, and foreign keys
 - `repo.ts` — barrel re-export for all repos in `repos/`
 - `repos/` — one file per domain: `games`, `backstage-games`, `users`, `sessions`, `playlist`, `tracks`, `video-tracks`, `review-flags`, `decisions`
 - `mappers.ts` — row → typed object converters (used by repos that query via `sql` tagged template)
 - `queries.ts` — shared Drizzle subquery helpers
-- `seed.ts` — seeds the local dev user on first run
-- `test-helpers.ts` — `createTestDrizzleDB()` for in-memory test databases
+- `test-helpers.ts` — `createTestDrizzleDB()` for in-memory test databases with D1-compat wrapper
 
-The local dev seed uses stable UUIDs: `LOCAL_USER_ID` and `LOCAL_LIBRARY_ID` (defined in `src/lib/db/seed.ts`). In production, users are created via `Users.createFromOAuth()` on first Google OAuth sign-in.
+Users are created via `Users.createFromOAuth()` on first Google OAuth sign-in. In local dev, the Credentials provider creates users on the fly.
 
 ### Playlist generation pipeline (`src/lib/pipeline/`)
 
@@ -216,7 +214,9 @@ Schema is defined in `src/lib/db/drizzle-schema.ts` using Drizzle's SQLite schem
 
 1. Edit `src/lib/db/drizzle-schema.ts`
 2. Run `pnpm db:generate` — diffs against the latest snapshot and produces a new `.sql` migration file
-3. Run `pnpm db:reset` — deletes the DB; next app start applies all migrations from scratch
+3. Run `pnpm db:migrate` — applies migrations to local D1
+4. For production: `wrangler d1 migrations apply bgmancer-prod --remote`
+5. To start fresh locally: `pnpm db:reset` then `pnpm db:migrate`
 
 While there are no production users, you can collapse to a single migration by deleting `drizzle/migrations/` and re-running `pnpm db:generate`. Once there is real user data, use incremental migrations instead.
 
@@ -228,7 +228,7 @@ Games can be flagged for manual review via `ReviewFlags.markAsNeedsReview(gameId
 
 - **Never use `process.env` directly** — use the typed `env` singleton from `@/lib/env`
 - **Every route must be in `src/lib/route-config.ts`** — unregistered routes return 404 via the proxy
-- **Next.js 16 uses `proxy.ts`** (not `middleware.ts`) — the exported function must be named `proxy`
+- **Next.js 16 with OpenNext Cloudflare MUST use `middleware.ts`** — `proxy.ts` is not yet supported by `@opennextjs/cloudflare`
 - `process.env.NODE_ENV` does **not** work reliably in client components with Turbopack — avoid conditional rendering based on it. Use `env.isDev` on the server instead
 - `useEffect` must be placed **after** all `const` variables it references (temporal dead zone issue in this codebase's hook patterns)
 - Sessions are FIFO-evicted: at most `MAX_PLAYLIST_SESSIONS` (3) sessions are kept per user; the oldest is deleted automatically

@@ -8,7 +8,7 @@ const DISMISSED_KEY = "bgm_login_prompt_dismissed";
 
 interface AuthButtonsProps {
   user: { name?: string | null; image?: string | null } | null;
-  authConfigured: boolean;
+  isDev: boolean;
 }
 
 function LoginPrompt({ onDismiss }: { onDismiss: () => void }) {
@@ -48,7 +48,7 @@ function shouldShowPrompt(user: AuthButtonsProps["user"]): boolean {
   return !localStorage.getItem(DISMISSED_KEY);
 }
 
-export function AuthButtons({ user, authConfigured }: AuthButtonsProps) {
+export function AuthButtons({ user, isDev }: AuthButtonsProps) {
   const [showPrompt, setShowPrompt] = useState(false);
 
   // Read localStorage after mount to avoid hydration mismatch
@@ -101,7 +101,7 @@ export function AuthButtons({ user, authConfigured }: AuthButtonsProps) {
     );
   }
 
-  if (authConfigured) {
+  if (!isDev) {
     return (
       <div className="relative">
         <button
