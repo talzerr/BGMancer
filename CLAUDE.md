@@ -25,7 +25,7 @@ Tests run via Vitest. Lint and format run automatically via husky pre-commit on 
 
 ## Environment
 
-All env vars are centralized in `src/lib/env.ts` — a typed singleton that validates at startup. Never use `process.env` directly; import `env` from `@/lib/env` instead.
+All env vars are centralized in `src/lib/env.ts` — a typed lazy-loaded singleton. Never use `process.env` directly; import `env` from `@/lib/env` instead. In Cloudflare Workers, `env` is initialized on first access (not at module load time) because secrets are available per-request.
 
 Requires a `.env.local` (copy from `.env.local.example`) with:
 
@@ -38,7 +38,7 @@ Requires a `.env.local` (copy from `.env.local.example`) with:
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — required in production for Google OAuth sign-in. In local dev, a Credentials provider is used instead
 - Backstage (`/backstage/*`) is open in local dev. In production, it's gated by Cloudflare Access on `bgmancer.com/backstage*`
 
-The DB file is `bgmancer.db` at the project root (or override with `SQLITE_PATH`). Schema is managed by Drizzle ORM with migrations applied automatically on first run via `migrate()` in `src/lib/db/index.ts`.
+Schema is managed by Drizzle ORM with migrations stored in `drizzle/migrations/`. Locally, apply with `pnpm db:migrate`. In production, apply with `wrangler d1 migrations apply bgmancer-prod --remote`.
 
 ## Architecture
 
@@ -50,9 +50,9 @@ The DB file is `bgmancer.db` at the project root (or override with `SQLITE_PATH`
 
 **Route auth config (`src/lib/route-config.ts`):** Single source of truth — every accessible route (pages and API) must be registered here. Unregistered routes return 404. Each entry declares its auth level: `Public`, `Optional`, `Required`, or `Admin`.
 
-**Middleware (`src/middleware.ts`):** Runs on all non-static requests. Reads the route config and enforces: (1) allowlist — unregistered routes get 404, (2) admin routes — in production, blocks backstage access from unexpected hosts as defense in depth behind Cloudflare Access. Uses the deprecated `middleware.ts` convention (not Next.js 16's `proxy.ts`) for `@opennextjs/cloudflare` compatibility.
+**Middleware (`src/middleware.ts`):** Runs on all non-static requests. Reads the route config and enforces: (1) allowlist — unregistered routes get 404, (2) admin routes — in production, requires `CF_Authorization` cookie (set by Cloudflare Access) as defense in depth. Uses the deprecated `middleware.ts` convention (not Next.js 16's `proxy.ts`) for `@opennextjs/cloudflare` compatibility.
 
-**Route wrappers (`src/lib/services/route-wrappers.ts`):** `withRequiredAuth(handler, label)` and `withOptionalAuth(handler, label)` enforce user auth at the handler level. The proxy can't call `auth()` (NextAuth doesn't work in the proxy layer), so user auth is enforced here.
+**Route wrappers (`src/lib/services/route-wrappers.ts`):** `withRequiredAuth(handler, label)` and `withOptionalAuth(handler, label)` enforce user auth at the handler level. Middleware can't call `auth()` (NextAuth doesn't work in the middleware layer), so user auth is enforced here.
 
 **Auth helpers (`src/lib/services/auth-helpers.ts`):** `getAuthSession()`, `getAuthUserId()`, `AuthRequiredError`. Used by route wrappers and custom handlers (generate, sync).
 
@@ -60,7 +60,7 @@ The DB file is `bgmancer.db` at the project root (or override with `SQLITE_PATH`
 
 **Input validation:** All POST/PATCH/DELETE routes validate bodies with Zod schemas defined in `src/lib/validation.ts`.
 
-**Rate limiting:** Guest generation is IP-rate-limited via `src/lib/rate-limit.ts` (in-memory sliding window). Authenticated users have a DB-backed generation cooldown lock.
+**Rate limiting:** Guest generation is IP-rate-limited via `src/lib/rate-limit.ts` (KV-backed sliding window in production, in-memory in dev). Authenticated users have a DB-backed generation cooldown lock.
 
 **Guest vs Logged-in behavior:**
 
@@ -214,7 +214,9 @@ Schema is defined in `src/lib/db/drizzle-schema.ts` using Drizzle's SQLite schem
 
 1. Edit `src/lib/db/drizzle-schema.ts`
 2. Run `pnpm db:generate` — diffs against the latest snapshot and produces a new `.sql` migration file
-3. Run `pnpm db:reset` — deletes the DB; next app start applies all migrations from scratch
+3. Run `pnpm db:migrate` — applies migrations to local D1
+4. For production: `wrangler d1 migrations apply bgmancer-prod --remote`
+5. To start fresh locally: `pnpm db:reset` then `pnpm db:migrate`
 
 While there are no production users, you can collapse to a single migration by deleting `drizzle/migrations/` and re-running `pnpm db:generate`. Once there is real user data, use incremental migrations instead.
 

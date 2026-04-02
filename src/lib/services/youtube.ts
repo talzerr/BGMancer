@@ -11,11 +11,9 @@ import { env } from "@/lib/env";
 
 const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
 
-if (!env.youtubeApiKey) {
-  console.warn("[YouTube] WARNING: YOUTUBE_API_KEY is not set — all API calls will fail");
+function getYouTubeApiKey(): string {
+  return env.youtubeApiKey ?? "";
 }
-
-const YOUTUBE_API_KEY = env.youtubeApiKey ?? "";
 
 /** Thrown when the YouTube Data API quota is exceeded — callers should abort immediately */
 export class YouTubeQuotaError extends Error {
@@ -101,7 +99,7 @@ export async function searchYouTube(
   allowShortVideo = false,
 ): Promise<YouTubeSearchResult[]> {
   const searchUrl = new URL(`${YOUTUBE_API_BASE}/search`);
-  searchUrl.searchParams.set("key", YOUTUBE_API_KEY);
+  searchUrl.searchParams.set("key", getYouTubeApiKey());
   searchUrl.searchParams.set("q", query);
   searchUrl.searchParams.set("part", "snippet");
   searchUrl.searchParams.set("type", "video");
@@ -141,7 +139,7 @@ export async function searchYouTube(
 
   const videoIds = items.map((i) => i.id.videoId).join(",");
   const videosUrl = new URL(`${YOUTUBE_API_BASE}/videos`);
-  videosUrl.searchParams.set("key", YOUTUBE_API_KEY);
+  videosUrl.searchParams.set("key", getYouTubeApiKey());
   videosUrl.searchParams.set("id", videoIds);
   videosUrl.searchParams.set("part", "contentDetails");
 
@@ -220,7 +218,7 @@ export async function fetchVideoMetadata(videoIds: string[]): Promise<Map<string
     const chunk = videoIds.slice(i, i + YT_VIDEOS_PAGE_SIZE);
 
     const url = new URL(`${YOUTUBE_API_BASE}/videos`);
-    url.searchParams.set("key", YOUTUBE_API_KEY);
+    url.searchParams.set("key", getYouTubeApiKey());
     url.searchParams.set("id", chunk.join(","));
     url.searchParams.set("part", "contentDetails,statistics");
 
@@ -281,7 +279,7 @@ export async function searchOSTPlaylist(gameTitle: string): Promise<string | nul
 
   for (const query of queries) {
     const url = new URL(`${YOUTUBE_API_BASE}/search`);
-    url.searchParams.set("key", YOUTUBE_API_KEY);
+    url.searchParams.set("key", getYouTubeApiKey());
     url.searchParams.set("q", query);
     url.searchParams.set("part", "snippet");
     url.searchParams.set("type", "playlist");
@@ -327,7 +325,7 @@ export async function fetchPlaylistMetadata(
   playlistId: string,
 ): Promise<{ title: string; description: string } | null> {
   const url = new URL(`${YOUTUBE_API_BASE}/playlists`);
-  url.searchParams.set("key", YOUTUBE_API_KEY);
+  url.searchParams.set("key", getYouTubeApiKey());
   url.searchParams.set("id", playlistId);
   url.searchParams.set("part", "snippet");
 
@@ -362,7 +360,7 @@ export async function fetchPlaylistItems(playlistId: string, maxTracks = 150): P
 
   do {
     const url = new URL(`${YOUTUBE_API_BASE}/playlistItems`);
-    url.searchParams.set("key", YOUTUBE_API_KEY);
+    url.searchParams.set("key", getYouTubeApiKey());
     url.searchParams.set("playlistId", playlistId);
     url.searchParams.set("part", "snippet");
     url.searchParams.set("maxResults", "50");

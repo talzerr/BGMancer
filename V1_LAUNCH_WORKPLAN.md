@@ -16,7 +16,7 @@ BGMancer is feature-complete and needs to move from a local single-user Mac setu
 
 These decisions were made during planning and should not be revisited without good reason.
 
-- **Backstage deployment:** Single Worker, Cloudflare Access on `backstage.bgmancer.com`
+- **Backstage deployment:** Single Worker, Cloudflare Access on `bgmancer.com/backstage*` path (no subdomain — simpler, subdomain only valuable with a separate Worker)
 - **Guest generation:** Yes, Director-only (no Vibe Profiler)
 - **License:** MIT for code, BGMancer name is creator's
 - **Per-user cap:** 10 generations/day, configurable via admin DB setting with per-user overrides
@@ -195,7 +195,7 @@ With the database layer modernized, security work can proceed. These items are o
 
 ---
 
-### 2.7 Security Headers & CORS (deferred to Phase 3)
+### 2.7 Security Headers & CORS ✅ (implemented in Phase 3)
 
 **Why it matters:** HTTP security headers are defense-in-depth mechanisms that browsers enforce. HSTS ensures HTTPS-only. CSP prevents XSS by controlling what scripts/resources can load. X-Frame-Options prevents clickjacking. CORS misconfiguration lets any website make API requests on behalf of your users. These are free protection that cost nothing to add and significantly raise the bar for attackers.
 
@@ -220,7 +220,7 @@ With the database layer modernized, security work can proceed. These items are o
 
 ---
 
-### 2.9 Rate Limiting ✅ (guest IP-based; full rate limiting deferred to Phase 3)
+### 2.9 Rate Limiting ✅ (guest IP-based; KV-backed in production via Phase 3)
 
 **Why it matters:** Without rate limiting, a single user (or bot) can rack up Anthropic API costs or DoS the app. Rate limiting is your first line of defense against both abuse and accidental overuse.
 
@@ -243,82 +243,42 @@ With the database layer modernized, security work can proceed. These items are o
 
 ---
 
-## Phase 3 — Cloudflare Deployment
+## Phase 3 — Cloudflare Deployment ✅
 
-With the DB migrated and security in place, deploy to Cloudflare.
+> **Completed.** App deployed to Cloudflare Workers at `bgmancer.com`. D1 database, KV caching, staging config, security headers, auth alignment, and backstage protection all in place.
 
-### 3.1 @opennextjs/cloudflare Adapter Setup
+### 3.1 @opennextjs/cloudflare Adapter Setup ✅
 
-**Why it matters:** Cloudflare Workers is not Node.js — it's a V8 isolate environment. The adapter translates Next.js's server-side behavior into something Workers can execute. Getting this right is the difference between "it works" and "half the routes 500."
+`@opennextjs/cloudflare` adapter installed and configured. `wrangler.jsonc` defines D1, KV, and staging environment bindings. `open-next.config.ts` provides adapter config. `initOpenNextCloudflareForDev()` in `next.config.ts` enables Cloudflare bindings during local dev. Build pipeline: `opennextjs-cloudflare build && wrangler deploy`.
 
-**Domain:** `bgmancer.com` (owned). Target architecture:
+**Decisions made:**
 
-- `bgmancer.com` — main app (public)
-- `backstage.bgmancer.com` — admin panel (protected via Cloudflare Access)
+- Free Workers plan (upgrade to paid if CPU limits are hit)
+- Single Worker for both main app and backstage (no subdomain separation — Cloudflare Access gates `bgmancer.com/backstage*` path instead)
+- Uses `middleware.ts` (deprecated Next.js convention) because `@opennextjs/cloudflare` doesn't yet support `proxy.ts`
+- Next.js Image Optimization disabled (`images.unoptimized: true`) — requires paid Cloudflare Images subscription
 
-**Subdomain separation for Backstage:** Use a **single Worker** serving both domains. Cloudflare Access gates `backstage.bgmancer.com` at the edge (before your code runs). This is the standard pattern for small teams — one codebase, one deployment, zero routing complexity. The Worker serves the main app on `bgmancer.com` and Backstage on the subdomain, with Cloudflare Access handling auth on the subdomain.
+### 3.2 Cloudflare D1 Production Setup ✅
 
-**Scope:**
+D1 is the **sole database driver** for all environments (dev, staging, production). The initial plan called for a dual-driver approach (better-sqlite3 locally, D1 in production), but this caused sync/async incompatibilities. Refactored to D1 everywhere — local dev uses D1 emulation via miniflare. `better-sqlite3` remains only in `test-helpers.ts` for fast in-memory test databases, wrapped with a D1-compat shim.
 
-- Install and configure `@opennextjs/cloudflare`
-- Create `wrangler.toml` with `nodejs_compat` flag, compatibility date, D1 binding, rate limiter binding
-- Configure custom domain: `bgmancer.com` pointed at the main Worker
-- Configure `backstage.bgmancer.com` subdomain with Cloudflare Access (Zero Trust) gating your Google email
-- Configure build pipeline: `next build` → adapter → `wrangler deploy`
-- Verify all API routes work in the Workers environment
-- Verify SSE streaming works (it should — Workers support streaming responses with no wall-time limit)
-- Since YouTube API is admin-only and Vibe Profiler is a single Anthropic call per generation, the subrequest limit is less concerning than initially thought — but verify with real generation flows
+`db/index.ts` is 20 lines: `getDB()` returns a D1-backed Drizzle instance via `getCloudflareContext().env.DB`. `batch()` helper wraps D1's native `.batch()` for bulk operations. `env.ts` lazy-loads via Proxy (secrets are per-request in Workers, not available at module load time).
 
-**Decision questions:**
+### 3.3 KV Service ✅
 
-- Free vs. paid Workers plan? Free has 50 subrequests/invocation. A standard generation may stay within this since YouTube calls are admin-only, but paid ($5/mo) gives headroom.
+Created `src/lib/services/kv.ts` — a Redis-like abstraction (`get`, `set`, `del`, `has` with TTL) over Cloudflare KV in production and in-memory Map in dev/test. YouTube API caching was not needed (the DB already caches onboarding results). KV is used for the guest rate limiter instead (in-memory Maps don't persist between Worker invocations).
 
----
+### 3.4 Staging Environment ✅ (config ready, not yet deployed)
 
-### 3.2 Cloudflare D1 Production Setup
+Wrangler environments configured in `wrangler.jsonc` (`staging` env with separate D1, KV, vars). CI workflow updated to auto-deploy staging on push to `main`. D1 and KV resources created but staging Worker not yet deployed.
 
-**Why it matters:** This is where your production data lives. Getting the D1 binding, initial data migration, and seeding right is critical — a mistake here means data loss or a broken app on launch.
+### 3.5 Security Headers ✅
 
-**Scope:**
+Added to `next.config.ts` via `headers()`: HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy, and CSP. CSP allows YouTube embeds/scripts/iframes, Steam/Google images, and Anthropic API.
 
-- Create D1 database via Wrangler CLI
-- Import existing schema via Drizzle migrations
-- Seed the catalog (published games) into the production D1 instance
-- Configure D1 binding in `wrangler.toml`
-- Test: verify all CRUD operations, generation pipeline, backstage operations work against D1
-- Set up D1 backup schedule (D1 has built-in point-in-time restore — 30 days on paid plan)
+### 3.6 Auth Alignment ✅
 
----
-
-### 3.3 Caching Layer (Workers KV)
-
-**Why it matters:** YouTube Data API v3 has a strict 10,000 units/day quota. A single "search" costs 100 units. Caching prevents burning through this during admin onboarding sessions. KV provides fast, globally distributed key-value storage perfect for caching API responses.
-
-**Scope:**
-
-- Create KV namespace for YouTube API response caching
-- Cache playlist search results, video metadata, duration lookups
-- Set appropriate TTLs (playlist IDs: 7 days, video metadata: 30 days)
-- Add cache-hit/miss logging for quota monitoring
-- Consider caching Discogs responses too (less critical but reduces external dependency)
-
-**Decision questions:**
-
-- How aggressively should you cache? Stale YouTube data (deleted videos, changed titles) is a trade-off against quota preservation.
-- Should the cache be warmable from Backstage? (i.e., admin pre-populates cache for newly published games)
-
----
-
-### 3.4 Staging Environment
-
-**Why it matters:** Deploying straight to production means your users are your testers. A staging environment lets you verify changes in an environment identical to production (same Workers runtime, same D1, same bindings) before they affect real users. This is especially important during the initial launch period when issues are most likely.
-
-**Scope:**
-
-- Create a separate D1 database for staging
-- Configure Wrangler environments: `staging` and `production`
-- Staging deploys on every push to `main`; production deploys manually or on tagged releases
-- Staging uses the same env var structure but with test API keys / lower quotas
+Removed the `authConfigured` flag — `isDev` is the single decision point for dev vs production auth. Google OAuth is required in production; Credentials provider is dev-only. YouTube scope removed from default OAuth login — uses incremental authorization when the user clicks "Sync to YouTube". `ADMIN_SECRET` cookie mechanism removed; backstage is protected by Cloudflare Access with `CF_Authorization` cookie check as defense in depth.
 
 ---
 
@@ -612,9 +572,9 @@ Phase 2 (Security)                                   ▼
   2.7 Security Headers & CORS (independent)
   2.8 Dev Routes (independent)
                               │
-Phase 3 (Cloudflare)          ▼
+Phase 3 (Cloudflare) ✅        ▼
   3.1 Adapter Setup ─→ 3.2 D1 Production ─→ 3.4 Staging
-  3.3 KV Caching (after 3.1)
+  3.3 KV Service (after 3.1) ─→ 3.5 Security Headers ─→ 3.6 Auth Alignment
                               │
 Phase 4 (Observability)       ▼
   4.1 Structured Logging (independent)

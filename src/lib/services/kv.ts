@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+import { env } from "@/lib/env";
+
 /**
  * Key-value cache service with TTL support.
  *
@@ -58,8 +60,7 @@ function getKV(): KVNamespace {
 // ---------------------------------------------------------------------------
 
 function isProduction(): boolean {
-  const nodeEnv = process.env.NODE_ENV ?? "development";
-  return nodeEnv !== "development" && nodeEnv !== "test";
+  return !env.isDev;
 }
 
 export const KV = {

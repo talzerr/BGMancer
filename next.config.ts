@@ -3,8 +3,6 @@ import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
 const nextConfig: NextConfig = {
   devIndicators: false,
-  // Prevent Next.js from bundling the native sqlite3 binary — it must run in Node.js only
-  serverExternalPackages: ["better-sqlite3"],
   images: {
     // Image optimization on Cloudflare requires a paid Cloudflare Images subscription.
     // With unoptimized, images load directly from their source CDNs (Steam, YouTube, Google).
