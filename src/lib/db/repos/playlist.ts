@@ -164,17 +164,6 @@ export const Playlist = {
     return rows[0];
   },
 
-  async getVideoIdsForGame(gameId: string): Promise<string[]> {
-    const rows = await getDB()
-      .select({ video_id: playlistTracks.video_id })
-      .from(playlistTracks)
-      .where(eq(playlistTracks.game_id, gameId))
-      .all();
-    return rows
-      .filter((r): r is typeof r & { video_id: string } => r.video_id != null)
-      .map((r) => r.video_id);
-  },
-
   async getVideoIdsForSession(playlistId: string): Promise<string[]> {
     const rows = await getDB()
       .select({ video_id: playlistTracks.video_id })

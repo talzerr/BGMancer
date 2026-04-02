@@ -238,23 +238,6 @@ describe("Playlist", () => {
     });
   });
 
-  describe("getVideoIdsForGame", () => {
-    describe("when tracks have video IDs", () => {
-      it("should return all video IDs for the game", async () => {
-        await Playlist.replaceAll(sessionId, [
-          makeTrack({ id: "vg1", video_id: "vid-a" }),
-          makeTrack({ id: "vg2", video_id: "vid-b" }),
-          makeTrack({ id: "vg3", video_id: null }),
-        ]);
-
-        const ids = await Playlist.getVideoIdsForGame(gameId);
-        expect(ids).toHaveLength(2);
-        expect(ids).toContain("vid-a");
-        expect(ids).toContain("vid-b");
-      });
-    });
-  });
-
   describe("clearAll", () => {
     describe("when clearing tracks from active session", () => {
       it("should delete all tracks from the active session", async () => {

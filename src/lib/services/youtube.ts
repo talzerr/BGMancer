@@ -184,20 +184,6 @@ export async function searchYouTube(query: string): Promise<YouTubeSearchResult[
 }
 
 /**
- * Given multiple search queries (tried in order), return the best result.
- * Returns the first accepted video from the first query that produces results.
- */
-export async function findBestVideo(queries: string[]): Promise<YouTubeSearchResult | null> {
-  for (const query of queries) {
-    const results = await searchYouTube(query);
-    if (results.length > 0) {
-      return results[0];
-    }
-  }
-  return null;
-}
-
-/**
  * Fetch durations and view counts for a batch of video IDs in a single videos.list call (1 quota unit).
  * Returns a map of videoId → { durationSeconds, viewCount }.
  * Adding `statistics` alongside `contentDetails` does not increase the quota cost for videos.list —
