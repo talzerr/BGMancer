@@ -154,8 +154,8 @@ Only after all three phases complete is a game ready for the Director. The Backs
 
 `src/lib/llm/index.ts` exports:
 
-- `getTaggingProvider()` — Phase 1.5 resolver + Phase 2 Tagger. Override model with `ANTHROPIC_TAGGING_MODEL`.
-- `getVibeProfilerProvider()` — Phase 2 Vibe Profiler. Override model with `ANTHROPIC_VIBE_MODEL`.
+- `getTaggingProvider()` — video resolver + track tagger (used during backstage onboarding). Override model with `ANTHROPIC_TAGGING_MODEL`.
+- `getVibeProfilerProvider()` — Vibe Profiler (used during playlist generation). Override model with `ANTHROPIC_VIBE_MODEL`.
 
 All providers implement `LLMProvider` (`src/lib/llm/provider.ts`): `complete(system, user, opts)`. All LLM calls use Anthropic (`ANTHROPIC_API_KEY` required).
 

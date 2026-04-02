@@ -411,7 +411,6 @@ describe("toPlaylistTrack", () => {
         channel_title: null,
         thumbnail: null,
         duration_seconds: null,
-        error_message: null,
         synced_at: null,
       });
       expect(pt.game_title).toBeUndefined();

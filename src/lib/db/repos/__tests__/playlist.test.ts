@@ -307,4 +307,82 @@ describe("Playlist", () => {
       });
     });
   });
+
+  describe("getVideoIdsForSession", () => {
+    describe("when session has tracks with video IDs", () => {
+      it("should return all non-null video IDs", async () => {
+        await Playlist.replaceAll(sessionId, [
+          makeTrack({ id: "vs1", video_id: "vid-a" }),
+          makeTrack({ id: "vs2", video_id: "vid-b" }),
+          makeTrack({ id: "vs3", video_id: null }),
+        ]);
+
+        const ids = await Playlist.getVideoIdsForSession(sessionId);
+        expect(ids).toHaveLength(2);
+        expect(ids).toContain("vid-a");
+        expect(ids).toContain("vid-b");
+      });
+    });
+
+    describe("when session has no tracks", () => {
+      it("should return empty array", async () => {
+        const ids = await Playlist.getVideoIdsForSession(sessionId);
+        expect(ids).toHaveLength(0);
+      });
+    });
+
+    describe("when other sessions have tracks", () => {
+      it("should only return video IDs from the specified session", async () => {
+        const otherSession = seedTestSession(rawDb, userId, { id: "other-s", name: "Other" });
+        await Playlist.replaceAll(sessionId, [makeTrack({ id: "vs4", video_id: "vid-mine" })]);
+        await Playlist.replaceAll(otherSession, [makeTrack({ id: "vs5", video_id: "vid-other" })]);
+
+        const ids = await Playlist.getVideoIdsForSession(sessionId);
+        expect(ids).toEqual(["vid-mine"]);
+      });
+    });
+  });
+
+  describe("updateVideo", () => {
+    describe("when updating a track's video", () => {
+      it("should replace video fields", async () => {
+        await Playlist.replaceAll(sessionId, [
+          makeTrack({ id: "uv1", video_id: "old-vid", video_title: "Old Title" }),
+        ]);
+
+        await Playlist.updateVideo(
+          "uv1",
+          "new-vid",
+          "New Title",
+          "Channel",
+          "thumb.jpg",
+          240,
+          "New Track",
+        );
+
+        const updated = await Playlist.getById("uv1");
+        expect(updated).toBeDefined();
+        expect(updated!.video_id).toBe("new-vid");
+        expect(updated!.video_title).toBe("New Title");
+        expect(updated!.channel_title).toBe("Channel");
+        expect(updated!.thumbnail).toBe("thumb.jpg");
+        expect(updated!.duration_seconds).toBe(240);
+        expect(updated!.track_name).toBe("New Track");
+      });
+    });
+
+    describe("when channel and thumbnail are null", () => {
+      it("should accept null values", async () => {
+        await Playlist.replaceAll(sessionId, [
+          makeTrack({ id: "uv2", video_id: "old-vid", channel_title: "Ch", thumbnail: "t.jpg" }),
+        ]);
+
+        await Playlist.updateVideo("uv2", "new-vid", "Title", null, null, 180);
+
+        const updated = await Playlist.getById("uv2");
+        expect(updated!.channel_title).toBeNull();
+        expect(updated!.thumbnail).toBeNull();
+      });
+    });
+  });
 });
