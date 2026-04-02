@@ -5,6 +5,7 @@
  */
 
 import { KV } from "@/lib/services/kv";
+import { USER_DAILY_GENERATION_CAP, GUEST_MAX_REQUESTS, GUEST_WINDOW_MS } from "@/lib/constants";
 
 /**
  * Check if a request from `key` is within the rate limit.
@@ -45,9 +46,6 @@ export function getClientIp(request: Request): string {
 
 // ─── Guest rate limiter ─────────────────────────────────────────────────────
 
-const GUEST_MAX_REQUESTS = 10;
-const GUEST_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
-
 /**
  * Shared rate limiter for all guest (unauthenticated) requests.
  * Single bucket per IP across all guest-accessible routes.
@@ -58,4 +56,29 @@ export async function checkGuestRateLimit(request: Request): Promise<{ waitSec: 
   const result = await checkRateLimit(`guest:${ip}`, GUEST_MAX_REQUESTS, GUEST_WINDOW_MS);
   if (result.allowed) return null;
   return { waitSec: Math.ceil(result.retryAfterMs / 1000) };
+}
+
+// ─── Per-user daily generation cap ──────────────────────────────────────────
+
+const DAY_IN_SECONDS = 86400;
+
+function dailyCapKey(userId: string): string {
+  const today = new Date().toISOString().slice(0, 10);
+  return `gencap:${userId}:${today}`;
+}
+
+/**
+ * Check and consume a daily generation slot for a logged-in user.
+ * Returns null if allowed (and increments the count), or an error message if capped.
+ */
+export async function acquireUserGeneration(userId: string): Promise<{ error: string } | null> {
+  const key = dailyCapKey(userId);
+  const count = (await KV.get<number>(key)) ?? 0;
+
+  if (count >= USER_DAILY_GENERATION_CAP) {
+    return { error: "Daily generation limit reached. Try again tomorrow." };
+  }
+
+  await KV.set(key, count + 1, DAY_IN_SECONDS);
+  return null;
 }

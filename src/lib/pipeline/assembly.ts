@@ -49,16 +49,6 @@ export function toInsertable(tracks: PendingTrack[]): InsertableTrack[] {
   }));
 }
 
-// ─── Compilation search queries ──────────────────────────────────────────────
-
-export function compilationQueries(gameTitle: string): string[] {
-  return [
-    `${gameTitle} full OST official soundtrack`,
-    `${gameTitle} complete official soundtrack`,
-    `${gameTitle} original game soundtrack`,
-  ];
-}
-
 // ─── Tagged → Pending conversion ─────────────────────────────────────────────
 
 export function taggedTrackToPending(
@@ -78,7 +68,7 @@ export function taggedTrackToPending(
 
 /**
  * For every track that is still in "pending" state and has search_queries
- * (full-OST compilations and fallback tracks), attempt to find a YouTube video.
+ * attempt to find a matching YouTube video.
  * Updates the DB in-place and mutates the passed array so the caller's
  * in-memory state stays consistent.
  */
@@ -94,7 +84,7 @@ export async function resolvePendingSlots(
 
   for (const track of pendingTracks) {
     try {
-      const video = await findBestVideo(track.search_queries ?? [], false);
+      const video = await findBestVideo(track.search_queries ?? []);
       if (video) {
         if (!allowShortTracks && video.durationSeconds < MIN_TRACK_DURATION_SECONDS) {
           await Playlist.setError(track.id, "Track is too short (intro or stinger).");
@@ -125,7 +115,7 @@ export async function resolvePendingSlots(
           };
         }
       } else {
-        await Playlist.setError(track.id, "No suitable compilation video found.");
+        await Playlist.setError(track.id, "No suitable video found.");
       }
     } catch (err) {
       if (err instanceof YouTubeQuotaError) throw err; // propagate quota errors immediately

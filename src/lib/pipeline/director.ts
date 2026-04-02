@@ -1,4 +1,5 @@
 import { createLogger } from "@/lib/logger";
+import { VIEW_BIAS_LOG_MIN, VIEW_BIAS_LOG_MAX } from "@/lib/constants";
 import type {
   TaggedTrack,
   Game,
@@ -172,9 +173,6 @@ export function jaccard(a: string[], b: string[]): number {
 }
 
 // ─── View Bias computation ───────────────────────────────────────────────────
-
-const VIEW_BIAS_LOG_MIN = 3; // log10(1,000)
-const VIEW_BIAS_LOG_MAX = 7; // log10(10,000,000)
 
 export function computeGlobalHeat(viewCount: number | null): number {
   // Tracks with no view data get the baseline (0.3) rather than 0.0, to avoid penalising

@@ -40,6 +40,10 @@ Current Vibe Check uses random 2.5× sample. For large libraries, only ~8% of tr
 
 - **Vibe input UI** _(depends on Vibe Profiler)_ — structured selectors: **Energy** (Calm / Balanced / Intense) + **Activity** (Study, Gaming, Commute, Exercise, Relaxing).
 
+## Per-user Generation Caps
+
+- **Daily generation limit** — per logged-in user, enforced via KV counter. Cap stored in DB for per-user admin overrides via Backstage.
+
 ## Bugs
 
 ## Backstage

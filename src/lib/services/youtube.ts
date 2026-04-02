@@ -79,7 +79,7 @@ const REJECT_KEYWORDS = [
   "orchestral remix",
 ];
 
-const MIN_DURATION_SECONDS = 15 * 60; // 15 minutes
+import { YT_MAX_VIDEO_DURATION_SECONDS, YT_VIDEOS_PAGE_SIZE } from "@/lib/constants";
 
 /** Parse ISO 8601 duration string (PT1H23M45S) to seconds */
 export function parseDuration(iso: string): number {
@@ -101,10 +101,7 @@ export function isRejected(title: string, description: string): boolean {
  * Search YouTube and return validated results.
  * Uses search.list (100 units) + videos.list for duration (1 unit per video, max 10).
  */
-export async function searchYouTube(
-  query: string,
-  allowShortVideo = false,
-): Promise<YouTubeSearchResult[]> {
+export async function searchYouTube(query: string): Promise<YouTubeSearchResult[]> {
   const searchUrl = new URL(`${YOUTUBE_API_BASE}/search`);
   searchUrl.searchParams.set("key", getYouTubeApiKey());
   searchUrl.searchParams.set("q", query);
@@ -178,7 +175,7 @@ export async function searchYouTube(
     const durationSeconds = durationMap.get(videoId) ?? 0;
 
     if (isRejected(title, description)) continue;
-    if (!allowShortVideo && durationSeconds < MIN_DURATION_SECONDS) continue;
+    if (durationSeconds > YT_MAX_VIDEO_DURATION_SECONDS) continue;
 
     results.push({ videoId, title, channelTitle, thumbnail, durationSeconds, description });
   }
@@ -190,12 +187,9 @@ export async function searchYouTube(
  * Given multiple search queries (tried in order), return the best result.
  * Returns the first accepted video from the first query that produces results.
  */
-export async function findBestVideo(
-  queries: string[],
-  allowShortVideo = false,
-): Promise<YouTubeSearchResult | null> {
+export async function findBestVideo(queries: string[]): Promise<YouTubeSearchResult | null> {
   for (const query of queries) {
-    const results = await searchYouTube(query, allowShortVideo);
+    const results = await searchYouTube(query);
     if (results.length > 0) {
       return results[0];
     }
@@ -209,7 +203,6 @@ export async function findBestVideo(
  * Adding `statistics` alongside `contentDetails` does not increase the quota cost for videos.list —
  * it remains 1 unit per call regardless of how many parts are requested.
  */
-const YT_VIDEOS_PAGE_SIZE = 50; // YouTube videos.list max IDs per request
 
 export interface VideoMetadata {
   durationSeconds: number;

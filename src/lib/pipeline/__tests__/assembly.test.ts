@@ -1,10 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  makePendingTrack,
-  toInsertable,
-  compilationQueries,
-  taggedTrackToPending,
-} from "../assembly";
+import { makePendingTrack, toInsertable, taggedTrackToPending } from "../assembly";
 import { TrackStatus, TrackRole, TrackMood, TrackInstrumentation } from "@/types";
 import type { TaggedTrack } from "@/types";
 import { TEST_GAME_ID, TEST_GAME_TITLE, TEST_TRACK_NAME, TEST_VIDEO_ID } from "@/test/constants";
@@ -58,24 +53,6 @@ describe("toInsertable", () => {
       expect(insertable[0].status).toBe(TrackStatus.Pending);
       // Should not have game_title (not part of InsertableTrack)
       expect("game_title" in insertable[0]).toBe(false);
-    });
-  });
-});
-
-describe("compilationQueries", () => {
-  describe("when generating search queries for a game", () => {
-    it("should return 3 query strings containing the game title", () => {
-      const queries = compilationQueries("Hollow Knight");
-      expect(queries).toHaveLength(3);
-      for (const q of queries) {
-        expect(q).toContain("Hollow Knight");
-      }
-    });
-
-    it("should include 'OST', 'soundtrack', and 'game soundtrack' variants", () => {
-      const queries = compilationQueries("Test");
-      expect(queries.some((q) => q.includes("OST"))).toBe(true);
-      expect(queries.some((q) => q.includes("soundtrack"))).toBe(true);
     });
   });
 });

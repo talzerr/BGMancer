@@ -276,7 +276,7 @@ export async function resolveTracksToVideos(
     const query = `${game.title} ${track.name} OST`;
     fallbackCount++;
     try {
-      const results = await searchYouTube(query, true);
+      const results = await searchYouTube(query);
       if (results.length > 0) {
         const result = results[0];
         allResolved.set(track.name, result.videoId);

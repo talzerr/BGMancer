@@ -10,7 +10,7 @@ import { YouTubeQuotaError, YouTubeInvalidKeyError } from "@/lib/services/youtub
 import { GENERATION_COOLDOWN_MS, DEFAULT_TRACK_COUNT } from "@/lib/constants";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
 import { generateSchema } from "@/lib/validation";
-import { checkGuestRateLimit, getClientIp } from "@/lib/rate-limit";
+import { checkGuestRateLimit, getClientIp, acquireUserGeneration } from "@/lib/rate-limit";
 import { verifyTurnstileToken } from "@/lib/services/turnstile";
 import type { AppConfig } from "@/types";
 import { createLogger } from "@/lib/logger";
@@ -68,6 +68,11 @@ export async function POST(request: Request) {
   if (session.authenticated) {
     // ── Authenticated: full pipeline with Vibe Profiler + persistence ──
     const userId = session.userId;
+
+    const cap = await acquireUserGeneration(userId);
+    if (cap) {
+      return sseError(cap.error);
+    }
 
     const lock = await Users.tryAcquireGenerationLock(userId, GENERATION_COOLDOWN_MS);
     if (!lock.acquired) {

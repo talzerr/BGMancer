@@ -192,7 +192,7 @@ describe("searchYouTube", () => {
         }
         // videos.list for durations
         return jsonResponse({
-          items: [{ id: "vid1", contentDetails: { duration: "PT20M0S" } }],
+          items: [{ id: "vid1", contentDetails: { duration: "PT4M30S" } }],
         });
       });
     });
@@ -201,7 +201,7 @@ describe("searchYouTube", () => {
       const results = await searchYouTube(`${TEST_GAME_TITLE} OST`);
       expect(results).toHaveLength(1);
       expect(results[0].videoId).toBe("vid1");
-      expect(results[0].durationSeconds).toBe(1200);
+      expect(results[0].durationSeconds).toBe(270);
     });
   });
 
@@ -234,8 +234,8 @@ describe("searchYouTube", () => {
         }
         return jsonResponse({
           items: [
-            { id: "vid1", contentDetails: { duration: "PT20M0S" } },
-            { id: "vid2", contentDetails: { duration: "PT25M0S" } },
+            { id: "vid1", contentDetails: { duration: "PT4M30S" } },
+            { id: "vid2", contentDetails: { duration: "PT5M0S" } },
           ],
         });
       });
@@ -321,16 +321,16 @@ describe("searchYouTube", () => {
     });
   });
 
-  describe("when videos are shorter than MIN_DURATION_SECONDS", () => {
+  describe("when video exceeds YT_MAX_VIDEO_DURATION_SECONDS", () => {
     beforeEach(() => {
       mockFetch(async (url) => {
         if (url.includes("/search")) {
           return jsonResponse({
             items: [
               {
-                id: { videoId: "short" },
+                id: { videoId: "long" },
                 snippet: {
-                  title: "Elden Ring OST",
+                  title: "Elden Ring Full OST",
                   channelTitle: "C",
                   description: "",
                   thumbnails: { default: { url: "t.jpg" } },
@@ -340,18 +340,43 @@ describe("searchYouTube", () => {
           });
         }
         return jsonResponse({
-          items: [{ id: "short", contentDetails: { duration: "PT2M0S" } }],
+          items: [{ id: "long", contentDetails: { duration: "PT1H30M0S" } }],
         });
       });
     });
 
-    it("should filter out short videos by default", async () => {
+    it("should filter out videos longer than the max", async () => {
       const results = await searchYouTube("Elden Ring OST");
       expect(results).toHaveLength(0);
     });
+  });
 
-    it("should include short videos when allowShortVideo is true", async () => {
-      const results = await searchYouTube("Elden Ring OST", true);
+  describe("when video is under YT_MAX_VIDEO_DURATION_SECONDS", () => {
+    beforeEach(() => {
+      mockFetch(async (url) => {
+        if (url.includes("/search")) {
+          return jsonResponse({
+            items: [
+              {
+                id: { videoId: "normal" },
+                snippet: {
+                  title: "Elden Ring - Main Theme",
+                  channelTitle: "C",
+                  description: "",
+                  thumbnails: { default: { url: "t.jpg" } },
+                },
+              },
+            ],
+          });
+        }
+        return jsonResponse({
+          items: [{ id: "normal", contentDetails: { duration: "PT3M30S" } }],
+        });
+      });
+    });
+
+    it("should include the video", async () => {
+      const results = await searchYouTube("Elden Ring Main Theme");
       expect(results).toHaveLength(1);
     });
   });
@@ -377,7 +402,7 @@ describe("findBestVideo", () => {
           });
         }
         return jsonResponse({
-          items: [{ id: "best", contentDetails: { duration: "PT20M0S" } }],
+          items: [{ id: "best", contentDetails: { duration: "PT4M0S" } }],
         });
       });
     });
