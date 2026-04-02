@@ -73,8 +73,8 @@ export const YT_IMPORT_MAX_TRACKS = MAX_TRACK_COUNT;
 /** Minimum milliseconds between playlist generations. */
 export const GENERATION_COOLDOWN_MS = 30_000;
 
-/** Maximum generations per logged-in user per day. */
-export const USER_DAILY_GENERATION_CAP = 10;
+/** Maximum LLM-powered (Vibe Profiler) generations per logged-in user per day. */
+export const USER_DAILY_LLM_CAP = 10;
 
 /** Maximum guest requests per IP within the guest rate limit window. */
 export const GUEST_MAX_REQUESTS = 10;

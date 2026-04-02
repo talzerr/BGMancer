@@ -249,7 +249,7 @@ export async function generatePlaylist(
 
   if (filteredPools.size > 0 && targetCount > 0) {
     const activeGames = games.filter((g) => filteredPools.has(g.id));
-    const rubric = await profileVibe(activeGames, send);
+    const rubric = config.skip_llm ? undefined : await profileVibe(activeGames, send);
     send({ type: "progress", message: "Assembling playlist arc…" });
     const directorResult = runDirector(
       filteredPools,

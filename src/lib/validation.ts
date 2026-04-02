@@ -47,6 +47,7 @@ export const generateSchema = z.object({
   allow_short_tracks: z.boolean().optional(),
   anti_spoiler_enabled: z.boolean().optional(),
   raw_vibes: z.boolean().optional(),
+  skip_llm: z.boolean().optional(),
   gameSelections: z.array(gameSelectionSchema).optional(),
   turnstileToken: z.string().optional(),
 });

@@ -16,7 +16,8 @@ export type GenerateEvent =
       found: number;
       pending: number;
     }
-  | { type: "error"; message: string; detail?: string };
+  | { type: "error"; message: string; detail?: string }
+  | { type: "llm_cap_reached" };
 
 export type PendingTrack = Omit<
   PlaylistTrack,

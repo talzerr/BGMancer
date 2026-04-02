@@ -12,6 +12,7 @@ export interface GenerateConfig {
   allow_short_tracks: boolean;
   anti_spoiler_enabled: boolean;
   raw_vibes: boolean;
+  skip_llm: boolean;
   turnstileToken?: string;
 }
 
@@ -134,7 +135,11 @@ export function usePlaylist() {
     }).catch((err) => console.error("Failed to persist track order:", err));
   }
 
-  async function handleGenerate(games: Game[], config?: GenerateConfig) {
+  async function handleGenerate(
+    games: Game[],
+    config?: GenerateConfig,
+    onLlmCapReached?: () => void,
+  ) {
     if (games.length === 0) return;
 
     // Client-side cooldown guard: skip the fetch entirely and let the UI countdown handle it.
@@ -184,6 +189,11 @@ export function usePlaylist() {
                 setGenError(event.message ?? "Generation failed");
               }
               return;
+            }
+
+            if (event.type === "llm_cap_reached") {
+              onLlmCapReached?.();
+              continue;
             }
 
             // First non-error event — generation is real; enter generating state now.

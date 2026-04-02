@@ -87,7 +87,7 @@ export const POST = withRequiredAuth(
         log.error("fetchVideoMetadata fatal error", {}, err);
         return NextResponse.json({ error: (err as Error).message }, { status: 503 });
       }
-      log.warn("fetchVideoMetadata failed (non-fatal), proceeding without durations", {}, err);
+      log.error("fetchVideoMetadata failed (non-fatal), proceeding without durations", {}, err);
     }
 
     const eligible = candidates.filter((item) => {

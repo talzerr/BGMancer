@@ -1,0 +1,39 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+const TOAST_DURATION_MS = 5000;
+
+interface InfoToastProps {
+  message: string;
+  onDone: () => void;
+}
+
+export function InfoToast({ message, onDone }: InfoToastProps) {
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setVisible(false);
+      onDone();
+    }, TOAST_DURATION_MS);
+    return () => clearTimeout(timer);
+  }, [onDone]);
+
+  if (!visible) return null;
+
+  return (
+    <div className="fixed right-4 bottom-24 z-50 flex items-center gap-3 rounded-xl border border-white/[0.08] bg-zinc-900 px-4 py-2.5 shadow-2xl shadow-black/60">
+      <span className="text-sm text-zinc-300">{message}</span>
+      <div className="absolute right-0 bottom-0 left-0 h-0.5 overflow-hidden rounded-b-xl bg-zinc-800">
+        <div
+          className="h-full bg-cyan-500"
+          style={{
+            animation: `shrink ${TOAST_DURATION_MS}ms linear forwards`,
+            transformOrigin: "left",
+          }}
+        />
+      </div>
+    </div>
+  );
+}

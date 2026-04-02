@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useCallback } from "react";
+import { useEffect, useMemo, useRef, useCallback, useState } from "react";
 import Script from "next/script";
 import type { SyntheticEvent } from "react";
 import {
@@ -28,6 +28,7 @@ import { PlaylistHeader } from "@/components/PlaylistHeader";
 import { SortableTrackItem } from "@/components/SortableTrackItem";
 import { PlaylistEmptyState } from "@/components/PlaylistEmptyState";
 import { UndoToast } from "@/components/UndoToast";
+import { InfoToast } from "@/components/InfoToast";
 
 interface FeedClientProps {
   isSignedIn: boolean;
@@ -38,6 +39,8 @@ interface FeedClientProps {
 export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientProps) {
   const { playlist, player, config, gameLibrary, gameThumbnailByGameId } = usePlayerContext();
   const { sessions, fetchSessions, handleRenameSession, handleDeleteSession } = useSessionManager();
+  const [llmCapReached, setLlmCapReached] = useState(false);
+  const [showLlmCapToast, setShowLlmCapToast] = useState(false);
   const { pendingDelete, initiateRemove, undoRemove } = useTrackDeleteUndo();
 
   // ── Turnstile (guest bot protection) ──────────────────────────────────────
@@ -66,14 +69,23 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
   async function handleGenerate() {
     const turnstileToken = !isSignedIn ? await getTurnstileToken() : undefined;
 
-    await playlist.handleGenerate(gameLibrary.games, {
-      target_track_count: config.targetTrackCount,
-      allow_long_tracks: config.allowLongTracks,
-      allow_short_tracks: config.allowShortTracks,
-      anti_spoiler_enabled: config.antiSpoilerEnabled,
-      raw_vibes: config.rawVibes,
-      turnstileToken,
-    });
+    await playlist.handleGenerate(
+      gameLibrary.games,
+      {
+        target_track_count: config.targetTrackCount,
+        allow_long_tracks: config.allowLongTracks,
+        allow_short_tracks: config.allowShortTracks,
+        anti_spoiler_enabled: config.antiSpoilerEnabled,
+        raw_vibes: config.rawVibes,
+        skip_llm: config.skipLlm,
+        turnstileToken,
+      },
+      () => {
+        config.saveSkipLlm(true);
+        setLlmCapReached(true);
+        setShowLlmCapToast(true);
+      },
+    );
     await fetchSessions();
   }
 
@@ -147,6 +159,10 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
             onToggleShortTracks={config.saveAllowShortTracks}
             rawVibes={config.rawVibes}
             onToggleRawVibes={config.saveRawVibes}
+            isSignedIn={isSignedIn}
+            skipLlm={config.skipLlm}
+            onToggleSkipLlm={config.saveSkipLlm}
+            llmCapReached={llmCapReached}
             importUrl={playlist.importUrl}
             onImportUrlChange={playlist.setImportUrl}
             importing={playlist.importing}
@@ -262,6 +278,12 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
       </div>
 
       {pendingDelete && <UndoToast track={pendingDelete.track} onUndo={undoRemove} />}
+      {showLlmCapToast && (
+        <InfoToast
+          message="Daily AI limit reached — switched to Express Mode."
+          onDone={() => setShowLlmCapToast(false)}
+        />
+      )}
     </>
   );
 }

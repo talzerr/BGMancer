@@ -5,7 +5,7 @@
  */
 
 import { KV } from "@/lib/services/kv";
-import { USER_DAILY_GENERATION_CAP, GUEST_MAX_REQUESTS, GUEST_WINDOW_MS } from "@/lib/constants";
+import { USER_DAILY_LLM_CAP, GUEST_MAX_REQUESTS, GUEST_WINDOW_MS } from "@/lib/constants";
 
 /**
  * Check if a request from `key` is within the rate limit.
@@ -71,11 +71,11 @@ function dailyCapKey(userId: string): string {
  * Check and consume a daily generation slot for a logged-in user.
  * Returns null if allowed (and increments the count), or an error message if capped.
  */
-export async function acquireUserGeneration(userId: string): Promise<{ error: string } | null> {
+export async function acquireLlmGeneration(userId: string): Promise<{ error: string } | null> {
   const key = dailyCapKey(userId);
   const count = (await KV.get<number>(key)) ?? 0;
 
-  if (count >= USER_DAILY_GENERATION_CAP) {
+  if (count >= USER_DAILY_LLM_CAP) {
     return { error: "Daily generation limit reached. Try again tomorrow." };
   }
 

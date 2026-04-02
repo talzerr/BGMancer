@@ -9,6 +9,7 @@ const KEYS = {
   allowLongTracks: "bgm_allow_long_tracks",
   allowShortTracks: "bgm_allow_short_tracks",
   rawVibes: "bgm_raw_vibes",
+  skipLlm: "bgm_skip_llm",
 } as const;
 
 function lsGet<T>(key: string, fallback: T, parse: (v: string) => T): T {
@@ -27,6 +28,7 @@ export function useConfig() {
   const [allowLongTracks, setAllowLongTracks] = useState(false);
   const [allowShortTracks, setAllowShortTracks] = useState(false);
   const [rawVibes, setRawVibes] = useState(false);
+  const [skipLlm, setSkipLlm] = useState(false);
 
   useEffect(() => {
     Promise.resolve().then(() => {
@@ -35,6 +37,7 @@ export function useConfig() {
       setAllowLongTracks(lsGet(KEYS.allowLongTracks, false, (v) => v === "1"));
       setAllowShortTracks(lsGet(KEYS.allowShortTracks, false, (v) => v === "1"));
       setRawVibes(lsGet(KEYS.rawVibes, false, (v) => v === "1"));
+      setSkipLlm(lsGet(KEYS.skipLlm, false, (v) => v === "1"));
     });
   }, []);
 
@@ -63,6 +66,11 @@ export function useConfig() {
     lsSet(KEYS.rawVibes, enabled ? "1" : "0");
   }
 
+  function saveSkipLlm(enabled: boolean) {
+    setSkipLlm(enabled);
+    lsSet(KEYS.skipLlm, enabled ? "1" : "0");
+  }
+
   return {
     targetTrackCount,
     setTargetTrackCount,
@@ -75,5 +83,7 @@ export function useConfig() {
     saveAllowShortTracks,
     rawVibes,
     saveRawVibes,
+    skipLlm,
+    saveSkipLlm,
   };
 }
