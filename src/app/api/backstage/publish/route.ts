@@ -1,5 +1,8 @@
 import { BackstageGames, Games } from "@/lib/db/repo";
 import { NextResponse } from "next/server";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("backstage-publish");
 
 /** POST /api/backstage/publish — toggle game published status */
 export async function POST(req: Request) {
@@ -21,7 +24,7 @@ export async function POST(req: Request) {
     await BackstageGames.setPublished(gameId, published);
     return NextResponse.json({ ok: true, published });
   } catch (err) {
-    console.error("[POST /api/backstage/publish]", err);
+    log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to update published status" }, { status: 500 });
   }
 }

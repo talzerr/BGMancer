@@ -32,6 +32,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           >
             Source Code
           </a>
+          <span className="mx-1.5">·</span>
+          <span>Discord: talzxc</span>
         </p>
       </footer>
     </PlayerProvider>

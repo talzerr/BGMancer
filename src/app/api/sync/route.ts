@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/services/auth";
 import { Playlist } from "@/lib/db/repo";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("sync");
 import {
   findBGMancerPlaylist,
   createBGMancerPlaylist,
@@ -74,7 +77,7 @@ export async function POST() {
       playlist_url: `https://www.youtube.com/playlist?list=${playlistId}`,
     });
   } catch (err) {
-    console.error("[POST /api/sync]", err);
+    log.error("handler failed", {}, err);
     return NextResponse.json(
       { error: "Sync failed", detail: err instanceof Error ? err.message : String(err) },
       { status: 500 },

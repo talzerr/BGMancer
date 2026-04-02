@@ -1,3 +1,4 @@
+import { createLogger } from "@/lib/logger";
 import type {
   TaggedTrack,
   Game,
@@ -525,10 +526,10 @@ export function assemblePlaylist(
     .map((d) => ({ ...d, position: slotToCompact.get(d.position) ?? d.position }));
 
   if (compactTracks.length < targetCount) {
-    console.warn(
-      `[director] Pool exhausted: assembled ${compactTracks.length}/${targetCount} tracks. ` +
-        `Consider adding more games or tracks.`,
-    );
+    createLogger("director").warn("pool exhausted", {
+      assembled: compactTracks.length,
+      target: targetCount,
+    });
   }
 
   const gameBudgets: Record<string, number> = {};

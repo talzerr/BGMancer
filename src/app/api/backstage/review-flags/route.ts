@@ -1,5 +1,8 @@
 import { ReviewFlags } from "@/lib/db/repo";
 import { NextResponse } from "next/server";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("backstage-review-flags");
 
 /** DELETE /api/backstage/review-flags — dismiss a single flag or clear all for a game */
 export async function DELETE(req: Request) {
@@ -17,7 +20,7 @@ export async function DELETE(req: Request) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("[DELETE /api/backstage/review-flags]", err);
+    log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to clear review flags" }, { status: 500 });
   }
 }

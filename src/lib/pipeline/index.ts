@@ -1,3 +1,6 @@
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("generate");
 import { Games, Playlist, Sessions, DirectorDecisions } from "@/lib/db/repo";
 import { GameProgressStatus, TrackStatus } from "@/types";
 import type { CurationMode, TrackDecision } from "@/types";
@@ -29,7 +32,7 @@ async function gatherCandidates(games: Game[], send: Send): Promise<Map<string, 
       const tracks = await fetchGameCandidates(game, send);
       if (tracks.length > 0) taggedPools.set(game.id, tracks);
     } catch (err) {
-      console.error(`[generate] Failed to load candidates for "${game.title}":`, err);
+      log.error("failed to load candidates", { gameTitle: game.title }, err);
       send({
         type: "progress",
         gameId: game.id,
@@ -74,7 +77,7 @@ async function profileVibe(activeGames: Game[], send: Send): Promise<ScoringRubr
     );
     return result ?? undefined;
   } catch (err) {
-    console.error("[generate] Vibe Profiler failed, continuing without rubric:", err);
+    log.error("Vibe Profiler failed, continuing without rubric", {}, err);
     return undefined;
   }
 }
@@ -125,7 +128,7 @@ async function persistSession(
       await Sessions.updateTelemetry(session.id, usedRubric, gameBudgets);
       await DirectorDecisions.bulkInsert(session.id, decisions);
     } catch (err) {
-      console.error("[persistSession] Telemetry failed, session preserved:", err);
+      log.error("telemetry failed, session preserved", {}, err);
     }
   }
 

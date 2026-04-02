@@ -12,6 +12,9 @@ import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
 import { generateSchema } from "@/lib/validation";
 import { checkGuestRateLimit } from "@/lib/rate-limit";
 import type { AppConfig } from "@/types";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("generate");
 
 export type { GenerateEvent };
 
@@ -77,10 +80,10 @@ export async function POST(request: Request) {
         await generatePlaylist(send, userId, config);
       } catch (err) {
         if (err instanceof YouTubeQuotaError || err instanceof YouTubeInvalidKeyError) {
-          console.error(`[generate] YouTube fatal error — ${err.name}`);
+          log.error("YouTube fatal error", { errorName: err.name });
           send({ type: "error", message: err.message });
         } else {
-          console.error("[POST /api/playlist/generate]", err);
+          log.error("generation failed", {}, err);
           send({
             type: "error",
             message: "Generation failed",
@@ -109,7 +112,7 @@ export async function POST(request: Request) {
       try {
         await generatePlaylistForGuest(send, gameSelections, config);
       } catch (err) {
-        console.error("[POST /api/playlist/generate] (guest)", err);
+        log.error("guest generation failed", {}, err);
         send({
           type: "error",
           message: "Generation failed",

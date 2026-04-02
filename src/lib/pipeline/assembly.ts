@@ -1,4 +1,7 @@
+import { createLogger } from "@/lib/logger";
 import { Playlist, type InsertableTrack } from "@/lib/db/repo";
+
+const log = createLogger("assembly");
 import { findBestVideo, YouTubeQuotaError } from "@/lib/services/youtube";
 import { newId } from "@/lib/uuid";
 import { TrackStatus } from "@/types";
@@ -126,7 +129,7 @@ export async function resolvePendingSlots(
       }
     } catch (err) {
       if (err instanceof YouTubeQuotaError) throw err; // propagate quota errors immediately
-      console.error(`[resolvePendingSlots] search failed for track ${track.id}:`, err);
+      log.error("search failed for pending track", { trackId: track.id }, err);
       // Other errors: leave as pending — user can retry
     }
   }

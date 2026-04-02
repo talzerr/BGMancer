@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("steam");
 
 export interface SteamGame {
   appid: number;
@@ -101,7 +104,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ games: sorted });
   } catch (err) {
-    console.error("[GET /api/steam/games]", err);
+    log.error("handler failed", {}, err);
     return NextResponse.json({ error: "internal" }, { status: 500 });
   }
 }

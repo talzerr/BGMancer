@@ -1,4 +1,7 @@
 import { env } from "@/lib/env";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("discogs");
 
 const USER_AGENT = "BGMancer/1.0 +https://github.com/talzerr/bgmancer";
 
@@ -13,9 +16,12 @@ async function discogsGet(url: string): Promise<{ data: unknown; remaining: numb
   const headers = authHeaders();
   const res = await fetch(url, { headers });
   if (!res.ok) {
-    console.error(
-      `[Discogs] ${res.status} ${url.split("?")[0]} — remaining: ${res.headers.get("X-Discogs-Ratelimit-Remaining")}, auth: ${headers.Authorization ? "yes" : "no"}`,
-    );
+    log.error("API request failed", {
+      status: res.status,
+      url: url.split("?")[0],
+      remaining: res.headers.get("X-Discogs-Ratelimit-Remaining"),
+      authenticated: !!headers.Authorization,
+    });
     if (res.status === 404) return null;
     if (res.status === 429)
       throw new Error("Discogs rate limit exceeded. Wait a moment and try again.");

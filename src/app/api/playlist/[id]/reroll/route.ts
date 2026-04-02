@@ -9,6 +9,9 @@ import {
 import { MIN_TRACK_DURATION_SECONDS, MAX_TRACK_DURATION_SECONDS } from "@/lib/constants";
 import { withRequiredAuth } from "@/lib/services/route-wrappers";
 import { rerollSchema, zodErrorResponse } from "@/lib/validation";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("reroll");
 
 /** POST /api/playlist/:id/reroll — Replace a track with a different one from the same game's YouTube playlist. */
 export const POST = withRequiredAuth(
@@ -62,7 +65,7 @@ export const POST = withRequiredAuth(
     try {
       allItems = await fetchPlaylistItems(ytPlaylistId);
     } catch (err) {
-      console.error("[reroll] fetchPlaylistItems failed:", err);
+      log.error("fetchPlaylistItems failed", {}, err);
       return NextResponse.json({ error: "Failed to fetch YouTube playlist" }, { status: 502 });
     }
 
@@ -81,13 +84,10 @@ export const POST = withRequiredAuth(
       for (const [vid, m] of meta) durations.set(vid, m.durationSeconds);
     } catch (err) {
       if (err instanceof YouTubeQuotaError || err instanceof YouTubeInvalidKeyError) {
-        console.error("[reroll] fetchVideoMetadata fatal error:", err);
+        log.error("fetchVideoMetadata fatal error", {}, err);
         return NextResponse.json({ error: (err as Error).message }, { status: 503 });
       }
-      console.warn(
-        "[reroll] fetchVideoMetadata failed (non-fatal), proceeding without durations:",
-        err,
-      );
+      log.warn("fetchVideoMetadata failed (non-fatal), proceeding without durations", {}, err);
     }
 
     const eligible = candidates.filter((item) => {

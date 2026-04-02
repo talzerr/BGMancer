@@ -1,5 +1,8 @@
 import { BackstageGames } from "@/lib/db/repo";
 import { NextResponse } from "next/server";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("backstage-games");
 
 /** GET /api/backstage/games — search games with optional filters */
 export async function GET(req: Request) {
@@ -16,7 +19,7 @@ export async function GET(req: Request) {
     const games = await BackstageGames.searchWithStats({ title, phase, needsReview, published });
     return NextResponse.json(games);
   } catch (err) {
-    console.error("[GET /api/backstage/games]", err);
+    log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to query games" }, { status: 500 });
   }
 }
@@ -33,7 +36,7 @@ export async function POST(req: Request) {
     const game = await BackstageGames.createDraft(title, steamAppid);
     return NextResponse.json(game, { status: 201 });
   } catch (err) {
-    console.error("[POST /api/backstage/games]", err);
+    log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to create game" }, { status: 500 });
   }
 }

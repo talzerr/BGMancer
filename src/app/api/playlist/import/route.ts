@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { Games, Playlist, Sessions } from "@/lib/db/repo";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("import");
 import { YT_IMPORT_GAME_ID, YT_IMPORT_MAX_TRACKS } from "@/lib/constants";
 import {
   fetchPlaylistItems,
@@ -134,7 +137,7 @@ export async function POST(request: Request) {
       playlistId,
     });
   } catch (err) {
-    console.error("[POST /api/playlist/import]", err);
+    log.error("handler failed", {}, err);
     return NextResponse.json(
       { error: "Import failed", detail: err instanceof Error ? err.message : String(err) },
       { status: 500 },

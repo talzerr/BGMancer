@@ -3,6 +3,9 @@ import { tagTracks } from "@/lib/pipeline/tagger";
 import { getTaggingProvider } from "@/lib/llm";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
 import { OnboardingPhase } from "@/types";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("backstage-retag");
 
 type RetagEvent =
   | { type: "progress"; current: number; total: number; trackName: string }
@@ -56,7 +59,7 @@ export async function POST(req: Request) {
       if (abort.signal.aborted) {
         send({ type: "error", message: "Cancelled" });
       } else {
-        console.error("[POST /api/backstage/retag]", err);
+        log.error("handler failed", {}, err);
         send({ type: "error", message: err instanceof Error ? err.message : String(err) });
       }
     } finally {

@@ -2,6 +2,9 @@ import { BackstageGames, Games } from "@/lib/db/repo";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
 import { loadTracks } from "@/lib/pipeline/onboarding";
 import { OnboardingPhase } from "@/types";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("backstage-load-tracks");
 
 type LoadTracksEvent =
   | { type: "progress"; message: string }
@@ -41,7 +44,7 @@ export async function POST(req: Request) {
       send({ type: "done", trackCount: result.trackCount });
     } catch (err) {
       await BackstageGames.setPhase(gameId, OnboardingPhase.Failed);
-      console.error("[POST /api/backstage/load-tracks]", err);
+      log.error("handler failed", {}, err);
       send({ type: "error", message: err instanceof Error ? err.message : String(err) });
     } finally {
       close();

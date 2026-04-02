@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("steam");
 
 export interface SteamSearchResult {
   appid: number;
@@ -39,7 +42,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ results });
   } catch (err) {
-    console.error("[GET /api/steam/search]", err);
+    log.error("handler failed", {}, err);
     return NextResponse.json({ results: [] });
   }
 }
