@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { PlayerProvider } from "@/context/player-context";
 
 export const metadata: Metadata = {
@@ -20,8 +21,16 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           © 2026 BGMancer™ · Fan-made curation tool · Not affiliated with any developer or publisher
         </p>
         <p className="mt-0.5">
-          All soundtracks are property of their respective owners · Streamed via YouTube · Not
-          hosted here
+          All soundtracks are property of their respective owners · Streamed via{" "}
+          <a
+            href="https://www.youtube.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition-colors hover:text-zinc-400"
+          >
+            YouTube
+          </a>{" "}
+          · Not hosted here
         </p>
         <p className="mt-1.5">
           <a
@@ -32,6 +41,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           >
             Source Code
           </a>
+          <span className="mx-1.5">·</span>
+          <Link href="/legal" className="transition-colors hover:text-zinc-400">
+            Legal
+          </Link>
           <span className="mx-1.5">·</span>
           <span>Discord: talzxc</span>
         </p>
