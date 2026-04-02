@@ -1,11 +1,11 @@
 name: Game / OST Request
-description: Request a game to be added to the BGMancer backfill (pre-tagged seed data)
+description: Request a game to be added to the BGMancer catalog
 labels: ["game-request"]
 body:
   - type: markdown
     attributes:
       value: |
-        Requesting a game means you'd like its OST pre-tagged in the seed data so it works without needing your own LLM setup. Self-hosted users with an API key can already add any game themselves.
+        Request a game to be added to the catalog. The admin will onboard the soundtrack (fetch tracklist, tag with AI, resolve YouTube videos) so it becomes available for everyone.
 
   - type: input
     id: title

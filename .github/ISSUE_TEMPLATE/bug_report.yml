@@ -41,7 +41,6 @@ body:
       label: LLM provider
       options:
         - Anthropic (Claude)
-        - Ollama (local)
         - Not applicable
     validations:
       required: true

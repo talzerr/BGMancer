@@ -44,7 +44,7 @@ export function SyncButton({ isSignedIn, isDev, hasFoundTracks, onSyncComplete }
           "google",
           { callbackUrl: window.location.pathname },
           {
-            scope: `openid email profile ${YOUTUBE_SCOPE}`,
+            scope: `openid email ${YOUTUBE_SCOPE}`,
           },
         );
         return;

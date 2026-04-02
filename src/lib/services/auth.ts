@@ -11,7 +11,7 @@ const googleProvider = Google({
   clientSecret: env.googleClientSecret ?? "",
   authorization: {
     params: {
-      scope: "openid email profile",
+      scope: "openid email",
       access_type: "offline",
       prompt: "consent",
     },
