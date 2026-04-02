@@ -127,11 +127,8 @@ export const playlistTracks = sqliteTable(
     video_title: text("video_title"),
     channel_title: text("channel_title"),
     thumbnail: text("thumbnail"),
-    search_queries: text("search_queries"),
     duration_seconds: integer("duration_seconds"),
     position: integer("position").notNull().default(0),
-    status: text("status").notNull().default("pending"),
-    error_message: text("error_message"),
     created_at: text("created_at").notNull().default(timestampDefault),
     synced_at: text("synced_at"),
   },
@@ -139,8 +136,6 @@ export const playlistTracks = sqliteTable(
     index("idx_tracks_playlist").on(table.playlist_id),
     index("idx_tracks_game").on(table.game_id),
     index("idx_tracks_position").on(table.position),
-    index("idx_tracks_status").on(table.status),
-    index("idx_pt_playlist_status").on(table.playlist_id, table.status),
   ],
 );
 

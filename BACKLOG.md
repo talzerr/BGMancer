@@ -28,7 +28,6 @@
 
 ## Curation Tuning
 
-- **Resolve YouTube videos before tagging** — move YouTube video resolution ahead of the LLM tagging step in the onboarding pipeline; avoids wasting tagger tokens on bad track names that have no matching YouTube video.
 - **Tagger role skew validation** — if >50% of game's tracks are `ambient`, re-tag with role-diversity bias.
 - **Per-game soft cap tuning** — revisit 40% soft cap if users report thin single-game playlists.
 - **Focus mode budget hardening** — option to enforce strict "always N tracks per focus game" (currently soft guarantee).

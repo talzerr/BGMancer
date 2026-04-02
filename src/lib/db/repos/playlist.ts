@@ -1,8 +1,8 @@
 import { getDB, batch } from "@/lib/db";
 import { eq, sql, and, inArray } from "drizzle-orm";
 import { playlistTracks, playlists } from "@/lib/db/drizzle-schema";
-import { toPlaylistTracks, parseSearchQueries } from "@/lib/db/mappers";
-import type { PlaylistTrack, TrackStatus } from "@/types";
+import { toPlaylistTracks } from "@/lib/db/mappers";
+import type { PlaylistTrack } from "@/types";
 
 export interface InsertableTrack {
   id: string;
@@ -12,15 +12,7 @@ export interface InsertableTrack {
   video_title: string | null;
   channel_title: string | null;
   thumbnail: string | null;
-  search_queries: string[] | null;
   duration_seconds?: number | null;
-  status: TrackStatus;
-  error_message: string | null;
-}
-
-export interface PendingTrackRow {
-  id: string;
-  search_queries: string[] | null;
 }
 
 export interface SyncableTrackRow {
@@ -54,26 +46,11 @@ export const Playlist = {
     );
   },
 
-  async listPending(userId: string): Promise<PendingTrackRow[]> {
-    const rows = await getDB().all<{ id: string; search_queries: string | null }>(sql`
-      SELECT pt.id, pt.search_queries
-      FROM playlist_tracks pt
-      WHERE pt.status = 'pending'
-        AND pt.playlist_id = (SELECT id FROM playlists WHERE user_id = ${userId} AND is_archived = 0 ORDER BY created_at DESC LIMIT 1)
-      ORDER BY pt.position ASC
-    `);
-    return rows.map((r) => ({
-      id: r.id,
-      search_queries: parseSearchQueries(r.search_queries),
-    }));
-  },
-
   async listUnsyncedFound(userId: string): Promise<SyncableTrackRow[]> {
     return await getDB().all<SyncableTrackRow>(sql`
       SELECT id, video_id, position
       FROM playlist_tracks
-      WHERE status = 'found'
-        AND video_id IS NOT NULL
+      WHERE video_id IS NOT NULL
         AND synced_at IS NULL
         AND playlist_id = (SELECT id FROM playlists WHERE user_id = ${userId} AND is_archived = 0 ORDER BY created_at DESC LIMIT 1)
       ORDER BY position ASC
@@ -104,11 +81,8 @@ export const Playlist = {
             video_title: t.video_title,
             channel_title: t.channel_title,
             thumbnail: t.thumbnail,
-            search_queries: t.search_queries ? JSON.stringify(t.search_queries) : null,
             duration_seconds: t.duration_seconds ?? null,
             position,
-            status: t.status,
-            error_message: t.error_message,
           }),
       ),
     ]);
@@ -121,43 +95,25 @@ export const Playlist = {
     `);
   },
 
-  async setSearching(id: string): Promise<void> {
-    await getDB()
-      .update(playlistTracks)
-      .set({ status: "searching" })
-      .where(eq(playlistTracks.id, id))
-      .run();
-  },
-
-  async setFound(
+  async updateVideo(
     id: string,
     videoId: string,
     title: string,
-    channel: string,
-    thumbnail: string,
+    channel: string | null,
+    thumbnail: string | null,
     durationSeconds: number | null = null,
     trackName: string | null = null,
   ): Promise<void> {
     await getDB()
       .update(playlistTracks)
       .set({
-        status: "found",
         video_id: videoId,
         video_title: title,
         channel_title: channel,
         thumbnail,
         duration_seconds: durationSeconds,
         track_name: trackName,
-        error_message: null,
       })
-      .where(eq(playlistTracks.id, id))
-      .run();
-  },
-
-  async setError(id: string, message: string): Promise<void> {
-    await getDB()
-      .update(playlistTracks)
-      .set({ status: "error", error_message: message })
       .where(eq(playlistTracks.id, id))
       .run();
   },
@@ -208,11 +164,11 @@ export const Playlist = {
     return rows[0];
   },
 
-  async getVideoIdsForGame(gameId: string): Promise<string[]> {
+  async getVideoIdsForSession(playlistId: string): Promise<string[]> {
     const rows = await getDB()
       .select({ video_id: playlistTracks.video_id })
       .from(playlistTracks)
-      .where(eq(playlistTracks.game_id, gameId))
+      .where(eq(playlistTracks.playlist_id, playlistId))
       .all();
     return rows
       .filter((r): r is typeof r & { video_id: string } => r.video_id != null)
@@ -225,22 +181,5 @@ export const Playlist = {
         getDB().update(playlistTracks).set({ position: i }).where(eq(playlistTracks.id, id)),
       ),
     );
-  },
-
-  async getRecentTrackNames(
-    userId: string,
-    limit: number,
-  ): Promise<Array<{ cleanName: string; gameTitle: string }>> {
-    return await getDB().all<{ cleanName: string; gameTitle: string }>(sql`
-      SELECT pt.track_name AS cleanName, g.title AS gameTitle
-      FROM playlist_tracks pt
-      JOIN playlists p ON p.id = pt.playlist_id
-      JOIN games g ON g.id = pt.game_id
-      WHERE p.user_id = ${userId}
-        AND pt.track_name IS NOT NULL
-        AND pt.status = 'found'
-      ORDER BY p.created_at DESC, pt.position ASC
-      LIMIT ${limit}
-    `);
   },
 };

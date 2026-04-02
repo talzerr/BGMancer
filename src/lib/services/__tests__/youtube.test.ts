@@ -3,7 +3,6 @@ import {
   parseDuration,
   isRejected,
   searchYouTube,
-  findBestVideo,
   fetchVideoMetadata,
   searchOSTPlaylist,
   fetchPlaylistMetadata,
@@ -378,55 +377,6 @@ describe("searchYouTube", () => {
     it("should include the video", async () => {
       const results = await searchYouTube("Elden Ring Main Theme");
       expect(results).toHaveLength(1);
-    });
-  });
-});
-
-describe("findBestVideo", () => {
-  describe("when the first query returns results", () => {
-    beforeEach(() => {
-      mockFetch(async (url) => {
-        if (url.includes("/search")) {
-          return jsonResponse({
-            items: [
-              {
-                id: { videoId: "best" },
-                snippet: {
-                  title: "Official OST",
-                  channelTitle: "C",
-                  description: "",
-                  thumbnails: { default: { url: "t.jpg" } },
-                },
-              },
-            ],
-          });
-        }
-        return jsonResponse({
-          items: [{ id: "best", contentDetails: { duration: "PT4M0S" } }],
-        });
-      });
-    });
-
-    it("should return the first result from the first query", async () => {
-      const result = await findBestVideo(["query1", "query2"]);
-      expect(result).not.toBeNull();
-      expect(result!.videoId).toBe("best");
-    });
-
-    it("should not try subsequent queries", async () => {
-      await findBestVideo(["query1", "query2"]);
-      // fetch called twice (search + videos), not four times
-      expect(global.fetch).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  describe("when no queries return results", () => {
-    beforeEach(() => {
-      mockFetch(async () => jsonResponse({ items: [] }));
-    });
-
-    it("should return null", async () => {
-      expect(await findBestVideo(["q1", "q2"])).toBeNull();
     });
   });
 });

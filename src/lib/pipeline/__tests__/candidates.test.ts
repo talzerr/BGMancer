@@ -19,14 +19,14 @@ vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
   return {
     getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries),
+    batch: async (queries: any[]) => db.batch(queries as [any]),
 
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
 });
 
-const { fetchGameCandidates } = await import("../candidates");
+const { fetchGameCandidates, getTaggedPool } = await import("../candidates");
 
 function makeGame(id: string, title: string): Game {
   return {
@@ -197,6 +197,59 @@ describe("fetchGameCandidates", () => {
       const result = await fetchGameCandidates(makeGame(TEST_GAME_ID, "Test"), vi.fn());
       expect(result).toHaveLength(1);
       expect(result[0].title).toBe("Track 2");
+    });
+  });
+});
+
+describe("getTaggedPool", () => {
+  describe("when game has tagged tracks with video mappings", () => {
+    it("should return TaggedTrack entries without requiring SSE callback", async () => {
+      const gameId = seedTestGame(rawDb, TEST_USER_ID, {
+        id: TEST_GAME_ID,
+        title: TEST_GAME_TITLE,
+      });
+      seedTestTracks(rawDb, gameId, 2, true);
+      rawDb
+        .prepare(
+          "INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds) VALUES (?, ?, ?, ?)",
+        )
+        .run("vid-1", gameId, "Track 1", 200);
+      rawDb
+        .prepare(
+          "INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds) VALUES (?, ?, ?, ?)",
+        )
+        .run("vid-2", gameId, "Track 2", 180);
+
+      const result = await getTaggedPool(TEST_GAME_ID, TEST_GAME_TITLE);
+      expect(result).toHaveLength(2);
+      expect(result[0].gameId).toBe(TEST_GAME_ID);
+      expect(result[0].gameTitle).toBe(TEST_GAME_TITLE);
+      expect(result[0].videoId).toBeDefined();
+    });
+  });
+
+  describe("when game has no active tagged tracks", () => {
+    it("should return empty array", async () => {
+      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID });
+      const result = await getTaggedPool(TEST_GAME_ID, TEST_GAME_TITLE);
+      expect(result).toHaveLength(0);
+    });
+  });
+
+  describe("when tracks have no video mappings", () => {
+    it("should exclude them", async () => {
+      const gameId = seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID });
+      seedTestTracks(rawDb, gameId, 3, true);
+      // Only map 1 of 3 tracks
+      rawDb
+        .prepare(
+          "INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds) VALUES (?, ?, ?, ?)",
+        )
+        .run("vid-1", gameId, "Track 1", 200);
+
+      const result = await getTaggedPool(TEST_GAME_ID, TEST_GAME_TITLE);
+      expect(result).toHaveLength(1);
+      expect(result[0].title).toBe("Track 1");
     });
   });
 });

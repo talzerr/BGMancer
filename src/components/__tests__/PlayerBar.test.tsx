@@ -3,7 +3,6 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { TrackStatus } from "@/types";
 import type { PlaylistTrack } from "@/types";
 import {
   TEST_PLAYLIST_ID,
@@ -67,11 +66,8 @@ function makeTrack(overrides: Partial<PlaylistTrack> = {}): PlaylistTrack {
     video_title: TEST_VIDEO_TITLE,
     channel_title: TEST_CHANNEL_TITLE,
     thumbnail: TEST_THUMBNAIL_URL,
-    search_queries: null,
     duration_seconds: TEST_DURATION_SECONDS,
     position: 0,
-    status: TrackStatus.Found,
-    error_message: null,
     created_at: new Date().toISOString(),
     synced_at: null,
     ...overrides,

@@ -224,15 +224,11 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
                   {(() => {
                     const viewingPlayingSession =
                       player.playingSessionId === playlist.currentSessionId;
-                    const viewedFoundTracks = playlist.tracks.filter((t) => t.status === "found");
                     return playlist.tracks.map((track, i) => {
                       const isCurrentTrack =
                         viewingPlayingSession && track.id === player.playingTrackId;
-                      const foundIdx = viewedFoundTracks.findIndex((ft) => ft.id === track.id);
                       const spoilerHidden =
-                        config.antiSpoilerEnabled &&
-                        track.status === "found" &&
-                        !player.playedTrackIds.has(track.id);
+                        config.antiSpoilerEnabled && !player.playedTrackIds.has(track.id);
                       return (
                         <SortableTrackItem
                           key={track.id}
@@ -243,21 +239,13 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
                           isActivelyPlaying={isCurrentTrack && player.isPlayerPlaying}
                           spoilerHidden={spoilerHidden}
                           isRerolling={playlist.rerollingIds.has(track.id)}
-                          onPlay={
-                            foundIdx !== -1
-                              ? () => {
-                                  if (isCurrentTrack) {
-                                    player.playerBarRef.current?.togglePlayPause();
-                                  } else {
-                                    player.startPlaying(
-                                      viewedFoundTracks,
-                                      foundIdx,
-                                      playlist.currentSessionId,
-                                    );
-                                  }
-                                }
-                              : undefined
-                          }
+                          onPlay={() => {
+                            if (isCurrentTrack) {
+                              player.playerBarRef.current?.togglePlayPause();
+                            } else {
+                              player.startPlaying(playlist.tracks, i, playlist.currentSessionId);
+                            }
+                          }}
                           onRemove={() => initiateRemove(track)}
                           onReroll={() =>
                             playlist.rerollTrack(

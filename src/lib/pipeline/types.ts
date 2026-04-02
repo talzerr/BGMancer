@@ -13,8 +13,6 @@ export type GenerateEvent =
       sessionId?: string;
       tracks: PlaylistTrack[];
       count: number;
-      found: number;
-      pending: number;
     }
   | { type: "error"; message: string; detail?: string }
   | { type: "llm_cap_reached" };

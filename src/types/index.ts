@@ -114,13 +114,6 @@ export interface Game {
 
 // ─── Playlist ─────────────────────────────────────────────────────────────────
 
-export enum TrackStatus {
-  Pending = "pending",
-  Searching = "searching",
-  Found = "found",
-  Error = "error",
-}
-
 // ─── Generation progress ──────────────────────────────────────────────────────
 
 /** Per-game UI status during playlist generation. */
@@ -142,11 +135,8 @@ export interface PlaylistTrack {
   video_title: string | null;
   channel_title: string | null;
   thumbnail: string | null;
-  search_queries: string[] | null;
   duration_seconds: number | null;
   position: number;
-  status: TrackStatus;
-  error_message: string | null;
   created_at: string;
   synced_at: string | null;
 }

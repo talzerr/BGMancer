@@ -2,7 +2,6 @@
 import { describe, it, expect } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { usePlayerState } from "../usePlayerState";
-import { TrackStatus } from "@/types";
 import type { PlaylistTrack } from "@/types";
 import {
   TEST_PLAYLIST_ID,
@@ -27,11 +26,8 @@ function makeTrack(id: string, overrides: Partial<PlaylistTrack> = {}): Playlist
     video_title: TEST_VIDEO_TITLE,
     channel_title: TEST_CHANNEL_TITLE,
     thumbnail: TEST_THUMBNAIL_URL,
-    search_queries: null,
     duration_seconds: TEST_DURATION_SECONDS,
     position: 0,
-    status: TrackStatus.Found,
-    error_message: null,
     created_at: "2026-01-01T00:00:00Z",
     synced_at: null,
     ...overrides,

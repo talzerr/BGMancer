@@ -127,12 +127,13 @@ Two entry points in `src/lib/pipeline/index.ts`:
 
 Both called from `POST /api/playlist/generate`, which wraps them in an SSE stream (using the shared `makeSSEStream` factory in `src/lib/sse.ts`).
 
-Four-phase process for individual-track games:
+Three-phase process (all track data is pre-cached during backstage onboarding — no YouTube API or LLM calls needed for candidate loading):
 
-1. **Phase 1 — Playlist discovery** (`candidates.ts`): find (or search YouTube for) the OST playlist ID per game; cache result in `game_yt_playlists`.
-2. **Phase 1.5 — Track resolution** (`resolver.ts`): align DB track names to YouTube video IDs via LLM; fall back to per-track YouTube search for unresolved tracks. Durations fetched and cached in `video_tracks`.
-3. **Phase 2 — Vibe Profiler** (`vibe-profiler.ts`): LLM produces a `ScoringRubric` from the session's game titles. The rubric shapes the Director's scoring weights.
-4. **Phase 3 — Deterministic arc assembly** (`director.ts`): the TypeScript Director builds the final ordered playlist from the tagged pool, shaping energy flow and cross-game balance. **No LLM involvement.** Each selected track produces a `TrackDecision` record (score components, arc phase, pool size, game budget) persisted via `DirectorDecisions.bulkInsert()` into `playlist_track_decisions` — this is the Director telemetry shown in the Theatre view.
+1. **Candidate gathering** (`candidates.ts`): `getTaggedPool()` loads active, tagged tracks with pre-resolved video IDs from the `tracks` + `video_tracks` tables. Only tracks that are active, tagged (energy + roles), and have a resolved YouTube video are included.
+2. **Vibe Profiler** (`vibe-profiler.ts`): LLM produces a `ScoringRubric` from the session's game titles. The rubric shapes the Director's scoring weights. Skipped in Express Mode (`skip_llm`) and for guests.
+3. **Deterministic arc assembly** (`director.ts`): the TypeScript Director builds the final ordered playlist from the tagged pool, shaping energy flow and cross-game balance. **No LLM involvement.** Each selected track produces a `TrackDecision` record (score components, arc phase, pool size, game budget) persisted via `DirectorDecisions.bulkInsert()` into `playlist_track_decisions` — this is the Director telemetry shown in the Theatre view.
+
+**Track reroll** (`POST /api/playlist/[id]/reroll`): picks a random replacement from the same backstage-curated pool (`getTaggedPool`), excluding tracks already in the current session. No YouTube API calls — everything from DB.
 
 Curation modes (see `CurationMode` enum in `src/types/index.ts`):
 
@@ -141,14 +142,20 @@ Curation modes (see `CurationMode` enum in `src/types/index.ts`):
 - `include` — standard (default)
 - `focus` — guaranteed double-weighted budget in phase 3
 
-**Game onboarding** (`onboarding.ts`): when a new game is added, `onboardGame()` is called in the background. It calls `ingestFromDiscogs()` — a shared helper that fetches the tracklist from Discogs, upserts tracks, and runs the LLM tagger. The Backstage reingest action also calls `ingestFromDiscogs()` after clearing existing data.
+**Game onboarding** (`onboarding.ts`): backstage-driven process that prepares a game for playlist generation. Three phases:
+
+1. **Load tracks** — fetch tracklist from Discogs, upsert into `tracks` table.
+2. **Resolve videos** (`resolver.ts`) — align track names to YouTube video IDs via LLM playlist matching + fallback search; results cached in `video_tracks` table.
+3. **Tag tracks** — LLM produces energy, roles, moods, instrumentation for each resolved track; stored in `tracks` table.
+
+Only after all three phases complete is a game ready for the Director. The Backstage reingest action re-runs all phases; retag re-runs only phase 3.
 
 ### LLM providers (`src/lib/llm/`)
 
 `src/lib/llm/index.ts` exports:
 
-- `getTaggingProvider()` — Phase 1.5 resolver + Phase 2 Tagger. Override model with `ANTHROPIC_TAGGING_MODEL`.
-- `getVibeProfilerProvider()` — Phase 2 Vibe Profiler. Override model with `ANTHROPIC_VIBE_MODEL`.
+- `getTaggingProvider()` — video resolver + track tagger (used during backstage onboarding). Override model with `ANTHROPIC_TAGGING_MODEL`.
+- `getVibeProfilerProvider()` — Vibe Profiler (used during playlist generation). Override model with `ANTHROPIC_VIBE_MODEL`.
 
 All providers implement `LLMProvider` (`src/lib/llm/provider.ts`): `complete(system, user, opts)`. All LLM calls use Anthropic (`ANTHROPIC_API_KEY` required).
 
