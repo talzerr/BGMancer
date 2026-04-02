@@ -41,7 +41,11 @@ export default async function HomePage() {
 
       {/* Main content */}
       <main className="relative mx-auto max-w-6xl px-4 py-6 sm:px-6">
-        <FeedClient isSignedIn={!!session?.user} isDev={env.isDev} />
+        <FeedClient
+          isSignedIn={!!session?.user}
+          isDev={env.isDev}
+          turnstileSiteKey={env.turnstileSiteKey}
+        />
       </main>
     </div>
   );

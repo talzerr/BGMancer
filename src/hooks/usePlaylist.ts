@@ -12,6 +12,7 @@ export interface GenerateConfig {
   allow_short_tracks: boolean;
   anti_spoiler_enabled: boolean;
   raw_vibes: boolean;
+  turnstileToken?: string;
 }
 
 export type GameProgressEntry = {

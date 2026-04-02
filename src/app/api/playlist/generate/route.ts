@@ -10,7 +10,8 @@ import { YouTubeQuotaError, YouTubeInvalidKeyError } from "@/lib/services/youtub
 import { GENERATION_COOLDOWN_MS, DEFAULT_TRACK_COUNT } from "@/lib/constants";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
 import { generateSchema } from "@/lib/validation";
-import { checkGuestRateLimit } from "@/lib/rate-limit";
+import { checkGuestRateLimit, getClientIp } from "@/lib/rate-limit";
+import { verifyTurnstileToken } from "@/lib/services/turnstile";
 import type { AppConfig } from "@/types";
 import { createLogger } from "@/lib/logger";
 
@@ -97,6 +98,14 @@ export async function POST(request: Request) {
     })();
   } else {
     // ── Guest: Director-only, no Vibe Profiler, no persistence ──
+    const turnstile = await verifyTurnstileToken(
+      parsed.data.turnstileToken ?? "",
+      getClientIp(request),
+    );
+    if (!turnstile.success) {
+      return sseError(turnstile.error ?? "Verification failed");
+    }
+
     const limited = await checkGuestRateLimit(request);
     if (limited) {
       return sseError(`Please wait ${limited.waitSec}s before trying again.`);

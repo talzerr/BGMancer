@@ -48,6 +48,7 @@ export const generateSchema = z.object({
   anti_spoiler_enabled: z.boolean().optional(),
   raw_vibes: z.boolean().optional(),
   gameSelections: z.array(gameSelectionSchema).optional(),
+  turnstileToken: z.string().optional(),
 });
 
 export const rerollSchema = z.object({
