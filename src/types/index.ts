@@ -37,6 +37,23 @@ export enum CurationMode {
   Focus = "focus",
 }
 
+export enum BackstageModal {
+  Retag = "retag",
+  Reingest = "reingest",
+  AddTrack = "add-track",
+  ImportTracks = "import-tracks",
+  LoadTracks = "load-tracks",
+  Resolve = "resolve",
+  QuickOnboard = "quick-onboard",
+  Nuke = "nuke",
+}
+
+export enum SSEEventType {
+  Progress = "progress",
+  Done = "done",
+  Error = "error",
+}
+
 export enum OnboardingPhase {
   Draft = "draft",
   TracksLoaded = "tracks_loaded",
