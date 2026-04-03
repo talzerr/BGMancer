@@ -89,9 +89,11 @@ export const Tracks = {
   },
 
   async deactivateShortTracks(gameId: string, thresholdSeconds: number): Promise<number> {
-    const result = await getDB().run(sql`
-      UPDATE tracks SET active = 0
+    const db = getDB();
+    const row = await db.get<{ cnt: number }>(sql`
+      SELECT COUNT(*) AS cnt FROM tracks
       WHERE game_id = ${gameId}
+        AND active = 1
         AND name IN (
           SELECT track_name FROM video_tracks
           WHERE game_id = ${gameId}
@@ -99,7 +101,20 @@ export const Tracks = {
             AND duration_seconds < ${thresholdSeconds}
         )
     `);
-    return result.changes ?? 0;
+    const affected = row?.cnt ?? 0;
+    if (affected > 0) {
+      await db.run(sql`
+        UPDATE tracks SET active = 0
+        WHERE game_id = ${gameId}
+          AND name IN (
+            SELECT track_name FROM video_tracks
+            WHERE game_id = ${gameId}
+              AND duration_seconds IS NOT NULL
+              AND duration_seconds < ${thresholdSeconds}
+          )
+      `);
+    }
+    return affected;
   },
 
   async hasData(gameId: string): Promise<boolean> {

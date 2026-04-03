@@ -280,7 +280,6 @@ export interface ResolvedTrack {
   thumbnail: string;
   gameId: string;
   trackName: string;
-  durationSeconds: number | null;
   energy: 1 | 2 | 3 | null;
   roles: TrackRole[];
   moods: TrackMood[];
