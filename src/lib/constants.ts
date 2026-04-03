@@ -27,7 +27,7 @@ export const MAX_TRACK_COUNT = 150;
 /** Tracks shorter than this (in seconds) are auto-deactivated during onboarding (SFX, jingles). */
 export const SFX_DURATION_THRESHOLD_SECONDS = 15;
 
-/** Tracks shorter than this (in seconds) are always excluded (intros, stingers, etc.). */
+/** Tracks shorter than this (in seconds) are excluded when allow_short_tracks is off. */
 export const MIN_TRACK_DURATION_SECONDS = 90; // 1.5 minutes
 
 /** Tracks longer than this (in seconds) are excluded when allow_long_tracks is off. */

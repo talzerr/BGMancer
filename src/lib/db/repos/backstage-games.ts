@@ -6,7 +6,6 @@ import type { OnboardingPhase } from "@/types";
 import type { Game } from "@/types";
 import { newId } from "@/lib/uuid";
 import { steamHeaderUrl } from "@/lib/constants";
-import { sanitizeGameTitle } from "@/lib/utils";
 import { Games } from "./games";
 
 export interface BackstageGame {
@@ -50,13 +49,12 @@ function toBackstageGame(r: Record<string, unknown>): BackstageGame {
 export const BackstageGames = {
   async createDraft(title: string, steamAppid?: number | null): Promise<Game> {
     const id = newId();
-    const cleanTitle = sanitizeGameTitle(title);
     const thumbnail = steamAppid ? steamHeaderUrl(steamAppid) : null;
     await getDB()
       .insert(games)
       .values({
         id,
-        title: cleanTitle,
+        title,
         steam_appid: steamAppid ?? null,
         thumbnail_url: thumbnail,
       })
@@ -112,7 +110,7 @@ export const BackstageGames = {
   async update(id: string, fields: GameUpdateFields): Promise<Game | null> {
     const setParts: ReturnType<typeof sql>[] = [];
 
-    if (fields.title !== undefined) setParts.push(sql`title = ${sanitizeGameTitle(fields.title)}`);
+    if (fields.title !== undefined) setParts.push(sql`title = ${fields.title}`);
     if (fields.tracklist_source !== undefined)
       setParts.push(sql`tracklist_source = ${fields.tracklist_source}`);
     if (fields.yt_playlist_id !== undefined)

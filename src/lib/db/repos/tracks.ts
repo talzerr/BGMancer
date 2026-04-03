@@ -90,13 +90,11 @@ export const Tracks = {
 
   async deactivateTracks(gameId: string, names: string[]): Promise<void> {
     if (names.length === 0) return;
-    await batch(
-      names.map((name) =>
-        getDB()
-          .update(tracks)
-          .set({ active: false })
-          .where(and(eq(tracks.game_id, gameId), eq(tracks.name, name))),
-      ),
+    await getDB().run(
+      sql`UPDATE tracks SET active = 0 WHERE game_id = ${gameId} AND name IN (${sql.join(
+        names.map((n) => sql`${n}`),
+        sql`, `,
+      )})`,
     );
   },
 
