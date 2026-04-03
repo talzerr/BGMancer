@@ -4,6 +4,7 @@ import { CurationMode } from "@/types";
 import type { Game } from "@/types";
 import { steamHeaderUrl } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useState } from "react";
 
 interface LibraryDrawerProps {
@@ -22,14 +23,12 @@ const CURATION_CYCLE: CurationMode[] = [
   CurationMode.Focus,
   CurationMode.Include,
   CurationMode.Lite,
-  CurationMode.Skip,
 ];
 
-const CURATION_BADGE: Record<CurationMode, { label: string; className: string }> = {
+const CURATION_BADGE: Record<string, { label: string; className: string }> = {
   [CurationMode.Focus]: { label: "Focus", className: "bg-amber-500/15 text-amber-400" },
   [CurationMode.Include]: { label: "Include", className: "bg-violet-500/15 text-violet-400" },
   [CurationMode.Lite]: { label: "Lite", className: "bg-blue-500/15 text-blue-400" },
-  [CurationMode.Skip]: { label: "Skip", className: "bg-zinc-500/15 text-zinc-500" },
 };
 
 function GameThumbnail({ game }: { game: Game }) {
@@ -85,6 +84,23 @@ export function LibraryDrawer({
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-zinc-100">Library</span>
           <span className="text-xs text-zinc-500 tabular-nums">{games.length}</span>
+          <Tooltip>
+            <TooltipTrigger>
+              <span className="cursor-help text-[10px] text-zinc-600 hover:text-zinc-400">ⓘ</span>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-[200px] text-xs">
+              <p className="mb-1 font-semibold text-zinc-200">Curation modes</p>
+              <p>
+                <span className="text-amber-400">Focus</span> — guaranteed in every playlist
+              </p>
+              <p>
+                <span className="text-violet-400">Include</span> — standard inclusion
+              </p>
+              <p>
+                <span className="text-blue-400">Lite</span> — appears occasionally
+              </p>
+            </TooltipContent>
+          </Tooltip>
         </div>
         <button
           onClick={onClose}
@@ -129,9 +145,9 @@ export function LibraryDrawer({
 
                 <button
                   onClick={() => cycleCuration(game)}
-                  className={`shrink-0 cursor-pointer rounded-md px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase transition-colors ${CURATION_BADGE[game.curation].className}`}
+                  className={`shrink-0 cursor-pointer rounded-md px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase transition-colors ${(CURATION_BADGE[game.curation] ?? CURATION_BADGE[CurationMode.Include]).className}`}
                 >
-                  {CURATION_BADGE[game.curation].label}
+                  {(CURATION_BADGE[game.curation] ?? CURATION_BADGE[CurationMode.Include]).label}
                 </button>
 
                 <button
@@ -169,7 +185,7 @@ export function LibraryDrawer({
           {generating
             ? "Curating\u2026"
             : hasActiveGames
-              ? `Curate ${totalTracks} Tracks`
+              ? `Curate ${targetTrackCount} Tracks`
               : "Add games to start"}
         </Button>
       </div>

@@ -5,7 +5,7 @@ import { CurationMode } from "@/types";
 import { withOptionalAuth, withRequiredAuth } from "@/lib/services/route-wrappers";
 import { addGameSchema, updateCurationSchema, zodErrorResponse } from "@/lib/validation";
 
-/** GET /api/games — List active games (curation != skip). Pass ?includeDisabled=true to include skipped games. */
+/** GET /api/games — List active library games. Pass ?includeDisabled=true to include all games. */
 export const GET = withOptionalAuth(async (userId, request: Request) => {
   if (!userId) return NextResponse.json([]);
 

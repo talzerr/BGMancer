@@ -341,12 +341,12 @@ describe("Games", () => {
 
   describe("ensureExists", () => {
     describe("when the game does not exist", () => {
-      it("should create the game with Skip curation", async () => {
+      it("should create the game with Include curation", async () => {
         await Games.ensureExists(TEST_USER_ID, "new-game", "New Game");
         const game = await Games.getByIdForUser(TEST_USER_ID, "new-game");
         expect(game).not.toBeNull();
         expect(game!.title).toBe("New Game");
-        expect(game!.curation).toBe("skip");
+        expect(game!.curation).toBe("include");
       });
     });
 
@@ -357,11 +357,11 @@ describe("Games", () => {
           .run("existing", "Existing Game");
       });
 
-      it("should link it to the library with Skip curation without creating a duplicate", async () => {
+      it("should link it to the library with Include curation without creating a duplicate", async () => {
         await Games.ensureExists(TEST_USER_ID, "existing", "Existing Game");
         const game = await Games.getByIdForUser(TEST_USER_ID, "existing");
         expect(game).not.toBeNull();
-        expect(game!.curation).toBe("skip");
+        expect(game!.curation).toBe("include");
       });
 
       it("should not overwrite the existing game record", async () => {
