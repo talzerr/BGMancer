@@ -21,6 +21,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ gameId
   if (body.tracklist_source !== undefined) fields.tracklist_source = body.tracklist_source;
   if (body.yt_playlist_id !== undefined) fields.yt_playlist_id = body.yt_playlist_id;
   if (body.thumbnail_url !== undefined) fields.thumbnail_url = body.thumbnail_url;
+  if (body.onboarding_phase !== undefined) fields.onboarding_phase = body.onboarding_phase;
 
   if (Object.keys(fields).length === 0) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });

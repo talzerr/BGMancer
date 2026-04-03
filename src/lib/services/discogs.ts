@@ -1,5 +1,13 @@
 import { env } from "@/lib/env";
 import { createLogger } from "@/lib/logger";
+// ─── Types ──────────────────────────────────────────────────────────────────
+
+export type TracklistResult = {
+  tracks: Array<{ name: string; position: number; durationSeconds: number | null }>;
+  releaseTitle: string;
+  releaseId: number;
+  sourceType: string;
+};
 
 const log = createLogger("discogs");
 
@@ -108,7 +116,7 @@ function parseTracks(
 
 // ─── Master search (preferred) ───────────────────────────────────────────────
 
-async function tryMasterSearch(gameTitle: string): Promise<DiscogsTracklistResult | null> {
+async function tryMasterSearch(gameTitle: string): Promise<TracklistResult | null> {
   const searchUrl =
     `https://api.discogs.com/database/search?` +
     `q=${encodeURIComponent(gameTitle)}&genre=Stage+%26+Screen&style=Video+Game+Music` +
@@ -141,7 +149,7 @@ async function tryMasterSearch(gameTitle: string): Promise<DiscogsTracklistResul
 
 // ─── Release search (fallback) ───────────────────────────────────────────────
 
-async function tryReleaseSearch(gameTitle: string): Promise<DiscogsTracklistResult | null> {
+async function tryReleaseSearch(gameTitle: string): Promise<TracklistResult | null> {
   const searchUrl =
     `https://api.discogs.com/database/search?` +
     `q=${encodeURIComponent(gameTitle)}&genre=Stage+%26+Screen&style=Video+Game+Music` +
@@ -173,14 +181,7 @@ async function tryReleaseSearch(gameTitle: string): Promise<DiscogsTracklistResu
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-export type DiscogsTracklistResult = {
-  tracks: Array<{ name: string; position: number; durationSeconds: number | null }>;
-  releaseTitle: string;
-  releaseId: number;
-  sourceType: "discogs-master" | "discogs-release";
-};
-
-export async function fetchDiscogsRelease(id: number): Promise<DiscogsTracklistResult | null> {
+export async function fetchDiscogsRelease(id: number): Promise<TracklistResult | null> {
   const result = await discogsGet(`https://api.discogs.com/releases/${id}`);
   if (!result) return null;
   const release = result.data as DiscogsRelease;
@@ -194,7 +195,7 @@ export async function fetchDiscogsRelease(id: number): Promise<DiscogsTracklistR
   };
 }
 
-export async function fetchDiscogsMaster(id: number): Promise<DiscogsTracklistResult | null> {
+export async function fetchDiscogsMaster(id: number): Promise<TracklistResult | null> {
   const result = await discogsGet(`https://api.discogs.com/masters/${id}`);
   if (!result) return null;
   const master = result.data as DiscogsMaster;
@@ -208,8 +209,6 @@ export async function fetchDiscogsMaster(id: number): Promise<DiscogsTracklistRe
   };
 }
 
-export async function searchGameSoundtrack(
-  gameTitle: string,
-): Promise<DiscogsTracklistResult | null> {
+export async function searchGameSoundtrack(gameTitle: string): Promise<TracklistResult | null> {
   return (await tryMasterSearch(gameTitle)) ?? (await tryReleaseSearch(gameTitle));
 }

@@ -6,6 +6,14 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
+import {
+  parseSource,
+  formatSource,
+  sourceUrl,
+  getRegisteredSources,
+} from "@/lib/services/tracklist-source";
+import { parseTracklist, type ParsedTrack } from "@/lib/services/track-parser";
 import {
   Dialog,
   DialogContent,
@@ -53,6 +61,7 @@ type ActiveModal =
   | "retag"
   | "reingest"
   | "add-track"
+  | "import-tracks"
   | "load-tracks"
   | "resolve"
   | "quick-onboard"
@@ -69,6 +78,8 @@ export function GameDetailClient({
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
   const [sseRunning, setSseRunning] = useState(false);
   const [newTrackName, setNewTrackName] = useState("");
+  const [pasteText, setPasteText] = useState("");
+  const [pastePreview, setPastePreview] = useState<ParsedTrack[]>([]);
   const [reingestRunning, setReingestRunning] = useState(false);
   const [reingestTyped, setReingestTyped] = useState("");
   const [editTrack, setEditTrack] = useState<Track | null>(null);
@@ -118,6 +129,47 @@ export function GameDetailClient({
     } catch (err) {
       console.error("[GameDetail] addTrack failed:", err);
       setMutError("Failed to add track. Please try again.");
+    }
+  }
+
+  function handlePasteChange(text: string) {
+    setPasteText(text);
+    setPastePreview(text.trim() ? parseTracklist(text) : []);
+  }
+
+  async function importPastedTracks() {
+    if (pastePreview.length === 0) return;
+    setMutError(null);
+    try {
+      const res = await fetch("/api/backstage/import-tracks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameId: game.id, tracks: pastePreview }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setPasteText("");
+      setPastePreview([]);
+      setActiveModal(null);
+      router.refresh();
+    } catch (err) {
+      console.error("[GameDetail] importPastedTracks failed:", err);
+      setMutError("Failed to import tracks. Please try again.");
+    }
+  }
+
+  async function markTracksReady() {
+    setMutError(null);
+    try {
+      const res = await fetch(`/api/backstage/games/${game.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ onboarding_phase: "tracks_loaded" }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      router.refresh();
+    } catch (err) {
+      console.error("[GameDetail] markTracksReady failed:", err);
+      setMutError("Failed to update phase. Please try again.");
     }
   }
 
@@ -275,8 +327,10 @@ export function GameDetailClient({
           <div className="flex items-center gap-2">
             <PrimaryAction
               phase={phase}
+              trackCount={tracks.length}
               reviewFlagCount={reviewFlags.length}
-              onLoadTracks={() => setActiveModal("load-tracks")}
+              onMarkReady={markTracksReady}
+              onRetry={() => setActiveModal("load-tracks")}
               onTag={() => setActiveModal("retag")}
               onResolve={() => setActiveModal("resolve")}
               onReviewFlags={() => flagsRef.current?.scrollIntoView({ behavior: "smooth" })}
@@ -309,7 +363,15 @@ export function GameDetailClient({
                       setActiveModal("load-tracks");
                     }}
                   >
-                    Force Re-Fetch Tracks
+                    Fetch from Discogs
+                  </DropdownItem>
+                  <DropdownItem
+                    onClick={() => {
+                      setPipelineOpen(false);
+                      setActiveModal("import-tracks");
+                    }}
+                  >
+                    Paste Tracks
                   </DropdownItem>
                   <DropdownItem
                     onClick={() => {
@@ -415,12 +477,9 @@ export function GameDetailClient({
           {game.published && <span className="text-[10px] text-zinc-600">Unpublish to edit</span>}
         </div>
         <div className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2">
-          <MetadataField
-            label="Tracklist Source"
-            value={game.tracklist_source ?? ""}
-            placeholder="discogs-release:123 / discogs-master:456 / vgmdb:789"
+          <TracklistSourceField
+            value={game.tracklist_source}
             disabled={game.published}
-            href={tracklistSourceUrl(game.tracklist_source)}
             onSave={(v) => saveField("tracklist_source", v)}
           />
           <MetadataField
@@ -512,6 +571,36 @@ export function GameDetailClient({
             ))}
           </div>
         </details>
+      )}
+
+      {/* Zero-state ingestion cards — shown in Draft with no tracks */}
+      {tracks.length === 0 && phase === OnboardingPhase.Draft && (
+        <div className="grid grid-cols-2 gap-4">
+          <button
+            onClick={() => setActiveModal("load-tracks")}
+            className="group rounded-lg border border-dashed border-zinc-700 bg-zinc-900/40 px-6 py-8 text-left transition-colors hover:border-violet-600/50 hover:bg-violet-500/5"
+          >
+            <p className="text-sm font-medium text-zinc-200 group-hover:text-violet-300">
+              Fetch from Discogs
+            </p>
+            <p className="mt-1 text-xs text-zinc-500">
+              Auto-discover the tracklist by searching Discogs, or fetch a specific release/master
+              ID from the tracklist source above.
+            </p>
+          </button>
+          <button
+            onClick={() => setActiveModal("import-tracks")}
+            className="group rounded-lg border border-dashed border-zinc-700 bg-zinc-900/40 px-6 py-8 text-left transition-colors hover:border-violet-600/50 hover:bg-violet-500/5"
+          >
+            <p className="text-sm font-medium text-zinc-200 group-hover:text-violet-300">
+              Paste Tracks
+            </p>
+            <p className="mt-1 text-xs text-zinc-500">
+              Paste a tracklist from VGMdb, Wikipedia, or any source. One track per line — durations
+              are detected automatically.
+            </p>
+          </button>
+        </div>
       )}
 
       {/* Track list */}
@@ -972,6 +1061,77 @@ export function GameDetailClient({
         </DialogContent>
       </Dialog>
 
+      {/* Paste/import tracks modal */}
+      <Dialog
+        open={activeModal === "import-tracks"}
+        onOpenChange={(v) => {
+          if (!v) {
+            setActiveModal(null);
+            setPasteText("");
+            setPastePreview([]);
+          }
+        }}
+      >
+        <DialogContent className="border-zinc-800 bg-zinc-900 sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="text-zinc-100">Paste Tracks</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              Paste a tracklist — one track per line. Durations (M:SS) are detected automatically.
+            </DialogDescription>
+          </DialogHeader>
+          <textarea
+            value={pasteText}
+            onChange={(e) => handlePasteChange(e.target.value)}
+            placeholder={
+              "01. A Premonition 0:35\n02. Chrono Trigger 2:27\n03. Morning Sunlight 2:45"
+            }
+            rows={10}
+            className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 font-mono text-xs text-zinc-100 placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none"
+          />
+          {pastePreview.length > 0 && (
+            <div className="max-h-48 overflow-y-auto rounded-md border border-zinc-700 bg-zinc-800/50 px-3 py-2">
+              <p className="mb-1 text-[10px] font-semibold tracking-wider text-zinc-500 uppercase">
+                Preview ({pastePreview.length} tracks)
+              </p>
+              {pastePreview.map((t) => (
+                <div key={t.position} className="flex items-center gap-2 py-0.5 text-xs">
+                  <span className="w-6 text-right text-zinc-600">{t.position}.</span>
+                  <span className="flex-1 text-zinc-300">{t.name}</span>
+                  {t.durationSeconds !== null && (
+                    <span className="text-zinc-500">
+                      {Math.floor(t.durationSeconds / 60)}:
+                      {String(t.durationSeconds % 60).padStart(2, "0")}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-zinc-400"
+              onClick={() => {
+                setActiveModal(null);
+                setPasteText("");
+                setPastePreview([]);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="bg-violet-600 text-white hover:bg-violet-700"
+              onClick={importPastedTracks}
+              disabled={pastePreview.length === 0}
+            >
+              Import {pastePreview.length} Tracks
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Track edit sheet */}
       {editTrack && (
         <TrackEditSheet
@@ -1070,18 +1230,98 @@ function EditableTitle({
   );
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Tracklist Source field (dropdown + ID) ─────────────────────────────────
 
-function tracklistSourceUrl(source: string | null): string | undefined {
-  if (!source) return undefined;
-  const match = source.match(/^([\w-]+):(\d+)$/);
-  if (!match) return undefined;
-  const [, prefix, id] = match;
-  if (prefix === "discogs-release") return `https://www.discogs.com/release/${id}`;
-  if (prefix === "discogs-master") return `https://www.discogs.com/master/${id}`;
-  if (prefix === "vgmdb") return `https://vgmdb.net/album/${id}`;
-  return undefined;
+function TracklistSourceField({
+  value,
+  disabled,
+  onSave,
+}: {
+  value: string | null;
+  disabled?: boolean;
+  onSave: (value: string | null) => void;
+}) {
+  const sources = getRegisteredSources();
+  const parsed = parseSource(value);
+  const [sourceKey, setSourceKey] = useState(parsed?.key ?? "");
+  const [sourceId, setSourceId] = useState(parsed?.id ?? "");
+
+  const href = sourceUrl(sourceKey && sourceId ? formatSource(sourceKey, sourceId) : null);
+  const isDirty = sourceKey !== (parsed?.key ?? "") || sourceId !== (parsed?.id ?? "");
+
+  function save() {
+    if (!isDirty) return;
+    onSave(sourceKey && sourceId ? formatSource(sourceKey, sourceId) : null);
+  }
+
+  return (
+    <>
+      <span className="flex items-center gap-1 text-[11px] font-medium text-zinc-500">
+        Tracklist Source
+        {href && sourceId && (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-zinc-600 transition-colors hover:text-zinc-300"
+          >
+            ↗
+          </a>
+        )}
+      </span>
+      <div className="flex items-center gap-2">
+        <Select
+          value={sourceKey}
+          onValueChange={(v) => {
+            const next = v || "";
+            setSourceKey(next);
+            if (!next) {
+              setSourceId("");
+              onSave(null);
+            }
+          }}
+          disabled={disabled}
+        >
+          <SelectTrigger className="h-7 w-auto min-w-[130px] border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-300">
+            <span className="flex flex-1 text-left">
+              {sources.find((s) => s.key === sourceKey)?.label ?? "Auto-discover"}
+            </span>
+          </SelectTrigger>
+          <SelectContent className="border-zinc-700 bg-zinc-900">
+            <SelectItem value="" className="text-xs text-zinc-400">
+              Auto-discover
+            </SelectItem>
+            {sources.map((s) => (
+              <SelectItem key={s.key} value={s.key} className="text-xs text-zinc-300">
+                {s.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {sourceKey && (
+          <Input
+            value={sourceId}
+            onChange={(e) => setSourceId(e.target.value.replace(/\D/g, ""))}
+            onBlur={save}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") save();
+            }}
+            placeholder="ID"
+            disabled={disabled}
+            className="h-7 w-24 border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-300"
+          />
+        )}
+        {isDirty && sourceKey && sourceId && (
+          <button onClick={save} className="text-[10px] text-emerald-500 hover:text-emerald-400">
+            Save
+          </button>
+        )}
+      </div>
+    </>
+  );
 }
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 // ─── Inline metadata field ───────────────────────────────────────────────────
 
@@ -1162,15 +1402,19 @@ function MetadataField({
 
 function PrimaryAction({
   phase,
+  trackCount,
   reviewFlagCount,
-  onLoadTracks,
+  onMarkReady,
+  onRetry,
   onTag,
   onResolve,
   onReviewFlags,
 }: {
   phase: OnboardingPhase;
+  trackCount: number;
   reviewFlagCount: number;
-  onLoadTracks: () => void;
+  onMarkReady: () => void;
+  onRetry: () => void;
   onTag: () => void;
   onResolve: () => void;
   onReviewFlags: () => void;
@@ -1192,15 +1436,19 @@ function PrimaryAction({
 
   switch (phase) {
     case OnboardingPhase.Draft:
-      return (
-        <Button
-          size="sm"
-          className="h-7 bg-violet-600 text-xs text-white hover:bg-violet-700"
-          onClick={onLoadTracks}
-        >
-          Fetch Tracklist
-        </Button>
-      );
+      if (trackCount > 0) {
+        return (
+          <Button
+            size="sm"
+            className="h-7 bg-emerald-600 text-xs text-white hover:bg-emerald-700"
+            onClick={onMarkReady}
+          >
+            Mark Tracks Ready
+          </Button>
+        );
+      }
+      // No tracks — zero-state cards in the body handle this
+      return null;
     case OnboardingPhase.TracksLoaded:
       return (
         <Button
@@ -1237,7 +1485,7 @@ function PrimaryAction({
         <Button
           size="sm"
           className="h-7 bg-violet-600 text-xs text-white hover:bg-violet-700"
-          onClick={onLoadTracks}
+          onClick={onRetry}
         >
           Retry: Fetch Tracklist
         </Button>
