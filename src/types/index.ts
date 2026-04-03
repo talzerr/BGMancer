@@ -46,6 +46,17 @@ export enum BackstageModal {
   Resolve = "resolve",
   QuickOnboard = "quick-onboard",
   Nuke = "nuke",
+  ResolveSelected = "resolve-selected",
+  TagSelected = "tag-selected",
+}
+
+export enum TrackFilter {
+  All = "all",
+  Active = "active",
+  Inactive = "inactive",
+  Untagged = "untagged",
+  Unresolved = "unresolved",
+  Discovered = "discovered",
 }
 
 export enum SSEEventType {

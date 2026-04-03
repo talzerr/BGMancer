@@ -14,8 +14,8 @@ import {
 import { SSEDialog } from "@/components/backstage/SSEDialog";
 import { ConfirmModal } from "@/components/backstage/ConfirmModal";
 import { parseTracklist, type ParsedTrack } from "@/lib/services/track-parser";
-import { BackstageModal } from "@/types";
-import type { Game } from "@/types";
+import { BackstageModal, DiscoveredStatus } from "@/types";
+import type { Game, Track } from "@/types";
 import type { GameDetailActions } from "../_hooks/useGameDetailActions";
 import type { ActiveModal } from "../game-detail-client";
 
@@ -24,17 +24,44 @@ export function GameModals({
   activeModal,
   setActiveModal,
   actions,
+  tracks,
+  videoMap,
+  selected,
+  onSseDone,
 }: {
   game: Game;
   activeModal: ActiveModal;
   setActiveModal: (modal: ActiveModal) => void;
   actions: GameDetailActions;
+  tracks: Track[];
+  videoMap: Record<string, string>;
+  selected: Set<string>;
+  onSseDone?: () => void;
 }) {
   // Form state local to modals — resets when modal closes
   const [newTrackName, setNewTrackName] = useState("");
   const [pasteText, setPasteText] = useState("");
   const [pastePreview, setPastePreview] = useState<ParsedTrack[]>([]);
   const [reingestRunning, setReingestRunning] = useState(false);
+
+  // Derive track names for selective SSE modals:
+  // If tracks are selected via checkboxes, use those. Otherwise fall back to all matching tracks.
+  function getTrackNamesForModal(modal: ActiveModal): string[] {
+    if (selected.size > 0) return [...selected];
+    if (modal === BackstageModal.ResolveSelected) {
+      return tracks
+        .filter((t) => !videoMap[t.name] && t.discovered !== DiscoveredStatus.Rejected)
+        .map((t) => t.name);
+    }
+    if (modal === BackstageModal.TagSelected) {
+      return tracks
+        .filter((t) => t.taggedAt === null && t.discovered !== DiscoveredStatus.Rejected)
+        .map((t) => t.name);
+    }
+    return [];
+  }
+
+  const selectedTrackNames = getTrackNamesForModal(activeModal);
 
   function handlePasteChange(text: string) {
     setPasteText(text);
@@ -44,6 +71,7 @@ export function GameModals({
   function closeModal() {
     setActiveModal(null);
     actions.setSseRunning(false);
+    onSseDone?.();
   }
 
   function closeReingest() {
@@ -146,6 +174,38 @@ export function GameModals({
         }
         onDone={closeReingest}
         onClose={closeReingest}
+      />
+
+      {/* Resolve Selected */}
+      <SSEDialog
+        open={activeModal === BackstageModal.ResolveSelected}
+        onOpenChange={() => setActiveModal(null)}
+        title={`Resolve Selected: ${game.title}`}
+        description={`Resolving ${selectedTrackNames.length} track${selectedTrackNames.length === 1 ? "" : "s"} to YouTube videos.`}
+        sseRunning={actions.sseRunning}
+        url="/api/backstage/resolve-selected"
+        body={{ gameId: game.id, trackNames: selectedTrackNames }}
+        progressLabel={(e) => String(e.message ?? "Resolving…")}
+        doneLabel={(e) => `Done — ${e.resolved}/${e.total} tracks resolved`}
+        onDone={closeModal}
+        onClose={closeModal}
+      />
+
+      {/* Tag Selected */}
+      <SSEDialog
+        open={activeModal === BackstageModal.TagSelected}
+        onOpenChange={() => setActiveModal(null)}
+        title={`Tag Selected: ${game.title}`}
+        description={`Tagging ${selectedTrackNames.length} track${selectedTrackNames.length === 1 ? "" : "s"} with LLM.`}
+        sseRunning={actions.sseRunning}
+        url="/api/backstage/tag-selected"
+        body={{ gameId: game.id, trackNames: selectedTrackNames }}
+        progressLabel={(e) =>
+          `Tagging track ${e.current ?? 0}/${e.total ?? "?"}… ${e.trackName ?? ""}`
+        }
+        doneLabel={(e) => `Done — ${e.tagged} tagged, ${e.needsReview} need review`}
+        onDone={closeModal}
+        onClose={closeModal}
       />
 
       {/* Add track modal */}

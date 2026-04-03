@@ -101,7 +101,8 @@ export async function tagTracks(
   onProgress?: (current: number, total: number, trackName: string) => void,
 ): Promise<void> {
   const allUntagged = tracks.filter(
-    (t) => t.taggedAt === null && t.discovered !== DiscoveredStatus.Rejected,
+    (t) =>
+      t.taggedAt === null && (t.discovered === null || t.discovered === DiscoveredStatus.Approved),
   );
   if (allUntagged.length === 0) return;
 

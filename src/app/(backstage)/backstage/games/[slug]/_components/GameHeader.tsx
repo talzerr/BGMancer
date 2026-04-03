@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { StatusBadge } from "@/components/backstage/StatusBadge";
 import { PhaseStepper } from "@/components/backstage/PhaseStepper";
@@ -9,7 +10,7 @@ import { EditableTitle } from "@/components/backstage/EditableTitle";
 import { PrimaryAction } from "@/components/backstage/PrimaryAction";
 import { Dropdown } from "@/components/backstage/Dropdown";
 import { DropdownItem } from "@/components/backstage/DropdownItem";
-import { BackstageModal, OnboardingPhase } from "@/types";
+import { BackstageModal, DiscoveredStatus, OnboardingPhase } from "@/types";
 import type { Game, Track } from "@/types";
 import type { ReviewFlag } from "@/lib/db/repos/review-flags";
 import type { GameDetailActions } from "../_hooks/useGameDetailActions";
@@ -18,6 +19,7 @@ import type { ActiveModal } from "../game-detail-client";
 export function GameHeader({
   game,
   tracks,
+  videoMap,
   reviewFlags,
   actions,
   onSetActiveModal,
@@ -25,6 +27,7 @@ export function GameHeader({
 }: {
   game: Game;
   tracks: Track[];
+  videoMap: Record<string, string>;
   reviewFlags: ReviewFlag[];
   actions: GameDetailActions;
   onSetActiveModal: (modal: ActiveModal) => void;
@@ -36,7 +39,14 @@ export function GameHeader({
   const trackCount = tracks.filter((t) => t.discovered !== "rejected").length;
   const activeCount = tracks.filter((t) => t.active).length;
   const taggedCount = tracks.filter((t) => t.taggedAt !== null).length;
+  const unresolvedCount = tracks.filter(
+    (t) => !videoMap[t.name] && t.discovered !== DiscoveredStatus.Rejected,
+  ).length;
+  const untaggedCount = tracks.filter(
+    (t) => t.taggedAt === null && t.discovered !== DiscoveredStatus.Rejected,
+  ).length;
   const phase = game.onboarding_phase;
+  const isDraft = phase === OnboardingPhase.Draft;
   const thumbnailSrc = game.thumbnail_url;
 
   return (
@@ -92,53 +102,73 @@ export function GameHeader({
             onReviewFlags={() => flagsRef.current?.scrollIntoView({ behavior: "smooth" })}
           />
 
-          <Dropdown
-            label="Run Pipeline ▾"
-            open={pipelineOpen}
-            onOpenChange={setPipelineOpen}
-            disabled={game.published}
-          >
-            <DropdownItem
-              onClick={() => {
-                setPipelineOpen(false);
-                onSetActiveModal(BackstageModal.QuickOnboard);
-              }}
+          {isDraft ? (
+            <Dropdown
+              label="Run Pipeline ▾"
+              open={pipelineOpen}
+              onOpenChange={setPipelineOpen}
+              disabled={game.published}
             >
-              Run Full Pipeline
-            </DropdownItem>
-            <DropdownItem
-              onClick={() => {
-                setPipelineOpen(false);
-                onSetActiveModal(BackstageModal.LoadTracks);
-              }}
-            >
-              Fetch from Discogs
-            </DropdownItem>
-            <DropdownItem
-              onClick={() => {
-                setPipelineOpen(false);
-                onSetActiveModal(BackstageModal.ImportTracks);
-              }}
-            >
-              Paste Tracks
-            </DropdownItem>
-            <DropdownItem
-              onClick={() => {
-                setPipelineOpen(false);
-                onSetActiveModal(BackstageModal.Retag);
-              }}
-            >
-              Force Re-Tag
-            </DropdownItem>
-            <DropdownItem
-              onClick={() => {
-                setPipelineOpen(false);
-                onSetActiveModal(BackstageModal.Resolve);
-              }}
-            >
-              Force Re-Resolve
-            </DropdownItem>
-          </Dropdown>
+              <DropdownItem
+                onClick={() => {
+                  setPipelineOpen(false);
+                  onSetActiveModal(BackstageModal.QuickOnboard);
+                }}
+              >
+                Run Full Pipeline
+              </DropdownItem>
+              <DropdownItem
+                onClick={() => {
+                  setPipelineOpen(false);
+                  onSetActiveModal(BackstageModal.LoadTracks);
+                }}
+              >
+                Fetch from Discogs
+              </DropdownItem>
+              <DropdownItem
+                onClick={() => {
+                  setPipelineOpen(false);
+                  onSetActiveModal(BackstageModal.ImportTracks);
+                }}
+              >
+                Paste Tracks
+              </DropdownItem>
+            </Dropdown>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 border-zinc-700 px-2 text-[10px] text-zinc-300 hover:text-zinc-100"
+                onClick={() => onSetActiveModal(BackstageModal.ImportTracks)}
+                disabled={game.published}
+              >
+                + Tracks
+              </Button>
+              {unresolvedCount > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 border-violet-600/40 px-2 text-[10px] text-violet-400 hover:bg-violet-500/10"
+                  onClick={() => onSetActiveModal(BackstageModal.ResolveSelected)}
+                  disabled={game.published}
+                >
+                  Resolve All ({unresolvedCount})
+                </Button>
+              )}
+              {untaggedCount > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 border-violet-600/40 px-2 text-[10px] text-violet-400 hover:bg-violet-500/10"
+                  onClick={() => onSetActiveModal(BackstageModal.TagSelected)}
+                  disabled={game.published}
+                >
+                  Tag All ({untaggedCount})
+                </Button>
+              )}
+            </div>
+          )}
 
           <Dropdown
             label="⋯"

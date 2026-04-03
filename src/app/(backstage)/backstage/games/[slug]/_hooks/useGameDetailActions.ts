@@ -205,6 +205,38 @@ export function useGameDetailActions(game: Game, router: AppRouterInstance) {
     router.refresh();
   }
 
+  async function bulkSetActive(names: string[], active: boolean) {
+    setMutError(null);
+    try {
+      const res = await fetch("/api/backstage/tracks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(names.map((name) => ({ gameId: game.id, name, updates: { active } }))),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      router.refresh();
+    } catch (err) {
+      console.error("[GameDetail] bulkSetActive failed:", err);
+      setMutError("Failed to update tracks.");
+    }
+  }
+
+  async function bulkDeleteTracks(names: string[]) {
+    setMutError(null);
+    try {
+      const res = await fetch("/api/backstage/tracks", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameId: game.id, names }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      router.refresh();
+    } catch (err) {
+      console.error("[GameDetail] bulkDeleteTracks failed:", err);
+      setMutError("Failed to delete tracks.");
+    }
+  }
+
   return {
     mutError,
     setMutError,
@@ -225,6 +257,8 @@ export function useGameDetailActions(game: Game, router: AppRouterInstance) {
     deleteGame,
     clearAllFlags,
     clearSingleFlag,
+    bulkSetActive,
+    bulkDeleteTracks,
   };
 }
 

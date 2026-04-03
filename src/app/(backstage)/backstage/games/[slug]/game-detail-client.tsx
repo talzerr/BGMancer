@@ -22,6 +22,7 @@ import { MetadataEditor } from "./_components/MetadataEditor";
 import { ReviewFlagsPanel } from "./_components/ReviewFlagsPanel";
 import { TrackTable } from "./_components/TrackTable";
 import { GameModals } from "./_components/GameModals";
+import { GameDetailBulkBar } from "./_components/GameDetailBulkBar";
 
 interface VideoDetail {
   videoId: string;
@@ -52,7 +53,10 @@ export function GameDetailClient({
   const [editTrack, setEditTrack] = useState<Track | null>(null);
   const [editingTracks, setEditingTracks] = useState(false);
   const [pendingDeleteTrack, setPendingDeleteTrack] = useState<Track | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const flagsRef = useRef<HTMLDetailsElement>(null);
+
+  const clearSelection = () => setSelected(new Set());
 
   // SSE modals set sseRunning when they open, clear on close
   const SSE_MODALS: ActiveModal[] = [
@@ -60,6 +64,8 @@ export function GameDetailClient({
     BackstageModal.Resolve,
     BackstageModal.QuickOnboard,
     BackstageModal.Retag,
+    BackstageModal.ResolveSelected,
+    BackstageModal.TagSelected,
   ];
   useEffect(() => {
     if (activeModal && SSE_MODALS.includes(activeModal)) {
@@ -72,6 +78,7 @@ export function GameDetailClient({
       <GameHeader
         game={game}
         tracks={tracks}
+        videoMap={videoMap}
         reviewFlags={reviewFlags}
         actions={actions}
         onSetActiveModal={setActiveModal}
@@ -99,6 +106,8 @@ export function GameDetailClient({
         onSetEditTrack={setEditTrack}
         onSetPendingDeleteTrack={setPendingDeleteTrack}
         actions={actions}
+        selected={selected}
+        onSelectionChange={setSelected}
       />
 
       {/* Delete track confirmation */}
@@ -138,6 +147,18 @@ export function GameDetailClient({
         activeModal={activeModal}
         setActiveModal={setActiveModal}
         actions={actions}
+        tracks={tracks}
+        videoMap={videoMap}
+        selected={selected}
+        onSseDone={clearSelection}
+      />
+
+      <GameDetailBulkBar
+        selectedTracks={tracks.filter((t) => selected.has(t.name))}
+        videoMap={videoMap}
+        actions={actions}
+        onSetActiveModal={setActiveModal}
+        onClearSelection={clearSelection}
       />
 
       {/* Track edit sheet */}
