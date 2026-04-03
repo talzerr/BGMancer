@@ -10,6 +10,9 @@ interface CatalogBrowserProps {
   libraryGameIds: Set<string>;
   onGameAdded: () => void;
   searchFilter?: string;
+  favoriteGameIds: Set<string>;
+  onToggleFavorite: (gameId: string) => void;
+  showFavoritesOnly?: boolean;
 }
 
 const PAGE_SIZE = 20;
@@ -24,7 +27,14 @@ const CURATION_ADD_OPTIONS: {
   { mode: CurationMode.Lite, label: "Lite", colorClass: "text-blue-300" },
 ];
 
-export function CatalogBrowser({ libraryGameIds, onGameAdded, searchFilter }: CatalogBrowserProps) {
+export function CatalogBrowser({
+  libraryGameIds,
+  onGameAdded,
+  searchFilter,
+  favoriteGameIds,
+  onToggleFavorite,
+  showFavoritesOnly,
+}: CatalogBrowserProps) {
   const [catalog, setCatalog] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [addingId, setAddingId] = useState<string | null>(null);
@@ -48,11 +58,13 @@ export function CatalogBrowser({ libraryGameIds, onGameAdded, searchFilter }: Ca
   // Reset visible count when filter changes
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [searchFilter]);
+  }, [searchFilter, showFavoritesOnly]);
 
-  const filtered = searchFilter?.trim()
-    ? catalog.filter((g) => g.title.toLowerCase().includes(searchFilter.toLowerCase()))
-    : catalog;
+  const filtered = catalog
+    .filter((g) => !showFavoritesOnly || favoriteGameIds.has(g.id))
+    .filter(
+      (g) => !searchFilter?.trim() || g.title.toLowerCase().includes(searchFilter.toLowerCase()),
+    );
 
   const visible = filtered.slice(0, visibleCount);
 
@@ -96,7 +108,9 @@ export function CatalogBrowser({ libraryGameIds, onGameAdded, searchFilter }: Ca
                   game={game}
                   inLibrary={inLibrary}
                   isAdding={isAdding}
+                  isFavorite={favoriteGameIds.has(game.id)}
                   onAdd={handleAdd}
+                  onToggleFavorite={onToggleFavorite}
                 />
               );
             })}
@@ -128,12 +142,16 @@ function CatalogCard({
   game,
   inLibrary,
   isAdding,
+  isFavorite,
   onAdd,
+  onToggleFavorite,
 }: {
   game: Game;
   inLibrary: boolean;
   isAdding: boolean;
+  isFavorite: boolean;
   onAdd: (gameId: string, curation: CurationMode) => void;
+  onToggleFavorite: (gameId: string) => void;
 }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -165,20 +183,37 @@ function CatalogCard({
       }`}
     >
       {/* Cover art */}
-      {game.thumbnail_url ? (
-        <Image
-          src={game.thumbnail_url}
-          alt={game.title}
-          width={460}
-          height={215}
-          className="aspect-[460/215] w-full bg-zinc-800 object-cover"
-          unoptimized
-        />
-      ) : (
-        <div className="flex aspect-[460/215] w-full items-center justify-center bg-zinc-800/80">
-          <span className="text-xs font-bold text-zinc-600">BGM</span>
-        </div>
-      )}
+      <div className="relative">
+        {game.thumbnail_url ? (
+          <Image
+            src={game.thumbnail_url}
+            alt={game.title}
+            width={460}
+            height={215}
+            className="aspect-[460/215] w-full bg-zinc-800 object-cover"
+            unoptimized
+          />
+        ) : (
+          <div className="flex aspect-[460/215] w-full items-center justify-center bg-zinc-800/80">
+            <span className="text-xs font-bold text-zinc-600">BGM</span>
+          </div>
+        )}
+
+        {/* Favorite star */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFavorite(game.id);
+          }}
+          className={`absolute top-1.5 right-1.5 cursor-pointer text-sm leading-none transition-all duration-150 active:scale-125 ${
+            isFavorite
+              ? "text-amber-400 opacity-100"
+              : "text-zinc-400 opacity-0 group-hover:opacity-100 hover:text-amber-300"
+          }`}
+        >
+          {isFavorite ? "\u2605" : "\u2606"}
+        </button>
+      </div>
 
       {/* Title + action */}
       <div className="flex flex-1 flex-col gap-2 p-2.5">

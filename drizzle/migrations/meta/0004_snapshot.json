@@ -1,9 +1,71 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "cc639707-19c0-4ec9-add3-bb0c1b1a7c88",
-  "prevId": "1f1ff542-bd79-4ac0-bbc9-b72c696a1f36",
+  "id": "cb91088a-7748-4755-983a-231fda50c29d",
+  "prevId": "cc639707-19c0-4ec9-add3-bb0c1b1a7c88",
   "tables": {
+    "favorite_games": {
+      "name": "favorite_games",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))"
+        }
+      },
+      "indexes": {
+        "idx_favorite_games_user": {
+          "name": "idx_favorite_games_user",
+          "columns": ["user_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "favorite_games_user_id_users_id_fk": {
+          "name": "favorite_games_user_id_users_id_fk",
+          "tableFrom": "favorite_games",
+          "tableTo": "users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "favorite_games_game_id_games_id_fk": {
+          "name": "favorite_games_game_id_games_id_fk",
+          "tableFrom": "favorite_games",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "favorite_games_user_id_game_id_pk": {
+          "columns": ["user_id", "game_id"],
+          "name": "favorite_games_user_id_game_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "game_review_flags": {
       "name": "game_review_flags",
       "columns": {

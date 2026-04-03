@@ -45,6 +45,10 @@ export const routeConfig: Record<string, RouteEntry> = {
   "DELETE /api/games": { auth: AuthLevel.Required },
   "GET /api/games/catalog": { auth: AuthLevel.Public },
 
+  // ── API: Favorites ─────────────────────────────────────────
+  "GET /api/favorites": { auth: AuthLevel.Optional },
+  "POST /api/favorites": { auth: AuthLevel.Required },
+
   // ── API: Playlist ──────────────────────────────────────────
   "GET /api/playlist": { auth: AuthLevel.Optional },
   "DELETE /api/playlist": { auth: AuthLevel.Required },
