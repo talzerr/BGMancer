@@ -37,6 +37,23 @@ export enum CurationMode {
   Focus = "focus",
 }
 
+export enum BackstageModal {
+  Retag = "retag",
+  Reingest = "reingest",
+  AddTrack = "add-track",
+  ImportTracks = "import-tracks",
+  LoadTracks = "load-tracks",
+  Resolve = "resolve",
+  QuickOnboard = "quick-onboard",
+  Nuke = "nuke",
+}
+
+export enum SSEEventType {
+  Progress = "progress",
+  Done = "done",
+  Error = "error",
+}
+
 export enum OnboardingPhase {
   Draft = "draft",
   TracksLoaded = "tracks_loaded",
@@ -114,13 +131,6 @@ export interface Game {
 
 // ─── Playlist ─────────────────────────────────────────────────────────────────
 
-export enum TrackStatus {
-  Pending = "pending",
-  Searching = "searching",
-  Found = "found",
-  Error = "error",
-}
-
 // ─── Generation progress ──────────────────────────────────────────────────────
 
 /** Per-game UI status during playlist generation. */
@@ -142,11 +152,8 @@ export interface PlaylistTrack {
   video_title: string | null;
   channel_title: string | null;
   thumbnail: string | null;
-  search_queries: string[] | null;
   duration_seconds: number | null;
   position: number;
-  status: TrackStatus;
-  error_message: string | null;
   created_at: string;
   synced_at: string | null;
 }
@@ -159,6 +166,7 @@ export interface AppConfig {
   allow_long_tracks: boolean;
   allow_short_tracks: boolean;
   raw_vibes: boolean;
+  skip_llm: boolean;
 }
 
 // ─── Director telemetry ──────────────────────────────────────────────────────
@@ -255,7 +263,6 @@ export interface Track {
   gameId: string;
   name: string;
   position: number;
-  durationSeconds: number | null;
   energy: 1 | 2 | 3 | null;
   roles: TrackRole[];
   moods: TrackMood[];
@@ -273,7 +280,6 @@ export interface ResolvedTrack {
   thumbnail: string;
   gameId: string;
   trackName: string;
-  durationSeconds: number | null;
   energy: 1 | 2 | 3 | null;
   roles: TrackRole[];
   moods: TrackMood[];

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SyncButton } from "../SyncButton";
 
@@ -44,7 +44,7 @@ describe("SyncButton", () => {
   describe("when signed in with found tracks", () => {
     it("should show an enabled button", () => {
       renderSyncButton();
-      const button = screen.getByRole("button", { name: /sync to youtube/i });
+      const button = screen.getByRole("button", { name: /sync/i });
       expect(button).toBeEnabled();
     });
   });
@@ -52,28 +52,23 @@ describe("SyncButton", () => {
   describe("when not signed in", () => {
     it("should disable the button", () => {
       renderSyncButton({ isSignedIn: false });
-      const button = screen.getByRole("button", { name: /sync to youtube/i });
+      const button = screen.getByRole("button", { name: /sync/i });
       expect(button).toBeDisabled();
-    });
-
-    it("should have a title mentioning sign in", () => {
-      renderSyncButton({ isSignedIn: false });
-      const button = screen.getByRole("button", { name: /sync to youtube/i });
-      expect(button).toHaveAttribute("title", expect.stringContaining("Sign in"));
     });
   });
 
   describe("when no found tracks", () => {
     it("should disable the button", () => {
       renderSyncButton({ hasFoundTracks: false });
-      const button = screen.getByRole("button", { name: /sync to youtube/i });
+      const button = screen.getByRole("button", { name: /sync/i });
       expect(button).toBeDisabled();
     });
   });
 
   describe("when sync succeeds", () => {
-    it("should show success message, call onSyncComplete, and show playlist URL link", async () => {
+    it("should call onSyncComplete and open playlist URL", async () => {
       const onSyncComplete = vi.fn();
+      const mockOpen = vi.spyOn(window, "open").mockImplementation(() => null);
       vi.spyOn(global, "fetch").mockResolvedValueOnce(
         new Response(
           JSON.stringify({
@@ -86,36 +81,32 @@ describe("SyncButton", () => {
       );
 
       renderSyncButton({ onSyncComplete });
-      await userEvent.click(screen.getByRole("button", { name: /sync to youtube/i }));
+      await userEvent.click(screen.getByRole("button", { name: /sync/i }));
 
-      expect(await screen.findByText("Synced 5 tracks")).toBeInTheDocument();
-      expect(onSyncComplete).toHaveBeenCalled();
-
-      const link = screen.getByRole("link");
-      expect(link).toHaveAttribute("href", "https://youtube.com/playlist?list=PLabc");
+      await waitFor(() => expect(onSyncComplete).toHaveBeenCalled());
+      expect(mockOpen).toHaveBeenCalledWith(
+        "https://youtube.com/playlist?list=PLabc",
+        "_blank",
+        "noopener,noreferrer",
+      );
     });
-  });
 
-  describe("when sync succeeds with errors", () => {
-    it("should show partial failure warning", async () => {
+    it("should show a success status dot", async () => {
       vi.spyOn(global, "fetch").mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            message: "Synced 3 tracks",
-            synced: 3,
-            errors: [
-              { game_id: "g1", error: "Not found" },
-              { game_id: "g2", error: "Timeout" },
-            ],
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        ),
+        new Response(JSON.stringify({ message: "Synced 5 tracks", synced: 5 }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
       );
 
       renderSyncButton();
-      await userEvent.click(screen.getByRole("button", { name: /sync to youtube/i }));
+      await userEvent.click(screen.getByRole("button", { name: /sync/i }));
 
-      expect(await screen.findByText(/2 track\(s\) failed to sync/)).toBeInTheDocument();
+      await waitFor(() => {
+        const button = screen.getByRole("button");
+        const dot = button.querySelector(".bg-emerald-500");
+        expect(dot).toBeInTheDocument();
+      });
     });
   });
 
@@ -129,7 +120,7 @@ describe("SyncButton", () => {
       );
 
       renderSyncButton();
-      await userEvent.click(screen.getByRole("button", { name: /sync to youtube/i }));
+      await userEvent.click(screen.getByRole("button", { name: /sync/i }));
 
       expect(mockSignIn).toHaveBeenCalledWith(
         "google",
@@ -148,16 +139,15 @@ describe("SyncButton", () => {
       );
 
       renderSyncButton({ onSyncComplete });
-      await userEvent.click(screen.getByRole("button", { name: /sync to youtube/i }));
+      await userEvent.click(screen.getByRole("button", { name: /sync/i }));
 
-      // Wait for the signIn call to confirm the handler ran
       await vi.waitFor(() => expect(mockSignIn).toHaveBeenCalled());
       expect(onSyncComplete).not.toHaveBeenCalled();
     });
   });
 
   describe("when sync fails (non-401)", () => {
-    it("should show error message", async () => {
+    it("should show an error status dot", async () => {
       vi.spyOn(global, "fetch").mockResolvedValueOnce(
         new Response(JSON.stringify({ error: "Server error" }), {
           status: 500,
@@ -166,9 +156,13 @@ describe("SyncButton", () => {
       );
 
       renderSyncButton();
-      await userEvent.click(screen.getByRole("button", { name: /sync to youtube/i }));
+      await userEvent.click(screen.getByRole("button", { name: /sync/i }));
 
-      expect(await screen.findByText("Server error")).toBeInTheDocument();
+      await waitFor(() => {
+        const button = screen.getByRole("button");
+        const dot = button.querySelector(".bg-red-500");
+        expect(dot).toBeInTheDocument();
+      });
     });
   });
 
@@ -182,7 +176,7 @@ describe("SyncButton", () => {
       );
 
       renderSyncButton();
-      await userEvent.click(screen.getByRole("button", { name: /sync to youtube/i }));
+      await userEvent.click(screen.getByRole("button", { name: /sync/i }));
 
       expect(screen.getByText("Syncing\u2026")).toBeInTheDocument();
 
@@ -203,7 +197,7 @@ describe("SyncButton", () => {
       );
 
       renderSyncButton();
-      await userEvent.click(screen.getByRole("button", { name: /sync to youtube/i }));
+      await userEvent.click(screen.getByRole("button", { name: /sync/i }));
 
       expect(screen.getByRole("button")).toBeDisabled();
 

@@ -4,7 +4,6 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PlaylistTrackCard } from "../PlaylistTrackCard";
-import { TrackStatus } from "@/types";
 import type { PlaylistTrack } from "@/types";
 import {
   TEST_PLAYLIST_TRACK_ID,
@@ -41,11 +40,8 @@ function makeTrack(overrides: Partial<PlaylistTrack> = {}): PlaylistTrack {
     video_title: TEST_VIDEO_TITLE,
     channel_title: TEST_CHANNEL_TITLE,
     thumbnail: TEST_THUMBNAIL_URL,
-    search_queries: null,
     duration_seconds: TEST_DURATION_SECONDS,
     position: 0,
-    status: TrackStatus.Found,
-    error_message: null,
     created_at: "2025-01-01",
     synced_at: null,
     ...overrides,
@@ -73,18 +69,6 @@ describe("PlaylistTrackCard", () => {
     it("should display the 1-indexed position number", () => {
       render(<PlaylistTrackCard track={makeTrack()} index={2} />);
       expect(screen.getByText("3")).toBeInTheDocument();
-    });
-  });
-
-  describe.each([
-    { status: TrackStatus.Pending, label: "pending" },
-    { status: TrackStatus.Searching, label: "searching" },
-    { status: TrackStatus.Found, label: "found" },
-    { status: TrackStatus.Error, label: "error" },
-  ])("when track status is $label", ({ status }) => {
-    it("should render without crashing", () => {
-      render(<PlaylistTrackCard track={makeTrack({ status })} index={0} />);
-      expect(screen.getByText(TEST_GAME_TITLE)).toBeInTheDocument();
     });
   });
 
@@ -135,27 +119,12 @@ describe("PlaylistTrackCard", () => {
     });
   });
 
-  describe("when the track has no video_id (pending)", () => {
+  describe("when the track has no video_id", () => {
     it("should show track_name as the title", () => {
       render(
-        <PlaylistTrackCard
-          track={makeTrack({ video_id: null, video_title: null, status: TrackStatus.Pending })}
-          index={0}
-        />,
+        <PlaylistTrackCard track={makeTrack({ video_id: null, video_title: null })} index={0} />,
       );
       expect(screen.getByText(TEST_TRACK_NAME)).toBeInTheDocument();
-    });
-  });
-
-  describe("when the track has an error status", () => {
-    it("should display 'Something went wrong'", () => {
-      render(
-        <PlaylistTrackCard
-          track={makeTrack({ status: TrackStatus.Error, video_id: null, video_title: null })}
-          index={0}
-        />,
-      );
-      expect(screen.getByText("Something went wrong")).toBeInTheDocument();
     });
   });
 

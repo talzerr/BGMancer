@@ -72,6 +72,16 @@ describe("makeSSEStream", () => {
     });
   });
 
+  describe("when close is called after reader cancels", () => {
+    it("should not throw and log a warning", async () => {
+      const { stream, close } = makeSSEStream<string>();
+      const reader = stream.getReader();
+      await reader.cancel();
+      // close() will try controller.close() which throws since the stream is cancelled
+      expect(() => close()).not.toThrow();
+    });
+  });
+
   describe("when sending complex objects", () => {
     it("should JSON-serialize correctly", async () => {
       const { stream, send, close } = makeSSEStream<{ nested: { arr: number[] } }>();

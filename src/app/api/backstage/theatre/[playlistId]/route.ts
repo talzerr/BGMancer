@@ -1,5 +1,8 @@
 import { Sessions, Playlist, DirectorDecisions } from "@/lib/db/repo";
 import { NextResponse } from "next/server";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("backstage-theatre");
 
 /** GET /api/backstage/theatre/[playlistId] — full telemetry for a playlist */
 export async function GET(_req: Request, { params }: { params: Promise<{ playlistId: string }> }) {
@@ -25,7 +28,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ playlis
       rubric: session.rubric,
     });
   } catch (err) {
-    console.error("[GET /api/backstage/theatre/[playlistId]]", err);
+    log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to load session telemetry" }, { status: 500 });
   }
 }

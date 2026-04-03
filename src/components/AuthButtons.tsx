@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { signIn, signOut } from "next-auth/react";
-import Image from "next/image";
 
 const DISMISSED_KEY = "bgm_login_prompt_dismissed";
 
 interface AuthButtonsProps {
-  user: { name?: string | null; image?: string | null } | null;
+  user: { name?: string | null; email?: string | null; image?: string | null } | null;
   isDev: boolean;
 }
 
@@ -80,17 +79,22 @@ export function AuthButtons({ user, isDev }: AuthButtonsProps) {
   if (user) {
     return (
       <div className="flex items-center gap-3">
-        {user.image && (
-          <Image
-            src={user.image}
-            alt={user.name ?? "User"}
-            width={28}
-            height={28}
-            unoptimized
-            className="h-7 w-7 rounded-full ring-1 ring-white/10"
+        <svg
+          className="h-5 w-5 text-zinc-500"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.118a7.5 7.5 0 0 1 15 0"
           />
-        )}
-        <span className="hidden text-sm text-zinc-400 sm:block">{user.name}</span>
+        </svg>
+        <span className="hidden text-sm text-zinc-400 sm:block">
+          {user.email?.split("@")[0] ?? "User"}
+        </span>
         <button
           onClick={handleSignOut}
           className="cursor-pointer text-xs text-zinc-500 hover:text-zinc-200"

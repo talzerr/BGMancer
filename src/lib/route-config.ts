@@ -28,6 +28,7 @@ export const routeConfig: Record<string, RouteEntry> = {
   // ── Pages ──────────────────────────────────────────────────
   "/": { auth: AuthLevel.Public },
   "/library": { auth: AuthLevel.Public }, // Renders empty for guests — auth resolved client-side
+  "/legal": { auth: AuthLevel.Public },
   "/backstage": { auth: AuthLevel.Admin },
   "/backstage/games": { auth: AuthLevel.Admin },
   "/backstage/games/[slug]": { auth: AuthLevel.Admin },
@@ -50,7 +51,6 @@ export const routeConfig: Record<string, RouteEntry> = {
   "PATCH /api/playlist": { auth: AuthLevel.Optional },
   "POST /api/playlist/generate": { auth: AuthLevel.Optional },
   "POST /api/playlist/import": { auth: AuthLevel.Optional },
-  "POST /api/playlist/search": { auth: AuthLevel.Required },
   "DELETE /api/playlist/[id]": { auth: AuthLevel.Required },
   "POST /api/playlist/[id]/reroll": { auth: AuthLevel.Required },
 

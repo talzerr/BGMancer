@@ -3,15 +3,19 @@ import {
   generatePlaylist,
   generatePlaylistForGuest,
   type GenerateEvent,
-} from "@/lib/pipeline/index";
+} from "@/lib/pipeline/generation";
 import { Users } from "@/lib/db/repo";
 import { getAuthSession } from "@/lib/services/auth-helpers";
 import { YouTubeQuotaError, YouTubeInvalidKeyError } from "@/lib/services/youtube";
 import { GENERATION_COOLDOWN_MS, DEFAULT_TRACK_COUNT } from "@/lib/constants";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
 import { generateSchema } from "@/lib/validation";
-import { checkGuestRateLimit } from "@/lib/rate-limit";
+import { checkGuestRateLimit, getClientIp, acquireLlmGeneration } from "@/lib/rate-limit";
+import { verifyTurnstileToken } from "@/lib/services/turnstile";
 import type { AppConfig } from "@/types";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("generate");
 
 export type { GenerateEvent };
 
@@ -56,6 +60,7 @@ export async function POST(request: Request) {
     allow_short_tracks: parsed.data.allow_short_tracks ?? false,
     anti_spoiler_enabled: parsed.data.anti_spoiler_enabled ?? false,
     raw_vibes: parsed.data.raw_vibes ?? false,
+    skip_llm: parsed.data.skip_llm ?? false,
   };
 
   const session = await getAuthSession();
@@ -64,6 +69,15 @@ export async function POST(request: Request) {
   if (session.authenticated) {
     // ── Authenticated: full pipeline with Vibe Profiler + persistence ──
     const userId = session.userId;
+
+    // Check LLM cap — auto-fallback to Director-only if exceeded
+    if (!config.skip_llm) {
+      const cap = await acquireLlmGeneration(userId);
+      if (cap) {
+        config.skip_llm = true;
+        send({ type: "llm_cap_reached" });
+      }
+    }
 
     const lock = await Users.tryAcquireGenerationLock(userId, GENERATION_COOLDOWN_MS);
     if (!lock.acquired) {
@@ -77,10 +91,10 @@ export async function POST(request: Request) {
         await generatePlaylist(send, userId, config);
       } catch (err) {
         if (err instanceof YouTubeQuotaError || err instanceof YouTubeInvalidKeyError) {
-          console.error(`[generate] YouTube fatal error — ${err.name}`);
+          log.error("YouTube fatal error", { errorName: err.name });
           send({ type: "error", message: err.message });
         } else {
-          console.error("[POST /api/playlist/generate]", err);
+          log.error("generation failed", {}, err);
           send({
             type: "error",
             message: "Generation failed",
@@ -94,6 +108,14 @@ export async function POST(request: Request) {
     })();
   } else {
     // ── Guest: Director-only, no Vibe Profiler, no persistence ──
+    const turnstile = await verifyTurnstileToken(
+      parsed.data.turnstileToken ?? "",
+      getClientIp(request),
+    );
+    if (!turnstile.success) {
+      return sseError(turnstile.error ?? "Verification failed");
+    }
+
     const limited = await checkGuestRateLimit(request);
     if (limited) {
       return sseError(`Please wait ${limited.waitSec}s before trying again.`);
@@ -109,7 +131,7 @@ export async function POST(request: Request) {
       try {
         await generatePlaylistForGuest(send, gameSelections, config);
       } catch (err) {
-        console.error("[POST /api/playlist/generate] (guest)", err);
+        log.error("guest generation failed", {}, err);
         send({
           type: "error",
           message: "Generation failed",

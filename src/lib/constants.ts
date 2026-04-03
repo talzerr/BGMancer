@@ -24,7 +24,10 @@ export const MAX_TRACK_COUNT = 150;
 
 // ─── Track duration filtering ─────────────────────────────────────────────────
 
-/** Tracks shorter than this (in seconds) are always excluded (intros, stingers, etc.). */
+/** Tracks shorter than this (in seconds) are auto-deactivated during onboarding (SFX, jingles). */
+export const SFX_DURATION_THRESHOLD_SECONDS = 15;
+
+/** Tracks shorter than this (in seconds) are excluded when allow_short_tracks is off. */
 export const MIN_TRACK_DURATION_SECONDS = 90; // 1.5 minutes
 
 /** Tracks longer than this (in seconds) are excluded when allow_long_tracks is off. */
@@ -65,13 +68,38 @@ export const CATALOG_PAGE_SIZE = 15;
 export const GAME_MAX_TRACKS = 300;
 
 /** Maximum characters allowed for a game title. */
-export const GAME_TITLE_MAX_LENGTH = 200;
+export const GAME_TITLE_MAX_LENGTH = 100;
 
 /** Maximum tracks allowed from a single YouTube playlist import. Matches MAX_TRACK_COUNT. */
 export const YT_IMPORT_MAX_TRACKS = MAX_TRACK_COUNT;
 
 /** Minimum milliseconds between playlist generations. */
 export const GENERATION_COOLDOWN_MS = 30_000;
+
+/** Maximum LLM-powered (Vibe Profiler) generations per logged-in user per day. */
+export const USER_DAILY_LLM_CAP = 10;
+
+/** Maximum guest requests per IP within the guest rate limit window. */
+export const GUEST_MAX_REQUESTS = 10;
+
+/** Guest rate limit window in milliseconds (10 minutes). */
+export const GUEST_WINDOW_MS = 10 * 60 * 1000;
+
+// ─── YouTube search tuning ──────────────────────────────────────────────────
+
+/** Maximum video duration (seconds) for a single track. Longer videos are likely compilations. */
+export const YT_MAX_VIDEO_DURATION_SECONDS = 15 * 60; // 15 minutes
+
+/** Maximum video IDs per YouTube videos.list request. */
+export const YT_VIDEOS_PAGE_SIZE = 50;
+
+// ─── LLM defaults ───────────────────────────────────────────────────────────
+
+/** Default Anthropic model when no override is configured. */
+export const DEFAULT_LLM_MODEL = "claude-haiku-4-5-20251001";
+
+/** Default max tokens for LLM calls. */
+export const DEFAULT_LLM_MAX_TOKENS = 2048;
 
 // ─── Director scoring weights ────────────────────────────────────────────────
 
@@ -106,6 +134,12 @@ export const SCORE_WEIGHT_INSTRUMENT_VIEW_BIAS = 0.15;
 
 /** Baseline View bias Score for tracks with no YouTube view data. */
 export const VIEW_BIAS_SCORE_BASELINE = 0.3;
+
+/** Lower bound of log10 view count for View bias normalization (log10(1,000)). */
+export const VIEW_BIAS_LOG_MIN = 3;
+
+/** Upper bound of log10 view count for View bias normalization (log10(10,000,000)). */
+export const VIEW_BIAS_LOG_MAX = 7;
 
 /** Number of top candidates for weighted random selection. */
 export const DIRECTOR_TOP_N_POOL = 5;

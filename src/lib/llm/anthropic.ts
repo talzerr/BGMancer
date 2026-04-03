@@ -1,14 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { LLMProvider, CompletionOptions } from "./provider";
-
-const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
-const DEFAULT_MAX_TOKENS = 2048;
+import { DEFAULT_LLM_MODEL, DEFAULT_LLM_MAX_TOKENS } from "@/lib/constants";
 
 export class AnthropicProvider implements LLMProvider {
   private client: Anthropic;
   private model: string;
 
-  constructor(model = DEFAULT_MODEL) {
+  constructor(model = DEFAULT_LLM_MODEL) {
     this.client = new Anthropic();
     this.model = model;
   }
@@ -17,7 +15,7 @@ export class AnthropicProvider implements LLMProvider {
     const message = await this.client.messages.create(
       {
         model: this.model,
-        max_tokens: opts.maxTokens ?? DEFAULT_MAX_TOKENS,
+        max_tokens: opts.maxTokens ?? DEFAULT_LLM_MAX_TOKENS,
         system,
         messages: [{ role: "user", content: user }],
         temperature: opts.temperature ?? 0.7,

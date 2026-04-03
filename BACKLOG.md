@@ -18,8 +18,7 @@
 
 ## Library & Integration
 
-- **Steam game list import** — let users import their Steam game lists, resolved against the existing game catalog in the database, to build their game library.
-- **YouTube OAuth login for playlist sync** — let users log in with YouTube privileges so curated playlists are created directly in their YouTube account.
+- **User-facing Steam import** — let users import their Steam game list directly (currently admin-only via Backstage).
 
 ## Walled Garden (Curated Library Model)
 
@@ -29,7 +28,6 @@
 
 ## Curation Tuning
 
-- **Resolve YouTube videos before tagging** — move YouTube video resolution ahead of the LLM tagging step in the onboarding pipeline; avoids wasting tagger tokens on bad track names that have no matching YouTube video.
 - **Tagger role skew validation** — if >50% of game's tracks are `ambient`, re-tag with role-diversity bias.
 - **Per-game soft cap tuning** — revisit 40% soft cap if users report thin single-game playlists.
 - **Focus mode budget hardening** — option to enforce strict "always N tracks per focus game" (currently soft guarantee).
@@ -39,6 +37,14 @@
 Current Vibe Check uses random 2.5× sample. For large libraries, only ~8% of tracks get scored.
 
 - **Vibe input UI** _(depends on Vibe Profiler)_ — structured selectors: **Energy** (Calm / Balanced / Intense) + **Activity** (Study, Gaming, Commute, Exercise, Relaxing).
+
+## Per-user Generation Caps
+
+- **Admin-configurable cap** — move the daily LLM generation limit from a hardcoded constant to a DB-backed setting with per-user admin overrides via Backstage.
+
+## Pre-Launch
+
+- **IMPORTANT: Verify admin route protection after removing site-wide Zero Trust** — Currently the entire site is behind Cloudflare Zero Trust. Once it goes public, only `bgmancer.com/backstage*` will remain behind Access. The `/api/steam/*` routes (`/api/steam/search`, `/api/steam/games`, `/api/steam/import`) are `AuthLevel.Admin` in route-config and protected by the middleware `CF_Authorization` cookie check, but they are NOT under the `/backstage*` path. Verify these routes return 404 to unauthenticated users after the Access policy is narrowed.
 
 ## Bugs
 
@@ -55,10 +61,6 @@ Current Vibe Check uses random 2.5× sample. For large libraries, only ~8% of tr
 
 ---
 
-## Deferred (Next Major Phase)
+## Deferred
 
-These are solid but blocked on auth or infrastructure changes:
-
-- **Production hardening** — multi-user auth, ownership checks, rate limiting, token expiration. See PRODUCTION_HARDENING_WORKDOC.md.
-- **Free/Account tier split** — localStorage for free users, backend for account users, capability gating. Requires auth.
-- **Playlist seed share** — encode playlists as compact strings; `/share/[seed]` read-only view. Lower priority.
+- **Playlist seed share** — encode playlists as compact strings; `/share/[seed]` read-only view.

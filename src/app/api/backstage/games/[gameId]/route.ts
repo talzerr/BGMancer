@@ -1,6 +1,10 @@
 import { BackstageGames, Games } from "@/lib/db/repo";
 import type { GameUpdateFields } from "@/lib/db/repos/backstage-games";
 import { NextResponse } from "next/server";
+import { createLogger } from "@/lib/logger";
+import { gameTitleSchema } from "@/lib/validation";
+
+const log = createLogger("backstage-games");
 
 /** PATCH /api/backstage/games/[gameId] — update game metadata */
 export async function PATCH(req: Request, { params }: { params: Promise<{ gameId: string }> }) {
@@ -13,11 +17,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ gameId
   const body = (await req.json()) as Partial<GameUpdateFields>;
 
   const fields: GameUpdateFields = {};
-  if (body.title !== undefined) fields.title = body.title;
+  if (body.title !== undefined) {
+    const parsed = gameTitleSchema.safeParse(body.title);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid title" }, { status: 400 });
+    }
+    fields.title = parsed.data;
+  }
   if (body.steam_appid !== undefined) fields.steam_appid = body.steam_appid;
   if (body.tracklist_source !== undefined) fields.tracklist_source = body.tracklist_source;
   if (body.yt_playlist_id !== undefined) fields.yt_playlist_id = body.yt_playlist_id;
   if (body.thumbnail_url !== undefined) fields.thumbnail_url = body.thumbnail_url;
+  if (body.onboarding_phase !== undefined) fields.onboarding_phase = body.onboarding_phase;
 
   if (Object.keys(fields).length === 0) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
@@ -30,7 +41,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ gameId
     }
     return NextResponse.json(updated);
   } catch (err) {
-    console.error("[PATCH /api/backstage/games]", err);
+    log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to update game" }, { status: 500 });
   }
 }
@@ -53,7 +64,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ game
     await BackstageGames.destroy(gameId);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("[DELETE /api/backstage/games]", err);
+    log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to delete game" }, { status: 500 });
   }
 }

@@ -1,5 +1,9 @@
 import { BackstageGames } from "@/lib/db/repo";
 import { NextResponse } from "next/server";
+import { createLogger } from "@/lib/logger";
+import { gameTitleSchema } from "@/lib/validation";
+
+const log = createLogger("backstage-games");
 
 /** GET /api/backstage/games — search games with optional filters */
 export async function GET(req: Request) {
@@ -16,7 +20,7 @@ export async function GET(req: Request) {
     const games = await BackstageGames.searchWithStats({ title, phase, needsReview, published });
     return NextResponse.json(games);
   } catch (err) {
-    console.error("[GET /api/backstage/games]", err);
+    log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to query games" }, { status: 500 });
   }
 }
@@ -25,15 +29,16 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as { title?: string; steamAppid?: number };
-    const title = typeof body.title === "string" ? body.title.trim() : "";
-    if (!title) {
+    const parsed = gameTitleSchema.safeParse(body.title);
+    if (!parsed.success) {
       return NextResponse.json({ error: "title is required" }, { status: 400 });
     }
+    const title = parsed.data;
     const steamAppid = typeof body.steamAppid === "number" ? body.steamAppid : null;
     const game = await BackstageGames.createDraft(title, steamAppid);
     return NextResponse.json(game, { status: 201 });
   } catch (err) {
-    console.error("[POST /api/backstage/games]", err);
+    log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to create game" }, { status: 500 });
   }
 }

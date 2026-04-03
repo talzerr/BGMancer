@@ -7,7 +7,6 @@ import {
   seedTestGame,
   seedTestSession,
 } from "../../test-helpers";
-import { TrackStatus } from "@/types";
 import type { InsertableTrack } from "../playlist";
 let db: DrizzleDB;
 let rawDb: Database.Database;
@@ -16,7 +15,7 @@ vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
   return {
     getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries),
+    batch: async (queries: any[]) => db.batch(queries as [any]),
 
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
@@ -37,10 +36,7 @@ function makeTrack(overrides: Partial<InsertableTrack> & { id: string }): Insert
     video_title: null,
     channel_title: null,
     thumbnail: null,
-    search_queries: null,
     duration_seconds: null,
-    status: TrackStatus.Pending,
-    error_message: null,
     ...overrides,
   };
 }
@@ -91,40 +87,17 @@ describe("Playlist", () => {
         expect(rows.map((r) => r.id)).not.toContain("old-1");
       });
     });
-
-    describe("when tracks have search_queries", () => {
-      it("should serialize search_queries as JSON", async () => {
-        await Playlist.replaceAll(sessionId, [
-          makeTrack({ id: "sq-1", search_queries: ["query1", "query2"] }),
-        ]);
-
-        const row = rawDb
-          .prepare("SELECT search_queries FROM playlist_tracks WHERE id = ?")
-          .get("sq-1") as { search_queries: string };
-        expect(JSON.parse(row.search_queries)).toEqual(["query1", "query2"]);
-      });
-    });
   });
 
-  describe("status state machine", () => {
+  describe("updateVideo", () => {
     beforeEach(async () => {
-      await Playlist.replaceAll(sessionId, [
-        makeTrack({ id: "status-1", track_name: "Battle Theme" }),
-      ]);
+      await Playlist.replaceAll(sessionId, [makeTrack({ id: "uv-1", track_name: "Battle Theme" })]);
     });
 
-    describe("when transitioning pending -> searching -> found -> synced", () => {
-      it("should update status at each step", async () => {
-        await Playlist.setSearching("status-1");
-        const row = rawDb
-          .prepare("SELECT status FROM playlist_tracks WHERE id = ?")
-          .get("status-1") as {
-          status: string;
-        };
-        expect(row.status).toBe("searching");
-
-        await Playlist.setFound(
-          "status-1",
+    describe("when updating video info on a track", () => {
+      it("should set video fields", async () => {
+        await Playlist.updateVideo(
+          "uv-1",
           "vid-123",
           "Video Title",
           "Channel",
@@ -132,41 +105,24 @@ describe("Playlist", () => {
           180,
           "Clean Name",
         );
-        const foundRow = rawDb
-          .prepare("SELECT status, video_id, track_name FROM playlist_tracks WHERE id = ?")
-          .get("status-1") as { status: string; video_id: string; track_name: string };
-        expect(foundRow.status).toBe("found");
-        expect(foundRow.video_id).toBe("vid-123");
-        expect(foundRow.track_name).toBe("Clean Name");
-
-        await Playlist.markSynced("status-1");
-        const synced = rawDb
-          .prepare("SELECT synced_at FROM playlist_tracks WHERE id = ?")
-          .get("status-1") as { synced_at: string | null };
-        expect(synced.synced_at).not.toBeNull();
-      });
-    });
-
-    describe("when setting error status", () => {
-      it("should set status to error and store the message", async () => {
-        await Playlist.setError("status-1", "YouTube API quota exceeded");
         const row = rawDb
-          .prepare("SELECT status, error_message FROM playlist_tracks WHERE id = ?")
-          .get("status-1") as { status: string; error_message: string };
-        expect(row.status).toBe("error");
-        expect(row.error_message).toBe("YouTube API quota exceeded");
-      });
-    });
-
-    describe("when setFound is called", () => {
-      it("should clear error_message", async () => {
-        await Playlist.setError("status-1", "Some error");
-        await Playlist.setFound("status-1", "vid-fix", "Fixed", "Ch", "t.jpg");
-
-        const row = rawDb
-          .prepare("SELECT error_message FROM playlist_tracks WHERE id = ?")
-          .get("status-1") as { error_message: string | null };
-        expect(row.error_message).toBeNull();
+          .prepare(
+            "SELECT video_id, video_title, channel_title, thumbnail, duration_seconds, track_name FROM playlist_tracks WHERE id = ?",
+          )
+          .get("uv-1") as {
+          video_id: string;
+          video_title: string;
+          channel_title: string;
+          thumbnail: string;
+          duration_seconds: number;
+          track_name: string;
+        };
+        expect(row.video_id).toBe("vid-123");
+        expect(row.video_title).toBe("Video Title");
+        expect(row.channel_title).toBe("Channel");
+        expect(row.thumbnail).toBe("thumb.jpg");
+        expect(row.duration_seconds).toBe(180);
+        expect(row.track_name).toBe("Clean Name");
       });
     });
   });
@@ -213,41 +169,13 @@ describe("Playlist", () => {
     });
   });
 
-  describe("listPending", () => {
-    describe("when pending tracks exist", () => {
-      it("should return only pending tracks", async () => {
-        await Playlist.replaceAll(sessionId, [
-          makeTrack({ id: "p1", status: TrackStatus.Pending, search_queries: ["q1"] }),
-          makeTrack({ id: "p2", status: TrackStatus.Found, video_id: "v1" }),
-          makeTrack({ id: "p3", status: TrackStatus.Pending, search_queries: ["q2"] }),
-        ]);
-
-        const pending = await Playlist.listPending(userId);
-        expect(pending).toHaveLength(2);
-        expect(pending.map((p) => p.id)).toEqual(["p1", "p3"]);
-      });
-    });
-
-    describe("when no pending tracks exist", () => {
-      it("should not return found or error tracks", async () => {
-        await Playlist.replaceAll(sessionId, [
-          makeTrack({ id: "f1", status: TrackStatus.Found, video_id: "v1" }),
-          makeTrack({ id: "e1", status: TrackStatus.Error, error_message: "fail" }),
-        ]);
-
-        const pending = await Playlist.listPending(userId);
-        expect(pending).toHaveLength(0);
-      });
-    });
-  });
-
   describe("listUnsyncedFound", () => {
-    describe("when unsynced found tracks exist", () => {
-      it("should return only found tracks with video_id and no synced_at", async () => {
+    describe("when unsynced tracks with video_id exist", () => {
+      it("should return only tracks with video_id and no synced_at", async () => {
         await Playlist.replaceAll(sessionId, [
-          makeTrack({ id: "uf1", status: TrackStatus.Found, video_id: "v1" }),
-          makeTrack({ id: "uf2", status: TrackStatus.Pending }),
-          makeTrack({ id: "uf3", status: TrackStatus.Found, video_id: "v2" }),
+          makeTrack({ id: "uf1", video_id: "v1" }),
+          makeTrack({ id: "uf2", video_id: null }),
+          makeTrack({ id: "uf3", video_id: "v2" }),
         ]);
         // Sync one of them
         await Playlist.markSynced("uf1");
@@ -259,11 +187,9 @@ describe("Playlist", () => {
       });
     });
 
-    describe("when found tracks have no video_id", () => {
+    describe("when tracks have no video_id", () => {
       it("should not include them", async () => {
-        await Playlist.replaceAll(sessionId, [
-          makeTrack({ id: "nv1", status: TrackStatus.Found, video_id: null }),
-        ]);
+        await Playlist.replaceAll(sessionId, [makeTrack({ id: "nv1", video_id: null })]);
 
         const unsynced = await Playlist.listUnsyncedFound(userId);
         expect(unsynced).toHaveLength(0);
@@ -275,9 +201,9 @@ describe("Playlist", () => {
     describe("when some tracks are synced", () => {
       it("should return the count of synced tracks", async () => {
         await Playlist.replaceAll(sessionId, [
-          makeTrack({ id: "cs1", status: TrackStatus.Found, video_id: "v1" }),
-          makeTrack({ id: "cs2", status: TrackStatus.Found, video_id: "v2" }),
-          makeTrack({ id: "cs3", status: TrackStatus.Found, video_id: "v3" }),
+          makeTrack({ id: "cs1", video_id: "v1" }),
+          makeTrack({ id: "cs2", video_id: "v2" }),
+          makeTrack({ id: "cs3", video_id: "v3" }),
         ]);
         await Playlist.markSynced("cs1");
         await Playlist.markSynced("cs2");
@@ -288,9 +214,7 @@ describe("Playlist", () => {
 
     describe("when no tracks are synced", () => {
       it("should return 0", async () => {
-        await Playlist.replaceAll(sessionId, [
-          makeTrack({ id: "ns1", status: TrackStatus.Found, video_id: "v1" }),
-        ]);
+        await Playlist.replaceAll(sessionId, [makeTrack({ id: "ns1", video_id: "v1" })]);
         expect(await Playlist.countSynced(userId)).toBe(0);
       });
     });
@@ -310,61 +234,6 @@ describe("Playlist", () => {
     describe("when track does not exist", () => {
       it("should return undefined", async () => {
         expect(await Playlist.getById("nonexistent")).toBeUndefined();
-      });
-    });
-  });
-
-  describe("getVideoIdsForGame", () => {
-    describe("when tracks have video IDs", () => {
-      it("should return all video IDs for the game", async () => {
-        await Playlist.replaceAll(sessionId, [
-          makeTrack({ id: "vg1", video_id: "vid-a" }),
-          makeTrack({ id: "vg2", video_id: "vid-b" }),
-          makeTrack({ id: "vg3", video_id: null }),
-        ]);
-
-        const ids = await Playlist.getVideoIdsForGame(gameId);
-        expect(ids).toHaveLength(2);
-        expect(ids).toContain("vid-a");
-        expect(ids).toContain("vid-b");
-      });
-    });
-  });
-
-  describe("getRecentTrackNames", () => {
-    describe("when found tracks with names exist", () => {
-      it("should return track names with game titles", async () => {
-        await Playlist.replaceAll(sessionId, [
-          makeTrack({
-            id: "rn1",
-            track_name: "Overworld",
-            status: TrackStatus.Found,
-            video_id: "v1",
-          }),
-          makeTrack({
-            id: "rn2",
-            track_name: "Boss Fight",
-            status: TrackStatus.Found,
-            video_id: "v2",
-          }),
-          makeTrack({ id: "rn3", track_name: null, status: TrackStatus.Found, video_id: "v3" }),
-        ]);
-
-        const names = await Playlist.getRecentTrackNames(userId, 10);
-        expect(names).toHaveLength(2);
-        expect(names[0].cleanName).toBe("Overworld");
-        expect(names[0].gameTitle).toBe("Test Game");
-      });
-    });
-
-    describe("when no found tracks exist", () => {
-      it("should not return pending tracks", async () => {
-        await Playlist.replaceAll(sessionId, [
-          makeTrack({ id: "pn1", track_name: "Pending Track", status: TrackStatus.Pending }),
-        ]);
-
-        const names = await Playlist.getRecentTrackNames(userId, 10);
-        expect(names).toHaveLength(0);
       });
     });
   });
@@ -395,7 +264,7 @@ describe("Playlist", () => {
         // Insert tracks into the older (non-active) session
         rawDb
           .prepare(
-            "INSERT INTO playlist_tracks (id, playlist_id, game_id, position, status) VALUES (?, ?, ?, ?, 'pending')",
+            "INSERT INTO playlist_tracks (id, playlist_id, game_id, position) VALUES (?, ?, ?, ?)",
           )
           .run("keep-track", sessionId, gameId, 0);
 
@@ -435,6 +304,84 @@ describe("Playlist", () => {
         const tracks = await Playlist.listAllWithGameTitle(userId);
         expect(tracks).toHaveLength(1);
         expect(tracks[0].track_name).toBe("Active");
+      });
+    });
+  });
+
+  describe("getVideoIdsForSession", () => {
+    describe("when session has tracks with video IDs", () => {
+      it("should return all non-null video IDs", async () => {
+        await Playlist.replaceAll(sessionId, [
+          makeTrack({ id: "vs1", video_id: "vid-a" }),
+          makeTrack({ id: "vs2", video_id: "vid-b" }),
+          makeTrack({ id: "vs3", video_id: null }),
+        ]);
+
+        const ids = await Playlist.getVideoIdsForSession(sessionId);
+        expect(ids).toHaveLength(2);
+        expect(ids).toContain("vid-a");
+        expect(ids).toContain("vid-b");
+      });
+    });
+
+    describe("when session has no tracks", () => {
+      it("should return empty array", async () => {
+        const ids = await Playlist.getVideoIdsForSession(sessionId);
+        expect(ids).toHaveLength(0);
+      });
+    });
+
+    describe("when other sessions have tracks", () => {
+      it("should only return video IDs from the specified session", async () => {
+        const otherSession = seedTestSession(rawDb, userId, { id: "other-s", name: "Other" });
+        await Playlist.replaceAll(sessionId, [makeTrack({ id: "vs4", video_id: "vid-mine" })]);
+        await Playlist.replaceAll(otherSession, [makeTrack({ id: "vs5", video_id: "vid-other" })]);
+
+        const ids = await Playlist.getVideoIdsForSession(sessionId);
+        expect(ids).toEqual(["vid-mine"]);
+      });
+    });
+  });
+
+  describe("updateVideo", () => {
+    describe("when updating a track's video", () => {
+      it("should replace video fields", async () => {
+        await Playlist.replaceAll(sessionId, [
+          makeTrack({ id: "uv1", video_id: "old-vid", video_title: "Old Title" }),
+        ]);
+
+        await Playlist.updateVideo(
+          "uv1",
+          "new-vid",
+          "New Title",
+          "Channel",
+          "thumb.jpg",
+          240,
+          "New Track",
+        );
+
+        const updated = await Playlist.getById("uv1");
+        expect(updated).toBeDefined();
+        expect(updated!.video_id).toBe("new-vid");
+        expect(updated!.video_title).toBe("New Title");
+        expect(updated!.channel_title).toBe("Channel");
+        expect(updated!.thumbnail).toBe("thumb.jpg");
+        expect(updated!.duration_seconds).toBe(240);
+        expect(updated!.track_name).toBe("New Track");
+      });
+    });
+
+    describe("when channel and thumbnail are null", () => {
+      it("should accept null values", async () => {
+        await Playlist.replaceAll(sessionId, [
+          makeTrack({ id: "uv2", video_id: "old-vid", channel_title: "Ch", thumbnail: "t.jpg" }),
+        ]);
+
+        await Playlist.updateVideo("uv2", "new-vid", "Title", null, null, 180);
+
+        const updated = await Playlist.getById("uv2");
+        expect(updated!.channel_title).toBeNull();
+        expect(updated!.thumbnail).toBeNull();
       });
     });
   });

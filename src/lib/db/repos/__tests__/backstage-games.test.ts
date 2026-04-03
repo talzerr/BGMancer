@@ -16,7 +16,7 @@ vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
   return {
     getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries),
+    batch: async (queries: any[]) => db.batch(queries as [any]),
 
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
@@ -169,6 +169,16 @@ describe("BackstageGames", () => {
           yt_playlist_id: "PLxxxxxxxx",
         });
         expect(updated!.yt_playlist_id).toBe("PLxxxxxxxx");
+      });
+    });
+
+    describe("when updating onboarding_phase", () => {
+      it("should set the phase", async () => {
+        const game = await BackstageGames.createDraft("Phase Update");
+        const updated = await BackstageGames.update(game.id, {
+          onboarding_phase: OnboardingPhase.Tagged,
+        });
+        expect(updated!.onboarding_phase).toBe("tagged");
       });
     });
 
