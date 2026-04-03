@@ -2,15 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { TrackEditSheet } from "@/components/backstage/TrackEditSheet";
 import { ConfirmModal } from "@/components/backstage/ConfirmModal";
 import { BackstageModal } from "@/types";
@@ -51,8 +42,6 @@ export function GameDetailClient({
   const actions = useGameDetailActions(game, router);
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
   const [editTrack, setEditTrack] = useState<Track | null>(null);
-  const [editingTracks, setEditingTracks] = useState(false);
-  const [pendingDeleteTrack, setPendingDeleteTrack] = useState<Track | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const flagsRef = useRef<HTMLDetailsElement>(null);
 
@@ -82,7 +71,6 @@ export function GameDetailClient({
         reviewFlags={reviewFlags}
         actions={actions}
         onSetActiveModal={setActiveModal}
-        flagsRef={flagsRef}
       />
 
       {actions.mutError && (
@@ -100,47 +88,12 @@ export function GameDetailClient({
         tracks={tracks}
         videoMap={videoMap}
         videoDetailMap={videoDetailMap}
-        editingTracks={editingTracks}
-        setEditingTracks={setEditingTracks}
         onSetActiveModal={setActiveModal}
         onSetEditTrack={setEditTrack}
-        onSetPendingDeleteTrack={setPendingDeleteTrack}
         actions={actions}
         selected={selected}
         onSelectionChange={setSelected}
       />
-
-      {/* Delete track confirmation */}
-      <Dialog open={!!pendingDeleteTrack} onOpenChange={(v) => !v && setPendingDeleteTrack(null)}>
-        <DialogContent className="border-zinc-800 bg-zinc-900">
-          <DialogHeader>
-            <DialogTitle className="text-zinc-100">Delete track</DialogTitle>
-            <DialogDescription className="text-zinc-400">
-              Are you sure you want to delete{" "}
-              <span className="font-mono text-zinc-200">{pendingDeleteTrack?.name}</span>? This will
-              also remove its video mapping.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="ghost"
-              className="text-zinc-400"
-              onClick={() => setPendingDeleteTrack(null)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={async () => {
-                if (pendingDeleteTrack) await actions.deleteTrack(pendingDeleteTrack);
-                setPendingDeleteTrack(null);
-              }}
-            >
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <GameModals
         game={game}

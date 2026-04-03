@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { BackstageModal } from "@/types";
+import { BackstageModal, DiscoveredStatus } from "@/types";
 import type { Track } from "@/types";
 import type { GameDetailActions } from "../_hooks/useGameDetailActions";
 import type { ActiveModal } from "../game-detail-client";
@@ -34,9 +34,12 @@ export function GameDetailBulkBar({
 
   if (selectedTracks.length === 0) return null;
 
-  const unresolvedCount = selectedTracks.filter((t) => !videoMap[t.name]).length;
-  const untaggedCount = selectedTracks.filter((t) => t.taggedAt === null).length;
+  const eligible = selectedTracks.filter((t) => t.discovered !== DiscoveredStatus.Rejected);
+  const unresolvedCount = eligible.filter((t) => !videoMap[t.name]).length;
+  const taggableCount = eligible.filter((t) => videoMap[t.name]).length;
+  const hasRejected = selectedTracks.length !== eligible.length;
   const names = selectedTracks.map((t) => t.name);
+  const eligibleNames = eligible.map((t) => t.name);
 
   return (
     <>
@@ -44,6 +47,13 @@ export function GameDetailBulkBar({
         <span className="mr-1 text-xs text-zinc-400">
           <span className="font-semibold text-zinc-200">{selectedTracks.length}</span> selected
         </span>
+        <button
+          onClick={onClearSelection}
+          className="ml-0.5 text-zinc-600 transition-colors hover:text-zinc-300"
+          aria-label="Clear selection"
+        >
+          ✕
+        </button>
 
         <div className="h-4 w-px bg-zinc-700" />
 
@@ -52,9 +62,10 @@ export function GameDetailBulkBar({
           variant="ghost"
           className="h-7 px-2 text-xs text-zinc-300 hover:text-zinc-100"
           onClick={() => {
-            actions.bulkSetActive(names, true);
+            actions.bulkSetActive(eligibleNames, true);
             onClearSelection();
           }}
+          disabled={hasRejected && eligible.length === 0}
         >
           Activate
         </Button>
@@ -86,9 +97,9 @@ export function GameDetailBulkBar({
           variant="ghost"
           className="h-7 px-2 text-xs text-violet-400 hover:bg-violet-500/10 hover:text-violet-300"
           onClick={() => onSetActiveModal(BackstageModal.TagSelected)}
-          disabled={untaggedCount === 0}
+          disabled={taggableCount === 0}
         >
-          Tag ({untaggedCount})
+          Tag ({taggableCount})
         </Button>
 
         <div className="h-4 w-px bg-zinc-700" />

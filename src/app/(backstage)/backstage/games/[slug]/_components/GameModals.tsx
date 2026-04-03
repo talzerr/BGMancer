@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -55,13 +56,14 @@ export function GameModals({
     }
     if (modal === BackstageModal.TagSelected) {
       return tracks
-        .filter((t) => t.taggedAt === null && t.discovered !== DiscoveredStatus.Rejected)
+        .filter((t) => t.energy === null && t.discovered !== DiscoveredStatus.Rejected)
         .map((t) => t.name);
     }
     return [];
   }
 
   const selectedTrackNames = getTrackNamesForModal(activeModal);
+  const router = useRouter();
 
   function handlePasteChange(text: string) {
     setPasteText(text);
@@ -72,11 +74,13 @@ export function GameModals({
     setActiveModal(null);
     actions.setSseRunning(false);
     onSseDone?.();
+    router.refresh();
   }
 
   function closeReingest() {
     setReingestRunning(false);
     setActiveModal(null);
+    router.refresh();
   }
 
   return (
@@ -176,12 +180,12 @@ export function GameModals({
         onClose={closeReingest}
       />
 
-      {/* Resolve Selected */}
+      {/* Resolve Selected / All Unresolved */}
       <SSEDialog
         open={activeModal === BackstageModal.ResolveSelected}
         onOpenChange={() => setActiveModal(null)}
-        title={`Resolve Selected: ${game.title}`}
-        description={`Resolving ${selectedTrackNames.length} track${selectedTrackNames.length === 1 ? "" : "s"} to YouTube videos.`}
+        title={`Resolve: ${game.title}`}
+        description={`Resolving ${selectedTrackNames.length} unresolved track${selectedTrackNames.length === 1 ? "" : "s"} to YouTube videos.`}
         sseRunning={actions.sseRunning}
         url="/api/backstage/resolve-selected"
         body={{ gameId: game.id, trackNames: selectedTrackNames }}
@@ -191,12 +195,12 @@ export function GameModals({
         onClose={closeModal}
       />
 
-      {/* Tag Selected */}
+      {/* Tag Selected / All Untagged */}
       <SSEDialog
         open={activeModal === BackstageModal.TagSelected}
         onOpenChange={() => setActiveModal(null)}
-        title={`Tag Selected: ${game.title}`}
-        description={`Tagging ${selectedTrackNames.length} track${selectedTrackNames.length === 1 ? "" : "s"} with LLM.`}
+        title={`Tag: ${game.title}`}
+        description={`Running LLM tagging on ${selectedTrackNames.length} untagged track${selectedTrackNames.length === 1 ? "" : "s"}. Existing tags are preserved.`}
         sseRunning={actions.sseRunning}
         url="/api/backstage/tag-selected"
         body={{ gameId: game.id, trackNames: selectedTrackNames }}

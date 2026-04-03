@@ -1,8 +1,8 @@
-import { Games, Tracks, VideoTracks } from "@/lib/db/repo";
+import { BackstageGames, Games, Tracks, VideoTracks } from "@/lib/db/repo";
 import { tagTracks } from "@/lib/pipeline/onboarding/tagger";
 import { getTaggingProvider } from "@/lib/llm";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
-import { DiscoveredStatus, SSEEventType } from "@/types";
+import { DiscoveredStatus, OnboardingPhase, SSEEventType } from "@/types";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("backstage-tag-selected");
@@ -56,6 +56,12 @@ export async function POST(req: Request) {
           (t.discovered === null || t.discovered === DiscoveredStatus.Approved),
       );
 
+      // Clear existing tags so tagTracks() will re-process them
+      const taggableNames = taggable.map((t) => t.name);
+      if (taggableNames.length > 0) {
+        await Tracks.clearTags(gameId, taggableNames);
+      }
+
       send({
         type: SSEEventType.Progress,
         current: 0,
@@ -63,11 +69,15 @@ export async function POST(req: Request) {
         trackName: taggable[0]?.name ?? "",
       });
 
+      // Re-fetch tracks after clearing so tagTracks sees taggedAt = null
+      const freshTracks = await Tracks.getByGame(gameId);
+      const freshTaggable = freshTracks.filter((t) => taggableNames.includes(t.name));
+
       const provider = getTaggingProvider();
       await tagTracks(
         gameId,
         game.title,
-        taggable,
+        freshTaggable,
         provider,
         abort.signal,
         (current, total, trackName) =>
@@ -76,6 +86,17 @@ export async function POST(req: Request) {
 
       const afterTracks = await Tracks.getByGame(gameId);
       const tagged = afterTracks.filter((t) => t.taggedAt !== null).length;
+
+      // Advance phase to Tagged if all taggable tracks are now tagged
+      const remaining = afterTracks.filter(
+        (t) =>
+          t.taggedAt === null &&
+          (t.discovered === null || t.discovered === DiscoveredStatus.Approved),
+      );
+      if (remaining.length === 0 && tagged > 0) {
+        await BackstageGames.setPhase(gameId, OnboardingPhase.Tagged);
+      }
+
       const updatedGame = await Games.getById(gameId);
       const needsReview = updatedGame?.needs_review ? 1 : 0;
 

@@ -23,7 +23,6 @@ export function GameHeader({
   reviewFlags,
   actions,
   onSetActiveModal,
-  flagsRef,
 }: {
   game: Game;
   tracks: Track[];
@@ -31,7 +30,6 @@ export function GameHeader({
   reviewFlags: ReviewFlag[];
   actions: GameDetailActions;
   onSetActiveModal: (modal: ActiveModal) => void;
-  flagsRef: React.RefObject<HTMLDetailsElement | null>;
 }) {
   const [pipelineOpen, setPipelineOpen] = useState(false);
   const [dangerOpen, setDangerOpen] = useState(false);
@@ -43,7 +41,7 @@ export function GameHeader({
     (t) => !videoMap[t.name] && t.discovered !== DiscoveredStatus.Rejected,
   ).length;
   const untaggedCount = tracks.filter(
-    (t) => t.taggedAt === null && t.discovered !== DiscoveredStatus.Rejected,
+    (t) => t.energy === null && t.discovered !== DiscoveredStatus.Rejected,
   ).length;
   const phase = game.onboarding_phase;
   const isDraft = phase === OnboardingPhase.Draft;
@@ -94,12 +92,12 @@ export function GameHeader({
           <PrimaryAction
             phase={phase}
             trackCount={tracks.length}
-            reviewFlagCount={reviewFlags.length}
+            hasTaggedTracks={taggedCount > 0}
             onMarkReady={actions.markTracksReady}
             onRetry={() => onSetActiveModal(BackstageModal.LoadTracks)}
-            onTag={() => onSetActiveModal(BackstageModal.Retag)}
+            onTag={() => onSetActiveModal(BackstageModal.TagSelected)}
             onResolve={() => onSetActiveModal(BackstageModal.Resolve)}
-            onReviewFlags={() => flagsRef.current?.scrollIntoView({ behavior: "smooth" })}
+            onMarkTagged={actions.markTagged}
           />
 
           {isDraft ? (
@@ -136,15 +134,6 @@ export function GameHeader({
             </Dropdown>
           ) : (
             <div className="flex items-center gap-1.5">
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 border-zinc-700 px-2 text-[10px] text-zinc-300 hover:text-zinc-100"
-                onClick={() => onSetActiveModal(BackstageModal.ImportTracks)}
-                disabled={game.published}
-              >
-                + Tracks
-              </Button>
               {unresolvedCount > 0 && (
                 <Button
                   size="sm"

@@ -6,36 +6,22 @@ import { OnboardingPhase } from "@/types";
 export function PrimaryAction({
   phase,
   trackCount,
-  reviewFlagCount,
+  hasTaggedTracks,
   onMarkReady,
   onRetry,
   onTag,
   onResolve,
-  onReviewFlags,
+  onMarkTagged,
 }: {
   phase: OnboardingPhase;
   trackCount: number;
-  reviewFlagCount: number;
+  hasTaggedTracks: boolean;
   onMarkReady: () => void;
   onRetry: () => void;
   onTag: () => void;
   onResolve: () => void;
-  onReviewFlags: () => void;
+  onMarkTagged: () => void;
 }) {
-  const hasFlags = reviewFlagCount > 0;
-
-  if (hasFlags && phase !== OnboardingPhase.Tagged) {
-    return (
-      <Button
-        size="sm"
-        className="h-7 bg-amber-600 text-xs text-white hover:bg-amber-700"
-        onClick={onReviewFlags}
-      >
-        Review Flags ({reviewFlagCount})
-      </Button>
-    );
-  }
-
   switch (phase) {
     case OnboardingPhase.Draft:
       if (trackCount > 0) {
@@ -62,13 +48,25 @@ export function PrimaryAction({
       );
     case OnboardingPhase.Resolved:
       return (
-        <Button
-          size="sm"
-          className="h-7 bg-violet-600 text-xs text-white hover:bg-violet-700"
-          onClick={onTag}
-        >
-          Run LLM Tagging
-        </Button>
+        <div className="flex items-center gap-1.5">
+          <Button
+            size="sm"
+            className="h-7 bg-violet-600 text-xs text-white hover:bg-violet-700"
+            onClick={onTag}
+          >
+            Run LLM Tagging
+          </Button>
+          {hasTaggedTracks && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 border-emerald-600/40 text-xs text-emerald-400 hover:bg-emerald-500/10"
+              onClick={onMarkTagged}
+            >
+              Mark Tagged
+            </Button>
+          )}
+        </div>
       );
     case OnboardingPhase.Tagged:
       return (

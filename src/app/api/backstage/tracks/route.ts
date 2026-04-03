@@ -1,4 +1,5 @@
 import { Tracks, VideoTracks } from "@/lib/db/repo";
+import { ensureVideoMetadata } from "@/lib/pipeline/onboarding/youtube-resolve";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
 
@@ -68,6 +69,9 @@ export async function PATCH(req: Request) {
 
       if (patch.videoUpdates?.videoId) {
         await VideoTracks.upsertSingle(patch.gameId, patch.name, patch.videoUpdates);
+        if (patch.videoUpdates.durationSeconds == null) {
+          await ensureVideoMetadata([patch.videoUpdates.videoId], patch.gameId);
+        }
       }
     }
 
