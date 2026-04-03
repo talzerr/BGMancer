@@ -11,13 +11,6 @@ export function useGameDetailActions(game: Game, router: AppRouterInstance) {
   const [publishing, setPublishing] = useState(false);
   const [sseRunning, setSseRunning] = useState(false);
   const [nuking, setNuking] = useState(false);
-  const [reingestRunning, setReingestRunning] = useState(false);
-  const [reingestTyped, setReingestTyped] = useState("");
-
-  function closeReingest() {
-    setReingestRunning(false);
-    setReingestTyped("");
-  }
 
   async function addTrack(name: string) {
     if (!name.trim()) return;
@@ -215,11 +208,6 @@ export function useGameDetailActions(game: Game, router: AppRouterInstance) {
     sseRunning,
     setSseRunning,
     nuking,
-    reingestRunning,
-    setReingestRunning,
-    reingestTyped,
-    setReingestTyped,
-    closeReingest,
     addTrack,
     importPastedTracks,
     markTracksReady,

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { Input } from "@/components/ui/input";
+import { useEditableField } from "@/hooks/backstage/useEditableField";
 
 export function EditableTitle({
   value,
@@ -12,15 +12,10 @@ export function EditableTitle({
   disabled?: boolean;
   onSave: (value: string | null) => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-
-  function commit() {
-    setEditing(false);
-    const trimmed = draft.trim();
-    if (trimmed && trimmed !== value) onSave(trimmed);
-    else setDraft(value);
-  }
+  const { editing, draft, setDraft, startEditing, commit, cancel } = useEditableField(
+    value,
+    onSave,
+  );
 
   if (editing && !disabled) {
     return (
@@ -29,13 +24,10 @@ export function EditableTitle({
         maxLength={100}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
+        onBlur={() => commit({ trimmed: true })}
         onKeyDown={(e) => {
-          if (e.key === "Enter") commit();
-          if (e.key === "Escape") {
-            setDraft(value);
-            setEditing(false);
-          }
+          if (e.key === "Enter") commit({ trimmed: true });
+          if (e.key === "Escape") cancel();
         }}
         className="h-8 border-zinc-700 bg-zinc-800 font-sans text-xl font-semibold text-zinc-100"
       />
@@ -44,12 +36,7 @@ export function EditableTitle({
 
   return (
     <h1
-      onClick={() => {
-        if (!disabled) {
-          setDraft(value);
-          setEditing(true);
-        }
-      }}
+      onClick={() => !disabled && startEditing()}
       className={`font-sans text-xl font-semibold text-zinc-100 ${
         disabled ? "" : "-ml-1 cursor-pointer rounded px-1 hover:bg-zinc-800/60"
       }`}

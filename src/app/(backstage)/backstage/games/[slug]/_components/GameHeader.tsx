@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { StatusBadge } from "@/components/backstage/StatusBadge";
 import { PhaseStepper } from "@/components/backstage/PhaseStepper";
 import { EditableTitle } from "@/components/backstage/EditableTitle";
 import { PrimaryAction } from "@/components/backstage/PrimaryAction";
+import { Dropdown } from "@/components/backstage/Dropdown";
 import { DropdownItem } from "@/components/backstage/DropdownItem";
 import { BackstageModal, OnboardingPhase } from "@/types";
 import type { Game, Track } from "@/types";
@@ -92,97 +92,81 @@ export function GameHeader({
             onReviewFlags={() => flagsRef.current?.scrollIntoView({ behavior: "smooth" })}
           />
 
-          <div className="relative">
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 border-zinc-700 text-xs text-zinc-300 hover:text-zinc-100"
-              disabled={game.published}
-              onClick={() => setPipelineOpen((o) => !o)}
-              onBlur={() => setTimeout(() => setPipelineOpen(false), 150)}
+          <Dropdown
+            label="Run Pipeline ▾"
+            open={pipelineOpen}
+            onOpenChange={setPipelineOpen}
+            disabled={game.published}
+          >
+            <DropdownItem
+              onClick={() => {
+                setPipelineOpen(false);
+                onSetActiveModal(BackstageModal.QuickOnboard);
+              }}
             >
-              Run Pipeline ▾
-            </Button>
-            {pipelineOpen && (
-              <div className="absolute right-0 z-10 mt-1 w-48 rounded-md border border-zinc-700 bg-zinc-900 py-1 shadow-lg">
-                <DropdownItem
-                  onClick={() => {
-                    setPipelineOpen(false);
-                    onSetActiveModal(BackstageModal.QuickOnboard);
-                  }}
-                >
-                  Run Full Pipeline
-                </DropdownItem>
-                <DropdownItem
-                  onClick={() => {
-                    setPipelineOpen(false);
-                    onSetActiveModal(BackstageModal.LoadTracks);
-                  }}
-                >
-                  Fetch from Discogs
-                </DropdownItem>
-                <DropdownItem
-                  onClick={() => {
-                    setPipelineOpen(false);
-                    onSetActiveModal(BackstageModal.ImportTracks);
-                  }}
-                >
-                  Paste Tracks
-                </DropdownItem>
-                <DropdownItem
-                  onClick={() => {
-                    setPipelineOpen(false);
-                    onSetActiveModal(BackstageModal.Retag);
-                  }}
-                >
-                  Force Re-Tag
-                </DropdownItem>
-                <DropdownItem
-                  onClick={() => {
-                    setPipelineOpen(false);
-                    onSetActiveModal(BackstageModal.Resolve);
-                  }}
-                >
-                  Force Re-Resolve
-                </DropdownItem>
-              </div>
-            )}
-          </div>
+              Run Full Pipeline
+            </DropdownItem>
+            <DropdownItem
+              onClick={() => {
+                setPipelineOpen(false);
+                onSetActiveModal(BackstageModal.LoadTracks);
+              }}
+            >
+              Fetch from Discogs
+            </DropdownItem>
+            <DropdownItem
+              onClick={() => {
+                setPipelineOpen(false);
+                onSetActiveModal(BackstageModal.ImportTracks);
+              }}
+            >
+              Paste Tracks
+            </DropdownItem>
+            <DropdownItem
+              onClick={() => {
+                setPipelineOpen(false);
+                onSetActiveModal(BackstageModal.Retag);
+              }}
+            >
+              Force Re-Tag
+            </DropdownItem>
+            <DropdownItem
+              onClick={() => {
+                setPipelineOpen(false);
+                onSetActiveModal(BackstageModal.Resolve);
+              }}
+            >
+              Force Re-Resolve
+            </DropdownItem>
+          </Dropdown>
 
-          <div className="relative">
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 w-7 border-zinc-700 p-0 text-xs text-zinc-500 hover:text-zinc-300"
-              disabled={game.published}
-              onClick={() => setDangerOpen((o) => !o)}
-              onBlur={() => setTimeout(() => setDangerOpen(false), 150)}
+          <Dropdown
+            label="⋯"
+            open={dangerOpen}
+            onOpenChange={setDangerOpen}
+            disabled={game.published}
+            buttonClassName="h-7 w-7 border-zinc-700 p-0 text-xs text-zinc-500 hover:text-zinc-300"
+            width="w-52"
+          >
+            <DropdownItem
+              destructive
+              onClick={() => {
+                setDangerOpen(false);
+                onSetActiveModal(BackstageModal.Reingest);
+              }}
             >
-              ⋯
-            </Button>
-            {dangerOpen && (
-              <div className="absolute right-0 z-10 mt-1 w-52 rounded-md border border-zinc-700 bg-zinc-900 py-1 shadow-lg">
-                <DropdownItem
-                  destructive
-                  onClick={() => {
-                    setDangerOpen(false);
-                    onSetActiveModal(BackstageModal.Reingest);
-                  }}
-                >
-                  Reset Pipeline (Re-Sync Source)
-                </DropdownItem>
-                <DropdownItem
-                  destructive
-                  onClick={() => {
-                    setDangerOpen(false);
-                    onSetActiveModal(BackstageModal.Nuke);
-                  }}
-                >
-                  Delete Game
-                </DropdownItem>
-              </div>
-            )}
-          </div>
+              Reset Pipeline (Re-Sync Source)
+            </DropdownItem>
+            <DropdownItem
+              destructive
+              onClick={() => {
+                setDangerOpen(false);
+                onSetActiveModal(BackstageModal.Nuke);
+              }}
+            >
+              Delete Game
+            </DropdownItem>
+          </Dropdown>
         </div>
 
         {/* Publish button */}

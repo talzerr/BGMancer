@@ -11,7 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { SSEProgress } from "@/components/backstage/SSEProgress";
+import { SSEDialog } from "@/components/backstage/SSEDialog";
+import { ConfirmModal } from "@/components/backstage/ConfirmModal";
 import { parseTracklist, type ParsedTrack } from "@/lib/services/track-parser";
 import { BackstageModal } from "@/types";
 import type { Game } from "@/types";
@@ -33,6 +34,7 @@ export function GameModals({
   const [newTrackName, setNewTrackName] = useState("");
   const [pasteText, setPasteText] = useState("");
   const [pastePreview, setPastePreview] = useState<ParsedTrack[]>([]);
+  const [reingestRunning, setReingestRunning] = useState(false);
 
   function handlePasteChange(text: string) {
     setPasteText(text);
@@ -44,183 +46,107 @@ export function GameModals({
     actions.setSseRunning(false);
   }
 
+  function closeReingest() {
+    setReingestRunning(false);
+    setActiveModal(null);
+  }
+
   return (
     <>
-      {/* Load Tracks modal */}
-      <Dialog
+      {/* Load Tracks */}
+      <SSEDialog
         open={activeModal === BackstageModal.LoadTracks}
-        onOpenChange={(v) => !v && !actions.sseRunning && setActiveModal(null)}
-      >
-        <DialogContent className="border-zinc-800 bg-zinc-900" showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle className="text-zinc-100">Load Tracks: {game.title}</DialogTitle>
-            <DialogDescription className="text-zinc-400">
-              Fetch tracklist from Discogs and store in database. Does not tag.
-            </DialogDescription>
-          </DialogHeader>
-          <SSEProgress
-            url="/api/backstage/load-tracks"
-            body={{ gameId: game.id }}
-            progressLabel={(e) => String(e.message ?? "Working…")}
-            doneLabel={(e) => `Done — ${e.trackCount} tracks loaded`}
-            onDone={() => closeModal()}
-            onClose={closeModal}
-          />
-        </DialogContent>
-      </Dialog>
+        onOpenChange={() => setActiveModal(null)}
+        title={`Load Tracks: ${game.title}`}
+        description="Fetch tracklist from Discogs and store in database. Does not tag."
+        sseRunning={actions.sseRunning}
+        url="/api/backstage/load-tracks"
+        body={{ gameId: game.id }}
+        progressLabel={(e) => String(e.message ?? "Working…")}
+        doneLabel={(e) => `Done — ${e.trackCount} tracks loaded`}
+        onDone={closeModal}
+        onClose={closeModal}
+      />
 
-      {/* Resolve Videos modal */}
-      <Dialog
+      {/* Resolve Videos */}
+      <SSEDialog
         open={activeModal === BackstageModal.Resolve}
-        onOpenChange={(v) => !v && !actions.sseRunning && setActiveModal(null)}
-      >
-        <DialogContent className="border-zinc-800 bg-zinc-900" showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle className="text-zinc-100">Resolve Videos: {game.title}</DialogTitle>
-            <DialogDescription className="text-zinc-400">
-              Discover YouTube OST playlist and map tracks to video IDs.
-            </DialogDescription>
-          </DialogHeader>
-          <SSEProgress
-            url="/api/backstage/resolve"
-            body={{ gameId: game.id }}
-            progressLabel={(e) => String(e.message ?? "Resolving…")}
-            doneLabel={(e) => `Done — ${e.resolved}/${e.total} tracks resolved`}
-            onDone={() => closeModal()}
-            onClose={closeModal}
-          />
-        </DialogContent>
-      </Dialog>
+        onOpenChange={() => setActiveModal(null)}
+        title={`Resolve Videos: ${game.title}`}
+        description="Discover YouTube OST playlist and map tracks to video IDs."
+        sseRunning={actions.sseRunning}
+        url="/api/backstage/resolve"
+        body={{ gameId: game.id }}
+        progressLabel={(e) => String(e.message ?? "Resolving…")}
+        doneLabel={(e) => `Done — ${e.resolved}/${e.total} tracks resolved`}
+        onDone={closeModal}
+        onClose={closeModal}
+      />
 
-      {/* Quick Onboard modal */}
-      <Dialog
+      {/* Quick Onboard */}
+      <SSEDialog
         open={activeModal === BackstageModal.QuickOnboard}
-        onOpenChange={(v) => !v && !actions.sseRunning && setActiveModal(null)}
-      >
-        <DialogContent className="border-zinc-800 bg-zinc-900" showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle className="text-zinc-100">Quick Onboard: {game.title}</DialogTitle>
-            <DialogDescription className="text-zinc-400">
-              Run all phases (load tracks, resolve, tag) and publish.
-            </DialogDescription>
-          </DialogHeader>
-          <SSEProgress
-            url="/api/backstage/quick-onboard"
-            body={{ gameId: game.id }}
-            progressLabel={(e) => String(e.message ?? "Working…")}
-            doneLabel={(e) =>
-              `Done — ${e.trackCount} tracks, ${e.resolved} resolved, ${e.tagged} tagged`
-            }
-            onDone={() => closeModal()}
-            onClose={closeModal}
-          />
-        </DialogContent>
-      </Dialog>
-
-      {/* Re-tag modal */}
-      <Dialog
-        open={activeModal === BackstageModal.Retag}
-        onOpenChange={(v) => !v && !actions.sseRunning && setActiveModal(null)}
-      >
-        <DialogContent className="border-zinc-800 bg-zinc-900" showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle className="text-zinc-100">Re-tag: {game.title}</DialogTitle>
-            <DialogDescription className="text-zinc-400">
-              Clears all LLM tags and re-runs the tagger. Track names are preserved.
-            </DialogDescription>
-          </DialogHeader>
-          <SSEProgress
-            url="/api/backstage/retag"
-            body={{ gameId: game.id }}
-            progressLabel={(e) =>
-              `Tagging track ${e.current ?? 0}/${e.total ?? "?"}… ${e.trackName ?? ""}`
-            }
-            doneLabel={(e) => `Done — ${e.tagged} tagged, ${e.needsReview} need review`}
-            onDone={() => closeModal()}
-            onClose={closeModal}
-          />
-        </DialogContent>
-      </Dialog>
-
-      {/* Re-ingest dialog */}
-      <Dialog
-        open={activeModal === BackstageModal.Reingest}
-        onOpenChange={(v) =>
-          !v &&
-          !actions.reingestRunning &&
-          (() => {
-            actions.closeReingest();
-            setActiveModal(null);
-          })()
+        onOpenChange={() => setActiveModal(null)}
+        title={`Quick Onboard: ${game.title}`}
+        description="Run all phases (load tracks, resolve, tag) and publish."
+        sseRunning={actions.sseRunning}
+        url="/api/backstage/quick-onboard"
+        body={{ gameId: game.id }}
+        progressLabel={(e) => String(e.message ?? "Working…")}
+        doneLabel={(e) =>
+          `Done — ${e.trackCount} tracks, ${e.resolved} resolved, ${e.tagged} tagged`
         }
-      >
-        <DialogContent
-          className="border-zinc-800 bg-zinc-900"
-          showCloseButton={!actions.reingestRunning}
-        >
-          <DialogHeader>
-            <DialogTitle className="text-zinc-100">Re-ingest: {game.title}</DialogTitle>
-            {!actions.reingestRunning && (
-              <DialogDescription className="text-zinc-400">
-                This will delete all tracks and re-fetch from Discogs. This cannot be undone.
-              </DialogDescription>
-            )}
-          </DialogHeader>
-          {actions.reingestRunning ? (
-            <SSEProgress
-              url="/api/backstage/reingest"
-              body={{ gameId: game.id }}
-              progressLabel={(e) => String(e.message ?? "Working…")}
-              doneLabel={(e) =>
-                `Done — ${e.trackCount} tracks, ${e.resolved} resolved, ${e.tagged} tagged`
-              }
-              onDone={() => {
-                actions.closeReingest();
-                closeModal();
-              }}
-              onClose={() => {
-                actions.closeReingest();
-                closeModal();
-              }}
-            />
-          ) : (
-            <div className="space-y-3">
-              <p className="text-xs text-zinc-400">
-                Type <span className="font-mono text-zinc-200">{game.title}</span> to confirm
-              </p>
-              <Input
-                value={actions.reingestTyped}
-                onChange={(e) => actions.setReingestTyped(e.target.value)}
-                placeholder={game.title}
-                className="border-zinc-700 bg-zinc-800 font-mono text-zinc-100 placeholder:text-zinc-600"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && actions.reingestTyped === game.title)
-                    actions.setReingestRunning(true);
-                }}
-              />
-              <DialogFooter>
-                <Button
-                  variant="ghost"
-                  className="text-zinc-400"
-                  onClick={() => {
-                    actions.closeReingest();
-                    setActiveModal(null);
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="destructive"
-                  disabled={actions.reingestTyped !== game.title}
-                  onClick={() => actions.setReingestRunning(true)}
-                >
-                  Re-ingest
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+        onDone={closeModal}
+        onClose={closeModal}
+      />
+
+      {/* Re-tag */}
+      <SSEDialog
+        open={activeModal === BackstageModal.Retag}
+        onOpenChange={() => setActiveModal(null)}
+        title={`Re-tag: ${game.title}`}
+        description="Clears all LLM tags and re-runs the tagger. Track names are preserved."
+        sseRunning={actions.sseRunning}
+        url="/api/backstage/retag"
+        body={{ gameId: game.id }}
+        progressLabel={(e) =>
+          `Tagging track ${e.current ?? 0}/${e.total ?? "?"}… ${e.trackName ?? ""}`
+        }
+        doneLabel={(e) => `Done — ${e.tagged} tagged, ${e.needsReview} need review`}
+        onDone={closeModal}
+        onClose={closeModal}
+      />
+
+      {/* Re-ingest: confirm phase */}
+      {!reingestRunning && (
+        <ConfirmModal
+          open={activeModal === BackstageModal.Reingest}
+          onOpenChange={(v) => !v && setActiveModal(null)}
+          title={`Re-ingest: ${game.title}`}
+          description="This will delete all tracks and re-fetch from Discogs. This cannot be undone."
+          confirmLabel="Re-ingest"
+          typeToConfirm={game.title}
+          destructive
+          onConfirm={() => setReingestRunning(true)}
+        />
+      )}
+
+      {/* Re-ingest: SSE phase */}
+      <SSEDialog
+        open={activeModal === BackstageModal.Reingest && reingestRunning}
+        onOpenChange={() => closeReingest()}
+        title={`Re-ingest: ${game.title}`}
+        description="Re-ingesting tracks from source…"
+        sseRunning={reingestRunning}
+        url="/api/backstage/reingest"
+        body={{ gameId: game.id }}
+        progressLabel={(e) => String(e.message ?? "Working…")}
+        doneLabel={(e) =>
+          `Done — ${e.trackCount} tracks, ${e.resolved} resolved, ${e.tagged} tagged`
+        }
+        onDone={closeReingest}
+        onClose={closeReingest}
+      />
 
       {/* Add track modal */}
       <Dialog
