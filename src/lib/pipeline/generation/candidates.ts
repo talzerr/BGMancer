@@ -1,6 +1,6 @@
 import { Tracks, VideoTracks } from "@/lib/db/repo";
 import { type Game, type TaggedTrack, GameProgressStatus } from "@/types";
-import type { GenerateEvent } from "@/lib/pipeline/types";
+import type { GenerateEvent } from "@/lib/pipeline/generation/types";
 
 type Send = (e: GenerateEvent) => void;
 

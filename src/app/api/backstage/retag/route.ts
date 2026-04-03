@@ -1,5 +1,5 @@
 import { BackstageGames, Games, Tracks } from "@/lib/db/repo";
-import { tagTracks } from "@/lib/pipeline/tagger";
+import { tagTracks } from "@/lib/pipeline/onboarding/tagger";
 import { getTaggingProvider } from "@/lib/llm";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
 import { OnboardingPhase, SSEEventType } from "@/types";

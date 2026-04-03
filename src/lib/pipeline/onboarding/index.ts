@@ -9,9 +9,12 @@ import {
 } from "@/lib/services/discogs";
 import { parseSource } from "@/lib/services/tracklist-source";
 import { fetchPlaylistItems } from "@/lib/services/youtube";
-import { tagTracks } from "@/lib/pipeline/tagger";
-import { resolveTracksToVideos } from "@/lib/pipeline/resolver";
-import { discoverOSTPlaylist, ensureVideoMetadata } from "@/lib/pipeline/youtube-resolve";
+import { tagTracks } from "@/lib/pipeline/onboarding/tagger";
+import { resolveTracksToVideos } from "@/lib/pipeline/onboarding/resolver";
+import {
+  discoverOSTPlaylist,
+  ensureVideoMetadata,
+} from "@/lib/pipeline/onboarding/youtube-resolve";
 import { getTaggingProvider } from "@/lib/llm";
 
 // ─── Phase 1: Load Tracks ────────────────────────────────────────────────────
