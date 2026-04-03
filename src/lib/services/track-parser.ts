@@ -14,11 +14,10 @@ export interface ParsedTrack {
 const DURATION_PATTERN = /(\d{1,2}:\d{2}(?::\d{2})?)/;
 const LEADING_NUMBER_PATTERN = /^\d+[\s).\-–—]+\s*/;
 
-function parseDuration(raw: string): number | null {
+function parseDuration(raw: string): number {
   const parts = raw.split(":").map(Number);
-  if (parts.length === 2) return parts[0] * 60 + parts[1];
   if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  return null;
+  return parts[0] * 60 + parts[1];
 }
 
 function parseLine(line: string, position: number): ParsedTrack {
