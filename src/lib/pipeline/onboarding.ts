@@ -143,11 +143,28 @@ export async function resolveVideos(
   const allVideoIds = [...(await VideoTracks.getTrackToVideo(game.id)).values()];
   await ensureVideoMetadata(allVideoIds, game.id);
 
-  // Auto-deactivate SFX tracks (very short videos) before tagging
-  const deactivated = await Tracks.deactivateShortTracks(game.id, SFX_DURATION_THRESHOLD_SECONDS);
-  if (deactivated > 0) {
+  // Auto-deactivate unresolved tracks (no video) and SFX (< threshold)
+  const trackToVideo = await VideoTracks.getTrackToVideo(game.id);
+  const videoMeta = await VideoTracks.getByGame(game.id);
+  const activeTracks = (await Tracks.getByGame(game.id)).filter((t) => t.active);
+
+  const toDeactivate: string[] = [];
+  for (const t of activeTracks) {
+    const videoId = trackToVideo.get(t.name);
+    if (!videoId) {
+      toDeactivate.push(t.name);
+      continue;
+    }
+    const meta = videoMeta.get(videoId);
+    if (meta?.durationSeconds != null && meta.durationSeconds < SFX_DURATION_THRESHOLD_SECONDS) {
+      toDeactivate.push(t.name);
+    }
+  }
+
+  if (toDeactivate.length > 0) {
+    await Tracks.deactivateTracks(game.id, toDeactivate);
     onProgress?.(
-      `Deactivated ${deactivated} SFX track${deactivated > 1 ? "s" : ""} (<${SFX_DURATION_THRESHOLD_SECONDS}s)`,
+      `Deactivated ${toDeactivate.length} track${toDeactivate.length > 1 ? "s" : ""} (no video or SFX)`,
     );
   }
 
