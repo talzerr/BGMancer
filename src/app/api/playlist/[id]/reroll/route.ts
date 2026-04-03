@@ -3,7 +3,7 @@ import { Playlist, Games } from "@/lib/db/repo";
 import { MIN_TRACK_DURATION_SECONDS, MAX_TRACK_DURATION_SECONDS } from "@/lib/constants";
 import { withRequiredAuth } from "@/lib/services/route-wrappers";
 import { rerollSchema, zodErrorResponse } from "@/lib/validation";
-import { getTaggedPool } from "@/lib/pipeline/candidates";
+import { getTaggedPool } from "@/lib/pipeline/generation/candidates";
 
 /** POST /api/playlist/:id/reroll — Replace a track with a different one from the same game's curated pool. */
 export const POST = withRequiredAuth(

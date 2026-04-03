@@ -241,12 +241,6 @@ export function GameModals({
                 <div key={t.position} className="flex items-center gap-2 py-0.5 text-xs">
                   <span className="w-6 text-right text-zinc-600">{t.position}.</span>
                   <span className="flex-1 text-zinc-300">{t.name}</span>
-                  {t.durationSeconds !== null && (
-                    <span className="text-zinc-500">
-                      {Math.floor(t.durationSeconds / 60)}:
-                      {String(t.durationSeconds % 60).padStart(2, "0")}
-                    </span>
-                  )}
                 </div>
               ))}
             </div>
@@ -273,9 +267,9 @@ export function GameModals({
                 setPastePreview([]);
                 setActiveModal(null);
               }}
-              disabled={pastePreview.length === 0}
+              disabled={pastePreview.length === 0 || actions.importing}
             >
-              Import {pastePreview.length} Tracks
+              {actions.importing ? "Importing…" : `Import ${pastePreview.length} Tracks`}
             </Button>
           </DialogFooter>
         </DialogContent>

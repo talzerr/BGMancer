@@ -253,7 +253,6 @@ describe("toTrack", () => {
     game_id: "g1",
     name: "Title Screen",
     position: 1,
-    duration_seconds: 180,
     energy: 2,
     roles: JSON.stringify([TrackRole.Opener]),
     moods: JSON.stringify([TrackMood.Peaceful, TrackMood.Nostalgic]),
@@ -270,7 +269,6 @@ describe("toTrack", () => {
       expect(track.gameId).toBe("g1");
       expect(track.name).toBe("Title Screen");
       expect(track.position).toBe(1);
-      expect(track.durationSeconds).toBe(180);
       expect(track.energy).toBe(2);
       expect(track.roles).toEqual([TrackRole.Opener]);
       expect(track.moods).toEqual([TrackMood.Peaceful, TrackMood.Nostalgic]);
@@ -346,10 +344,6 @@ describe("toTrack", () => {
   describe("when optional fields are null or missing", () => {
     it("should handle null tagged_at", () => {
       expect(toTrack({ ...baseRow, tagged_at: null }).taggedAt).toBeNull();
-    });
-
-    it("should handle null duration_seconds", () => {
-      expect(toTrack({ ...baseRow, duration_seconds: null }).durationSeconds).toBeNull();
     });
 
     it("should default position to 0 when missing", () => {

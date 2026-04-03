@@ -92,6 +92,7 @@ export function GameDetailClient({
         game={game}
         tracks={tracks}
         videoMap={videoMap}
+        videoDetailMap={videoDetailMap}
         editingTracks={editingTracks}
         setEditingTracks={setEditingTracks}
         onSetActiveModal={setActiveModal}

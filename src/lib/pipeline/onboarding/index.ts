@@ -1,7 +1,7 @@
 import { OnboardingPhase, ReviewReason, DiscoveredStatus } from "@/types";
 import type { Game } from "@/types";
 import { Games, BackstageGames, Tracks, VideoTracks, ReviewFlags } from "@/lib/db/repo";
-import { GAME_MAX_TRACKS } from "@/lib/constants";
+import { GAME_MAX_TRACKS, SFX_DURATION_THRESHOLD_SECONDS } from "@/lib/constants";
 import {
   searchGameSoundtrack,
   fetchDiscogsRelease,
@@ -9,9 +9,12 @@ import {
 } from "@/lib/services/discogs";
 import { parseSource } from "@/lib/services/tracklist-source";
 import { fetchPlaylistItems } from "@/lib/services/youtube";
-import { tagTracks } from "@/lib/pipeline/tagger";
-import { resolveTracksToVideos } from "@/lib/pipeline/resolver";
-import { discoverOSTPlaylist, ensureVideoMetadata } from "@/lib/pipeline/youtube-resolve";
+import { tagTracks } from "@/lib/pipeline/onboarding/tagger";
+import { resolveTracksToVideos } from "@/lib/pipeline/onboarding/resolver";
+import {
+  discoverOSTPlaylist,
+  ensureVideoMetadata,
+} from "@/lib/pipeline/onboarding/youtube-resolve";
 import { getTaggingProvider } from "@/lib/llm";
 
 // ─── Phase 1: Load Tracks ────────────────────────────────────────────────────
@@ -67,7 +70,6 @@ export async function loadTracks(
       gameId: game.id,
       name: t.name,
       position: t.position,
-      durationSeconds: t.durationSeconds,
     })),
   );
 
@@ -90,6 +92,7 @@ export async function tagGameTracks(
   game: Game,
   onProgress?: (message: string) => void,
   signal?: AbortSignal,
+  onBatchProgress?: (current: number, total: number, trackName: string) => void,
 ): Promise<{ tagged: number; needsReview: boolean }> {
   const dbTracks = await Tracks.getByGame(game.id);
   const resolvedMap = await VideoTracks.getTrackToVideo(game.id);
@@ -101,7 +104,7 @@ export async function tagGameTracks(
   onProgress?.(`Tagging ${taggable.length} resolved tracks (${dbTracks.length} total)…`);
 
   const provider = getTaggingProvider();
-  await tagTracks(game.id, game.title, taggable, provider, signal);
+  await tagTracks(game.id, game.title, taggable, provider, signal, onBatchProgress);
   await BackstageGames.setPhase(game.id, OnboardingPhase.Tagged);
 
   const afterTracks = await Tracks.getByGame(game.id);
@@ -142,6 +145,31 @@ export async function resolveVideos(
   onProgress?.("Fetching video metadata…");
   const allVideoIds = [...(await VideoTracks.getTrackToVideo(game.id)).values()];
   await ensureVideoMetadata(allVideoIds, game.id);
+
+  // Auto-deactivate unresolved tracks (no video) and SFX (< threshold)
+  const trackToVideo = await VideoTracks.getTrackToVideo(game.id);
+  const videoMeta = await VideoTracks.getByGame(game.id);
+  const activeTracks = (await Tracks.getByGame(game.id)).filter((t) => t.active);
+
+  const toDeactivate: string[] = [];
+  for (const t of activeTracks) {
+    const videoId = trackToVideo.get(t.name);
+    if (!videoId) {
+      toDeactivate.push(t.name);
+      continue;
+    }
+    const meta = videoMeta.get(videoId);
+    if (meta?.durationSeconds != null && meta.durationSeconds < SFX_DURATION_THRESHOLD_SECONDS) {
+      toDeactivate.push(t.name);
+    }
+  }
+
+  if (toDeactivate.length > 0) {
+    await Tracks.deactivateTracks(game.id, toDeactivate);
+    onProgress?.(
+      `Deactivated ${toDeactivate.length} track${toDeactivate.length > 1 ? "s" : ""} (no video or SFX)`,
+    );
+  }
 
   await BackstageGames.setPhase(game.id, OnboardingPhase.Resolved);
 

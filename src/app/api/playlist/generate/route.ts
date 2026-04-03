@@ -3,7 +3,7 @@ import {
   generatePlaylist,
   generatePlaylistForGuest,
   type GenerateEvent,
-} from "@/lib/pipeline/index";
+} from "@/lib/pipeline/generation";
 import { Users } from "@/lib/db/repo";
 import { getAuthSession } from "@/lib/services/auth-helpers";
 import { YouTubeQuotaError, YouTubeInvalidKeyError } from "@/lib/services/youtube";

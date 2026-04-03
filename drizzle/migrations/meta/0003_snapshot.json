@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "1f1ff542-bd79-4ac0-bbc9-b72c696a1f36",
-  "prevId": "39879e72-01ea-4b90-9ead-1aa160f29cbd",
+  "id": "cc639707-19c0-4ec9-add3-bb0c1b1a7c88",
+  "prevId": "1f1ff542-bd79-4ac0-bbc9-b72c696a1f36",
   "tables": {
     "game_review_flags": {
       "name": "game_review_flags",
@@ -711,13 +711,6 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
-        },
-        "duration_seconds": {
-          "name": "duration_seconds",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
           "autoincrement": false
         },
         "energy": {

@@ -1,5 +1,5 @@
 import { BackstageGames, Games, Tracks } from "@/lib/db/repo";
-import { tagTracks } from "@/lib/pipeline/tagger";
+import { tagTracks } from "@/lib/pipeline/onboarding/tagger";
 import { getTaggingProvider } from "@/lib/llm";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
 import { OnboardingPhase, SSEEventType } from "@/types";
@@ -41,12 +41,17 @@ export async function POST(req: Request) {
       await Tracks.clearTags(gameId);
 
       const tracks = await Tracks.getByGame(gameId);
-      const total = tracks.length;
-
-      send({ type: SSEEventType.Progress, current: 0, total, trackName: "Starting…" });
 
       const provider = getTaggingProvider();
-      await tagTracks(gameId, game.title, tracks, provider, abort.signal);
+      await tagTracks(
+        gameId,
+        game.title,
+        tracks,
+        provider,
+        abort.signal,
+        (current, total, trackName) =>
+          send({ type: SSEEventType.Progress, current, total, trackName }),
+      );
 
       await BackstageGames.setPhase(gameId, OnboardingPhase.Tagged);
 

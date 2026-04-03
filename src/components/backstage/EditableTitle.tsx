@@ -2,6 +2,7 @@
 
 import { Input } from "@/components/ui/input";
 import { useEditableField } from "@/hooks/backstage/useEditableField";
+import { GAME_TITLE_MAX_LENGTH } from "@/lib/constants";
 
 export function EditableTitle({
   value,
@@ -21,7 +22,7 @@ export function EditableTitle({
     return (
       <Input
         autoFocus
-        maxLength={100}
+        maxLength={GAME_TITLE_MAX_LENGTH}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => commit({ trimmed: true })}

@@ -177,7 +177,6 @@ export const tracks = sqliteTable(
       .references(() => games.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     position: integer("position").notNull(),
-    duration_seconds: integer("duration_seconds"),
     energy: integer("energy"),
     roles: text("roles"),
     moods: text("moods"),

@@ -11,7 +11,6 @@ const importTracksSchema = z.object({
       z.object({
         name: z.string().min(1),
         position: z.number().int().positive(),
-        durationSeconds: z.number().int().positive().nullable().optional(),
       }),
     )
     .min(1)
@@ -36,7 +35,6 @@ export async function POST(req: Request) {
       gameId,
       name: t.name,
       position: t.position,
-      durationSeconds: t.durationSeconds ?? null,
     })),
   );
 

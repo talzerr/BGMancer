@@ -9,6 +9,7 @@ import type { ParsedTrack } from "@/lib/services/track-parser";
 export function useGameDetailActions(game: Game, router: AppRouterInstance) {
   const [mutError, setMutError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [sseRunning, setSseRunning] = useState(false);
   const [nuking, setNuking] = useState(false);
 
@@ -32,6 +33,7 @@ export function useGameDetailActions(game: Game, router: AppRouterInstance) {
   async function importPastedTracks(tracks: ParsedTrack[]) {
     if (tracks.length === 0) return;
     setMutError(null);
+    setImporting(true);
     try {
       const res = await fetch("/api/backstage/import-tracks", {
         method: "POST",
@@ -43,6 +45,8 @@ export function useGameDetailActions(game: Game, router: AppRouterInstance) {
     } catch (err) {
       console.error("[GameDetail] importPastedTracks failed:", err);
       setMutError("Failed to import tracks. Please try again.");
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -205,6 +209,7 @@ export function useGameDetailActions(game: Game, router: AppRouterInstance) {
     mutError,
     setMutError,
     publishing,
+    importing,
     sseRunning,
     setSseRunning,
     nuking,

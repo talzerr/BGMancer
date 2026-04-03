@@ -1,7 +1,7 @@
 import type { InsertableTrack } from "@/lib/db/repo";
 import { newId } from "@/lib/uuid";
 import type { TaggedTrack } from "@/types";
-import type { PendingTrack } from "@/lib/pipeline/types";
+import type { PendingTrack } from "@/lib/pipeline/generation/types";
 
 // ─── Tagged → PendingTrack conversion ───────────────────────────────────────
 

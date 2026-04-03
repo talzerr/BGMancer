@@ -1,6 +1,6 @@
 "use client";
 
-import { ARC_TEMPLATE } from "@/lib/pipeline/director";
+import { ARC_TEMPLATE } from "@/lib/pipeline/generation/director";
 import {
   SCORING_WEIGHTS,
   BUDGET_RULES,

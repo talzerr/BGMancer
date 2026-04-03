@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -15,11 +16,21 @@ import { BackstageModal, DiscoveredStatus, OnboardingPhase } from "@/types";
 import type { Game, Track } from "@/types";
 import type { GameDetailActions } from "../_hooks/useGameDetailActions";
 import type { ActiveModal } from "../game-detail-client";
+import { SFX_DURATION_THRESHOLD_SECONDS } from "@/lib/constants";
+
+interface VideoDetail {
+  videoId: string;
+  durationSeconds: number | null;
+  viewCount: number | null;
+}
+
+type TrackFilter = "all" | "active" | "inactive";
 
 export function TrackTable({
   game,
   tracks,
   videoMap,
+  videoDetailMap,
   editingTracks,
   setEditingTracks,
   onSetActiveModal,
@@ -30,6 +41,7 @@ export function TrackTable({
   game: Game;
   tracks: Track[];
   videoMap: Record<string, string>;
+  videoDetailMap: Record<string, VideoDetail>;
   editingTracks: boolean;
   setEditingTracks: (v: boolean | ((prev: boolean) => boolean)) => void;
   onSetActiveModal: (modal: ActiveModal) => void;
@@ -38,6 +50,12 @@ export function TrackTable({
   actions: GameDetailActions;
 }) {
   const phase = game.onboarding_phase;
+  const [filter, setFilter] = useState<TrackFilter>("all");
+
+  const activeCount = tracks.filter((t) => t.active).length;
+  const inactiveCount = tracks.length - activeCount;
+  const filteredTracks =
+    filter === "all" ? tracks : tracks.filter((t) => (filter === "active" ? t.active : !t.active));
 
   return (
     <>
@@ -80,9 +98,34 @@ export function TrackTable({
           <div
             className={`flex items-center justify-between px-4 py-2 ${editingTracks ? "bg-violet-500/5" : "bg-zinc-900/40"}`}
           >
-            <span className="text-[11px] font-semibold tracking-wider text-zinc-500 uppercase">
-              Tracks ({tracks.length})
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] font-semibold tracking-wider text-zinc-500 uppercase">
+                Tracks
+              </span>
+              {tracks.length > 0 && (
+                <div className="flex gap-1">
+                  {(
+                    [
+                      ["all", `All (${tracks.length})`],
+                      ["active", `Active (${activeCount})`],
+                      ["inactive", `Inactive (${inactiveCount})`],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <button
+                      key={key}
+                      onClick={() => setFilter(key)}
+                      className={`rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+                        filter === key
+                          ? "bg-zinc-700 text-zinc-200"
+                          : "text-zinc-500 hover:text-zinc-300"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="flex items-center gap-2">
               {tracks.some((t) => t.discovered === DiscoveredStatus.Pending) && (
                 <>
@@ -171,8 +214,12 @@ export function TrackTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tracks.map((track, i) => {
+              {filteredTracks.map((track, i) => {
                 const vid = videoMap[track.name];
+                const detail = videoDetailMap[track.name];
+                const isSfx =
+                  detail?.durationSeconds != null &&
+                  detail.durationSeconds < SFX_DURATION_THRESHOLD_SECONDS;
                 return (
                   <TableRow
                     key={track.name}
@@ -256,6 +303,16 @@ export function TrackTable({
                         {track.discovered === DiscoveredStatus.Approved && !track.taggedAt && (
                           <span className="rounded bg-violet-500/15 px-1.5 py-0.5 text-[10px] text-violet-400">
                             approved
+                          </span>
+                        )}
+                        {!vid && track.discovered !== DiscoveredStatus.Rejected && (
+                          <span className="rounded bg-rose-500/15 px-1.5 py-0.5 text-[10px] text-rose-400">
+                            no video
+                          </span>
+                        )}
+                        {isSfx && (
+                          <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-400">
+                            sfx
                           </span>
                         )}
                       </div>

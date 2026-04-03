@@ -1,7 +1,8 @@
 import { z } from "zod/v4";
 import { NextResponse } from "next/server";
 import { CurationMode } from "@/types";
-import { MAX_TRACK_COUNT, SESSION_NAME_MAX_LENGTH } from "@/lib/constants";
+import { MAX_TRACK_COUNT, SESSION_NAME_MAX_LENGTH, GAME_TITLE_MAX_LENGTH } from "@/lib/constants";
+import { sanitizeGameTitle } from "@/lib/utils";
 
 // ─── Shared helpers ──────────────────────────────────────────────────────────
 
@@ -9,7 +10,14 @@ export function zodErrorResponse(error: z.ZodError): NextResponse {
   return NextResponse.json({ error: z.prettifyError(error) }, { status: 400 });
 }
 
-// ─── Schemas ─────────────────────────────────────────────────────────────────
+// ─── Game title ─────────────────────────────────────────────────────────────
+
+export const gameTitleSchema = z
+  .string()
+  .transform(sanitizeGameTitle)
+  .pipe(z.string().min(1, "Title must not be empty").max(GAME_TITLE_MAX_LENGTH));
+
+// ─── Schemas ────────────────────────────────────────────────────────────────
 
 const curationEnum = z.enum(Object.values(CurationMode) as [CurationMode, ...CurationMode[]]);
 

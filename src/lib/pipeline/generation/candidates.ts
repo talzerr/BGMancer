@@ -1,6 +1,6 @@
 import { Tracks, VideoTracks } from "@/lib/db/repo";
 import { type Game, type TaggedTrack, GameProgressStatus } from "@/types";
-import type { GenerateEvent } from "@/lib/pipeline/types";
+import type { GenerateEvent } from "@/lib/pipeline/generation/types";
 
 type Send = (e: GenerateEvent) => void;
 
@@ -32,7 +32,7 @@ export async function getTaggedPool(gameId: string, gameTitle: string): Promise<
       moods: track.moods,
       instrumentation: track.instrumentation,
       hasVocals: track.hasVocals ?? false,
-      durationSeconds: track.durationSeconds ?? meta?.durationSeconds ?? 0,
+      durationSeconds: meta?.durationSeconds ?? 0,
       viewCount: meta?.viewCount ?? null,
     });
   }

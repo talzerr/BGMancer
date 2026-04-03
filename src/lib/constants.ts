@@ -24,7 +24,10 @@ export const MAX_TRACK_COUNT = 150;
 
 // ─── Track duration filtering ─────────────────────────────────────────────────
 
-/** Tracks shorter than this (in seconds) are always excluded (intros, stingers, etc.). */
+/** Tracks shorter than this (in seconds) are auto-deactivated during onboarding (SFX, jingles). */
+export const SFX_DURATION_THRESHOLD_SECONDS = 15;
+
+/** Tracks shorter than this (in seconds) are excluded when allow_short_tracks is off. */
 export const MIN_TRACK_DURATION_SECONDS = 90; // 1.5 minutes
 
 /** Tracks longer than this (in seconds) are excluded when allow_long_tracks is off. */
@@ -65,7 +68,7 @@ export const CATALOG_PAGE_SIZE = 15;
 export const GAME_MAX_TRACKS = 300;
 
 /** Maximum characters allowed for a game title. */
-export const GAME_TITLE_MAX_LENGTH = 200;
+export const GAME_TITLE_MAX_LENGTH = 100;
 
 /** Maximum tracks allowed from a single YouTube playlist import. Matches MAX_TRACK_COUNT. */
 export const YT_IMPORT_MAX_TRACKS = MAX_TRACK_COUNT;

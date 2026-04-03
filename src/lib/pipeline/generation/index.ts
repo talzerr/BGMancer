@@ -2,12 +2,12 @@ import { createLogger } from "@/lib/logger";
 import { Games, Playlist, Sessions, DirectorDecisions } from "@/lib/db/repo";
 import { GameProgressStatus } from "@/types";
 import type { CurationMode, TrackDecision } from "@/types";
-import { fetchGameCandidates } from "@/lib/pipeline/candidates";
-import { toInsertable, taggedTrackToPending } from "@/lib/pipeline/assembly";
-import { assemblePlaylist } from "@/lib/pipeline/director";
-import { generateRubric } from "@/lib/pipeline/vibe-profiler";
+import { fetchGameCandidates } from "@/lib/pipeline/generation/candidates";
+import { toInsertable, taggedTrackToPending } from "@/lib/pipeline/generation/assembly";
+import { assemblePlaylist } from "@/lib/pipeline/generation/director";
+import { generateRubric } from "@/lib/pipeline/generation/vibe-profiler";
 import { getVibeProfilerProvider } from "@/lib/llm";
-import type { GenerateEvent, PendingTrack } from "@/lib/pipeline/types";
+import type { GenerateEvent, PendingTrack } from "@/lib/pipeline/generation/types";
 import type { AppConfig, Game, PlaylistTrack, TaggedTrack, ScoringRubric } from "@/types";
 import {
   MIN_TRACK_DURATION_SECONDS,

@@ -3,7 +3,7 @@ import { createLogger } from "@/lib/logger";
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export type TracklistResult = {
-  tracks: Array<{ name: string; position: number; durationSeconds: number | null }>;
+  tracks: Array<{ name: string; position: number }>;
   releaseTitle: string;
   releaseId: number;
   sourceType: string;
@@ -90,27 +90,12 @@ function pickBestRelease(results: DiscogsSearchResult[]): DiscogsSearchResult | 
   return pickByPopularity(pool);
 }
 
-function parseDuration(raw: string | undefined): number | null {
-  if (!raw) return null;
-  const parts = raw.split(":").map(Number);
-  if (parts.length === 2 && parts.every((n) => !isNaN(n))) {
-    return parts[0] * 60 + parts[1];
-  }
-  if (parts.length === 3 && parts.every((n) => !isNaN(n))) {
-    return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  }
-  return null;
-}
-
-function parseTracks(
-  tracklist: DiscogsTracklistItem[],
-): Array<{ name: string; position: number; durationSeconds: number | null }> {
+function parseTracks(tracklist: DiscogsTracklistItem[]): Array<{ name: string; position: number }> {
   return tracklist
     .filter((t) => t.title?.trim())
     .map((t, i) => ({
       name: t.title.trim(),
       position: i + 1,
-      durationSeconds: parseDuration(t.duration),
     }));
 }
 
