@@ -2,6 +2,7 @@ import { BackstageGames, Games } from "@/lib/db/repo";
 import type { GameUpdateFields } from "@/lib/db/repos/backstage-games";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
+import { gameTitleSchema } from "@/lib/validation";
 
 const log = createLogger("backstage-games");
 
@@ -16,7 +17,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ gameId
   const body = (await req.json()) as Partial<GameUpdateFields>;
 
   const fields: GameUpdateFields = {};
-  if (body.title !== undefined) fields.title = body.title;
+  if (body.title !== undefined) {
+    const parsed = gameTitleSchema.safeParse(body.title);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid title" }, { status: 400 });
+    }
+    fields.title = parsed.data;
+  }
   if (body.steam_appid !== undefined) fields.steam_appid = body.steam_appid;
   if (body.tracklist_source !== undefined) fields.tracklist_source = body.tracklist_source;
   if (body.yt_playlist_id !== undefined) fields.yt_playlist_id = body.yt_playlist_id;

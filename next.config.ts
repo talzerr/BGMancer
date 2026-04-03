@@ -35,8 +35,8 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               // Next.js injects inline scripts for hydration; YouTube iframe API loaded dynamically
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.youtube.com",
-              // Images: YouTube thumbnails + Steam cover art + Google avatars
-              "img-src 'self' data: https://i.ytimg.com https://img.youtube.com https://*.steamstatic.com https://lh3.googleusercontent.com",
+              // Images: YouTube thumbnails + Steam cover art + SteamGridDB art
+              "img-src 'self' data: https://i.ytimg.com https://img.youtube.com https://*.steamstatic.com https://cdn2.steamgriddb.com",
               // API calls + YouTube iframe communication
               "connect-src 'self' https://api.anthropic.com https://www.youtube.com",
               // Fonts loaded from same origin

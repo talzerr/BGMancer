@@ -65,7 +65,7 @@ export const CATALOG_PAGE_SIZE = 15;
 export const GAME_MAX_TRACKS = 300;
 
 /** Maximum characters allowed for a game title. */
-export const GAME_TITLE_MAX_LENGTH = 200;
+export const GAME_TITLE_MAX_LENGTH = 100;
 
 /** Maximum tracks allowed from a single YouTube playlist import. Matches MAX_TRACK_COUNT. */
 export const YT_IMPORT_MAX_TRACKS = MAX_TRACK_COUNT;

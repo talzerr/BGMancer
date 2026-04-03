@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
+import { sanitizeGameTitle } from "@/lib/utils";
 
 const log = createLogger("steam");
 
@@ -38,7 +39,11 @@ export async function GET(request: Request) {
 
     const results: SteamSearchResult[] = (data.items ?? [])
       .slice(0, 8)
-      .map(({ id, name, tiny_image }) => ({ appid: id, name, tiny_image }));
+      .map(({ id, name, tiny_image }) => ({
+        appid: id,
+        name: sanitizeGameTitle(name),
+        tiny_image,
+      }));
 
     return NextResponse.json({ results });
   } catch (err) {
