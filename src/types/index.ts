@@ -50,6 +50,13 @@ export enum BackstageModal {
   TagSelected = "tag-selected",
 }
 
+export enum TracklistSource {
+  DiscogsRelease = "discogs-release",
+  DiscogsMaster = "discogs-master",
+  Vgmdb = "vgmdb",
+  Manual = "manual",
+}
+
 export enum TrackFilter {
   All = "all",
   Active = "active",

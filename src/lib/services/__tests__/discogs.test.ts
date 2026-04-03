@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { searchGameSoundtrack, fetchDiscogsRelease, fetchDiscogsMaster } from "../discogs";
 import { TEST_GAME_TITLE, TEST_TRACK_NAME } from "@/test/constants";
+import { TracklistSource } from "@/types";
 
 const originalFetch = global.fetch;
 
@@ -68,7 +69,7 @@ describe("searchGameSoundtrack", () => {
       expect(result).not.toBeNull();
       expect(result!.tracks).toHaveLength(2);
       expect(result!.tracks[0].name).toBe(TEST_TRACK_NAME);
-      expect(result!.sourceType).toBe("discogs-master");
+      expect(result!.sourceType).toBe(TracklistSource.DiscogsMaster);
     });
   });
 
@@ -98,7 +99,7 @@ describe("searchGameSoundtrack", () => {
 
       const result = await searchGameSoundtrack("Hollow Knight");
       expect(result).not.toBeNull();
-      expect(result!.sourceType).toBe("discogs-release");
+      expect(result!.sourceType).toBe(TracklistSource.DiscogsRelease);
     });
   });
 
@@ -149,7 +150,7 @@ describe("fetchDiscogsRelease", () => {
       expect(result!.tracks).toHaveLength(2);
       expect(result!.releaseTitle).toBe("Celeste OST");
       expect(result!.releaseId).toBe(789);
-      expect(result!.sourceType).toBe("discogs-release");
+      expect(result!.sourceType).toBe(TracklistSource.DiscogsRelease);
     });
   });
 
@@ -198,7 +199,7 @@ describe("fetchDiscogsMaster", () => {
 
       const result = await fetchDiscogsMaster(321);
       expect(result).not.toBeNull();
-      expect(result!.sourceType).toBe("discogs-master");
+      expect(result!.sourceType).toBe(TracklistSource.DiscogsMaster);
       expect(result!.releaseId).toBe(321);
     });
   });

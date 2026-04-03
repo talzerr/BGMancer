@@ -1,5 +1,5 @@
 import { Games, Tracks, VideoTracks } from "@/lib/db/repo";
-import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
+import { makeSSEStream, SSE_HEADERS, sanitizeErrorMessage } from "@/lib/sse";
 import { resolveTracksToVideos } from "@/lib/pipeline/onboarding/resolver";
 import {
   discoverOSTPlaylist,
@@ -92,7 +92,7 @@ export async function POST(req: Request) {
         log.error("handler failed", {}, err);
         send({
           type: SSEEventType.Error,
-          message: err instanceof Error ? err.message : String(err),
+          message: sanitizeErrorMessage(err),
         });
       }
     } finally {

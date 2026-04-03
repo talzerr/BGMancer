@@ -1,5 +1,5 @@
 import { BackstageGames, Games } from "@/lib/db/repo";
-import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
+import { makeSSEStream, SSE_HEADERS, sanitizeErrorMessage } from "@/lib/sse";
 import { loadTracks } from "@/lib/pipeline/onboarding";
 import { OnboardingPhase, SSEEventType } from "@/types";
 import { createLogger } from "@/lib/logger";
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
     } catch (err) {
       await BackstageGames.setPhase(gameId, OnboardingPhase.Failed);
       log.error("handler failed", {}, err);
-      send({ type: SSEEventType.Error, message: err instanceof Error ? err.message : String(err) });
+      send({ type: SSEEventType.Error, message: sanitizeErrorMessage(err) });
     } finally {
       close();
     }

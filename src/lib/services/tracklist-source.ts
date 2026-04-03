@@ -5,33 +5,40 @@
  * (e.g. "vgmdb:79", "discogs-release:123"). It does NOT handle fetching — that's a separate concern.
  */
 
+import { TracklistSource } from "@/types";
+
 // ─── Static source metadata ─────────────────────────────────────────────────
 
 interface SourceMeta {
-  key: string;
+  key: TracklistSource;
   label: string;
   externalUrl: (id: string) => string;
 }
 
 const SOURCE_META: SourceMeta[] = [
   {
-    key: "discogs-release",
+    key: TracklistSource.DiscogsRelease,
     label: "Discogs Release",
     externalUrl: (id) => `https://www.discogs.com/release/${id}`,
   },
   {
-    key: "discogs-master",
+    key: TracklistSource.DiscogsMaster,
     label: "Discogs Master",
     externalUrl: (id) => `https://www.discogs.com/master/${id}`,
   },
   {
-    key: "vgmdb",
+    key: TracklistSource.Vgmdb,
     label: "VGMdb",
     externalUrl: (id) => `https://vgmdb.net/album/${id}`,
   },
+  {
+    key: TracklistSource.Manual,
+    label: "Manual",
+    externalUrl: () => "",
+  },
 ];
 
-const metaByKey = new Map(SOURCE_META.map((m) => [m.key, m]));
+const metaByKey = new Map(SOURCE_META.map((m) => [m.key as string, m]));
 
 // ─── Parsing & metadata ────────────────────────────────────────────────────
 
@@ -39,9 +46,11 @@ const SOURCE_PATTERN = /^([\w-]+):(\d+)$/;
 
 export type ParsedSource = { key: string; id: string };
 
-/** Parse a "type:id" tracklist_source string. Returns null for empty/invalid. */
+/** Parse a tracklist_source string. Supports "type:id" (e.g. "discogs-release:123") and bare keys (e.g. "manual"). */
 export function parseSource(raw: string | null): ParsedSource | null {
   if (!raw) return null;
+  // Bare key with no ID (e.g. "manual")
+  if (metaByKey.has(raw)) return { key: raw, id: "" };
   const match = raw.match(SOURCE_PATTERN);
   if (!match) return null;
   return { key: match[1], id: match[2] };

@@ -1,11 +1,16 @@
 import { describe, it, expect } from "vitest";
 import { parseSource, formatSource, sourceUrl, getRegisteredSources } from "../tracklist-source";
+import { TracklistSource } from "@/types";
 
 describe("parseSource", () => {
   it("parses valid source strings", () => {
     expect(parseSource("discogs-release:123")).toEqual({ key: "discogs-release", id: "123" });
     expect(parseSource("vgmdb:79")).toEqual({ key: "vgmdb", id: "79" });
     expect(parseSource("discogs-master:456")).toEqual({ key: "discogs-master", id: "456" });
+  });
+
+  it("parses bare registered keys (no ID)", () => {
+    expect(parseSource("manual")).toEqual({ key: "manual", id: "" });
   });
 
   it("returns null for invalid inputs", () => {
@@ -41,8 +46,13 @@ describe("sourceUrl", () => {
 describe("getRegisteredSources", () => {
   it("returns all registered source keys and labels", () => {
     const sources = getRegisteredSources();
-    expect(sources).toHaveLength(3);
-    expect(sources.map((s) => s.key)).toEqual(["discogs-release", "discogs-master", "vgmdb"]);
+    expect(sources).toHaveLength(4);
+    expect(sources.map((s) => s.key)).toEqual([
+      TracklistSource.DiscogsRelease,
+      TracklistSource.DiscogsMaster,
+      TracklistSource.Vgmdb,
+      TracklistSource.Manual,
+    ]);
     expect(sources.every((s) => s.label.length > 0)).toBe(true);
   });
 });

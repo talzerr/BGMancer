@@ -3,6 +3,18 @@ import { searchOSTPlaylist, fetchVideoMetadata } from "@/lib/services/youtube";
 import type { VideoMetadata } from "@/lib/services/youtube";
 import type { Game } from "@/types";
 
+/** Extract a bare playlist ID from a value that may be a full YouTube URL. */
+export function extractPlaylistId(value: string): string {
+  try {
+    const url = new URL(value);
+    const list = url.searchParams.get("list");
+    if (list) return list;
+  } catch {
+    // not a URL — treat as bare ID
+  }
+  return value;
+}
+
 /**
  * Discovers the YouTube OST playlist for a game.
  * Returns the cached playlist ID if available, otherwise searches YouTube and caches the result.
@@ -13,7 +25,7 @@ export async function discoverOSTPlaylist(
 ): Promise<string | null> {
   if (game.yt_playlist_id) {
     onProgress?.("Using cached OST playlist…");
-    return game.yt_playlist_id;
+    return extractPlaylistId(game.yt_playlist_id);
   }
 
   onProgress?.("Searching YouTube for OST playlist…");
