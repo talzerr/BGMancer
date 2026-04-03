@@ -34,16 +34,26 @@ function renderEmptyState(
 
 describe("PlaylistEmptyState", () => {
   describe("when gamesLength is 0", () => {
-    it("should show 'Add some games' message", () => {
+    it("should show library-building message", () => {
       renderEmptyState({ gamesLength: 0 });
-      expect(screen.getByText(/add some games/i)).toBeInTheDocument();
+      expect(screen.getByText(/build a library of game soundtracks/i)).toBeInTheDocument();
+    });
+
+    it("should show 'Build Your Library' CTA link", () => {
+      renderEmptyState({ gamesLength: 0 });
+      expect(screen.getByRole("link", { name: /build your library/i })).toBeInTheDocument();
     });
   });
 
   describe("when gamesLength is greater than 0", () => {
-    it("should show 'Click Generate' message", () => {
+    it("should show 'Hit Curate' message", () => {
       renderEmptyState({ gamesLength: 3 });
-      expect(screen.getByText(/click generate/i)).toBeInTheDocument();
+      expect(screen.getByText(/hit curate/i)).toBeInTheDocument();
+    });
+
+    it("should not show 'Build Your Library' CTA link", () => {
+      renderEmptyState({ gamesLength: 3 });
+      expect(screen.queryByRole("link", { name: /build your library/i })).not.toBeInTheDocument();
     });
   });
 
