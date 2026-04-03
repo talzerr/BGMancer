@@ -2,14 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { SearchIcon, CheckIcon, ChevronDownIcon, Spinner } from "@/components/Icons";
+import { CheckIcon, ChevronDownIcon, Spinner } from "@/components/Icons";
 import { CurationMode } from "@/types";
 import type { Game } from "@/types";
 
 interface CatalogBrowserProps {
   libraryGameIds: Set<string>;
   onGameAdded: () => void;
+  searchFilter?: string;
 }
+
+const PAGE_SIZE = 20;
 
 const CURATION_ADD_OPTIONS: {
   mode: CurationMode;
@@ -21,18 +24,15 @@ const CURATION_ADD_OPTIONS: {
   { mode: CurationMode.Lite, label: "Lite", colorClass: "text-blue-300" },
 ];
 
-export function CatalogBrowser({ libraryGameIds, onGameAdded }: CatalogBrowserProps) {
+export function CatalogBrowser({ libraryGameIds, onGameAdded, searchFilter }: CatalogBrowserProps) {
   const [catalog, setCatalog] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
   const [addingId, setAddingId] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const fetchCatalog = useCallback(async (query?: string) => {
+  const fetchCatalog = useCallback(async () => {
     try {
-      const params = query?.trim() ? `?q=${encodeURIComponent(query.trim())}` : "";
-      const res = await fetch(`/api/games/catalog${params}`);
+      const res = await fetch("/api/games/catalog");
       if (res.ok) setCatalog(await res.json());
     } catch {
       /* non-critical */
@@ -45,11 +45,16 @@ export function CatalogBrowser({ libraryGameIds, onGameAdded }: CatalogBrowserPr
     Promise.resolve().then(() => fetchCatalog());
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function handleSearch(value: string) {
-    setSearch(value);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => fetchCatalog(value), 300);
-  }
+  // Reset visible count when filter changes
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [searchFilter]);
+
+  const filtered = searchFilter?.trim()
+    ? catalog.filter((g) => g.title.toLowerCase().includes(searchFilter.toLowerCase()))
+    : catalog;
+
+  const visible = filtered.slice(0, visibleCount);
 
   async function handleAdd(gameId: string, curation: CurationMode = CurationMode.Include) {
     setAddingId(gameId);
@@ -70,47 +75,50 @@ export function CatalogBrowser({ libraryGameIds, onGameAdded }: CatalogBrowserPr
 
   return (
     <div className="space-y-3">
-      {/* Search */}
-      <div className="relative">
-        <SearchIcon className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => handleSearch(e.target.value)}
-          placeholder="Search catalog..."
-          className="w-full rounded-lg border border-white/[0.07] bg-zinc-800/60 py-2 pr-3 pl-9 text-sm text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-white/[0.12]"
-        />
-      </div>
-
       {/* Game grid */}
       {loading ? (
         <div className="flex justify-center py-10">
           <Spinner className="h-5 w-5 text-zinc-500" />
         </div>
-      ) : catalog.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <p className="py-6 text-center text-xs text-zinc-600">
-          {search ? "No games match your search." : "No published games yet."}
+          {searchFilter?.trim() ? "No games match your search." : "No published games yet."}
         </p>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-          {catalog.map((game) => {
-            const inLibrary = libraryGameIds.has(game.id);
-            const isAdding = addingId === game.id;
-            return (
-              <CatalogCard
-                key={game.id}
-                game={game}
-                inLibrary={inLibrary}
-                isAdding={isAdding}
-                onAdd={handleAdd}
-              />
-            );
-          })}
-        </div>
+        <>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            {visible.map((game) => {
+              const inLibrary = libraryGameIds.has(game.id);
+              const isAdding = addingId === game.id;
+              return (
+                <CatalogCard
+                  key={game.id}
+                  game={game}
+                  inLibrary={inLibrary}
+                  isAdding={isAdding}
+                  onAdd={handleAdd}
+                />
+              );
+            })}
+          </div>
+
+          {visible.length < filtered.length && (
+            <div className="flex justify-center pt-2">
+              <button
+                onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                className="cursor-pointer rounded-lg border border-white/[0.07] bg-zinc-900/60 px-4 py-2 text-xs font-semibold text-zinc-400 transition-colors hover:border-white/[0.12] hover:text-white"
+              >
+                Show more
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       <p className="text-[10px] text-zinc-600">
-        {catalog.length} game{catalog.length === 1 ? "" : "s"} in catalog
+        {searchFilter?.trim()
+          ? `${filtered.length} of ${catalog.length} game${catalog.length === 1 ? "" : "s"}`
+          : `${catalog.length} game${catalog.length === 1 ? "" : "s"} in catalog`}
       </p>
     </div>
   );

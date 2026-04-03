@@ -1,7 +1,7 @@
-import { LibraryClient } from "./library-client";
+import { CatalogClient } from "./catalog-client";
 
 export const metadata = { title: "Catalog — BGMancer" };
 
-export default function LibraryPage() {
-  return <LibraryClient />;
+export default function CatalogPage() {
+  return <CatalogClient />;
 }

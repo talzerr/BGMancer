@@ -139,33 +139,33 @@ describe("CatalogBrowser", () => {
     });
   });
 
-  describe("when search input is typed", () => {
-    it("should debounce and fetch with query param", async () => {
-      vi.useFakeTimers({ shouldAdvanceTime: true });
+  describe("when searchFilter prop is provided", () => {
+    it("should filter games client-side by title", async () => {
       const CatalogBrowser = await importComponent();
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      render(
+        <CatalogBrowser libraryGameIds={new Set()} onGameAdded={vi.fn()} searchFilter="hollow" />,
+      );
 
-      render(<CatalogBrowser libraryGameIds={new Set()} onGameAdded={vi.fn()} />);
+      expect(await screen.findByText("Hollow Knight")).toBeInTheDocument();
+      expect(screen.queryByText("Celeste")).not.toBeInTheDocument();
+    });
 
-      // Wait for initial fetch to resolve
-      await vi.advanceTimersByTimeAsync(10);
+    it("should show all games when searchFilter is empty", async () => {
+      const CatalogBrowser = await importComponent();
+      render(<CatalogBrowser libraryGameIds={new Set()} onGameAdded={vi.fn()} searchFilter="" />);
 
-      // Clear the initial fetch call tracking
-      const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
-      fetchMock.mockClear();
+      expect(await screen.findByText("Hollow Knight")).toBeInTheDocument();
+      expect(screen.getByText("Celeste")).toBeInTheDocument();
+    });
 
-      const searchInput = screen.getByPlaceholderText("Search catalog...");
-      await user.type(searchInput, "hollow");
+    it("should show filtered count in footer when filtering", async () => {
+      const CatalogBrowser = await importComponent();
+      render(
+        <CatalogBrowser libraryGameIds={new Set()} onGameAdded={vi.fn()} searchFilter="hollow" />,
+      );
 
-      // Should not have fetched with the full query yet (debounce hasn't fired for final keystroke)
-      fetchMock.mockClear();
-
-      // Advance past the 300ms debounce
-      await vi.advanceTimersByTimeAsync(350);
-
-      expect(fetchMock).toHaveBeenCalledWith("/api/games/catalog?q=hollow");
-
-      vi.useRealTimers();
+      await screen.findByText("Hollow Knight");
+      expect(screen.getByText("1 of 2 games")).toBeInTheDocument();
     });
   });
 
