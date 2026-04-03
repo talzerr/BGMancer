@@ -8,8 +8,6 @@ import { CatalogHeaderBar, FilterMode } from "@/components/CatalogHeaderBar";
 import { LibraryDrawer } from "@/components/LibraryDrawer";
 import type { CurationMode } from "@/types";
 
-const LS_DRAWER_OPENED = "bgm_drawer_opened";
-
 export function CatalogClient() {
   const router = useRouter();
   const { gameLibrary, config, playlist } = usePlayerContext();
@@ -17,9 +15,6 @@ export function CatalogClient() {
   const [search, setSearch] = useState("");
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [filterMode, setFilterMode] = useState<FilterMode>(FilterMode.All);
-  const [hasAutoOpened, setHasAutoOpened] = useState(
-    () => typeof window !== "undefined" && localStorage.getItem(LS_DRAWER_OPENED) === "1",
-  );
 
   useEffect(() => {
     fetch("/api/favorites")
@@ -42,11 +37,7 @@ export function CatalogClient() {
   }
 
   function handleGameAdded() {
-    if (!hasAutoOpened) {
-      setDrawerOpen(true);
-      setHasAutoOpened(true);
-      localStorage.setItem(LS_DRAWER_OPENED, "1");
-    }
+    if (!drawerOpen) setDrawerOpen(true);
     gameLibrary.fetchGames();
   }
 
@@ -101,7 +92,6 @@ export function CatalogClient() {
       <LibraryDrawer
         open={drawerOpen}
         games={gameLibrary.games}
-        totalTracks={playlist.tracks.length}
         targetTrackCount={config.targetTrackCount}
         generating={playlist.generating}
         onClose={() => setDrawerOpen(false)}

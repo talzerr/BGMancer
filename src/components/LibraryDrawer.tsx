@@ -4,13 +4,12 @@ import { CurationMode } from "@/types";
 import type { Game } from "@/types";
 import { steamHeaderUrl } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useState } from "react";
 
 interface LibraryDrawerProps {
   open: boolean;
   games: Game[];
-  totalTracks: number;
   targetTrackCount: number;
   generating: boolean;
   onClose: () => void;
@@ -58,7 +57,6 @@ function GameThumbnail({ game }: { game: Game }) {
 export function LibraryDrawer({
   open,
   games,
-  totalTracks,
   targetTrackCount,
   generating,
   onClose,
@@ -84,23 +82,28 @@ export function LibraryDrawer({
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-zinc-100">Library</span>
           <span className="text-xs text-zinc-500 tabular-nums">{games.length}</span>
-          <Tooltip>
-            <TooltipTrigger>
-              <span className="cursor-help text-[10px] text-zinc-600 hover:text-zinc-400">ⓘ</span>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-[200px] text-xs">
-              <p className="mb-1 font-semibold text-zinc-200">Curation modes</p>
-              <p>
-                <span className="text-amber-400">Focus</span> — guaranteed in every playlist
-              </p>
-              <p>
-                <span className="text-violet-400">Include</span> — standard inclusion
-              </p>
-              <p>
-                <span className="text-blue-400">Lite</span> — appears occasionally
-              </p>
-            </TooltipContent>
-          </Tooltip>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <span className="cursor-help text-[10px] text-zinc-600 hover:text-zinc-400">ⓘ</span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[220px] space-y-1 text-xs">
+                <p className="font-semibold text-zinc-200">Curation modes</p>
+                <p>
+                  <span className="font-medium text-amber-400">Focus</span>
+                  <span className="text-zinc-400"> — guaranteed in every playlist</span>
+                </p>
+                <p>
+                  <span className="font-medium text-violet-400">Include</span>
+                  <span className="text-zinc-400"> — standard inclusion</span>
+                </p>
+                <p>
+                  <span className="font-medium text-blue-400">Lite</span>
+                  <span className="text-zinc-400"> — appears occasionally</span>
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         <button
           onClick={onClose}
@@ -120,13 +123,15 @@ export function LibraryDrawer({
       {/* Content area */}
       {games.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-          <p className="text-sm font-medium text-zinc-300">Your soundtrack engine starts here.</p>
-          <p className="mt-2 text-xs leading-relaxed text-zinc-500">
-            Add games from the catalog and the Director will weave their soundtracks into a single
-            arc.
-          </p>
-          <p className="mt-6 text-xs text-zinc-600">
-            <span className="mr-1">&larr;</span>Browse the catalog to add games
+          {/* Paused equalizer — 3 static bars at different heights */}
+          <div className="mb-4 flex items-end gap-[3px]">
+            <div className="h-3 w-[3px] rounded-full bg-zinc-700" />
+            <div className="h-5 w-[3px] rounded-full bg-zinc-700" />
+            <div className="h-2 w-[3px] rounded-full bg-zinc-700" />
+          </div>
+          <p className="font-display text-sm font-semibold text-zinc-300">Pick some soundtracks</p>
+          <p className="mt-1.5 text-xs leading-relaxed text-zinc-600">
+            The Director shapes them into a playlist arc
           </p>
         </div>
       ) : (
@@ -170,25 +175,23 @@ export function LibraryDrawer({
       )}
 
       {/* Footer */}
-      <div className="border-t border-zinc-800 px-4 py-3">
-        <div className="mb-2.5 flex items-center justify-between text-xs text-zinc-500">
-          <span className="tabular-nums">
-            {games.length} game{games.length !== 1 ? "s" : ""} &middot; {totalTracks} tracks
-          </span>
-          <span className="tabular-nums">{targetTrackCount} tracks</span>
+      {hasActiveGames && (
+        <div className="border-t border-zinc-800 px-4 py-3">
+          <div className="mb-2.5 flex items-center justify-between text-xs text-zinc-500">
+            <span className="tabular-nums">
+              {activeGames.length} game{activeGames.length !== 1 ? "s" : ""}
+            </span>
+            <span className="tabular-nums">{targetTrackCount} tracks</span>
+          </div>
+          <Button
+            onClick={onGenerate}
+            disabled={generating}
+            className="w-full cursor-pointer bg-violet-600 text-sm font-semibold text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {generating ? "Curating\u2026" : `Curate ${targetTrackCount} Tracks`}
+          </Button>
         </div>
-        <Button
-          onClick={onGenerate}
-          disabled={!hasActiveGames || generating}
-          className="w-full cursor-pointer bg-violet-600 text-sm font-semibold text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {generating
-            ? "Curating\u2026"
-            : hasActiveGames
-              ? `Curate ${targetTrackCount} Tracks`
-              : "Add games to start"}
-        </Button>
-      </div>
+      )}
     </div>
   );
 }

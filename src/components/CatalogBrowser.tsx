@@ -120,7 +120,7 @@ export function CatalogBrowser({
             <div className="flex justify-center pt-2">
               <button
                 onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
-                className="cursor-pointer rounded-lg border border-white/[0.07] bg-zinc-900/60 px-4 py-2 text-xs font-semibold text-zinc-400 transition-colors hover:border-white/[0.12] hover:text-white"
+                className="cursor-pointer rounded-lg border border-white/[0.06] bg-zinc-900/60 px-4 py-2 text-xs font-semibold text-zinc-400 transition-colors hover:border-white/[0.12] hover:text-white"
               >
                 Show more
               </button>
@@ -178,12 +178,12 @@ function CatalogCard({
     <div
       className={`group relative flex flex-col overflow-hidden rounded-xl border transition-colors ${
         inLibrary
-          ? "border-violet-500/30 bg-violet-950/10"
-          : "border-white/[0.07] bg-zinc-900/60 hover:border-white/[0.12]"
+          ? "border-violet-500/20 bg-violet-950/10"
+          : "border-white/[0.06] bg-zinc-900/60 hover:border-white/[0.12]"
       }`}
     >
       {/* Cover art */}
-      <div className="relative">
+      <div className="relative bg-gradient-to-bl from-black/30 via-transparent to-transparent">
         {game.thumbnail_url ? (
           <Image
             src={game.thumbnail_url}
@@ -203,21 +203,46 @@ function CatalogCard({
         <button
           onClick={(e) => {
             e.stopPropagation();
+            const el = e.currentTarget;
+            el.classList.add("star-animate");
+            el.addEventListener("animationend", () => el.classList.remove("star-animate"), {
+              once: true,
+            });
             onToggleFavorite(game.id);
           }}
-          className={`absolute top-1.5 right-1.5 cursor-pointer text-sm leading-none transition-all duration-150 active:scale-125 ${
+          className={`absolute top-2 right-2 z-10 cursor-pointer rounded-full p-1 transition-all duration-200 ${
             isFavorite
-              ? "text-amber-400 opacity-100"
-              : "text-zinc-400 opacity-0 group-hover:opacity-100 hover:text-amber-300"
+              ? "opacity-100 drop-shadow-[0_0_6px_rgba(251,191,36,0.4)]"
+              : "opacity-0 group-hover:opacity-100"
           }`}
         >
-          {isFavorite ? "\u2605" : "\u2606"}
+          {isFavorite ? (
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-amber-400">
+              <path
+                fillRule="evenodd"
+                d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z"
+                clipRule="evenodd"
+              />
+            </svg>
+          ) : (
+            <svg
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              className="h-4 w-4 text-white/50"
+            >
+              <path d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z" />
+            </svg>
+          )}
         </button>
       </div>
 
       {/* Title + action */}
       <div className="flex flex-1 flex-col gap-2 p-2.5">
-        <p className="line-clamp-2 text-xs leading-snug font-medium text-zinc-200">{game.title}</p>
+        <p className="font-display line-clamp-2 text-xs leading-snug font-medium text-zinc-200">
+          {game.title}
+        </p>
 
         <div className="mt-auto">
           {inLibrary ? (
