@@ -90,19 +90,19 @@ export const BackstageGames = {
       .run();
   },
 
-  async listPublished(search?: string, limit?: number): Promise<Game[]> {
+  async listPublished(search?: string, limit = 500): Promise<Game[]> {
     const db = getDB();
     if (search?.trim()) {
       return toGames(
         await db.all(sql`
           SELECT * FROM games WHERE published = 1 AND title LIKE ${`%${search.trim()}%`}
-          ORDER BY title ASC LIMIT ${limit ?? 15}
+          ORDER BY title ASC LIMIT ${limit}
         `),
       );
     }
     return toGames(
       await db.all(sql`
-        SELECT * FROM games WHERE published = 1 ORDER BY title ASC LIMIT ${limit ?? 15}
+        SELECT * FROM games WHERE published = 1 ORDER BY title ASC LIMIT ${limit}
       `),
     );
   },
