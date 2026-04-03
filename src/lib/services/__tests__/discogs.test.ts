@@ -212,6 +212,20 @@ describe("fetchDiscogsMaster", () => {
       expect(await fetchDiscogsMaster(321)).toBeNull();
     });
   });
+
+  describe("when the API returns 404", () => {
+    it("should return null", async () => {
+      mockFetchSequence([{ ok: false, status: 404 }]);
+      expect(await fetchDiscogsMaster(999)).toBeNull();
+    });
+  });
+
+  describe("when the API returns a server error", () => {
+    it("should throw", async () => {
+      mockFetchSequence([{ ok: false, status: 500 }]);
+      await expect(fetchDiscogsMaster(999)).rejects.toThrow("Discogs API error");
+    });
+  });
 });
 
 describe("throttle (rate-limit pause)", () => {

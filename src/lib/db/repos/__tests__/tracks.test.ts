@@ -64,6 +64,31 @@ describe("Tracks", () => {
     });
   });
 
+  describe("deactivateTracks", () => {
+    it("should set active to false for the given track names", async () => {
+      await Tracks.upsertBatch([
+        { gameId, name: "Track A", position: 0 },
+        { gameId, name: "Track B", position: 1 },
+        { gameId, name: "Track C", position: 2 },
+      ]);
+
+      await Tracks.deactivateTracks(gameId, ["Track A", "Track C"]);
+
+      const tracks = await Tracks.getByGame(gameId);
+      expect(tracks.find((t) => t.name === "Track A")!.active).toBe(false);
+      expect(tracks.find((t) => t.name === "Track B")!.active).toBe(true);
+      expect(tracks.find((t) => t.name === "Track C")!.active).toBe(false);
+    });
+
+    it("should be a no-op when given an empty array", async () => {
+      await Tracks.upsertBatch([{ gameId, name: "Track A", position: 0 }]);
+      await Tracks.deactivateTracks(gameId, []);
+
+      const tracks = await Tracks.getByGame(gameId);
+      expect(tracks[0].active).toBe(true);
+    });
+  });
+
   describe("getByGame", () => {
     describe("when tracks exist", () => {
       it("should return tracks ordered by position", async () => {

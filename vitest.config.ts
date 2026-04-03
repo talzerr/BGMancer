@@ -43,7 +43,7 @@ export default defineConfig({
         "src/lib/db/index.ts",
         "src/lib/db/drizzle-schema.ts",
         "src/lib/llm/provider.ts",
-        "src/lib/pipeline/types.ts",
+        "src/lib/pipeline/generation/types.ts",
         "src/lib/services/auth.ts",
 
         // KV production paths require Cloudflare Workers runtime
@@ -51,10 +51,10 @@ export default defineConfig({
 
         // Heavy orchestrators chaining 3+ external services (LLM + YouTube + DB).
         // Appropriate for E2E tests, not unit/integration tests.
-        "src/lib/pipeline/index.ts",
-        "src/lib/pipeline/onboarding.ts",
-        "src/lib/pipeline/resolver.ts",
-        "src/lib/pipeline/youtube-resolve.ts",
+        "src/lib/pipeline/generation/index.ts",
+        "src/lib/pipeline/onboarding/index.ts",
+        "src/lib/pipeline/onboarding/resolver.ts",
+        "src/lib/pipeline/onboarding/youtube-resolve.ts",
       ],
     },
   },

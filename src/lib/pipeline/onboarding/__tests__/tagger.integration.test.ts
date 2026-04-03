@@ -269,6 +269,78 @@ describe("tagTracks (integration)", () => {
     });
   });
 
+  describe("when onProgress callback is provided", () => {
+    it("should call onProgress with batch index, total, and track name", async () => {
+      const response = JSON.stringify(
+        tracks.map((_, i) => ({
+          index: i + 1,
+          energy: 2,
+          roles: ["ambient"],
+          moods: ["peaceful"],
+          instrumentation: ["piano"],
+          hasVocals: false,
+          confident: true,
+        })),
+      );
+      const onProgress = vi.fn();
+      await tagTracks(
+        gameId,
+        TEST_GAME_TITLE,
+        tracks,
+        mockProvider(response),
+        undefined,
+        onProgress,
+      );
+      expect(onProgress).toHaveBeenCalledWith(0, 3, "Track 1");
+    });
+  });
+
+  describe("when signal is already aborted", () => {
+    it("should throw immediately without calling the provider", async () => {
+      const abort = new AbortController();
+      abort.abort();
+      const provider = mockProvider("should not be called");
+      await expect(
+        tagTracks(gameId, TEST_GAME_TITLE, tracks, provider, abort.signal),
+      ).rejects.toThrow("Cancelled");
+      expect(provider.complete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("when signal aborts during LLM call", () => {
+    it("should re-throw the abort error", async () => {
+      const abort = new AbortController();
+      const provider: LLMProvider = {
+        complete: vi.fn().mockImplementation(async () => {
+          abort.abort();
+          throw new Error("aborted");
+        }),
+      };
+      await expect(
+        tagTracks(gameId, TEST_GAME_TITLE, tracks, provider, abort.signal),
+      ).rejects.toThrow();
+    });
+  });
+
+  describe("when the LLM returns invalid roles (valid energy)", () => {
+    it("should flag with roles-specific reason", async () => {
+      const response = JSON.stringify([
+        {
+          index: 1,
+          energy: 2,
+          roles: [],
+          moods: ["peaceful"],
+          instrumentation: ["piano"],
+          hasVocals: false,
+          confident: true,
+        },
+      ]);
+      await tagTracks(gameId, TEST_GAME_TITLE, [tracks[0]], mockProvider(response));
+      const flags = await ReviewFlags.listByGame(gameId);
+      expect(flags.some((f) => f.detail?.includes("invalid roles"))).toBe(true);
+    });
+  });
+
   describe("when there are no untagged tracks", () => {
     it("should return immediately without calling the provider", async () => {
       // Tag all tracks first
