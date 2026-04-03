@@ -38,7 +38,7 @@ describe("Tracks", () => {
       it("should insert all tracks", async () => {
         await Tracks.upsertBatch([
           { gameId, name: "Title Screen", position: 0 },
-          { gameId, name: "Battle Theme", position: 1, durationSeconds: 210 },
+          { gameId, name: "Battle Theme", position: 1 },
         ]);
 
         const rows = rawDb
@@ -46,35 +46,20 @@ describe("Tracks", () => {
           .all(gameId) as Array<Record<string, unknown>>;
         expect(rows).toHaveLength(2);
         expect(rows[0].name).toBe("Title Screen");
-        expect(rows[1].duration_seconds).toBe(210);
+        expect(rows[1].name).toBe("Battle Theme");
       });
     });
 
     describe("when a track with the same (game_id, name) already exists", () => {
-      it("should update position and duration on conflict", async () => {
-        await Tracks.upsertBatch([
-          { gameId, name: "Main Theme", position: 0, durationSeconds: 120 },
-        ]);
-        await Tracks.upsertBatch([
-          { gameId, name: "Main Theme", position: 5, durationSeconds: 180 },
-        ]);
+      it("should update position on conflict", async () => {
+        await Tracks.upsertBatch([{ gameId, name: "Main Theme", position: 0 }]);
+        await Tracks.upsertBatch([{ gameId, name: "Main Theme", position: 5 }]);
 
         const rows = rawDb
           .prepare("SELECT * FROM tracks WHERE game_id = ? AND name = ?")
           .all(gameId, "Main Theme") as Array<Record<string, unknown>>;
         expect(rows).toHaveLength(1);
         expect(rows[0].position).toBe(5);
-        expect(rows[0].duration_seconds).toBe(180);
-      });
-
-      it("should preserve existing duration when new value is null (COALESCE)", async () => {
-        await Tracks.upsertBatch([{ gameId, name: "Theme", position: 0, durationSeconds: 120 }]);
-        await Tracks.upsertBatch([{ gameId, name: "Theme", position: 1 }]);
-
-        const row = rawDb
-          .prepare("SELECT duration_seconds FROM tracks WHERE game_id = ? AND name = ?")
-          .get(gameId, "Theme") as { duration_seconds: number | null };
-        expect(row.duration_seconds).toBe(120);
       });
     });
   });

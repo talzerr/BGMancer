@@ -1,7 +1,7 @@
 import { OnboardingPhase, ReviewReason, DiscoveredStatus } from "@/types";
 import type { Game } from "@/types";
 import { Games, BackstageGames, Tracks, VideoTracks, ReviewFlags } from "@/lib/db/repo";
-import { GAME_MAX_TRACKS } from "@/lib/constants";
+import { GAME_MAX_TRACKS, SFX_DURATION_THRESHOLD_SECONDS } from "@/lib/constants";
 import {
   searchGameSoundtrack,
   fetchDiscogsRelease,
@@ -67,7 +67,6 @@ export async function loadTracks(
       gameId: game.id,
       name: t.name,
       position: t.position,
-      durationSeconds: t.durationSeconds,
     })),
   );
 
@@ -90,6 +89,7 @@ export async function tagGameTracks(
   game: Game,
   onProgress?: (message: string) => void,
   signal?: AbortSignal,
+  onBatchProgress?: (current: number, total: number, trackName: string) => void,
 ): Promise<{ tagged: number; needsReview: boolean }> {
   const dbTracks = await Tracks.getByGame(game.id);
   const resolvedMap = await VideoTracks.getTrackToVideo(game.id);
@@ -101,7 +101,7 @@ export async function tagGameTracks(
   onProgress?.(`Tagging ${taggable.length} resolved tracks (${dbTracks.length} total)…`);
 
   const provider = getTaggingProvider();
-  await tagTracks(game.id, game.title, taggable, provider, signal);
+  await tagTracks(game.id, game.title, taggable, provider, signal, onBatchProgress);
   await BackstageGames.setPhase(game.id, OnboardingPhase.Tagged);
 
   const afterTracks = await Tracks.getByGame(game.id);
@@ -142,6 +142,14 @@ export async function resolveVideos(
   onProgress?.("Fetching video metadata…");
   const allVideoIds = [...(await VideoTracks.getTrackToVideo(game.id)).values()];
   await ensureVideoMetadata(allVideoIds, game.id);
+
+  // Auto-deactivate SFX tracks (very short videos) before tagging
+  const deactivated = await Tracks.deactivateShortTracks(game.id, SFX_DURATION_THRESHOLD_SECONDS);
+  if (deactivated > 0) {
+    onProgress?.(
+      `Deactivated ${deactivated} SFX track${deactivated > 1 ? "s" : ""} (<${SFX_DURATION_THRESHOLD_SECONDS}s)`,
+    );
+  }
 
   await BackstageGames.setPhase(game.id, OnboardingPhase.Resolved);
 

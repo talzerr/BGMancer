@@ -7,7 +7,7 @@ import { createLogger } from "@/lib/logger";
 const log = createLogger("backstage-reingest");
 
 type ReingestEvent =
-  | { type: SSEEventType.Progress; message: string }
+  | { type: SSEEventType.Progress; message: string; current?: number; total?: number }
   | {
       type: SSEEventType.Done;
       trackCount: number;
@@ -66,7 +66,13 @@ export async function POST(req: Request) {
         return;
       }
 
-      const tagResult = await tagGameTracks(game, progress, abort.signal);
+      const tagResult = await tagGameTracks(
+        game,
+        progress,
+        abort.signal,
+        (current, total, trackName) =>
+          send({ type: SSEEventType.Progress, message: `Tagging: ${trackName}`, current, total }),
+      );
 
       send({
         type: SSEEventType.Done,

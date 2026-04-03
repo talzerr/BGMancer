@@ -41,12 +41,17 @@ export async function POST(req: Request) {
       await Tracks.clearTags(gameId);
 
       const tracks = await Tracks.getByGame(gameId);
-      const total = tracks.length;
-
-      send({ type: SSEEventType.Progress, current: 0, total, trackName: "Starting…" });
 
       const provider = getTaggingProvider();
-      await tagTracks(gameId, game.title, tracks, provider, abort.signal);
+      await tagTracks(
+        gameId,
+        game.title,
+        tracks,
+        provider,
+        abort.signal,
+        (current, total, trackName) =>
+          send({ type: SSEEventType.Progress, current, total, trackName }),
+      );
 
       await BackstageGames.setPhase(gameId, OnboardingPhase.Tagged);
 

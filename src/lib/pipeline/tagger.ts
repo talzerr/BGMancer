@@ -98,6 +98,7 @@ export async function tagTracks(
   tracks: Track[],
   provider: LLMProvider,
   signal?: AbortSignal,
+  onProgress?: (current: number, total: number, trackName: string) => void,
 ): Promise<void> {
   const allUntagged = tracks.filter(
     (t) => t.taggedAt === null && t.discovered !== DiscoveredStatus.Rejected,
@@ -118,6 +119,7 @@ export async function tagTracks(
     if (signal?.aborted) throw new Error("Cancelled");
 
     const batch = untagged.slice(i, i + TAG_BATCH_SIZE);
+    onProgress?.(i, untagged.length, batch[0].name);
     const batchNum = i / TAG_BATCH_SIZE + 1;
     const userPrompt = buildUserPrompt(gameTitle, batch);
 

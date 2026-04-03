@@ -8,33 +8,20 @@
 export interface ParsedTrack {
   name: string;
   position: number;
-  durationSeconds: number | null;
 }
 
 const DURATION_PATTERN = /(\d{1,2}:\d{2}(?::\d{2})?)/;
 const LEADING_NUMBER_PATTERN = /^\d+[\s).\-–—]+\s*/;
 
-function parseDuration(raw: string): number {
-  const parts = raw.split(":").map(Number);
-  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  return parts[0] * 60 + parts[1];
-}
-
 function parseLine(line: string, position: number): ParsedTrack {
   // Strip leading track numbers like "01.", "1.", "01 -", "1 -", "01)", "1)"
   const stripped = line.replace(LEADING_NUMBER_PATTERN, "");
-  const durMatch = stripped.match(DURATION_PATTERN);
-  let durationSeconds: number | null = null;
-  let name = stripped;
+  // Remove duration strings (M:SS, MM:SS, H:MM:SS) so they don't end up in the name
+  let name = stripped.replace(DURATION_PATTERN, "").trim();
+  // Clean up trailing/leading separators left after removing duration
+  name = name.replace(/[\s\-–—]+$/, "").replace(/^[\s\-–—]+/, "");
 
-  if (durMatch) {
-    name = stripped.replace(DURATION_PATTERN, "").trim();
-    // Clean up trailing/leading separators left after removing duration
-    name = name.replace(/[\s\-–—]+$/, "").replace(/^[\s\-–—]+/, "");
-    durationSeconds = parseDuration(durMatch[1]);
-  }
-
-  return { name: name || stripped, position, durationSeconds };
+  return { name: name || stripped, position };
 }
 
 /** Parse a pasted tracklist into an array of tracks. */

@@ -68,7 +68,6 @@ describe("searchGameSoundtrack", () => {
       expect(result).not.toBeNull();
       expect(result!.tracks).toHaveLength(2);
       expect(result!.tracks[0].name).toBe(TEST_TRACK_NAME);
-      expect(result!.tracks[0].durationSeconds).toBe(3 * 60 + 45);
       expect(result!.sourceType).toBe("discogs-master");
     });
   });
@@ -272,43 +271,7 @@ describe("duration parsing (via fetchDiscogsRelease)", () => {
       ]);
 
       const result = await fetchDiscogsRelease(100);
-      expect(result!.tracks[0].durationSeconds).toBe(3600 + 23 * 60 + 45);
-    });
-  });
-
-  describe("when tracks have unparseable durations", () => {
-    it("should return null for durationSeconds", async () => {
-      mockFetchSequence([
-        {
-          ok: true,
-          data: {
-            title: "Weird OST",
-            tracklist: [{ title: "Track", position: "1", duration: "unknown" }],
-          },
-          headers: { "X-Discogs-Ratelimit-Remaining": "50" },
-        },
-      ]);
-
-      const result = await fetchDiscogsRelease(101);
-      expect(result!.tracks[0].durationSeconds).toBeNull();
-    });
-  });
-
-  describe("when tracks have no duration field", () => {
-    it("should return null for durationSeconds", async () => {
-      mockFetchSequence([
-        {
-          ok: true,
-          data: {
-            title: "No Duration OST",
-            tracklist: [{ title: "Track", position: "1" }],
-          },
-          headers: { "X-Discogs-Ratelimit-Remaining": "50" },
-        },
-      ]);
-
-      const result = await fetchDiscogsRelease(102);
-      expect(result!.tracks[0].durationSeconds).toBeNull();
+      expect(result!.tracks[0].name).toBe("Epic Suite");
     });
   });
 });

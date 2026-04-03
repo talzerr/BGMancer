@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { cn, gameSlug, idFromGameSlug, sanitizeGameTitle } from "../utils";
+import { GAME_TITLE_MAX_LENGTH } from "@/lib/constants";
 
 describe("cn", () => {
   it("should merge class names", () => {
@@ -93,8 +94,8 @@ describe("sanitizeGameTitle", () => {
   });
 
   it("should enforce max length", () => {
-    const long = "A".repeat(300);
-    expect(sanitizeGameTitle(long)).toHaveLength(200);
+    const long = "A".repeat(GAME_TITLE_MAX_LENGTH + 100);
+    expect(sanitizeGameTitle(long)).toHaveLength(GAME_TITLE_MAX_LENGTH);
   });
 
   it("should preserve clean titles unchanged", () => {

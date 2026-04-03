@@ -28,7 +28,6 @@ function rowToTrack(row: typeof tracks.$inferSelect): Track {
     gameId: row.game_id,
     name: row.name,
     position: row.position,
-    durationSeconds: row.duration_seconds,
     energy,
     roles: parseJsonArray(row.roles) as TrackRole[],
     moods: parseJsonArray(row.moods) as TrackMood[],
@@ -66,7 +65,6 @@ export const Tracks = {
       gameId: string;
       name: string;
       position: number;
-      durationSeconds?: number | null;
     }>,
   ): Promise<void> {
     if (trackList.length === 0) return;
@@ -79,17 +77,29 @@ export const Tracks = {
             game_id: t.gameId,
             name: t.name,
             position: t.position,
-            duration_seconds: t.durationSeconds ?? null,
           })
           .onConflictDoUpdate({
             target: [tracks.game_id, tracks.name],
             set: {
               position: sql`excluded.position`,
-              duration_seconds: sql`COALESCE(excluded.duration_seconds, tracks.duration_seconds)`,
             },
           }),
       ),
     );
+  },
+
+  async deactivateShortTracks(gameId: string, thresholdSeconds: number): Promise<number> {
+    const result = await getDB().run(sql`
+      UPDATE tracks SET active = 0
+      WHERE game_id = ${gameId}
+        AND name IN (
+          SELECT track_name FROM video_tracks
+          WHERE game_id = ${gameId}
+            AND duration_seconds IS NOT NULL
+            AND duration_seconds < ${thresholdSeconds}
+        )
+    `);
+    return result.changes ?? 0;
   },
 
   async hasData(gameId: string): Promise<boolean> {
