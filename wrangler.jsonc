@@ -38,6 +38,7 @@
     "NODE_ENV": "production",
     "NEXTAUTH_URL": "https://bgmancer.com",
     "AUTH_TRUST_HOST": "true",
+    "TURNSTILE_SITE_KEY": "0x4AAAAAACzlp5olQhU-tatr",
   },
   // ─── Staging environment ────────────────────────────────────────────────
   // Deploy with: opennextjs-cloudflare build && wrangler deploy --env staging
@@ -65,6 +66,7 @@
         "NODE_ENV": "production",
         "NEXTAUTH_URL": "https://staging.bgmancer.com",
         "AUTH_TRUST_HOST": "true",
+        "TURNSTILE_SITE_KEY": "0x4AAAAAACzlp5olQhU-tatr",
       },
     },
   },

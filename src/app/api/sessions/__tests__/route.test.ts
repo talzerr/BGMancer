@@ -17,7 +17,7 @@ vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
   return {
     getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries),
+    batch: async (queries: any[]) => db.batch(queries as [any]),
 
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
@@ -49,16 +49,16 @@ describe("GET /api/sessions", () => {
       // Add some tracks to the session
       rawDb
         .prepare(
-          `INSERT INTO playlist_tracks (id, playlist_id, game_id, track_name, position, status)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO playlist_tracks (id, playlist_id, game_id, track_name, position)
+         VALUES (?, ?, ?, ?, ?)`,
         )
-        .run("pt1", sessionId, TEST_GAME_ID, "Track 1", 0, "found");
+        .run("pt1", sessionId, TEST_GAME_ID, "Track 1", 0);
       rawDb
         .prepare(
-          `INSERT INTO playlist_tracks (id, playlist_id, game_id, track_name, position, status)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO playlist_tracks (id, playlist_id, game_id, track_name, position)
+         VALUES (?, ?, ?, ?, ?)`,
         )
-        .run("pt2", sessionId, TEST_GAME_ID, "Track 2", 1, "found");
+        .run("pt2", sessionId, TEST_GAME_ID, "Track 2", 1);
 
       const res = await GET(new Request("http://localhost:6959/api/sessions"));
       expect(res.status).toBe(200);

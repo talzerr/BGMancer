@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { Games, Playlist, Sessions } from "@/lib/db/repo";
+import { createLogger } from "@/lib/logger";
 import { YT_IMPORT_GAME_ID, YT_IMPORT_MAX_TRACKS } from "@/lib/constants";
 import {
   fetchPlaylistItems,
@@ -7,11 +8,12 @@ import {
   YouTubeQuotaError,
 } from "@/lib/services/youtube";
 import { newId } from "@/lib/uuid";
-import { TrackStatus } from "@/types";
 import type { PlaylistTrack } from "@/types";
 import { getAuthUserId } from "@/lib/services/auth-helpers";
 import { importPlaylistSchema, zodErrorResponse } from "@/lib/validation";
 import { checkGuestRateLimit } from "@/lib/rate-limit";
+
+const log = createLogger("import");
 
 function extractPlaylistId(input: string): string | null {
   const trimmed = input.trim();
@@ -88,10 +90,7 @@ export async function POST(request: Request) {
       video_title: t.title,
       channel_title: t.channelTitle,
       thumbnail: t.thumbnail,
-      search_queries: null,
       duration_seconds: null,
-      status: TrackStatus.Found,
-      error_message: null,
     }));
 
     if (userId) {
@@ -134,7 +133,7 @@ export async function POST(request: Request) {
       playlistId,
     });
   } catch (err) {
-    console.error("[POST /api/playlist/import]", err);
+    log.error("handler failed", {}, err);
     return NextResponse.json(
       { error: "Import failed", detail: err instanceof Error ? err.message : String(err) },
       { status: 500 },

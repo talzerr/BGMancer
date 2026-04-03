@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
+import { createLogger } from "@/lib/logger";
+import { sanitizeGameTitle } from "@/lib/utils";
+
+const log = createLogger("steam");
 
 export interface SteamGame {
   appid: number;
@@ -97,11 +101,15 @@ export async function GET(request: Request) {
 
     const sorted = [...games]
       .sort((a, b) => b.playtime_forever - a.playtime_forever)
-      .map(({ appid, name, playtime_forever }) => ({ appid, name, playtime_forever }));
+      .map(({ appid, name, playtime_forever }) => ({
+        appid,
+        name: sanitizeGameTitle(name),
+        playtime_forever,
+      }));
 
     return NextResponse.json({ games: sorted });
   } catch (err) {
-    console.error("[GET /api/steam/games]", err);
+    log.error("handler failed", {}, err);
     return NextResponse.json({ error: "internal" }, { status: 500 });
   }
 }

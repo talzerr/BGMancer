@@ -8,7 +8,6 @@ import {
   toTracks,
   toPlaylistTrack,
   toPlaylistTracks,
-  parseSearchQueries,
   parseJsonArray,
   VALID_CURATIONS,
 } from "../mappers";
@@ -18,7 +17,6 @@ import {
   TrackMood,
   TrackInstrumentation,
   TrackRole,
-  TrackStatus,
   DiscoveredStatus,
 } from "@/types";
 
@@ -205,45 +203,6 @@ describe("toGames", () => {
   });
 });
 
-// ─── parseSearchQueries ─────────────────────────────────────────────────────
-
-describe("parseSearchQueries", () => {
-  describe("when input is null or undefined", () => {
-    it("should return null", () => {
-      expect(parseSearchQueries(null)).toBeNull();
-      expect(parseSearchQueries(undefined)).toBeNull();
-    });
-  });
-
-  describe("when input is already an array", () => {
-    it("should pass through unchanged", () => {
-      expect(parseSearchQueries(["a", "b"])).toEqual(["a", "b"]);
-    });
-  });
-
-  describe("when input is a valid JSON string", () => {
-    it("should parse into an array", () => {
-      expect(parseSearchQueries('["hello","world"]')).toEqual(["hello", "world"]);
-    });
-  });
-
-  describe("when input is invalid JSON or non-array JSON", () => {
-    it("should return null for invalid JSON", () => {
-      expect(parseSearchQueries("not json")).toBeNull();
-    });
-
-    it("should return null for non-array JSON", () => {
-      expect(parseSearchQueries('{"key":"value"}')).toBeNull();
-    });
-  });
-
-  describe("when input is an unsupported type", () => {
-    it("should return null", () => {
-      expect(parseSearchQueries(42)).toBeNull();
-    });
-  });
-});
-
 // ─── parseJsonArray ─────────────────────────────────────────────────────────
 
 describe("parseJsonArray", () => {
@@ -294,7 +253,6 @@ describe("toTrack", () => {
     game_id: "g1",
     name: "Title Screen",
     position: 1,
-    duration_seconds: 180,
     energy: 2,
     roles: JSON.stringify([TrackRole.Opener]),
     moods: JSON.stringify([TrackMood.Peaceful, TrackMood.Nostalgic]),
@@ -311,7 +269,6 @@ describe("toTrack", () => {
       expect(track.gameId).toBe("g1");
       expect(track.name).toBe("Title Screen");
       expect(track.position).toBe(1);
-      expect(track.durationSeconds).toBe(180);
       expect(track.energy).toBe(2);
       expect(track.roles).toEqual([TrackRole.Opener]);
       expect(track.moods).toEqual([TrackMood.Peaceful, TrackMood.Nostalgic]);
@@ -389,10 +346,6 @@ describe("toTrack", () => {
       expect(toTrack({ ...baseRow, tagged_at: null }).taggedAt).toBeNull();
     });
 
-    it("should handle null duration_seconds", () => {
-      expect(toTrack({ ...baseRow, duration_seconds: null }).durationSeconds).toBeNull();
-    });
-
     it("should default position to 0 when missing", () => {
       expect(toTrack({ ...baseRow, position: undefined }).position).toBe(0);
     });
@@ -423,11 +376,8 @@ describe("toPlaylistTrack", () => {
     video_title: "Firelink Shrine - Dark Souls OST",
     channel_title: "GameOST",
     thumbnail: "https://i.ytimg.com/vi/abc123/default.jpg",
-    search_queries: null,
     duration_seconds: 240,
     position: 0,
-    status: TrackStatus.Found,
-    error_message: null,
     created_at: "2025-01-01",
     synced_at: null,
   };
@@ -441,13 +391,6 @@ describe("toPlaylistTrack", () => {
       expect(pt.game_title).toBe("Dark Souls");
       expect(pt.track_name).toBe("Firelink Shrine");
       expect(pt.video_id).toBe("abc123");
-      expect(pt.status).toBe(TrackStatus.Found);
-    });
-  });
-
-  describe("when status is invalid", () => {
-    it("should default to Pending", () => {
-      expect(toPlaylistTrack({ ...baseRow, status: "invalid" }).status).toBe(TrackStatus.Pending);
     });
   });
 
@@ -462,7 +405,6 @@ describe("toPlaylistTrack", () => {
         channel_title: null,
         thumbnail: null,
         duration_seconds: null,
-        error_message: null,
         synced_at: null,
       });
       expect(pt.game_title).toBeUndefined();
@@ -472,7 +414,6 @@ describe("toPlaylistTrack", () => {
       expect(pt.channel_title).toBeNull();
       expect(pt.thumbnail).toBeNull();
       expect(pt.duration_seconds).toBeNull();
-      expect(pt.error_message).toBeNull();
       expect(pt.synced_at).toBeNull();
     });
   });
@@ -481,21 +422,11 @@ describe("toPlaylistTrack", () => {
     it("should map them correctly", () => {
       const pt = toPlaylistTrack({
         ...baseRow,
-        error_message: "Something went wrong",
         synced_at: "2025-06-01",
         game_thumbnail_url: "https://cdn.steam.com/header.jpg",
       });
-      expect(pt.error_message).toBe("Something went wrong");
       expect(pt.synced_at).toBe("2025-06-01");
       expect(pt.game_thumbnail_url).toBe("https://cdn.steam.com/header.jpg");
-    });
-  });
-
-  describe("when search_queries is a JSON string", () => {
-    it("should parse into an array", () => {
-      expect(
-        toPlaylistTrack({ ...baseRow, search_queries: '["query1","query2"]' }).search_queries,
-      ).toEqual(["query1", "query2"]);
     });
   });
 

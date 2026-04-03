@@ -5,11 +5,9 @@ import {
   TrackMood,
   TrackInstrumentation,
   TrackRole,
-  TrackStatus,
 } from "@/types";
 import type { Game, PlaylistTrack, PlaylistSession, Track, User } from "@/types";
 
-const VALID_STATUSES = new Set<string>(Object.values(TrackStatus));
 const VALID_ONBOARDING_PHASES = new Set<string>(Object.values(OnboardingPhase));
 
 export const VALID_CURATIONS = new Set<CurationMode>(Object.values(CurationMode) as CurationMode[]);
@@ -63,20 +61,6 @@ export function toGames(rows: unknown[]): Game[] {
   return (rows as Record<string, unknown>[]).map(toGame);
 }
 
-export function parseSearchQueries(raw: unknown): string[] | null {
-  if (raw == null) return null;
-  if (Array.isArray(raw)) return raw as string[];
-  if (typeof raw === "string") {
-    try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : null;
-    } catch {
-      return null;
-    }
-  }
-  return null;
-}
-
 export function toPlaylistTrack(row: Record<string, unknown>): PlaylistTrack {
   return {
     id: String(row.id),
@@ -89,13 +73,8 @@ export function toPlaylistTrack(row: Record<string, unknown>): PlaylistTrack {
     video_title: row.video_title != null ? String(row.video_title) : null,
     channel_title: row.channel_title != null ? String(row.channel_title) : null,
     thumbnail: row.thumbnail != null ? String(row.thumbnail) : null,
-    search_queries: parseSearchQueries(row.search_queries),
     duration_seconds: row.duration_seconds != null ? Number(row.duration_seconds) : null,
     position: Number(row.position ?? 0),
-    status: VALID_STATUSES.has(row.status as string)
-      ? (row.status as TrackStatus)
-      : TrackStatus.Pending,
-    error_message: row.error_message != null ? String(row.error_message) : null,
     created_at: String(row.created_at ?? ""),
     synced_at: row.synced_at != null ? String(row.synced_at) : null,
   };
@@ -136,7 +115,6 @@ export function toTrack(row: Record<string, unknown>): Track {
     gameId: String(row.game_id),
     name: String(row.name),
     position: Number(row.position ?? 0),
-    durationSeconds: row.duration_seconds != null ? Number(row.duration_seconds) : null,
     energy,
     roles,
     moods: parseJsonArray<TrackMood>(row.moods, VALID_MOODS),

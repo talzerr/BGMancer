@@ -12,7 +12,7 @@ vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
   return {
     getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries),
+    batch: async (queries: any[]) => db.batch(queries as [any]),
 
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
@@ -40,6 +40,12 @@ describe("GET /api/games/catalog", () => {
       const ids = games.map((g) => g.id);
       expect(ids).toContain("pub-a");
       expect(ids).toContain("pub-b");
+    });
+
+    it("should set Cache-Control header for edge caching", async () => {
+      seedTestGame(rawDb, TEST_USER_ID, { id: "pub-c", title: "Cached Game", published: true });
+      const res = await GET(makeGetRequest("/api/games/catalog"));
+      expect(res.headers.get("Cache-Control")).toBe("public, s-maxage=300");
     });
   });
 

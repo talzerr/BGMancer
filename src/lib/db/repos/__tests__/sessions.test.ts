@@ -12,7 +12,7 @@ vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
   return {
     getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries),
+    batch: async (queries: any[]) => db.batch(queries as [any]),
 
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
@@ -145,7 +145,7 @@ describe("Sessions", () => {
         for (let i = 0; i < 3; i++) {
           rawDb
             .prepare(
-              "INSERT INTO playlist_tracks (id, playlist_id, game_id, position, status) VALUES (?, ?, ?, ?, 'pending')",
+              "INSERT INTO playlist_tracks (id, playlist_id, game_id, position) VALUES (?, ?, ?, ?)",
             )
             .run(`track-${i}`, session.id, gameId, i);
         }
@@ -315,7 +315,7 @@ describe("Sessions", () => {
         rawDb.prepare("INSERT INTO games (id, title) VALUES (?, ?)").run(gameId, "Cascade Game");
         rawDb
           .prepare(
-            "INSERT INTO playlist_tracks (id, playlist_id, game_id, position, status) VALUES (?, ?, ?, ?, 'pending')",
+            "INSERT INTO playlist_tracks (id, playlist_id, game_id, position) VALUES (?, ?, ?, ?)",
           )
           .run("track-del-1", session.id, gameId, 0);
 

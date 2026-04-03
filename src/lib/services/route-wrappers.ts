@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthUserId } from "@/lib/services/auth-helpers";
+import { createLogger } from "@/lib/logger";
 
 type RouteArgs = [Request, ...unknown[]];
 
@@ -19,7 +20,7 @@ export function withRequiredAuth<A extends RouteArgs>(
       }
       return await handler(userId, ...args);
     } catch (err) {
-      console.error(`[${errorLabel}]`, err);
+      createLogger(errorLabel).error("handler failed", {}, err);
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
   };
@@ -38,7 +39,7 @@ export function withOptionalAuth<A extends RouteArgs>(
       const userId = await getAuthUserId();
       return await handler(userId, ...args);
     } catch (err) {
-      console.error(`[${errorLabel}]`, err);
+      createLogger(errorLabel).error("handler failed", {}, err);
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
   };

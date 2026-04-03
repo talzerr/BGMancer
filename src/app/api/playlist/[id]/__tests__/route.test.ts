@@ -17,7 +17,7 @@ vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
   return {
     getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries),
+    batch: async (queries: any[]) => db.batch(queries as [any]),
 
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
@@ -50,8 +50,8 @@ function seedPlaylistTrack(
 ): void {
   rawDb
     .prepare(
-      `INSERT INTO playlist_tracks (id, playlist_id, game_id, track_name, position, status)
-     VALUES (?, ?, ?, ?, ?, 'found')`,
+      `INSERT INTO playlist_tracks (id, playlist_id, game_id, track_name, position)
+     VALUES (?, ?, ?, ?, ?)`,
     )
     .run(trackId, playlistId, gameId, `Track ${position}`, position);
 }

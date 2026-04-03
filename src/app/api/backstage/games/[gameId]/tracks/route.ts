@@ -1,5 +1,8 @@
 import { Games, Tracks, ReviewFlags } from "@/lib/db/repo";
 import { NextResponse } from "next/server";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("backstage-games");
 
 /** GET /api/backstage/games/[gameId]/tracks */
 export async function GET(_req: Request, { params }: { params: Promise<{ gameId: string }> }) {
@@ -13,7 +16,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ gameId:
 
     return NextResponse.json({ game, tracks, reviewFlags });
   } catch (err) {
-    console.error("[GET /api/backstage/games/[gameId]/tracks]", err);
+    log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to load game data" }, { status: 500 });
   }
 }

@@ -42,9 +42,11 @@ This application uses the **YouTube Data API v3**. By using BGMancer you also ag
 
 ## Google OAuth / User Data
 
-If you choose to sign in with Google, BGMancer requests permission to manage your YouTube playlists. This access is used solely to create and update the "BGMancer Journey" playlist on your account.
+If you choose to sign in with Google, BGMancer requests your email address for authentication. No profile name or picture is requested or stored.
 
-BGMancer does not sell, share, or store your Google account data beyond what is needed to authenticate your session. OAuth tokens are stored in memory only and are not persisted to the database.
+If you use the "Sync to YouTube" feature, BGMancer requests additional permission to manage your YouTube playlists. This access is used solely to create and update the "BGMancer Journey" playlist on your account. YouTube permissions are only requested when you click Sync — not at initial sign-in.
+
+BGMancer does not sell, share, or store your Google account data beyond what is needed to authenticate your session. OAuth tokens are stored in encrypted session cookies and are not persisted to the database.
 
 ---
 

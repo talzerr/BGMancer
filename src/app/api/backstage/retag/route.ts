@@ -1,13 +1,16 @@
 import { BackstageGames, Games, Tracks } from "@/lib/db/repo";
-import { tagTracks } from "@/lib/pipeline/tagger";
+import { tagTracks } from "@/lib/pipeline/onboarding/tagger";
 import { getTaggingProvider } from "@/lib/llm";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
-import { OnboardingPhase } from "@/types";
+import { OnboardingPhase, SSEEventType } from "@/types";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("backstage-retag");
 
 type RetagEvent =
-  | { type: "progress"; current: number; total: number; trackName: string }
-  | { type: "done"; tagged: number; needsReview: number }
-  | { type: "error"; message: string };
+  | { type: SSEEventType.Progress; current: number; total: number; trackName: string }
+  | { type: SSEEventType.Done; tagged: number; needsReview: number }
+  | { type: SSEEventType.Error; message: string };
 
 /** POST /api/backstage/retag — clear tags and re-run LLM tagger for a game */
 export async function POST(req: Request) {
@@ -15,7 +18,7 @@ export async function POST(req: Request) {
 
   if (!gameId) {
     return new Response(
-      `data: ${JSON.stringify({ type: "error", message: "gameId is required" })}\n\n`,
+      `data: ${JSON.stringify({ type: SSEEventType.Error, message: "gameId is required" })}\n\n`,
       { headers: SSE_HEADERS },
     );
   }
@@ -23,7 +26,7 @@ export async function POST(req: Request) {
   const game = await Games.getById(gameId);
   if (!game) {
     return new Response(
-      `data: ${JSON.stringify({ type: "error", message: "Game not found" })}\n\n`,
+      `data: ${JSON.stringify({ type: SSEEventType.Error, message: "Game not found" })}\n\n`,
       { headers: SSE_HEADERS },
     );
   }
@@ -38,12 +41,17 @@ export async function POST(req: Request) {
       await Tracks.clearTags(gameId);
 
       const tracks = await Tracks.getByGame(gameId);
-      const total = tracks.length;
-
-      send({ type: "progress", current: 0, total, trackName: "Starting…" });
 
       const provider = getTaggingProvider();
-      await tagTracks(gameId, game.title, tracks, provider, abort.signal);
+      await tagTracks(
+        gameId,
+        game.title,
+        tracks,
+        provider,
+        abort.signal,
+        (current, total, trackName) =>
+          send({ type: SSEEventType.Progress, current, total, trackName }),
+      );
 
       await BackstageGames.setPhase(gameId, OnboardingPhase.Tagged);
 
@@ -51,13 +59,16 @@ export async function POST(req: Request) {
       const updatedGame = await Games.getById(gameId);
       const needsReview = updatedGame?.needs_review ? 1 : 0;
 
-      send({ type: "done", tagged, needsReview });
+      send({ type: SSEEventType.Done, tagged, needsReview });
     } catch (err) {
       if (abort.signal.aborted) {
-        send({ type: "error", message: "Cancelled" });
+        send({ type: SSEEventType.Error, message: "Cancelled" });
       } else {
-        console.error("[POST /api/backstage/retag]", err);
-        send({ type: "error", message: err instanceof Error ? err.message : String(err) });
+        log.error("handler failed", {}, err);
+        send({
+          type: SSEEventType.Error,
+          message: err instanceof Error ? err.message : String(err),
+        });
       }
     } finally {
       close();

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { SSEEventType } from "@/types";
 
 type SSEEvent = Record<string, unknown>;
 
@@ -75,7 +76,7 @@ export function SSEProgress({
               continue;
             }
 
-            if (eventData.type === "progress") {
+            if (eventData.type === SSEEventType.Progress) {
               const label = progressLabel
                 ? progressLabel(eventData)
                 : String(eventData.message ?? "Working…");
@@ -83,12 +84,12 @@ export function SSEProgress({
               const current = Number(eventData.current ?? 0);
               const total = Number(eventData.total ?? 0);
               if (total > 0) setProgress(Math.round((current / total) * 90) + 5);
-            } else if (eventData.type === "done") {
+            } else if (eventData.type === SSEEventType.Done) {
               setProgress(100);
               setMessage(doneLabel ? doneLabel(eventData) : "Done");
               setDone(true);
               onDone?.(eventData);
-            } else if (eventData.type === "error") {
+            } else if (eventData.type === SSEEventType.Error) {
               const msg = String(eventData.message ?? "Unknown error");
               setMessage(msg === "Cancelled" ? "Cancelled" : `Error: ${msg}`);
               onError?.(msg);

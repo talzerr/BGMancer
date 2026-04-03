@@ -1,12 +1,15 @@
 import { BackstageGames, Games } from "@/lib/db/repo";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
 import { quickOnboard } from "@/lib/pipeline/onboarding";
-import { OnboardingPhase } from "@/types";
+import { OnboardingPhase, SSEEventType } from "@/types";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("backstage-onboard");
 
 type QuickOnboardEvent =
-  | { type: "progress"; message: string; current?: number; total?: number }
-  | { type: "done"; trackCount: number; tagged: number; resolved: number }
-  | { type: "error"; message: string };
+  | { type: SSEEventType.Progress; message: string; current?: number; total?: number }
+  | { type: SSEEventType.Done; trackCount: number; tagged: number; resolved: number }
+  | { type: SSEEventType.Error; message: string };
 
 /** POST /api/backstage/quick-onboard — run all onboarding phases and publish */
 export async function POST(req: Request) {
@@ -14,7 +17,7 @@ export async function POST(req: Request) {
 
   if (!gameId) {
     return new Response(
-      `data: ${JSON.stringify({ type: "error", message: "gameId is required" })}\n\n`,
+      `data: ${JSON.stringify({ type: SSEEventType.Error, message: "gameId is required" })}\n\n`,
       { headers: SSE_HEADERS },
     );
   }
@@ -22,7 +25,7 @@ export async function POST(req: Request) {
   const game = await Games.getById(gameId);
   if (!game) {
     return new Response(
-      `data: ${JSON.stringify({ type: "error", message: "Game not found" })}\n\n`,
+      `data: ${JSON.stringify({ type: SSEEventType.Error, message: "Game not found" })}\n\n`,
       { headers: SSE_HEADERS },
     );
   }
@@ -37,22 +40,25 @@ export async function POST(req: Request) {
     try {
       const result = await quickOnboard(
         game,
-        (message, current, total) => send({ type: "progress", message, current, total }),
+        (message, current, total) => send({ type: SSEEventType.Progress, message, current, total }),
         abort.signal,
       );
       send({
-        type: "done",
+        type: SSEEventType.Done,
         trackCount: result.trackCount,
         tagged: result.tagged,
         resolved: result.resolved,
       });
     } catch (err) {
       if (abort.signal.aborted) {
-        send({ type: "error", message: "Cancelled" });
+        send({ type: SSEEventType.Error, message: "Cancelled" });
       } else {
         await BackstageGames.setPhase(gameId, OnboardingPhase.Failed);
-        console.error("[POST /api/backstage/quick-onboard]", err);
-        send({ type: "error", message: err instanceof Error ? err.message : String(err) });
+        log.error("handler failed", {}, err);
+        send({
+          type: SSEEventType.Error,
+          message: err instanceof Error ? err.message : String(err),
+        });
       }
     } finally {
       close();

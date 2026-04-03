@@ -3,7 +3,6 @@ import {
   parseDuration,
   isRejected,
   searchYouTube,
-  findBestVideo,
   fetchVideoMetadata,
   searchOSTPlaylist,
   fetchPlaylistMetadata,
@@ -192,7 +191,7 @@ describe("searchYouTube", () => {
         }
         // videos.list for durations
         return jsonResponse({
-          items: [{ id: "vid1", contentDetails: { duration: "PT20M0S" } }],
+          items: [{ id: "vid1", contentDetails: { duration: "PT4M30S" } }],
         });
       });
     });
@@ -201,7 +200,7 @@ describe("searchYouTube", () => {
       const results = await searchYouTube(`${TEST_GAME_TITLE} OST`);
       expect(results).toHaveLength(1);
       expect(results[0].videoId).toBe("vid1");
-      expect(results[0].durationSeconds).toBe(1200);
+      expect(results[0].durationSeconds).toBe(270);
     });
   });
 
@@ -234,8 +233,8 @@ describe("searchYouTube", () => {
         }
         return jsonResponse({
           items: [
-            { id: "vid1", contentDetails: { duration: "PT20M0S" } },
-            { id: "vid2", contentDetails: { duration: "PT25M0S" } },
+            { id: "vid1", contentDetails: { duration: "PT4M30S" } },
+            { id: "vid2", contentDetails: { duration: "PT5M0S" } },
           ],
         });
       });
@@ -321,16 +320,16 @@ describe("searchYouTube", () => {
     });
   });
 
-  describe("when videos are shorter than MIN_DURATION_SECONDS", () => {
+  describe("when video exceeds YT_MAX_VIDEO_DURATION_SECONDS", () => {
     beforeEach(() => {
       mockFetch(async (url) => {
         if (url.includes("/search")) {
           return jsonResponse({
             items: [
               {
-                id: { videoId: "short" },
+                id: { videoId: "long" },
                 snippet: {
-                  title: "Elden Ring OST",
+                  title: "Elden Ring Full OST",
                   channelTitle: "C",
                   description: "",
                   thumbnails: { default: { url: "t.jpg" } },
@@ -340,34 +339,27 @@ describe("searchYouTube", () => {
           });
         }
         return jsonResponse({
-          items: [{ id: "short", contentDetails: { duration: "PT2M0S" } }],
+          items: [{ id: "long", contentDetails: { duration: "PT1H30M0S" } }],
         });
       });
     });
 
-    it("should filter out short videos by default", async () => {
+    it("should filter out videos longer than the max", async () => {
       const results = await searchYouTube("Elden Ring OST");
       expect(results).toHaveLength(0);
     });
-
-    it("should include short videos when allowShortVideo is true", async () => {
-      const results = await searchYouTube("Elden Ring OST", true);
-      expect(results).toHaveLength(1);
-    });
   });
-});
 
-describe("findBestVideo", () => {
-  describe("when the first query returns results", () => {
+  describe("when video is under YT_MAX_VIDEO_DURATION_SECONDS", () => {
     beforeEach(() => {
       mockFetch(async (url) => {
         if (url.includes("/search")) {
           return jsonResponse({
             items: [
               {
-                id: { videoId: "best" },
+                id: { videoId: "normal" },
                 snippet: {
-                  title: "Official OST",
+                  title: "Elden Ring - Main Theme",
                   channelTitle: "C",
                   description: "",
                   thumbnails: { default: { url: "t.jpg" } },
@@ -377,31 +369,14 @@ describe("findBestVideo", () => {
           });
         }
         return jsonResponse({
-          items: [{ id: "best", contentDetails: { duration: "PT20M0S" } }],
+          items: [{ id: "normal", contentDetails: { duration: "PT3M30S" } }],
         });
       });
     });
 
-    it("should return the first result from the first query", async () => {
-      const result = await findBestVideo(["query1", "query2"]);
-      expect(result).not.toBeNull();
-      expect(result!.videoId).toBe("best");
-    });
-
-    it("should not try subsequent queries", async () => {
-      await findBestVideo(["query1", "query2"]);
-      // fetch called twice (search + videos), not four times
-      expect(global.fetch).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  describe("when no queries return results", () => {
-    beforeEach(() => {
-      mockFetch(async () => jsonResponse({ items: [] }));
-    });
-
-    it("should return null", async () => {
-      expect(await findBestVideo(["q1", "q2"])).toBeNull();
+    it("should include the video", async () => {
+      const results = await searchYouTube("Elden Ring Main Theme");
+      expect(results).toHaveLength(1);
     });
   });
 });

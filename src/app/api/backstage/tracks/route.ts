@@ -1,5 +1,8 @@
 import { Tracks, VideoTracks } from "@/lib/db/repo";
 import { NextResponse } from "next/server";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("backstage-tracks");
 
 /** GET /api/backstage/tracks — search tracks with optional filters */
 export async function GET(req: Request) {
@@ -22,7 +25,7 @@ export async function GET(req: Request) {
     });
     return NextResponse.json(tracks);
   } catch (err) {
-    console.error("[GET /api/backstage/tracks]", err);
+    log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to query tracks" }, { status: 500 });
   }
 }
@@ -70,7 +73,7 @@ export async function PATCH(req: Request) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("[PATCH /api/backstage/tracks]", err);
+    log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to update tracks" }, { status: 500 });
   }
 }
@@ -91,7 +94,7 @@ export async function POST(req: Request) {
     await Tracks.upsertBatch([{ gameId, name, position: position ?? 0 }]);
     return NextResponse.json({ ok: true }, { status: 201 });
   } catch (err) {
-    console.error("[POST /api/backstage/tracks]", err);
+    log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to create track" }, { status: 500 });
   }
 }
@@ -113,7 +116,7 @@ export async function DELETE(req: Request) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("[DELETE /api/backstage/tracks]", err);
+    log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to delete tracks" }, { status: 500 });
   }
 }

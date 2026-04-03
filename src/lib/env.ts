@@ -40,6 +40,11 @@ interface Env {
   /** Default Anthropic model (fallback for tagging + vibe). */
   anthropicModel: string | undefined;
 
+  /** Cloudflare Turnstile site key (public, used client-side). */
+  turnstileSiteKey: string | undefined;
+  /** Cloudflare Turnstile secret key (server-side verification). */
+  turnstileSecretKey: string | undefined;
+
   /** Current NODE_ENV. */
   nodeEnv: string;
 
@@ -91,6 +96,9 @@ function loadEnv(): Env {
     anthropicTaggingModel: process.env.ANTHROPIC_TAGGING_MODEL || undefined,
     anthropicVibeModel: process.env.ANTHROPIC_VIBE_MODEL || undefined,
     anthropicModel: process.env.ANTHROPIC_MODEL || undefined,
+
+    turnstileSiteKey: process.env.TURNSTILE_SITE_KEY || undefined,
+    turnstileSecretKey: process.env.TURNSTILE_SECRET_KEY || undefined,
 
     nodeEnv,
 

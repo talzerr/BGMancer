@@ -15,18 +15,16 @@ function rowToUser(row: typeof users.$inferSelect): User {
 
 export const Users = {
   /** Create or fetch a user from an OAuth profile (email is the unique key). */
-  async createFromOAuth(email: string, name?: string | null): Promise<User> {
+  async createFromOAuth(email: string): Promise<User> {
     const db = getDB();
     const existing = await db.select().from(users).where(eq(users.email, email)).get();
     if (existing) return rowToUser(existing);
 
     const id = newId();
+    const username = email.split("@")[0];
 
     await batch([
-      db
-        .insert(users)
-        .values({ id, email, username: name ?? null })
-        .onConflictDoNothing(),
+      db.insert(users).values({ id, email, username }).onConflictDoNothing(),
       db.insert(libraries).values({ id: newId(), user_id: id }).onConflictDoNothing(),
     ]);
 

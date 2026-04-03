@@ -1,12 +1,21 @@
 import { BackstageGames, Games, Tracks, ReviewFlags } from "@/lib/db/repo";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
 import { loadTracks, resolveVideos, tagGameTracks } from "@/lib/pipeline/onboarding";
-import { OnboardingPhase, ReviewReason } from "@/types";
+import { OnboardingPhase, ReviewReason, SSEEventType } from "@/types";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("backstage-reingest");
 
 type ReingestEvent =
-  | { type: "progress"; message: string }
-  | { type: "done"; trackCount: number; resolved: number; tagged: number; needsReview: number }
-  | { type: "error"; message: string };
+  | { type: SSEEventType.Progress; message: string; current?: number; total?: number }
+  | {
+      type: SSEEventType.Done;
+      trackCount: number;
+      resolved: number;
+      tagged: number;
+      needsReview: number;
+    }
+  | { type: SSEEventType.Error; message: string };
 
 /** POST /api/backstage/reingest — clear all tracks and re-fetch from Discogs */
 export async function POST(req: Request) {
@@ -14,7 +23,7 @@ export async function POST(req: Request) {
 
   if (!gameId) {
     return new Response(
-      `data: ${JSON.stringify({ type: "error", message: "gameId is required" })}\n\n`,
+      `data: ${JSON.stringify({ type: SSEEventType.Error, message: "gameId is required" })}\n\n`,
       { headers: SSE_HEADERS },
     );
   }
@@ -22,7 +31,7 @@ export async function POST(req: Request) {
   const game = await Games.getById(gameId);
   if (!game) {
     return new Response(
-      `data: ${JSON.stringify({ type: "error", message: "Game not found" })}\n\n`,
+      `data: ${JSON.stringify({ type: SSEEventType.Error, message: "Game not found" })}\n\n`,
       { headers: SSE_HEADERS },
     );
   }
@@ -34,16 +43,16 @@ export async function POST(req: Request) {
 
   (async () => {
     try {
-      send({ type: "progress", message: "Clearing existing tracks…" });
+      send({ type: SSEEventType.Progress, message: "Clearing existing tracks…" });
       await Tracks.deleteByGame(gameId);
       await ReviewFlags.clearByGame(gameId);
       await BackstageGames.setPhase(gameId, OnboardingPhase.Draft);
 
-      const progress = (message: string) => send({ type: "progress", message });
+      const progress = (message: string) => send({ type: SSEEventType.Progress, message });
 
       const loaded = await loadTracks(game, progress);
       if (!loaded) {
-        send({ type: "error", message: "No Discogs data found for this game." });
+        send({ type: SSEEventType.Error, message: "No Discogs data found for this game." });
         return;
       }
 
@@ -53,14 +62,20 @@ export async function POST(req: Request) {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         await ReviewFlags.markAsNeedsReview(gameId, ReviewReason.NoTracklistSource, msg);
-        send({ type: "error", message: `Video resolution failed: ${msg}` });
+        send({ type: SSEEventType.Error, message: `Video resolution failed: ${msg}` });
         return;
       }
 
-      const tagResult = await tagGameTracks(game, progress, abort.signal);
+      const tagResult = await tagGameTracks(
+        game,
+        progress,
+        abort.signal,
+        (current, total, trackName) =>
+          send({ type: SSEEventType.Progress, message: `Tagging: ${trackName}`, current, total }),
+      );
 
       send({
-        type: "done",
+        type: SSEEventType.Done,
         trackCount: loaded.trackCount,
         resolved: resolveResult.resolved,
         tagged: tagResult.tagged,
@@ -68,11 +83,14 @@ export async function POST(req: Request) {
       });
     } catch (err) {
       if (abort.signal.aborted) {
-        send({ type: "error", message: "Cancelled" });
+        send({ type: SSEEventType.Error, message: "Cancelled" });
       } else {
         await BackstageGames.setPhase(gameId, OnboardingPhase.Failed);
-        console.error("[POST /api/backstage/reingest]", err);
-        send({ type: "error", message: err instanceof Error ? err.message : String(err) });
+        log.error("handler failed", {}, err);
+        send({
+          type: SSEEventType.Error,
+          message: err instanceof Error ? err.message : String(err),
+        });
       }
     } finally {
       close();

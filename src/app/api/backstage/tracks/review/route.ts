@@ -1,5 +1,8 @@
 import { Tracks } from "@/lib/db/repo";
 import { NextResponse } from "next/server";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("backstage-review");
 
 /** POST /api/backstage/tracks/review — batch approve/reject discovered tracks */
 export async function POST(req: Request) {
@@ -23,7 +26,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("[POST /api/backstage/tracks/review]", err);
+    log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to review tracks" }, { status: 500 });
   }
 }

@@ -1,12 +1,15 @@
 import { BackstageGames, Games, Tracks } from "@/lib/db/repo";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
 import { resolveVideos } from "@/lib/pipeline/onboarding";
-import { OnboardingPhase } from "@/types";
+import { OnboardingPhase, SSEEventType } from "@/types";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("backstage-resolve");
 
 type ResolveEvent =
-  | { type: "progress"; message: string }
-  | { type: "done"; resolved: number; total: number }
-  | { type: "error"; message: string };
+  | { type: SSEEventType.Progress; message: string }
+  | { type: SSEEventType.Done; resolved: number; total: number }
+  | { type: SSEEventType.Error; message: string };
 
 /** POST /api/backstage/resolve — discover YouTube playlist and map tracks to video IDs */
 export async function POST(req: Request) {
@@ -14,7 +17,7 @@ export async function POST(req: Request) {
 
   if (!gameId) {
     return new Response(
-      `data: ${JSON.stringify({ type: "error", message: "gameId is required" })}\n\n`,
+      `data: ${JSON.stringify({ type: SSEEventType.Error, message: "gameId is required" })}\n\n`,
       { headers: SSE_HEADERS },
     );
   }
@@ -22,14 +25,14 @@ export async function POST(req: Request) {
   const game = await Games.getById(gameId);
   if (!game) {
     return new Response(
-      `data: ${JSON.stringify({ type: "error", message: "Game not found" })}\n\n`,
+      `data: ${JSON.stringify({ type: SSEEventType.Error, message: "Game not found" })}\n\n`,
       { headers: SSE_HEADERS },
     );
   }
 
   if (!(await Tracks.hasData(gameId))) {
     return new Response(
-      `data: ${JSON.stringify({ type: "error", message: "No tracks loaded — run Load Tracks first" })}\n\n`,
+      `data: ${JSON.stringify({ type: SSEEventType.Error, message: "No tracks loaded — run Load Tracks first" })}\n\n`,
       { headers: SSE_HEADERS },
     );
   }
@@ -43,17 +46,20 @@ export async function POST(req: Request) {
     try {
       const result = await resolveVideos(
         game,
-        (message) => send({ type: "progress", message }),
+        (message) => send({ type: SSEEventType.Progress, message }),
         abort.signal,
       );
-      send({ type: "done", resolved: result.resolved, total: result.total });
+      send({ type: SSEEventType.Done, resolved: result.resolved, total: result.total });
     } catch (err) {
       if (abort.signal.aborted) {
-        send({ type: "error", message: "Cancelled" });
+        send({ type: SSEEventType.Error, message: "Cancelled" });
       } else {
         await BackstageGames.setPhase(gameId, OnboardingPhase.Failed);
-        console.error("[POST /api/backstage/resolve]", err);
-        send({ type: "error", message: err instanceof Error ? err.message : String(err) });
+        log.error("handler failed", {}, err);
+        send({
+          type: SSEEventType.Error,
+          message: err instanceof Error ? err.message : String(err),
+        });
       }
     } finally {
       close();

@@ -12,6 +12,8 @@ export interface GenerateConfig {
   allow_short_tracks: boolean;
   anti_spoiler_enabled: boolean;
   raw_vibes: boolean;
+  skip_llm: boolean;
+  turnstileToken?: string;
 }
 
 export type GameProgressEntry = {
@@ -26,7 +28,6 @@ export function usePlaylist() {
   const [tracksLoading, setTracksLoading] = useState(true);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
-  const [searching, setSearching] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [genProgress, setGenProgress] = useState<GameProgressEntry[]>([]);
   const [genGlobalMsg, setGenGlobalMsg] = useState<string>("");
@@ -133,7 +134,11 @@ export function usePlaylist() {
     }).catch((err) => console.error("Failed to persist track order:", err));
   }
 
-  async function handleGenerate(games: Game[], config?: GenerateConfig) {
+  async function handleGenerate(
+    games: Game[],
+    config?: GenerateConfig,
+    onLlmCapReached?: () => void,
+  ) {
     if (games.length === 0) return;
 
     // Client-side cooldown guard: skip the fetch entirely and let the UI countdown handle it.
@@ -185,6 +190,11 @@ export function usePlaylist() {
               return;
             }
 
+            if (event.type === "llm_cap_reached") {
+              onLlmCapReached?.();
+              continue;
+            }
+
             // First non-error event — generation is real; enter generating state now.
             if (!started) {
               started = true;
@@ -233,19 +243,6 @@ export function usePlaylist() {
         setGenerating(false);
         setGenGlobalMsg("");
       }
-    }
-  }
-
-  async function handleFindVideos() {
-    setSearching(true);
-    try {
-      const res = await fetch("/api/playlist/search", { method: "POST" });
-      const data = (await res.json()) as { tracks?: PlaylistTrack[] };
-      if (res.ok && data.tracks) setTracks(data.tracks);
-    } catch (err) {
-      console.error("Failed to search videos:", err);
-    } finally {
-      setSearching(false);
     }
   }
 
@@ -302,7 +299,6 @@ export function usePlaylist() {
     tracksLoading,
     currentSessionId,
     generating,
-    searching,
     genError,
     genProgress,
     genGlobalMsg,
@@ -324,7 +320,6 @@ export function usePlaylist() {
     rerollTrack,
     reorderTracks,
     handleGenerate,
-    handleFindVideos,
     handleClearPlaylist,
     handleImport,
   };
