@@ -172,6 +172,16 @@ describe("BackstageGames", () => {
       });
     });
 
+    describe("when updating onboarding_phase", () => {
+      it("should set the phase", async () => {
+        const game = await BackstageGames.createDraft("Phase Update");
+        const updated = await BackstageGames.update(game.id, {
+          onboarding_phase: OnboardingPhase.Tagged,
+        });
+        expect(updated!.onboarding_phase).toBe("tagged");
+      });
+    });
+
     describe("when updating thumbnail_url", () => {
       it("should set the thumbnail URL", async () => {
         const game = await BackstageGames.createDraft("Thumb Game");

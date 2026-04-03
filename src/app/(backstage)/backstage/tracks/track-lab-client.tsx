@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Table,
@@ -20,17 +20,13 @@ import type { PatchUpdates } from "@/components/backstage/TrackEditSheet";
 import { BulkActionBar } from "@/components/backstage/BulkActionBar";
 import { ConfirmModal } from "@/components/backstage/ConfirmModal";
 import { QuickViewTabs } from "@/components/backstage/QuickViewTabs";
-import type { QuickViewTab } from "@/components/backstage/QuickViewTabs";
 import { FilterChipBar } from "@/components/backstage/FilterChipBar";
-import type { FilterDef, ActiveFilter } from "@/components/backstage/FilterChipBar";
+import { useFilteredList } from "@/hooks/backstage/useFilteredList";
+import type { TabPreset } from "@/hooks/backstage/useFilteredList";
+import type { FilterDef } from "@/components/backstage/FilterChipBar";
 import type { BackstageTrackRow } from "@/lib/db/repos/tracks";
 
 // ─── Tab presets ────────────────────────────────────────────────────────────
-
-interface TabPreset {
-  tab: QuickViewTab;
-  params: Record<string, string>;
-}
 
 const TAB_PRESETS: TabPreset[] = [
   { tab: { label: "All", value: "all" }, params: {} },
@@ -80,138 +76,42 @@ export function TrackLabClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Search
-  const [search, setSearch] = useState(() => searchParams.get("name") ?? "");
-  const [gameSearch, setGameSearch] = useState(() => searchParams.get("gameTitle") ?? "");
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   // ?game=<id> comes from Game Hub "View in Track Lab" link — exact game ID match (one-time)
   const initialGameId = searchParams.get("game") ?? undefined;
 
-  // Tabs + filter chips
-  const [activeTab, setActiveTab] = useState(() => deriveTabFromParams(searchParams));
-  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>(() =>
-    deriveFiltersFromParams(searchParams),
-  );
+  const fetchTracks = useCallback(async (params: URLSearchParams) => {
+    const res = await fetch(`/api/backstage/tracks?${params}`);
+    if (!res.ok) throw new Error(`Server error: HTTP ${res.status}`);
+    return (await res.json()) as BackstageTrackRow[];
+  }, []);
 
-  // Results
-  const [tracks, setTracks] = useState<BackstageTrackRow[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-  const [mutError, setMutError] = useState<string | null>(null);
+  const {
+    searchValues,
+    handleSearchChange,
+    activeTab,
+    handleTabChange,
+    effectiveFilters,
+    handleFilterChange,
+    resetFilters,
+    items: tracks,
+    loading,
+    hasSearched,
+    fetchError,
+    refetch,
+  } = useFilteredList<BackstageTrackRow>({
+    tabPresets: TAB_PRESETS,
+    filterDefs: TRACK_FILTER_DEFS,
+    urlPath: "/backstage/tracks",
+    searchParamKeys: ["name", "gameTitle"],
+    fetchFn: fetchTracks,
+    initialOverrides: initialGameId ? { gameId: initialGameId } : undefined,
+  });
 
   // Selection + editing
   const [selected, setSelected] = useState<Set<TrackKey>>(new Set());
   const [editTrack, setEditTrack] = useState<BackstageTrackRow | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-
-  // ─── Fetch logic ────────────────────────────────────────────────────────
-
-  const fetchTracks = useCallback(
-    async (opts?: {
-      overrideGameId?: string;
-      search?: string;
-      gameSearch?: string;
-      tab?: string;
-      filters?: ActiveFilter[];
-    }) => {
-      const s = opts?.search ?? search;
-      const gs = opts?.gameSearch ?? gameSearch;
-      const t = opts?.tab ?? activeTab;
-      const f = opts?.filters ?? activeFilters;
-      const overrideGameId = opts?.overrideGameId;
-
-      setLoading(true);
-      setSelected(new Set());
-      setFetchError(null);
-
-      const apiParams = buildApiParams(s, gs, t, f, overrideGameId);
-
-      // Sync URL (skip the gameId override — that's a one-time Game Hub link)
-      if (!overrideGameId) {
-        const urlParams = buildUrlParams(s, gs, t, f);
-        router.replace(`/backstage/tracks${urlParams.size ? `?${urlParams}` : ""}`, {
-          scroll: false,
-        });
-      }
-
-      try {
-        const res = await fetch(`/api/backstage/tracks?${apiParams}`);
-        if (!res.ok) throw new Error(`Server error: HTTP ${res.status}`);
-        const data = (await res.json()) as BackstageTrackRow[];
-        setTracks(data);
-        setHasSearched(true);
-      } catch (err) {
-        console.error("[TrackLabClient] fetchTracks failed:", err);
-        setFetchError("Failed to load tracks. Try again.");
-        setHasSearched(true);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [search, gameSearch, activeTab, activeFilters, router],
-  );
-
-  // Auto-fetch on mount
-  useEffect(() => {
-    Promise.resolve().then(() => fetchTracks({ overrideGameId: initialGameId }));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ─── Debounced search ───────────────────────────────────────────────────
-
-  function handleSearchChange(field: "name" | "game", value: string) {
-    if (field === "name") setSearch(value);
-    else setGameSearch(value);
-
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      const opts = field === "name" ? { search: value } : { gameSearch: value };
-      fetchTracks(opts);
-    }, 300);
-  }
-
-  // ─── Tab switching ──────────────────────────────────────────────────────
-
-  function handleTabChange(tab: string) {
-    setActiveTab(tab);
-    setActiveFilters([]);
-    setSelected(new Set());
-    fetchTracks({ tab, filters: [] });
-  }
-
-  // ─── Filter handlers ────────────────────────────────────────────────────
-
-  function handleFilterChange(key: string, value: string) {
-    let next: ActiveFilter[];
-    if (value === "") {
-      next = activeFilters.filter((f) => f.key !== key);
-    } else {
-      const existing = activeFilters.find((f) => f.key === key);
-      if (existing) {
-        next = activeFilters.map((f) => (f.key === key ? { ...f, value } : f));
-      } else {
-        next = [...activeFilters, { key, value }];
-      }
-    }
-    setActiveFilters(next);
-    setActiveTab("all");
-    fetchTracks({ tab: "all", filters: next });
-  }
-
-  // ─── Derived state ───────────────────────────────────────────────────────
-
-  // Merge tab preset params into active filters so dropdowns reflect the full query state
-  const effectiveFilters: ActiveFilter[] = (() => {
-    const preset = TAB_PRESETS.find((p) => p.tab.value === activeTab);
-    const merged = new Map(activeFilters.map((f) => [f.key, f.value]));
-    if (preset) {
-      for (const [k, v] of Object.entries(preset.params)) {
-        if (!merged.has(k)) merged.set(k, v);
-      }
-    }
-    return [...merged.entries()].map(([key, value]) => ({ key, value }));
-  })();
+  const [mutError, setMutError] = useState<string | null>(null);
 
   // ─── Selection helpers ──────────────────────────────────────────────────
 
@@ -247,14 +147,14 @@ export function TrackLabClient() {
           body: JSON.stringify(patches),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        await fetchTracks();
+        await refetch();
         router.refresh();
       } catch (err) {
         console.error("[TrackLabClient] patchTracks failed:", err);
         setMutError("Failed to save changes. Please try again.");
       }
     },
-    [fetchTracks, router],
+    [refetch, router],
   );
 
   function selectedTracks(): BackstageTrackRow[] {
@@ -313,7 +213,7 @@ export function TrackLabClient() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setDeleteModalOpen(false);
-      await fetchTracks();
+      await refetch();
       router.refresh();
     } catch (err) {
       console.error("[TrackLabClient] bulkDelete failed:", err);
@@ -336,7 +236,7 @@ export function TrackLabClient() {
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      await fetchTracks();
+      await refetch();
     } catch (err) {
       console.error("[TrackLabClient] handleTrackSave failed:", err);
       setMutError("Failed to save track. Please try again.");
@@ -351,7 +251,10 @@ export function TrackLabClient() {
       <QuickViewTabs
         tabs={TAB_PRESETS.map((p) => p.tab)}
         active={activeTab}
-        onChange={handleTabChange}
+        onChange={(tab) => {
+          setSelected(new Set());
+          handleTabChange(tab);
+        }}
       />
 
       {/* Search + filters */}
@@ -360,7 +263,7 @@ export function TrackLabClient() {
           <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
           <Input
             placeholder="Search by track name..."
-            value={search}
+            value={searchValues.name ?? ""}
             onChange={(e) => handleSearchChange("name", e.target.value)}
             className="h-8 border-zinc-700 bg-zinc-900 pl-8 text-xs text-zinc-200 placeholder:text-zinc-600 focus-visible:ring-violet-500/50"
           />
@@ -369,8 +272,8 @@ export function TrackLabClient() {
           <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
           <Input
             placeholder="Filter by game..."
-            value={gameSearch}
-            onChange={(e) => handleSearchChange("game", e.target.value)}
+            value={searchValues.gameTitle ?? ""}
+            onChange={(e) => handleSearchChange("gameTitle", e.target.value)}
             className="h-8 border-zinc-700 bg-zinc-900 pl-8 text-xs text-zinc-200 placeholder:text-zinc-600 focus-visible:ring-violet-500/50"
           />
         </div>
@@ -386,11 +289,7 @@ export function TrackLabClient() {
         filters={effectiveFilters}
         definitions={TRACK_FILTER_DEFS}
         onChange={handleFilterChange}
-        onReset={() => {
-          setActiveFilters([]);
-          setActiveTab("all");
-          fetchTracks({ tab: "all", filters: [] });
-        }}
+        onReset={resetFilters}
       />
 
       {fetchError && <p className="text-xs text-rose-400">{fetchError}</p>}
@@ -563,91 +462,4 @@ export function TrackLabClient() {
       )}
     </div>
   );
-}
-
-// ─── Query param helpers ──────────────────────────────────────────────────────
-
-function buildApiParams(
-  search: string,
-  gameSearch: string,
-  tab: string,
-  filters: ActiveFilter[],
-  overrideGameId?: string,
-): URLSearchParams {
-  const params = new URLSearchParams();
-
-  if (overrideGameId) {
-    params.set("gameId", overrideGameId);
-  } else if (gameSearch.trim()) {
-    params.set("gameTitle", gameSearch.trim());
-  }
-  if (search.trim()) params.set("name", search.trim());
-
-  // Tab presets
-  const preset = TAB_PRESETS.find((p) => p.tab.value === tab);
-  if (preset) {
-    for (const [k, v] of Object.entries(preset.params)) {
-      params.set(k, v);
-    }
-  }
-
-  // Filter chips override tab presets
-  for (const f of filters) {
-    params.set(f.key, f.value);
-  }
-
-  return params;
-}
-
-function buildUrlParams(
-  search: string,
-  gameSearch: string,
-  tab: string,
-  filters: ActiveFilter[],
-): URLSearchParams {
-  const params = new URLSearchParams();
-  if (gameSearch.trim()) params.set("gameTitle", gameSearch.trim());
-  if (search.trim()) params.set("name", search.trim());
-
-  const preset = TAB_PRESETS.find((p) => p.tab.value === tab);
-  if (preset) {
-    for (const [k, v] of Object.entries(preset.params)) {
-      params.set(k, v);
-    }
-  }
-  for (const f of filters) {
-    params.set(f.key, f.value);
-  }
-
-  return params;
-}
-
-function deriveTabFromParams(sp: URLSearchParams): string {
-  const filterKeys = new Set(TRACK_FILTER_DEFS.map((d) => d.key));
-  const urlFilterKeys = [...sp.keys()].filter((k) => filterKeys.has(k));
-
-  for (const preset of TAB_PRESETS) {
-    if (preset.tab.value === "all") continue;
-    const presetKeys = Object.keys(preset.params);
-    if (presetKeys.length !== urlFilterKeys.length) continue;
-    const matches =
-      presetKeys.every((k) => sp.get(k) === preset.params[k]) &&
-      urlFilterKeys.every((k) => k in preset.params);
-    if (matches) return preset.tab.value;
-  }
-  return "all";
-}
-
-function deriveFiltersFromParams(sp: URLSearchParams): ActiveFilter[] {
-  const filters: ActiveFilter[] = [];
-  const tab = deriveTabFromParams(sp);
-  if (tab !== "all") return [];
-
-  for (const def of TRACK_FILTER_DEFS) {
-    const val = sp.get(def.key);
-    if (val && def.options.some((o) => o.value === val)) {
-      filters.push({ key: def.key, value: val });
-    }
-  }
-  return filters;
 }

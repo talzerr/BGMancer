@@ -27,6 +27,7 @@ export interface GameUpdateFields {
   tracklist_source?: string | null;
   yt_playlist_id?: string | null;
   thumbnail_url?: string | null;
+  onboarding_phase?: string;
   needs_review?: boolean;
 }
 
@@ -117,6 +118,8 @@ export const BackstageGames = {
     if (fields.thumbnail_url !== undefined)
       setParts.push(sql`thumbnail_url = ${fields.thumbnail_url}`);
     if (fields.steam_appid !== undefined) setParts.push(sql`steam_appid = ${fields.steam_appid}`);
+    if (fields.onboarding_phase !== undefined)
+      setParts.push(sql`onboarding_phase = ${fields.onboarding_phase}`);
     if (fields.needs_review !== undefined)
       setParts.push(sql`needs_review = ${fields.needs_review ? 1 : 0}`);
 

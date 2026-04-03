@@ -7,6 +7,7 @@ import {
   fetchDiscogsRelease,
   fetchDiscogsMaster,
 } from "@/lib/services/discogs";
+import { parseSource } from "@/lib/services/tracklist-source";
 import { fetchPlaylistItems } from "@/lib/services/youtube";
 import { tagTracks } from "@/lib/pipeline/tagger";
 import { resolveTracksToVideos } from "@/lib/pipeline/resolver";
@@ -27,29 +28,19 @@ export async function loadTracks(
   // Re-fetch game to get the latest tracklist_source (admin may have edited it)
   const fresh = await Games.getById(game.id);
   const source = fresh?.tracklist_source ?? game.tracklist_source;
-  const match = source?.match(/^(discogs-release|discogs-master|vgmdb):(\d+)$/);
-  const sourceType = match?.[1];
-  const sourceId = match?.[2];
+  const parsed = parseSource(source);
+
   let result: Awaited<ReturnType<typeof searchGameSoundtrack>>;
   let wasPreset = false;
 
-  if (sourceType === "discogs-release" && sourceId) {
-    onProgress?.(`Fetching Discogs release ${sourceId}…`);
-    result = await fetchDiscogsRelease(Number(sourceId));
+  if (parsed?.key === "discogs-release") {
+    onProgress?.(`Fetching Discogs release ${parsed.id}…`);
+    result = await fetchDiscogsRelease(Number(parsed.id));
     wasPreset = true;
-  } else if (sourceType === "discogs-master" && sourceId) {
-    onProgress?.(`Fetching Discogs master ${sourceId}…`);
-    result = await fetchDiscogsMaster(Number(sourceId));
+  } else if (parsed?.key === "discogs-master") {
+    onProgress?.(`Fetching Discogs master ${parsed.id}…`);
+    result = await fetchDiscogsMaster(Number(parsed.id));
     wasPreset = true;
-  } else if (sourceType === "vgmdb" && sourceId) {
-    // TODO: implement VGMDB fetching
-    onProgress?.(`VGMDB source (${sourceId}) — not yet supported`);
-    await ReviewFlags.markAsNeedsReview(
-      game.id,
-      ReviewReason.NoTracklistSource,
-      `vgmdb:${sourceId} not supported yet`,
-    );
-    return null;
   } else {
     onProgress?.(`Searching Discogs for "${game.title}"…`);
     result = await searchGameSoundtrack(game.title);
@@ -171,7 +162,7 @@ export async function quickOnboard(
   const loaded = await loadTracks(game, (msg) => onProgress?.(msg, 0, 3));
   if (!loaded) {
     await BackstageGames.setPhase(game.id, OnboardingPhase.Failed);
-    throw new Error(`No Discogs data for "${game.title}"`);
+    throw new Error(`No track data for "${game.title}"`);
   }
 
   if (signal?.aborted) throw new Error("Cancelled");

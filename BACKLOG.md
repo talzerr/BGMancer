@@ -42,6 +42,10 @@ Current Vibe Check uses random 2.5× sample. For large libraries, only ~8% of tr
 
 - **Admin-configurable cap** — move the daily LLM generation limit from a hardcoded constant to a DB-backed setting with per-user admin overrides via Backstage.
 
+## Pre-Launch
+
+- **IMPORTANT: Verify admin route protection after removing site-wide Zero Trust** — Currently the entire site is behind Cloudflare Zero Trust. Once it goes public, only `bgmancer.com/backstage*` will remain behind Access. The `/api/steam/*` routes (`/api/steam/search`, `/api/steam/games`, `/api/steam/import`) are `AuthLevel.Admin` in route-config and protected by the middleware `CF_Authorization` cookie check, but they are NOT under the `/backstage*` path. Verify these routes return 404 to unauthenticated users after the Access policy is narrowed.
+
 ## Bugs
 
 ## Backstage
