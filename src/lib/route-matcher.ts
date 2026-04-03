@@ -7,7 +7,7 @@
  *   - Dynamic segments: "/api/sessions/[id]" matches "/api/sessions/abc123"
  *   - Wildcards: "/api/backstage/*" matches "/api/backstage/anything/nested"
  *   - Method-specific API routes: "GET /api/games" vs "POST /api/games"
- *   - Page routes (no method prefix): "/library"
+ *   - Page routes (no method prefix): "/catalog"
  */
 
 import { routeConfig, type AuthLevel } from "./route-config";
