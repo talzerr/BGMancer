@@ -1,11 +1,13 @@
 import { Tracks } from "@/lib/db/repo";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
+import { assertBackstageAuth } from "@/lib/services/cloudflare-access";
 
 const log = createLogger("backstage-review");
 
 /** POST /api/backstage/tracks/review — batch approve/reject discovered tracks */
 export async function POST(req: Request) {
+  assertBackstageAuth(req);
   try {
     const body = (await req.json()) as {
       gameId: string;

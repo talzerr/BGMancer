@@ -2,11 +2,13 @@ import { BackstageGames } from "@/lib/db/repo";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
 import { gameTitleSchema } from "@/lib/validation";
+import { assertBackstageAuth } from "@/lib/services/cloudflare-access";
 
 const log = createLogger("backstage-games");
 
 /** GET /api/backstage/games — search games with optional filters */
 export async function GET(req: Request) {
+  assertBackstageAuth(req);
   try {
     const url = new URL(req.url);
     const title = url.searchParams.get("title") ?? undefined;
@@ -27,6 +29,7 @@ export async function GET(req: Request) {
 
 /** POST /api/backstage/games — create a new draft game */
 export async function POST(req: Request) {
+  assertBackstageAuth(req);
   try {
     const body = (await req.json()) as { title?: string; steamAppid?: number };
     const parsed = gameTitleSchema.safeParse(body.title);

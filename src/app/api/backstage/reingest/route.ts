@@ -3,6 +3,7 @@ import { makeSSEStream, SSE_HEADERS, sanitizeErrorMessage } from "@/lib/sse";
 import { loadTracks, resolveVideos, tagGameTracks } from "@/lib/pipeline/onboarding";
 import { OnboardingPhase, ReviewReason, SSEEventType } from "@/types";
 import { createLogger } from "@/lib/logger";
+import { assertBackstageAuth } from "@/lib/services/cloudflare-access";
 
 const log = createLogger("backstage-reingest");
 
@@ -19,6 +20,7 @@ type ReingestEvent =
 
 /** POST /api/backstage/reingest — clear all tracks and re-fetch from Discogs */
 export async function POST(req: Request) {
+  assertBackstageAuth(req);
   const { gameId } = (await req.json()) as { gameId: string };
 
   if (!gameId) {

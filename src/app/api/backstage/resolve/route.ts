@@ -3,6 +3,7 @@ import { makeSSEStream, SSE_HEADERS, sanitizeErrorMessage } from "@/lib/sse";
 import { resolveVideos } from "@/lib/pipeline/onboarding";
 import { OnboardingPhase, SSEEventType } from "@/types";
 import { createLogger } from "@/lib/logger";
+import { assertBackstageAuth } from "@/lib/services/cloudflare-access";
 
 const log = createLogger("backstage-resolve");
 
@@ -13,6 +14,7 @@ type ResolveEvent =
 
 /** POST /api/backstage/resolve — discover YouTube playlist and map tracks to video IDs */
 export async function POST(req: Request) {
+  assertBackstageAuth(req);
   const { gameId } = (await req.json()) as { gameId: string };
 
   if (!gameId) {

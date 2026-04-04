@@ -4,6 +4,7 @@ import { getTaggingProvider } from "@/lib/llm";
 import { makeSSEStream, SSE_HEADERS, sanitizeErrorMessage } from "@/lib/sse";
 import { OnboardingPhase, SSEEventType } from "@/types";
 import { createLogger } from "@/lib/logger";
+import { assertBackstageAuth } from "@/lib/services/cloudflare-access";
 
 const log = createLogger("backstage-retag");
 
@@ -14,6 +15,7 @@ type RetagEvent =
 
 /** POST /api/backstage/retag — clear tags and re-run LLM tagger for a game */
 export async function POST(req: Request) {
+  assertBackstageAuth(req);
   const { gameId } = (await req.json()) as { gameId: string };
 
   if (!gameId) {

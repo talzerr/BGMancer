@@ -4,6 +4,7 @@ import { TracklistSource } from "@/types";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { zodErrorResponse } from "@/lib/validation";
+import { assertBackstageAuth } from "@/lib/services/cloudflare-access";
 
 const importTracksSchema = z.object({
   gameId: z.string().min(1),
@@ -20,6 +21,7 @@ const importTracksSchema = z.object({
 
 /** POST /api/backstage/import-tracks — bulk-import tracks from any source (paste, etc.) */
 export async function POST(req: Request) {
+  assertBackstageAuth(req);
   const body = await req.json();
   const parsed = importTracksSchema.safeParse(body);
   if (!parsed.success) return zodErrorResponse(parsed.error);

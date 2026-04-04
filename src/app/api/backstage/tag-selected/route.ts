@@ -4,6 +4,7 @@ import { getTaggingProvider } from "@/lib/llm";
 import { makeSSEStream, SSE_HEADERS, sanitizeErrorMessage } from "@/lib/sse";
 import { DiscoveredStatus, OnboardingPhase, SSEEventType } from "@/types";
 import { createLogger } from "@/lib/logger";
+import { assertBackstageAuth } from "@/lib/services/cloudflare-access";
 
 const log = createLogger("backstage-tag-selected");
 
@@ -14,6 +15,7 @@ type TagSelectedEvent =
 
 /** POST /api/backstage/tag-selected — tag only the specified tracks (no clearing) */
 export async function POST(req: Request) {
+  assertBackstageAuth(req);
   const { gameId, trackNames } = (await req.json()) as {
     gameId: string;
     trackNames: string[];
