@@ -1,13 +1,11 @@
 import { Games, Tracks, ReviewFlags } from "@/lib/db/repo";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
-import { assertBackstageAuth } from "@/lib/services/cloudflare-access";
 
 const log = createLogger("backstage-games");
 
 /** GET /api/backstage/games/[gameId]/tracks */
-export async function GET(req: Request, { params }: { params: Promise<{ gameId: string }> }) {
-  assertBackstageAuth(req);
+export async function GET(_req: Request, { params }: { params: Promise<{ gameId: string }> }) {
   try {
     const { gameId } = await params;
     const game = await Games.getById(gameId);

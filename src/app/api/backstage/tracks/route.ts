@@ -2,13 +2,11 @@ import { Tracks, VideoTracks } from "@/lib/db/repo";
 import { ensureVideoMetadata } from "@/lib/pipeline/onboarding/youtube-resolve";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
-import { assertBackstageAuth } from "@/lib/services/cloudflare-access";
 
 const log = createLogger("backstage-tracks");
 
 /** GET /api/backstage/tracks — search tracks with optional filters */
 export async function GET(req: Request) {
-  assertBackstageAuth(req);
   try {
     const url = new URL(req.url);
     const gameId = url.searchParams.get("gameId") ?? undefined;
@@ -54,7 +52,6 @@ interface TrackPatch {
 
 /** PATCH /api/backstage/tracks — update one or many tracks */
 export async function PATCH(req: Request) {
-  assertBackstageAuth(req);
   try {
     const body = (await req.json()) as TrackPatch | TrackPatch[];
     const patches = Array.isArray(body) ? body : [body];
@@ -106,7 +103,6 @@ export async function PATCH(req: Request) {
 
 /** POST /api/backstage/tracks — create a manual track */
 export async function POST(req: Request) {
-  assertBackstageAuth(req);
   try {
     const { gameId, name, position } = (await req.json()) as {
       gameId: string;
@@ -128,7 +124,6 @@ export async function POST(req: Request) {
 
 /** DELETE /api/backstage/tracks — delete tracks by composite PK */
 export async function DELETE(req: Request) {
-  assertBackstageAuth(req);
   try {
     const body = (await req.json()) as
       | { gameId: string; names: string[] }

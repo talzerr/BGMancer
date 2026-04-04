@@ -1,13 +1,11 @@
 import { BackstageGames } from "@/lib/db/repo";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
-import { assertBackstageAuth } from "@/lib/services/cloudflare-access";
 
 const log = createLogger("backstage-publish");
 
 /** POST /api/backstage/bulk-publish — batch publish/unpublish games */
 export async function POST(req: Request) {
-  assertBackstageAuth(req);
   try {
     const { gameIds, published } = (await req.json()) as {
       gameIds: string[];

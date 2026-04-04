@@ -1,14 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import {
-  hasCloudflareAccessToken,
-  assertBackstageAuth,
-  BackstageAuthError,
-} from "../cloudflare-access";
-import { env } from "@/lib/env";
-
-vi.mock("@/lib/env", () => ({ env: { isDev: false } }));
-
-const mockEnv = env as { isDev: boolean };
+import { describe, it, expect } from "vitest";
+import { hasCloudflareAccessToken } from "../cloudflare-access";
 
 function makeRequest(cookie?: string): Request {
   const headers: Record<string, string> = {};
@@ -37,24 +28,5 @@ describe("hasCloudflareAccessToken", () => {
 
   it("returns false for substring matches like notCF_Authorization", () => {
     expect(hasCloudflareAccessToken(makeRequest("notCF_Authorization=fake"))).toBe(false);
-  });
-});
-
-describe("assertBackstageAuth", () => {
-  beforeEach(() => {
-    mockEnv.isDev = false;
-  });
-
-  it("does not throw in dev mode", () => {
-    mockEnv.isDev = true;
-    expect(() => assertBackstageAuth(makeRequest())).not.toThrow();
-  });
-
-  it("does not throw when CF_Authorization cookie is present in prod", () => {
-    expect(() => assertBackstageAuth(makeRequest("CF_Authorization=eyJhbGci..."))).not.toThrow();
-  });
-
-  it("throws BackstageAuthError when cookie is missing in prod", () => {
-    expect(() => assertBackstageAuth(makeRequest())).toThrow(BackstageAuthError);
   });
 });

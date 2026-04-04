@@ -9,7 +9,6 @@ import { fetchPlaylistItems } from "@/lib/services/youtube";
 import { getTaggingProvider } from "@/lib/llm";
 import { SSEEventType } from "@/types";
 import { createLogger } from "@/lib/logger";
-import { assertBackstageAuth } from "@/lib/services/cloudflare-access";
 
 const log = createLogger("backstage-resolve-selected");
 
@@ -20,7 +19,6 @@ type ResolveSelectedEvent =
 
 /** POST /api/backstage/resolve-selected — resolve only the specified tracks to YouTube videos */
 export async function POST(req: Request) {
-  assertBackstageAuth(req);
   const { gameId, trackNames } = (await req.json()) as {
     gameId: string;
     trackNames: string[];

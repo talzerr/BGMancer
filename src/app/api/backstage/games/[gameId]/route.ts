@@ -4,13 +4,11 @@ import { extractPlaylistId } from "@/lib/pipeline/onboarding/youtube-resolve";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
 import { gameTitleSchema } from "@/lib/validation";
-import { assertBackstageAuth } from "@/lib/services/cloudflare-access";
 
 const log = createLogger("backstage-games");
 
 /** PATCH /api/backstage/games/[gameId] — update game metadata */
 export async function PATCH(req: Request, { params }: { params: Promise<{ gameId: string }> }) {
-  assertBackstageAuth(req);
   const { gameId } = await params;
   const game = await Games.getById(gameId);
   if (!game) {
@@ -51,8 +49,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ gameId
 }
 
 /** DELETE /api/backstage/games/[gameId] — permanently delete a game and all associated data */
-export async function DELETE(req: Request, { params }: { params: Promise<{ gameId: string }> }) {
-  assertBackstageAuth(req);
+export async function DELETE(_req: Request, { params }: { params: Promise<{ gameId: string }> }) {
   const { gameId } = await params;
   const game = await Games.getById(gameId);
   if (!game) {

@@ -3,7 +3,6 @@ import { makeSSEStream, SSE_HEADERS, sanitizeErrorMessage } from "@/lib/sse";
 import { loadTracks } from "@/lib/pipeline/onboarding";
 import { OnboardingPhase, SSEEventType } from "@/types";
 import { createLogger } from "@/lib/logger";
-import { assertBackstageAuth } from "@/lib/services/cloudflare-access";
 
 const log = createLogger("backstage-load-tracks");
 
@@ -14,7 +13,6 @@ type LoadTracksEvent =
 
 /** POST /api/backstage/load-tracks — fetch tracklist from Discogs */
 export async function POST(req: Request) {
-  assertBackstageAuth(req);
   const { gameId } = (await req.json()) as { gameId: string };
 
   if (!gameId) {

@@ -1,13 +1,11 @@
 import { Sessions, Playlist, DirectorDecisions } from "@/lib/db/repo";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
-import { assertBackstageAuth } from "@/lib/services/cloudflare-access";
 
 const log = createLogger("backstage-theatre");
 
 /** GET /api/backstage/theatre/[playlistId] — full telemetry for a playlist */
-export async function GET(req: Request, { params }: { params: Promise<{ playlistId: string }> }) {
-  assertBackstageAuth(req);
+export async function GET(_req: Request, { params }: { params: Promise<{ playlistId: string }> }) {
   try {
     const { playlistId } = await params;
     const session = await Sessions.getByIdWithTelemetry(playlistId);
