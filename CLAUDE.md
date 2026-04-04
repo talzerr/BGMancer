@@ -139,7 +139,6 @@ Three-phase process (all track data is pre-cached during backstage onboarding �
 
 Curation modes (see `CurationMode` enum in `src/types/index.ts`):
 
-- `skip` — legacy, kept for DB compatibility only; not exposed in UI
 - `lite` — half budget weight in phase 3
 - `include` — standard (default)
 - `focus` — guaranteed double-weighted budget in phase 3
