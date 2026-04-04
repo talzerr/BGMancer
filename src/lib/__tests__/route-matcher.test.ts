@@ -8,8 +8,8 @@ describe("matchRoute", () => {
       expect(matchRoute("GET", "/")).toEqual({ auth: AuthLevel.Public });
     });
 
-    it("should match /library", () => {
-      expect(matchRoute("GET", "/library")).toEqual({ auth: AuthLevel.Public });
+    it("should match /catalog", () => {
+      expect(matchRoute("GET", "/catalog")).toEqual({ auth: AuthLevel.Public });
     });
 
     it("should return null for unregistered pages", () => {

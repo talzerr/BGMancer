@@ -25,10 +25,10 @@ export interface PlaylistSessionWithCount extends PlaylistSession {
 // ─── Game library ─────────────────────────────────────────────────────────────
 
 /** Controls how a game participates in playlist generation.
- *  Skip    — excluded entirely
  *  Lite    — enters curation with half as many candidates (appears occasionally)
  *  Include — standard inclusion (default)
- *  Focus   — guaranteed tracks in every playlist, bypasses AI curation
+ *  Focus   — guaranteed tracks in every playlist, double weight
+ *  Skip    — legacy value kept for DB compatibility, not exposed in UI
  */
 export enum CurationMode {
   Skip = "skip",

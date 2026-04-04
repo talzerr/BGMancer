@@ -77,8 +77,11 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
         allow_short_tracks: config.allowShortTracks,
         anti_spoiler_enabled: config.antiSpoilerEnabled,
         raw_vibes: config.rawVibes,
-        skip_llm: config.skipLlm,
+        skip_llm: !isSignedIn ? true : config.skipLlm,
         turnstileToken,
+        gameSelections: !isSignedIn
+          ? gameLibrary.games.map((g) => ({ gameId: g.id, curation: g.curation }))
+          : undefined,
       },
       () => {
         config.saveSkipLlm(true);
@@ -170,18 +173,20 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
             onImport={handleImport}
           />
 
-          <SessionList
-            sessions={sessions.map((s) =>
-              s.id === playlist.currentSessionId
-                ? { ...s, track_count: playlist.tracks.length }
-                : s,
-            )}
-            selectedId={playlist.currentSessionId}
-            onSelect={(id) => {
-              playlist.loadForSession(id);
-            }}
-            onDelete={handleDeleteSession}
-          />
+          {isSignedIn && (
+            <SessionList
+              sessions={sessions.map((s) =>
+                s.id === playlist.currentSessionId
+                  ? { ...s, track_count: playlist.tracks.length }
+                  : s,
+              )}
+              selectedId={playlist.currentSessionId}
+              onSelect={(id) => {
+                playlist.loadForSession(id);
+              }}
+              onDelete={handleDeleteSession}
+            />
+          )}
         </aside>
 
         {/* Right panel: Playlist */}

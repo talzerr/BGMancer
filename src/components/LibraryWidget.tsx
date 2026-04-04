@@ -11,7 +11,7 @@ export function LibraryWidget() {
 
   return (
     <Link
-      href="/library"
+      href="/catalog"
       className="group block rounded-xl border border-white/[0.06] bg-zinc-800/30 p-3 pb-4 transition-all hover:border-violet-500/20 hover:bg-zinc-800/50"
     >
       <div className="flex items-center justify-between">
@@ -49,6 +49,9 @@ export function LibraryWidget() {
                   <img
                     src={steamHeaderUrl(game.steam_appid as number)}
                     alt={game.title}
+                    width={28}
+                    height={28}
+                    loading="lazy"
                     className="h-full w-full object-cover"
                   />
                 ) : (

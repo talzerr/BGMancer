@@ -19,14 +19,21 @@ interface PlayerContextValue {
   gameLibrary: GameLibraryState;
   /** Game thumbnail URL keyed by game ID. Computed once; use instead of re-deriving. */
   gameThumbnailByGameId: Map<string, string>;
+  isSignedIn: boolean;
 }
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
 
-export function PlayerProvider({ children }: { children: React.ReactNode }) {
+export function PlayerProvider({
+  children,
+  isSignedIn,
+}: {
+  children: React.ReactNode;
+  isSignedIn: boolean;
+}) {
   const playlist = usePlaylist();
   const config = useConfig();
-  const gameLibrary = useGameLibrary();
+  const gameLibrary = useGameLibrary(isSignedIn);
 
   const player = usePlayerState();
   const {
@@ -73,7 +80,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <PlayerContext.Provider
-      value={{ playlist, player, config, gameLibrary, gameThumbnailByGameId }}
+      value={{ playlist, player, config, gameLibrary, gameThumbnailByGameId, isSignedIn }}
     >
       {children}
       {currentTrackIndex !== null && effectiveFoundTracks.length > 0 && (

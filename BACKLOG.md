@@ -13,7 +13,8 @@
 - **Better session names** — optional LLM side-call to produce evocative names (e.g. "Soulsborne Descent") from track energy and roles.
 - **Playlist preview before commit** — review assembled tracks before saving; allow manual swaps/removals.
 - **Playlist export** — export as plain text or CSV.
-- **Mobile layout** — responsive design for phone/tablet.
+- **Mobile layout** — responsive design for phone/tablet. The catalog library drawer should become a collapsible bottom sheet on mobile viewports.
+- **Collapsible library drawer** — on mobile, the library drawer should be toggleable (collapsed by default, expand on tap). Desktop keeps it always visible.
 - **PWA install** — web app manifest + service worker for home screen install.
 
 ## Library & Integration

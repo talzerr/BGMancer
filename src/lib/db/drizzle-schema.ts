@@ -209,6 +209,25 @@ export const gameReviewFlags = sqliteTable(
   (table) => [index("idx_review_flags_game").on(table.game_id)],
 );
 
+// ─── Favorite games (user bookmarks) ────────────────────────────────────────
+
+export const favoriteGames = sqliteTable(
+  "favorite_games",
+  {
+    user_id: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    game_id: text("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    created_at: text("created_at").notNull().default(timestampDefault),
+  },
+  (table) => [
+    primaryKey({ columns: [table.user_id, table.game_id] }),
+    index("idx_favorite_games_user").on(table.user_id),
+  ],
+);
+
 // ─── Video tracks (YouTube alignment) ────────────────────────────────────────
 
 export const videoTracks = sqliteTable(

@@ -78,7 +78,14 @@ describe("CatalogBrowser", () => {
   describe("when component mounts", () => {
     it("should fetch catalog from /api/games/catalog", async () => {
       const CatalogBrowser = await importComponent();
-      render(<CatalogBrowser libraryGameIds={new Set()} onGameAdded={vi.fn()} />);
+      render(
+        <CatalogBrowser
+          libraryGameIds={new Set()}
+          onAdd={vi.fn()}
+          favoriteGameIds={new Set()}
+          onToggleFavorite={vi.fn()}
+        />,
+      );
 
       await waitFor(() => {
         expect(globalThis.fetch).toHaveBeenCalledWith("/api/games/catalog");
@@ -89,7 +96,14 @@ describe("CatalogBrowser", () => {
   describe("when catalog has games", () => {
     it("should render game titles", async () => {
       const CatalogBrowser = await importComponent();
-      render(<CatalogBrowser libraryGameIds={new Set()} onGameAdded={vi.fn()} />);
+      render(
+        <CatalogBrowser
+          libraryGameIds={new Set()}
+          onAdd={vi.fn()}
+          favoriteGameIds={new Set()}
+          onToggleFavorite={vi.fn()}
+        />,
+      );
 
       expect(await screen.findByText("Hollow Knight")).toBeInTheDocument();
       expect(screen.getByText("Celeste")).toBeInTheDocument();
@@ -97,7 +111,14 @@ describe("CatalogBrowser", () => {
 
     it("should not show loading spinner after games load", async () => {
       const CatalogBrowser = await importComponent();
-      render(<CatalogBrowser libraryGameIds={new Set()} onGameAdded={vi.fn()} />);
+      render(
+        <CatalogBrowser
+          libraryGameIds={new Set()}
+          onAdd={vi.fn()}
+          favoriteGameIds={new Set()}
+          onToggleFavorite={vi.fn()}
+        />,
+      );
 
       await screen.findByText("Hollow Knight");
       // The spinner uses role="status" or we check for the loading state text
@@ -108,7 +129,14 @@ describe("CatalogBrowser", () => {
   describe("when a game is already in library", () => {
     it("should show 'In library' indicator", async () => {
       const CatalogBrowser = await importComponent();
-      render(<CatalogBrowser libraryGameIds={new Set(["game-hk"])} onGameAdded={vi.fn()} />);
+      render(
+        <CatalogBrowser
+          libraryGameIds={new Set(["game-hk"])}
+          onAdd={vi.fn()}
+          favoriteGameIds={new Set()}
+          onToggleFavorite={vi.fn()}
+        />,
+      );
 
       await screen.findByText("Hollow Knight");
       expect(screen.getByText("In library")).toBeInTheDocument();
@@ -119,7 +147,9 @@ describe("CatalogBrowser", () => {
       render(
         <CatalogBrowser
           libraryGameIds={new Set(["game-hk", "game-celeste"])}
-          onGameAdded={vi.fn()}
+          onAdd={vi.fn()}
+          favoriteGameIds={new Set()}
+          onToggleFavorite={vi.fn()}
         />,
       );
 
@@ -131,7 +161,14 @@ describe("CatalogBrowser", () => {
   describe("when a game is not in library", () => {
     it("should show add button", async () => {
       const CatalogBrowser = await importComponent();
-      render(<CatalogBrowser libraryGameIds={new Set()} onGameAdded={vi.fn()} />);
+      render(
+        <CatalogBrowser
+          libraryGameIds={new Set()}
+          onAdd={vi.fn()}
+          favoriteGameIds={new Set()}
+          onToggleFavorite={vi.fn()}
+        />,
+      );
 
       await screen.findByText("Hollow Knight");
       const addButtons = screen.getAllByText("+ Add");
@@ -139,47 +176,70 @@ describe("CatalogBrowser", () => {
     });
   });
 
-  describe("when search input is typed", () => {
-    it("should debounce and fetch with query param", async () => {
-      vi.useFakeTimers({ shouldAdvanceTime: true });
+  describe("when searchFilter prop is provided", () => {
+    it("should filter games client-side by title", async () => {
       const CatalogBrowser = await importComponent();
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      render(
+        <CatalogBrowser
+          libraryGameIds={new Set()}
+          onAdd={vi.fn()}
+          searchFilter="hollow"
+          favoriteGameIds={new Set()}
+          onToggleFavorite={vi.fn()}
+        />,
+      );
 
-      render(<CatalogBrowser libraryGameIds={new Set()} onGameAdded={vi.fn()} />);
+      expect(await screen.findByText("Hollow Knight")).toBeInTheDocument();
+      expect(screen.queryByText("Celeste")).not.toBeInTheDocument();
+    });
 
-      // Wait for initial fetch to resolve
-      await vi.advanceTimersByTimeAsync(10);
+    it("should show all games when searchFilter is empty", async () => {
+      const CatalogBrowser = await importComponent();
+      render(
+        <CatalogBrowser
+          libraryGameIds={new Set()}
+          onAdd={vi.fn()}
+          searchFilter=""
+          favoriteGameIds={new Set()}
+          onToggleFavorite={vi.fn()}
+        />,
+      );
 
-      // Clear the initial fetch call tracking
-      const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
-      fetchMock.mockClear();
+      expect(await screen.findByText("Hollow Knight")).toBeInTheDocument();
+      expect(screen.getByText("Celeste")).toBeInTheDocument();
+    });
 
-      const searchInput = screen.getByPlaceholderText("Search catalog...");
-      await user.type(searchInput, "hollow");
+    it("should show filtered count in footer when filtering", async () => {
+      const CatalogBrowser = await importComponent();
+      render(
+        <CatalogBrowser
+          libraryGameIds={new Set()}
+          onAdd={vi.fn()}
+          searchFilter="hollow"
+          favoriteGameIds={new Set()}
+          onToggleFavorite={vi.fn()}
+        />,
+      );
 
-      // Should not have fetched with the full query yet (debounce hasn't fired for final keystroke)
-      fetchMock.mockClear();
-
-      // Advance past the 300ms debounce
-      await vi.advanceTimersByTimeAsync(350);
-
-      expect(fetchMock).toHaveBeenCalledWith("/api/games/catalog?q=hollow");
-
-      vi.useRealTimers();
+      await screen.findByText("Hollow Knight");
+      expect(screen.getByText("1 of 2 games")).toBeInTheDocument();
     });
   });
 
   describe("when add button is clicked", () => {
-    it("should call fetch POST to /api/games and then onGameAdded", async () => {
-      const onGameAdded = vi.fn();
+    it("should call onAdd with the game and default curation", async () => {
+      const onAdd = vi.fn().mockResolvedValue(undefined);
       const user = userEvent.setup();
-      globalThis.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(CATALOG_GAMES),
-      });
 
       const CatalogBrowser = await importComponent();
-      render(<CatalogBrowser libraryGameIds={new Set()} onGameAdded={onGameAdded} />);
+      render(
+        <CatalogBrowser
+          libraryGameIds={new Set()}
+          onAdd={onAdd}
+          favoriteGameIds={new Set()}
+          onToggleFavorite={vi.fn()}
+        />,
+      );
 
       await screen.findByText("Hollow Knight");
 
@@ -187,38 +247,24 @@ describe("CatalogBrowser", () => {
       await user.click(addButtons[0]);
 
       await waitFor(() => {
-        expect(globalThis.fetch).toHaveBeenCalledWith("/api/games", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ gameId: "game-hk", curation: CurationMode.Include }),
-        });
-      });
-
-      await waitFor(() => {
-        expect(onGameAdded).toHaveBeenCalled();
+        expect(onAdd).toHaveBeenCalledWith(GAME_HOLLOW_KNIGHT, CurationMode.Include);
       });
     });
 
-    it("should not call onGameAdded when the POST fails", async () => {
-      const onGameAdded = vi.fn();
+    it("should not propagate when onAdd rejects", async () => {
+      const onAdd = vi.fn().mockRejectedValue(new Error("fail"));
       const user = userEvent.setup();
       const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      let callCount = 0;
-      globalThis.fetch = vi.fn().mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          // Initial catalog load
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve(CATALOG_GAMES),
-          });
-        }
-        // POST to /api/games fails
-        return Promise.resolve({ ok: false, status: 500 });
-      });
 
       const CatalogBrowser = await importComponent();
-      render(<CatalogBrowser libraryGameIds={new Set()} onGameAdded={onGameAdded} />);
+      render(
+        <CatalogBrowser
+          libraryGameIds={new Set()}
+          onAdd={onAdd}
+          favoriteGameIds={new Set()}
+          onToggleFavorite={vi.fn()}
+        />,
+      );
 
       await screen.findByText("Hollow Knight");
 
@@ -229,7 +275,6 @@ describe("CatalogBrowser", () => {
         expect(consoleSpy).toHaveBeenCalled();
       });
 
-      expect(onGameAdded).not.toHaveBeenCalled();
       consoleSpy.mockRestore();
     });
   });

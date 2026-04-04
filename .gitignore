@@ -32,6 +32,10 @@
 # claude code worktrees
 .claude/
 
+# claude superpowers
+.superpowers/
+docs/superpowers/
+
 # misc
 .DS_Store
 *.pem
