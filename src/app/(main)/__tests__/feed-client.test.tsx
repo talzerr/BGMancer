@@ -74,6 +74,7 @@ const mockPlayerContext = {
     fetchGames: vi.fn(),
   },
   gameThumbnailByGameId: new Map<string, string>(),
+  isSignedIn: false,
 };
 
 const mockSessionManager = {
@@ -237,9 +238,14 @@ describe("FeedClient", () => {
       expect(screen.getByTestId("generate-section")).toBeInTheDocument();
     });
 
-    it("should render SessionList", () => {
-      renderFeedClient();
+    it("should render SessionList when signed in", () => {
+      renderFeedClient({ isSignedIn: true });
       expect(screen.getByTestId("session-list")).toBeInTheDocument();
+    });
+
+    it("should not render SessionList for guests", () => {
+      renderFeedClient({ isSignedIn: false });
+      expect(screen.queryByTestId("session-list")).not.toBeInTheDocument();
     });
 
     it("should render PlaylistHeader", () => {

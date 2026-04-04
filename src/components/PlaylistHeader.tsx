@@ -150,7 +150,7 @@ export function PlaylistHeader({
             {trackCount > 0 && <div className="mx-0.5 h-4 w-px bg-white/[0.06]" />}
 
             {/* Secondary actions */}
-            {!isDev && (
+            {isSignedIn && !isDev && (
               <SyncButton
                 isSignedIn={isSignedIn}
                 isDev={isDev}

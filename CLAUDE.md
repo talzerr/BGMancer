@@ -69,7 +69,8 @@ Schema is managed by Drizzle ORM with migrations stored in `drizzle/migrations/`
 | Browse catalog           | Yes                            | Yes                                                 |
 | Generate playlist        | Director-only, no persistence  | Full pipeline (Vibe Profiler + Director), persisted |
 | Import YouTube playlist  | Returns tracks, no persistence | Persisted as session                                |
-| Game library             | No                             | DB-backed                                           |
+| Game library             | localStorage-backed            | DB-backed                                           |
+| Favorites                | No                             | DB-backed                                           |
 | Session history          | No                             | DB-backed                                           |
 | Reroll / Sync to YouTube | No                             | Yes                                                 |
 
@@ -84,8 +85,8 @@ When adding a new API route:
 
 Next.js App Router with three main page areas:
 
-- `/` — main feed (`src/app/page.tsx` + `src/app/feed-client.tsx`) — playlist view, generation controls, session history
-- `/library` — game library management (`src/app/library/page.tsx` + `src/app/library/library-client.tsx`)
+- `/` — main feed (`src/app/(main)/page.tsx` + `src/app/(main)/feed-client.tsx`) — playlist view, generation controls, session history
+- `/catalog` — catalog browser + library drawer (`src/app/(main)/catalog/page.tsx` + `src/app/(main)/catalog/catalog-client.tsx`) — browse published games, add to library with curation modes, favorites (auth only)
 - `/backstage` — admin control plane (`src/app/(backstage)/backstage/`) — inspect/correct track metadata, review flags, and Director telemetry. Three views:
   - `/backstage/games` — game list with needs-review badges, re-ingest / retag actions
   - `/backstage/tracks` — track lab: full tag table with inline editing via `TrackEditSheet`, bulk actions, re-tag trigger
@@ -95,12 +96,13 @@ All non-backstage pages are wrapped by `PlayerProvider` (in `src/app/layout.tsx`
 
 ### Global state (PlayerContext)
 
-`PlayerProvider` composes four hooks and shares their state app-wide:
+`PlayerProvider` (rendered in `src/app/(main)/layout.tsx`) composes four hooks and shares their state app-wide. It receives `isSignedIn` from the server layout (via `auth()`) and exposes it on the context:
 
 - `usePlaylist` — playlist tracks + session management, fetches from `/api/playlist`
 - `usePlayerState` — playback state (current track, shuffle, play/pause)
 - `useConfig` — app config (track count, anti-spoiler, etc.) stored in localStorage
-- `useGameLibrary` — game library from `/api/games`
+- `useGameLibrary(isSignedIn)` — game library; authenticated users fetch from `/api/games`, guests use localStorage (key `bgm_guest_library`) hydrated against `/api/games/catalog`
+- `isSignedIn` — boolean, available on the context for auth-gating UI
 
 Use `usePlayerContext()` to access any of these from any client component.
 
@@ -111,7 +113,7 @@ Uses **Drizzle ORM** with **Cloudflare D1** as the database driver everywhere (d
 - `index.ts` — `getDB()` returns a D1-backed Drizzle instance via `getCloudflareContext().env.DB`
 - `drizzle-schema.ts` — Drizzle schema definition for all tables, indexes, and foreign keys
 - `repo.ts` — barrel re-export for all repos in `repos/`
-- `repos/` — one file per domain: `games`, `backstage-games`, `users`, `sessions`, `playlist`, `tracks`, `video-tracks`, `review-flags`, `decisions`
+- `repos/` — one file per domain: `games`, `backstage-games`, `users`, `sessions`, `playlist`, `tracks`, `video-tracks`, `review-flags`, `decisions`, `favorites`
 - `mappers.ts` — row → typed object converters (used by repos that query via `sql` tagged template)
 - `queries.ts` — shared Drizzle subquery helpers
 - `test-helpers.ts` — `createTestDrizzleDB()` for in-memory test databases with D1-compat wrapper
@@ -137,7 +139,7 @@ Three-phase process (all track data is pre-cached during backstage onboarding �
 
 Curation modes (see `CurationMode` enum in `src/types/index.ts`):
 
-- `skip` — excluded from generation
+- `skip` — legacy, kept for DB compatibility only; not exposed in UI
 - `lite` — half budget weight in phase 3
 - `include` — standard (default)
 - `focus` — guaranteed double-weighted budget in phase 3
@@ -180,6 +182,15 @@ There is no `/api/config` route. The hook uses `localStorage.getItem()` / `local
 
 Config persists across sessions and is independent of user identity (all users share the same browser localStorage).
 
+### Guest library (`src/lib/guest-library.ts`)
+
+Guests get a localStorage-backed game library that mirrors the authenticated DB-backed library. The `useGameLibrary` hook accepts `isSignedIn` and branches internally:
+
+- **Authenticated:** all operations go through `/api/games` (GET/POST/PATCH/DELETE)
+- **Guest:** reads/writes `bgm_guest_library` in localStorage as `{ gameId, curation }[]`, hydrates into full `Game` objects via `/api/games/catalog`
+
+The hook exposes `addGame(game, curation)`, `updateCuration(gameId, curation)`, and `deleteGame(gameId)` which work identically for both paths. Guest generation sends `gameSelections` in the POST body to `/api/playlist/generate`, which the backend already supports via `generatePlaylistForGuest`. Guests always use Express Mode (Director-only, no Vibe Profiler).
+
 ### API routes
 
 All under `src/app/api/`. Auth levels are defined in `src/lib/route-config.ts`. Key routes:
@@ -197,6 +208,8 @@ All under `src/app/api/`. Auth levels are defined in `src/lib/route-config.ts`. 
 - `GET /api/sessions` — session list (Optional — guests get `[]`)
 - `PATCH/DELETE /api/sessions/[id]` — session management (Required + ownership)
 - `POST /api/sync` — sync playlist to YouTube account (Required + OAuth access token)
+- `GET /api/favorites` — user's favorited game IDs (Optional — guests get `[]`)
+- `POST /api/favorites` — toggle a game favorite (Required)
 - `GET /api/steam/games` / `GET /api/steam/search` / `POST /api/steam/import` — Steam lookups for game onboarding (Admin)
 
 Backstage API routes (all under `src/app/api/backstage/`, auth level: Admin via wildcard):

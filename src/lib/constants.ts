@@ -64,9 +64,6 @@ export function steamHeaderUrl(appid: number): string {
 /** Maximum number of games allowed in a user's library. */
 export const LIBRARY_MAX_GAMES = 500;
 
-/** Maximum published games returned by the catalog browser. */
-export const CATALOG_PAGE_SIZE = 15;
-
 /** Maximum tracks allowed per game (excess tracks from Discogs are dropped). */
 export const GAME_MAX_TRACKS = 300;
 

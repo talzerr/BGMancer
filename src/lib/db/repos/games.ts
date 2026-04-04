@@ -143,9 +143,9 @@ export const Games = {
   async ensureExists(userId: string, id: string, title: string): Promise<void> {
     const exists = await getDB().get(sql`SELECT id FROM games WHERE id = ${id}`);
     if (!exists) {
-      await this.create(userId, id, title, CurationMode.Skip);
+      await this.create(userId, id, title, CurationMode.Include);
     } else {
-      await this.linkToLibrary(userId, id, CurationMode.Skip);
+      await this.linkToLibrary(userId, id, CurationMode.Include);
     }
   },
 };

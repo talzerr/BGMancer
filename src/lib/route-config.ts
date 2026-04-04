@@ -27,7 +27,7 @@ interface RouteEntry {
 export const routeConfig: Record<string, RouteEntry> = {
   // ── Pages ──────────────────────────────────────────────────
   "/": { auth: AuthLevel.Public },
-  "/library": { auth: AuthLevel.Public }, // Renders empty for guests — auth resolved client-side
+  "/catalog": { auth: AuthLevel.Public }, // Renders empty for guests — auth resolved client-side
   "/legal": { auth: AuthLevel.Public },
   "/backstage": { auth: AuthLevel.Admin },
   "/backstage/games": { auth: AuthLevel.Admin },
@@ -44,6 +44,10 @@ export const routeConfig: Record<string, RouteEntry> = {
   "PATCH /api/games": { auth: AuthLevel.Required },
   "DELETE /api/games": { auth: AuthLevel.Required },
   "GET /api/games/catalog": { auth: AuthLevel.Public },
+
+  // ── API: Favorites ─────────────────────────────────────────
+  "GET /api/favorites": { auth: AuthLevel.Optional },
+  "POST /api/favorites": { auth: AuthLevel.Required },
 
   // ── API: Playlist ──────────────────────────────────────────
   "GET /api/playlist": { auth: AuthLevel.Optional },

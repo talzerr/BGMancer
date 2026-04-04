@@ -14,6 +14,7 @@ export interface GenerateConfig {
   raw_vibes: boolean;
   skip_llm: boolean;
   turnstileToken?: string;
+  gameSelections?: { gameId: string; curation?: string }[];
 }
 
 export type GameProgressEntry = {
