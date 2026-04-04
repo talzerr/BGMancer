@@ -7,12 +7,22 @@ export interface GuestLibraryEntry {
 
 const GUEST_LIBRARY_KEY = "bgm_guest_library";
 
+function isValidEntry(e: unknown): e is GuestLibraryEntry {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    typeof (e as GuestLibraryEntry).gameId === "string" &&
+    typeof (e as GuestLibraryEntry).curation === "string"
+  );
+}
+
 export function readGuestLibrary(): GuestLibraryEntry[] {
   try {
     const raw = localStorage.getItem(GUEST_LIBRARY_KEY);
     if (!raw) return [];
-    const parsed = JSON.parse(raw) as GuestLibraryEntry[];
-    return Array.isArray(parsed) ? parsed : [];
+    const parsed = JSON.parse(raw) as unknown[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isValidEntry);
   } catch {
     return [];
   }

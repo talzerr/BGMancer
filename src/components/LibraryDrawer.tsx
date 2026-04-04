@@ -71,7 +71,7 @@ export function LibraryDrawer({
   }
 
   return (
-    <div className="sticky top-[57px] flex max-h-[calc(100vh-57px)] w-[300px] shrink-0 flex-col border-l border-white/[0.04] bg-zinc-950/80">
+    <div className="sticky top-[57px] hidden max-h-[calc(100vh-57px)] w-[300px] shrink-0 flex-col border-l border-white/[0.04] bg-zinc-950/80 lg:flex">
       {/* Header */}
       <div
         className={`flex items-center justify-between px-4 py-3 ${games.length > 0 ? "border-b border-white/[0.06]" : ""}`}

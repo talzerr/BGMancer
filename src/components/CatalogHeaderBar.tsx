@@ -1,3 +1,5 @@
+"use client";
+
 enum FilterMode {
   All = "all",
   Favorites = "favorites",

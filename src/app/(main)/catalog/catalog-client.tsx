@@ -30,11 +30,22 @@ export function CatalogClient() {
       return next;
     });
     if (isSignedIn) {
-      fetch("/api/favorites", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gameId }),
-      });
+      try {
+        const res = await fetch("/api/favorites", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ gameId }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } catch {
+        // Revert optimistic update
+        setFavoriteIds((prev) => {
+          const reverted = new Set(prev);
+          if (reverted.has(gameId)) reverted.delete(gameId);
+          else reverted.add(gameId);
+          return reverted;
+        });
+      }
     }
   }
 

@@ -27,6 +27,23 @@ describe("readGuestLibrary", () => {
     localStorage.setItem("bgm_guest_library", '{"foo":"bar"}');
     expect(readGuestLibrary()).toEqual([]);
   });
+
+  it("should filter out malformed entries", () => {
+    localStorage.setItem(
+      "bgm_guest_library",
+      JSON.stringify([
+        { gameId: "g1", curation: "include" },
+        { bad: true },
+        "string",
+        null,
+        { gameId: "g2", curation: "focus" },
+      ]),
+    );
+    expect(readGuestLibrary()).toEqual([
+      { gameId: "g1", curation: "include" },
+      { gameId: "g2", curation: "focus" },
+    ]);
+  });
 });
 
 describe("writeGuestLibrary", () => {
