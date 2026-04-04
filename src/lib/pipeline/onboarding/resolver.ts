@@ -1,13 +1,13 @@
 import { createLogger } from "@/lib/logger";
 import type { Game, Track, ResolvedTrack } from "@/types";
-
-const log = createLogger("resolver");
 import { DiscoveredStatus, ReviewReason } from "@/types";
 import type { LLMProvider } from "@/lib/llm/provider";
 import type { OSTTrack } from "@/lib/services/youtube";
 import { searchYouTube, YouTubeQuotaError, YouTubeInvalidKeyError } from "@/lib/services/youtube";
 import { Tracks, VideoTracks, ReviewFlags } from "@/lib/db/repo";
 import { RESOLVE_BATCH_SIZE, RESOLVE_FALLBACK_MAX } from "@/lib/constants";
+
+const log = createLogger("resolver");
 
 // ─── LLM response shape ───────────────────────────────────────────────────────
 
