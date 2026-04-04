@@ -81,7 +81,7 @@ describe("CatalogBrowser", () => {
       render(
         <CatalogBrowser
           libraryGameIds={new Set()}
-          onGameAdded={vi.fn()}
+          onAdd={vi.fn()}
           favoriteGameIds={new Set()}
           onToggleFavorite={vi.fn()}
         />,
@@ -99,7 +99,7 @@ describe("CatalogBrowser", () => {
       render(
         <CatalogBrowser
           libraryGameIds={new Set()}
-          onGameAdded={vi.fn()}
+          onAdd={vi.fn()}
           favoriteGameIds={new Set()}
           onToggleFavorite={vi.fn()}
         />,
@@ -114,7 +114,7 @@ describe("CatalogBrowser", () => {
       render(
         <CatalogBrowser
           libraryGameIds={new Set()}
-          onGameAdded={vi.fn()}
+          onAdd={vi.fn()}
           favoriteGameIds={new Set()}
           onToggleFavorite={vi.fn()}
         />,
@@ -132,7 +132,7 @@ describe("CatalogBrowser", () => {
       render(
         <CatalogBrowser
           libraryGameIds={new Set(["game-hk"])}
-          onGameAdded={vi.fn()}
+          onAdd={vi.fn()}
           favoriteGameIds={new Set()}
           onToggleFavorite={vi.fn()}
         />,
@@ -147,7 +147,7 @@ describe("CatalogBrowser", () => {
       render(
         <CatalogBrowser
           libraryGameIds={new Set(["game-hk", "game-celeste"])}
-          onGameAdded={vi.fn()}
+          onAdd={vi.fn()}
           favoriteGameIds={new Set()}
           onToggleFavorite={vi.fn()}
         />,
@@ -164,7 +164,7 @@ describe("CatalogBrowser", () => {
       render(
         <CatalogBrowser
           libraryGameIds={new Set()}
-          onGameAdded={vi.fn()}
+          onAdd={vi.fn()}
           favoriteGameIds={new Set()}
           onToggleFavorite={vi.fn()}
         />,
@@ -182,7 +182,7 @@ describe("CatalogBrowser", () => {
       render(
         <CatalogBrowser
           libraryGameIds={new Set()}
-          onGameAdded={vi.fn()}
+          onAdd={vi.fn()}
           searchFilter="hollow"
           favoriteGameIds={new Set()}
           onToggleFavorite={vi.fn()}
@@ -198,7 +198,7 @@ describe("CatalogBrowser", () => {
       render(
         <CatalogBrowser
           libraryGameIds={new Set()}
-          onGameAdded={vi.fn()}
+          onAdd={vi.fn()}
           searchFilter=""
           favoriteGameIds={new Set()}
           onToggleFavorite={vi.fn()}
@@ -214,7 +214,7 @@ describe("CatalogBrowser", () => {
       render(
         <CatalogBrowser
           libraryGameIds={new Set()}
-          onGameAdded={vi.fn()}
+          onAdd={vi.fn()}
           searchFilter="hollow"
           favoriteGameIds={new Set()}
           onToggleFavorite={vi.fn()}
@@ -227,19 +227,15 @@ describe("CatalogBrowser", () => {
   });
 
   describe("when add button is clicked", () => {
-    it("should call fetch POST to /api/games and then onGameAdded", async () => {
-      const onGameAdded = vi.fn();
+    it("should call onAdd with the game and default curation", async () => {
+      const onAdd = vi.fn().mockResolvedValue(undefined);
       const user = userEvent.setup();
-      globalThis.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(CATALOG_GAMES),
-      });
 
       const CatalogBrowser = await importComponent();
       render(
         <CatalogBrowser
           libraryGameIds={new Set()}
-          onGameAdded={onGameAdded}
+          onAdd={onAdd}
           favoriteGameIds={new Set()}
           onToggleFavorite={vi.fn()}
         />,
@@ -251,41 +247,20 @@ describe("CatalogBrowser", () => {
       await user.click(addButtons[0]);
 
       await waitFor(() => {
-        expect(globalThis.fetch).toHaveBeenCalledWith("/api/games", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ gameId: "game-hk", curation: CurationMode.Include }),
-        });
-      });
-
-      await waitFor(() => {
-        expect(onGameAdded).toHaveBeenCalled();
+        expect(onAdd).toHaveBeenCalledWith(GAME_HOLLOW_KNIGHT, CurationMode.Include);
       });
     });
 
-    it("should not call onGameAdded when the POST fails", async () => {
-      const onGameAdded = vi.fn();
+    it("should not propagate when onAdd rejects", async () => {
+      const onAdd = vi.fn().mockRejectedValue(new Error("fail"));
       const user = userEvent.setup();
       const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      let callCount = 0;
-      globalThis.fetch = vi.fn().mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          // Initial catalog load
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve(CATALOG_GAMES),
-          });
-        }
-        // POST to /api/games fails
-        return Promise.resolve({ ok: false, status: 500 });
-      });
 
       const CatalogBrowser = await importComponent();
       render(
         <CatalogBrowser
           libraryGameIds={new Set()}
-          onGameAdded={onGameAdded}
+          onAdd={onAdd}
           favoriteGameIds={new Set()}
           onToggleFavorite={vi.fn()}
         />,
@@ -300,7 +275,6 @@ describe("CatalogBrowser", () => {
         expect(consoleSpy).toHaveBeenCalled();
       });
 
-      expect(onGameAdded).not.toHaveBeenCalled();
       consoleSpy.mockRestore();
     });
   });

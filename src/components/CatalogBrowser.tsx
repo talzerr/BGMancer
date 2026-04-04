@@ -8,10 +8,10 @@ import type { Game } from "@/types";
 
 interface CatalogBrowserProps {
   libraryGameIds: Set<string>;
-  onGameAdded: () => void;
+  onAdd: (game: Game, curation: CurationMode) => Promise<void>;
   searchFilter?: string;
-  favoriteGameIds: Set<string>;
-  onToggleFavorite: (gameId: string) => void;
+  favoriteGameIds?: Set<string>;
+  onToggleFavorite?: (gameId: string) => void;
   showFavoritesOnly?: boolean;
 }
 
@@ -29,7 +29,7 @@ const CURATION_ADD_OPTIONS: {
 
 export function CatalogBrowser({
   libraryGameIds,
-  onGameAdded,
+  onAdd,
   searchFilter,
   favoriteGameIds,
   onToggleFavorite,
@@ -61,23 +61,17 @@ export function CatalogBrowser({
   }, [searchFilter, showFavoritesOnly]);
 
   const filtered = catalog
-    .filter((g) => !showFavoritesOnly || favoriteGameIds.has(g.id))
+    .filter((g) => !showFavoritesOnly || favoriteGameIds?.has(g.id))
     .filter(
       (g) => !searchFilter?.trim() || g.title.toLowerCase().includes(searchFilter.toLowerCase()),
     );
 
   const visible = filtered.slice(0, visibleCount);
 
-  async function handleAdd(gameId: string, curation: CurationMode = CurationMode.Include) {
-    setAddingId(gameId);
+  async function handleAdd(game: Game, curation: CurationMode = CurationMode.Include) {
+    setAddingId(game.id);
     try {
-      const res = await fetch("/api/games", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gameId, curation }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      onGameAdded();
+      await onAdd(game, curation);
     } catch (err) {
       console.error("[CatalogBrowser] add failed:", err);
     } finally {
@@ -98,7 +92,10 @@ export function CatalogBrowser({
         </p>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+          <div
+            className="grid gap-3"
+            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}
+          >
             {visible.map((game) => {
               const inLibrary = libraryGameIds.has(game.id);
               const isAdding = addingId === game.id;
@@ -108,8 +105,8 @@ export function CatalogBrowser({
                   game={game}
                   inLibrary={inLibrary}
                   isAdding={isAdding}
-                  isFavorite={favoriteGameIds.has(game.id)}
-                  onAdd={handleAdd}
+                  isFavorite={favoriteGameIds?.has(game.id) ?? false}
+                  onAdd={(curation) => handleAdd(game, curation)}
                   onToggleFavorite={onToggleFavorite}
                 />
               );
@@ -150,8 +147,8 @@ function CatalogCard({
   inLibrary: boolean;
   isAdding: boolean;
   isFavorite: boolean;
-  onAdd: (gameId: string, curation: CurationMode) => void;
-  onToggleFavorite: (gameId: string) => void;
+  onAdd: (curation: CurationMode) => void;
+  onToggleFavorite?: (gameId: string) => void;
 }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -191,6 +188,8 @@ function CatalogCard({
             width={460}
             height={215}
             className="aspect-[460/215] w-full bg-zinc-800 object-cover"
+            sizes="(min-width: 1280px) 280px, (min-width: 768px) 33vw, 50vw"
+            loading="lazy"
             unoptimized
           />
         ) : (
@@ -199,43 +198,45 @@ function CatalogCard({
           </div>
         )}
 
-        {/* Favorite star */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            const el = e.currentTarget;
-            el.classList.add("star-animate");
-            el.addEventListener("animationend", () => el.classList.remove("star-animate"), {
-              once: true,
-            });
-            onToggleFavorite(game.id);
-          }}
-          className={`absolute top-2 right-2 z-10 cursor-pointer rounded-full p-1 transition-all duration-200 ${
-            isFavorite
-              ? "opacity-100 drop-shadow-[0_0_6px_rgba(251,191,36,0.4)]"
-              : "opacity-0 group-hover:opacity-100"
-          }`}
-        >
-          {isFavorite ? (
-            <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-amber-400">
-              <path
-                fillRule="evenodd"
-                d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z"
-                clipRule="evenodd"
-              />
-            </svg>
-          ) : (
-            <svg
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              className="h-4 w-4 text-white/50"
-            >
-              <path d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z" />
-            </svg>
-          )}
-        </button>
+        {/* Favorite star (auth-only) */}
+        {onToggleFavorite && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              const el = e.currentTarget;
+              el.classList.add("star-animate");
+              el.addEventListener("animationend", () => el.classList.remove("star-animate"), {
+                once: true,
+              });
+              onToggleFavorite(game.id);
+            }}
+            className={`absolute top-2 right-2 z-10 cursor-pointer rounded-full p-1 transition-all duration-200 ${
+              isFavorite
+                ? "opacity-100 drop-shadow-[0_0_6px_rgba(251,191,36,0.4)]"
+                : "opacity-0 group-hover:opacity-100"
+            }`}
+          >
+            {isFavorite ? (
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-amber-400">
+                <path
+                  fillRule="evenodd"
+                  d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            ) : (
+              <svg
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                className="h-4 w-4 text-white/50"
+              >
+                <path d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z" />
+              </svg>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Title + action */}
@@ -259,14 +260,14 @@ function CatalogCard({
             <div ref={dropdownRef} className="relative">
               <div className="flex overflow-hidden rounded-lg">
                 <button
-                  onClick={() => onAdd(game.id, CurationMode.Include)}
-                  className="flex-1 cursor-pointer bg-violet-600/80 px-2 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-violet-500"
+                  onClick={() => onAdd(CurationMode.Include)}
+                  className="flex-1 cursor-pointer bg-violet-600/80 px-2 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-violet-500"
                 >
                   + Add
                 </button>
                 <button
                   onClick={() => setDropdownOpen((v) => !v)}
-                  className="cursor-pointer border-l border-violet-700/60 bg-violet-600/80 px-1.5 py-1.5 text-white transition-colors hover:bg-violet-500"
+                  className="cursor-pointer border-l border-violet-700/60 bg-violet-600/80 px-1.5 py-1 text-white transition-colors hover:bg-violet-500"
                 >
                   <ChevronDownIcon className="h-3 w-3" />
                 </button>
@@ -282,7 +283,7 @@ function CatalogCard({
                       key={mode}
                       onClick={() => {
                         setDropdownOpen(false);
-                        onAdd(game.id, mode);
+                        onAdd(mode);
                       }}
                       className={`flex w-full cursor-pointer items-center px-2.5 py-1.5 text-left text-xs font-medium transition-colors hover:bg-white/[0.06] ${colorClass}`}
                     >

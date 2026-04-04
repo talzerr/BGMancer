@@ -6,21 +6,21 @@ import { usePlayerContext } from "@/context/player-context";
 import { CatalogBrowser } from "@/components/CatalogBrowser";
 import { CatalogHeaderBar, FilterMode } from "@/components/CatalogHeaderBar";
 import { LibraryDrawer } from "@/components/LibraryDrawer";
-import type { CurationMode } from "@/types";
+import type { CurationMode, Game } from "@/types";
 
 export function CatalogClient() {
   const router = useRouter();
-  const { gameLibrary, config, playlist } = usePlayerContext();
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const { gameLibrary, config, playlist, isSignedIn } = usePlayerContext();
   const [search, setSearch] = useState("");
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [filterMode, setFilterMode] = useState<FilterMode>(FilterMode.All);
 
   useEffect(() => {
+    if (!isSignedIn) return;
     fetch("/api/favorites")
       .then((r) => (r.ok ? (r.json() as Promise<string[]>) : []))
       .then((ids) => setFavoriteIds(new Set(ids)));
-  }, []);
+  }, [isSignedIn]);
 
   async function handleToggleFavorite(gameId: string) {
     setFavoriteIds((prev) => {
@@ -29,26 +29,22 @@ export function CatalogClient() {
       else next.add(gameId);
       return next;
     });
-    fetch("/api/favorites", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ gameId }),
-    });
+    if (isSignedIn) {
+      fetch("/api/favorites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameId }),
+      });
+    }
   }
 
-  function handleGameAdded() {
-    if (!drawerOpen) setDrawerOpen(true);
-    gameLibrary.fetchGames();
+  async function handleAdd(game: Game, curation: CurationMode) {
+    await gameLibrary.addGame(game, curation);
   }
 
   async function handleCurationChange(gameId: string, curation: CurationMode) {
     try {
-      await fetch(`/api/games?id=${gameId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ curation }),
-      });
-      gameLibrary.fetchGames();
+      await gameLibrary.updateCuration(gameId, curation);
     } catch (err) {
       console.error("Failed to update curation:", err);
     }
@@ -65,36 +61,31 @@ export function CatalogClient() {
   const libraryGameIds = new Set(gameLibrary.games.map((g) => g.id));
 
   return (
-    <div className="flex min-h-[calc(100vh-3rem)]">
+    <div className="flex min-h-[calc(100vh-3.5rem)]">
       {/* Left: catalog area */}
       <div className="flex min-w-0 flex-1 flex-col gap-3 p-4">
         <CatalogHeaderBar
           search={search}
           onSearchChange={setSearch}
-          libraryGames={gameLibrary.games}
-          drawerOpen={drawerOpen}
-          onToggleDrawer={() => setDrawerOpen((v) => !v)}
-          favoriteCount={favoriteIds.size}
+          favoriteCount={isSignedIn ? favoriteIds.size : 0}
           filterMode={filterMode}
           onFilterChange={setFilterMode}
         />
         <CatalogBrowser
           libraryGameIds={libraryGameIds}
-          onGameAdded={handleGameAdded}
+          onAdd={handleAdd}
           searchFilter={search}
-          favoriteGameIds={favoriteIds}
-          onToggleFavorite={handleToggleFavorite}
-          showFavoritesOnly={filterMode === FilterMode.Favorites}
+          favoriteGameIds={isSignedIn ? favoriteIds : undefined}
+          onToggleFavorite={isSignedIn ? handleToggleFavorite : undefined}
+          showFavoritesOnly={isSignedIn && filterMode === FilterMode.Favorites}
         />
       </div>
 
       {/* Right: library drawer */}
       <LibraryDrawer
-        open={drawerOpen}
         games={gameLibrary.games}
         targetTrackCount={config.targetTrackCount}
         generating={playlist.generating}
-        onClose={() => setDrawerOpen(false)}
         onCurationChange={handleCurationChange}
         onRemove={handleRemove}
         onGenerate={handleGenerate}

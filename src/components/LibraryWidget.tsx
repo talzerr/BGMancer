@@ -49,6 +49,9 @@ export function LibraryWidget() {
                   <img
                     src={steamHeaderUrl(game.steam_appid as number)}
                     alt={game.title}
+                    width={28}
+                    height={28}
+                    loading="lazy"
                     className="h-full w-full object-cover"
                   />
                 ) : (

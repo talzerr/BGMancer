@@ -8,11 +8,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useState } from "react";
 
 interface LibraryDrawerProps {
-  open: boolean;
   games: Game[];
   targetTrackCount: number;
   generating: boolean;
-  onClose: () => void;
   onCurationChange: (gameId: string, curation: CurationMode) => void;
   onRemove: (gameId: string) => void;
   onGenerate: () => void;
@@ -41,6 +39,7 @@ function GameThumbnail({ game }: { game: Game }) {
         alt={game.title}
         width={48}
         height={22}
+        loading="lazy"
         className="h-[22px] w-[48px] shrink-0 rounded bg-zinc-800 object-cover"
         onError={() => setFailed(true)}
       />
@@ -55,17 +54,13 @@ function GameThumbnail({ game }: { game: Game }) {
 }
 
 export function LibraryDrawer({
-  open,
   games,
   targetTrackCount,
   generating,
-  onClose,
   onCurationChange,
   onRemove,
   onGenerate,
 }: LibraryDrawerProps) {
-  if (!open) return null;
-
   const activeGames = games.filter((g) => g.curation !== CurationMode.Skip);
   const hasActiveGames = activeGames.length > 0;
 
@@ -76,9 +71,11 @@ export function LibraryDrawer({
   }
 
   return (
-    <div className="flex h-full w-[300px] shrink-0 flex-col border-l border-zinc-800 bg-zinc-950/80">
+    <div className="sticky top-[57px] flex max-h-[calc(100vh-57px)] w-[300px] shrink-0 flex-col border-l border-white/[0.04] bg-zinc-950/80">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+      <div
+        className={`flex items-center justify-between px-4 py-3 ${games.length > 0 ? "border-b border-white/[0.06]" : ""}`}
+      >
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-zinc-100">Library</span>
           <span className="text-xs text-zinc-500 tabular-nums">{games.length}</span>
@@ -87,52 +84,52 @@ export function LibraryDrawer({
               <TooltipTrigger>
                 <span className="cursor-help text-[10px] text-zinc-600 hover:text-zinc-400">ⓘ</span>
               </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-[220px] space-y-1 text-xs">
-                <p className="font-semibold text-zinc-200">Curation modes</p>
-                <p>
+              <TooltipContent
+                side="bottom"
+                className="!block max-w-[220px] space-y-1.5 border border-violet-500/10 !bg-zinc-950 p-3 text-xs shadow-lg shadow-black/40"
+              >
+                <div>
                   <span className="font-medium text-amber-400">Focus</span>
-                  <span className="text-zinc-400"> — guaranteed in every playlist</span>
-                </p>
-                <p>
+                  <span className="text-zinc-400"> — more tracks from this game</span>
+                </div>
+                <div>
                   <span className="font-medium text-violet-400">Include</span>
-                  <span className="text-zinc-400"> — standard inclusion</span>
-                </p>
-                <p>
+                  <span className="text-zinc-400"> — normal amount</span>
+                </div>
+                <div>
                   <span className="font-medium text-blue-400">Lite</span>
-                  <span className="text-zinc-400"> — appears occasionally</span>
-                </p>
+                  <span className="text-zinc-400"> — fewer tracks from this game</span>
+                </div>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
-        <button
-          onClick={onClose}
-          className="cursor-pointer rounded-md p-1 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            className="h-4 w-4"
-          >
-            <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
-          </svg>
-        </button>
       </div>
 
       {/* Content area */}
       {games.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-          {/* Paused equalizer — 3 static bars at different heights */}
-          <div className="mb-4 flex items-end gap-[3px]">
-            <div className="h-3 w-[3px] rounded-full bg-zinc-700" />
-            <div className="h-5 w-[3px] rounded-full bg-zinc-700" />
-            <div className="h-2 w-[3px] rounded-full bg-zinc-700" />
+        <div className="relative flex flex-1 flex-col items-center justify-center px-6 text-center">
+          {/* Subtle radial glow behind content */}
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(139,92,246,0.06)_0%,transparent_70%)]" />
+
+          {/* Equalizer icon — 5 bars, paused, with slight violet tint */}
+          <div className="relative mb-5 flex items-end gap-[3px]">
+            <div className="h-2.5 w-[3px] rounded-full bg-violet-500/20" />
+            <div className="h-4 w-[3px] rounded-full bg-violet-500/25" />
+            <div className="h-6 w-[3px] rounded-full bg-violet-500/30" />
+            <div className="h-3.5 w-[3px] rounded-full bg-violet-500/25" />
+            <div className="h-2 w-[3px] rounded-full bg-violet-500/20" />
           </div>
-          <p className="font-display text-sm font-semibold text-zinc-300">Pick some soundtracks</p>
-          <p className="mt-1.5 text-xs leading-relaxed text-zinc-600">
-            The Director shapes them into a playlist arc
+
+          <p className="font-display relative text-[15px] font-semibold text-zinc-200">
+            Your library is empty
           </p>
+          <p className="relative mt-2 max-w-[200px] text-xs leading-relaxed text-zinc-500">
+            Add a few soundtracks from the catalog to start your first session.
+          </p>
+
+          {/* Fade to transparent at bottom */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-zinc-950/80 to-transparent" />
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto">
@@ -176,7 +173,7 @@ export function LibraryDrawer({
 
       {/* Footer */}
       {hasActiveGames && (
-        <div className="border-t border-zinc-800 px-4 py-3">
+        <div className="border-t border-white/[0.06] px-4 py-3">
           <div className="mb-2.5 flex items-center justify-between text-xs text-zinc-500">
             <span className="tabular-nums">
               {activeGames.length} game{activeGames.length !== 1 ? "s" : ""}

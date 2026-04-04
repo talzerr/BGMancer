@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { auth } from "@/lib/services/auth";
 import { PlayerProvider } from "@/context/player-context";
 
 export const metadata: Metadata = {
@@ -12,9 +13,11 @@ export const metadata: Metadata = {
   },
 };
 
-export default function MainLayout({ children }: { children: React.ReactNode }) {
+export default async function MainLayout({ children }: { children: React.ReactNode }) {
+  const session = await auth();
+
   return (
-    <PlayerProvider>
+    <PlayerProvider isSignedIn={!!session?.user}>
       {children}
       <footer className="border-t border-white/[0.04] py-4 text-center text-[11px] leading-relaxed text-zinc-600">
         <p>

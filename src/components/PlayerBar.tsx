@@ -144,7 +144,14 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
 
             {thumbnailSrc ? (
               <div className="relative h-10 w-14 shrink-0 overflow-hidden rounded-md bg-zinc-800 ring-1 ring-white/10">
-                <Image src={thumbnailSrc} alt="" fill className="object-cover" sizes="56px" />
+                <Image
+                  src={thumbnailSrc}
+                  alt=""
+                  fill
+                  className="object-cover"
+                  sizes="56px"
+                  loading="eager"
+                />
                 {thumbnailIsYouTube && (
                   <div className="absolute right-0 bottom-0 flex items-center gap-0.5 rounded-tl bg-black/75 px-1 py-0.5">
                     <YouTubeLogo className="h-2 w-2 shrink-0 fill-current text-[#FF0000]" />
