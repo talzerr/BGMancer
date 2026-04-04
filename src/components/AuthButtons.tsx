@@ -1,9 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { signIn, signOut } from "next-auth/react";
-
-const DISMISSED_KEY = "bgm_login_prompt_dismissed";
+import { useLoginPromptDismissed } from "@/hooks/useLoginPromptDismissed";
 
 interface AuthButtonsProps {
   user: { name?: string | null; email?: string | null; image?: string | null } | null;
@@ -41,23 +39,12 @@ function LoginPrompt({ onDismiss }: { onDismiss: () => void }) {
   );
 }
 
-function shouldShowPrompt(user: AuthButtonsProps["user"]): boolean {
-  if (user) return false;
-  if (typeof window === "undefined") return false;
-  return !localStorage.getItem(DISMISSED_KEY);
-}
-
 export function AuthButtons({ user, isDev }: AuthButtonsProps) {
-  const [showPrompt, setShowPrompt] = useState(false);
-
-  // Read localStorage after mount to avoid hydration mismatch
-  useEffect(() => {
-    setShowPrompt(shouldShowPrompt(user));
-  }, [user]);
+  const [isDismissed, dismissPrompt] = useLoginPromptDismissed();
+  const showPrompt = !user && !isDismissed;
 
   function dismiss() {
-    setShowPrompt(false);
-    localStorage.setItem(DISMISSED_KEY, "1");
+    dismissPrompt();
   }
 
   function handleSignOut() {
