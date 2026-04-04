@@ -118,24 +118,24 @@ export function TrackTable({
         <div className="grid grid-cols-2 gap-4">
           <button
             onClick={() => onSetActiveModal(BackstageModal.LoadTracks)}
-            className="group rounded-lg border border-dashed border-zinc-700 bg-zinc-900/40 px-6 py-8 text-left transition-colors hover:border-violet-600/50 hover:bg-violet-500/5"
+            className="group border-border bg-secondary/40 hover:border-primary/50 hover:bg-primary/5 rounded-lg border border-dashed px-6 py-8 text-left transition-colors"
           >
-            <p className="text-sm font-medium text-zinc-200 group-hover:text-violet-300">
+            <p className="text-foreground group-hover:text-primary text-sm font-medium">
               Fetch from Discogs
             </p>
-            <p className="mt-1 text-xs text-zinc-500">
+            <p className="mt-1 text-xs text-[var(--text-tertiary)]">
               Auto-discover the tracklist by searching Discogs, or fetch a specific release/master
               ID from the tracklist source above.
             </p>
           </button>
           <button
             onClick={() => onSetActiveModal(BackstageModal.ImportTracks)}
-            className="group rounded-lg border border-dashed border-zinc-700 bg-zinc-900/40 px-6 py-8 text-left transition-colors hover:border-violet-600/50 hover:bg-violet-500/5"
+            className="group border-border bg-secondary/40 hover:border-primary/50 hover:bg-primary/5 rounded-lg border border-dashed px-6 py-8 text-left transition-colors"
           >
-            <p className="text-sm font-medium text-zinc-200 group-hover:text-violet-300">
+            <p className="text-foreground group-hover:text-primary text-sm font-medium">
               Paste Tracks
             </p>
-            <p className="mt-1 text-xs text-zinc-500">
+            <p className="mt-1 text-xs text-[var(--text-tertiary)]">
               Paste a tracklist from VGMdb, Wikipedia, or any source. One track per line — durations
               are detected automatically.
             </p>
@@ -145,9 +145,9 @@ export function TrackTable({
 
       {/* Track list */}
       {tracks.length > 0 && (
-        <div className="overflow-hidden rounded-lg border border-zinc-800">
+        <div className="border-border overflow-hidden rounded-lg border">
           {/* Track header bar */}
-          <div className="flex items-center justify-between bg-zinc-900/40 px-4 py-2">
+          <div className="bg-secondary/40 flex items-center justify-between px-4 py-2">
             <div className="flex gap-1">
               {tabs.map(([key, label]) => (
                 <button
@@ -155,8 +155,8 @@ export function TrackTable({
                   onClick={() => handleFilterChange(key)}
                   className={`rounded px-1.5 py-0.5 text-[10px] transition-colors ${
                     filter === key
-                      ? "bg-zinc-700 text-zinc-200"
-                      : "text-zinc-500 hover:text-zinc-300"
+                      ? "text-foreground bg-[var(--surface-hover)]"
+                      : "hover:text-foreground text-[var(--text-tertiary)]"
                   }`}
                 >
                   {label}
@@ -203,7 +203,7 @@ export function TrackTable({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-6 border-zinc-700 px-2 text-[10px] text-zinc-300 hover:text-zinc-100"
+                  className="border-border text-foreground hover:text-foreground h-6 px-2 text-[10px]"
                   onClick={() => onSetActiveModal(BackstageModal.ImportTracks)}
                 >
                   + Tracks
@@ -214,36 +214,36 @@ export function TrackTable({
 
           <Table>
             <TableHeader>
-              <TableRow className="border-zinc-800 hover:bg-transparent">
+              <TableRow className="border-border hover:bg-transparent">
                 <TableHead className="w-8 px-2">
                   <Checkbox
                     checked={allFilteredSelected && filteredTracks.length > 0}
                     onCheckedChange={toggleAll}
-                    className="h-3.5 w-3.5 border-zinc-600"
+                    className="h-3.5 w-3.5 border-[var(--border-emphasis)]"
                   />
                 </TableHead>
-                <TableHead className="w-10 text-[11px] tracking-wider text-zinc-500 uppercase">
+                <TableHead className="w-10 text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                   #
                 </TableHead>
-                <TableHead className="w-8 text-[11px] tracking-wider text-zinc-500 uppercase">
+                <TableHead className="w-8 text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                   On
                 </TableHead>
-                <TableHead className="text-[11px] tracking-wider text-zinc-500 uppercase">
+                <TableHead className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                   Name
                 </TableHead>
-                <TableHead className="w-16 text-[11px] tracking-wider text-zinc-500 uppercase">
+                <TableHead className="w-16 text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                   Energy
                 </TableHead>
-                <TableHead className="text-[11px] tracking-wider text-zinc-500 uppercase">
+                <TableHead className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                   Role
                 </TableHead>
-                <TableHead className="text-[11px] tracking-wider text-zinc-500 uppercase">
+                <TableHead className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                   Moods
                 </TableHead>
-                <TableHead className="w-14 text-[11px] tracking-wider text-zinc-500 uppercase">
+                <TableHead className="w-14 text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                   Vocals
                 </TableHead>
-                <TableHead className="w-8 text-[11px] tracking-wider text-zinc-500 uppercase" />
+                <TableHead className="w-8 text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -258,7 +258,7 @@ export function TrackTable({
                   <TableRow
                     key={track.name}
                     onClick={() => onSetEditTrack(track)}
-                    className={`cursor-pointer border-zinc-800/60 ${isSelected ? "bg-violet-500/5" : "hover:bg-zinc-800/30"}`}
+                    className={`border-border/60 cursor-pointer ${isSelected ? "bg-primary/5" : "hover:bg-secondary/30"}`}
                   >
                     <TableCell
                       className="px-2 py-2"
@@ -267,13 +267,20 @@ export function TrackTable({
                         toggleOne(track);
                       }}
                     >
-                      <Checkbox checked={isSelected} className="h-3.5 w-3.5 border-zinc-600" />
+                      <Checkbox
+                        checked={isSelected}
+                        className="h-3.5 w-3.5 border-[var(--border-emphasis)]"
+                      />
                     </TableCell>
-                    <TableCell className="py-2 font-mono text-[11px] text-zinc-500">
+                    <TableCell className="py-2 font-mono text-[11px] text-[var(--text-tertiary)]">
                       {i + 1}
                     </TableCell>
                     <TableCell className="py-2 text-center">
-                      <span className={track.active ? "text-emerald-400" : "text-zinc-600"}>
+                      <span
+                        className={
+                          track.active ? "text-emerald-400" : "text-[var(--text-disabled)]"
+                        }
+                      >
                         {track.active ? "●" : "○"}
                       </span>
                     </TableCell>
@@ -282,8 +289,8 @@ export function TrackTable({
                         <span
                           className={
                             track.discovered === DiscoveredStatus.Rejected
-                              ? "text-zinc-600 line-through"
-                              : "text-zinc-200"
+                              ? "text-[var(--text-disabled)] line-through"
+                              : "text-foreground"
                           }
                         >
                           {track.name}
@@ -314,12 +321,12 @@ export function TrackTable({
                           </>
                         )}
                         {track.discovered === DiscoveredStatus.Rejected && (
-                          <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-600">
+                          <span className="bg-secondary rounded px-1.5 py-0.5 text-[10px] text-[var(--text-disabled)]">
                             rejected
                           </span>
                         )}
                         {track.discovered === DiscoveredStatus.Approved && !track.taggedAt && (
-                          <span className="rounded bg-violet-500/15 px-1.5 py-0.5 text-[10px] text-violet-400">
+                          <span className="bg-primary/15 text-primary rounded px-1.5 py-0.5 text-[10px]">
                             approved
                           </span>
                         )}
@@ -344,7 +351,7 @@ export function TrackTable({
                     <TableCell className="py-2">
                       <TagBadgeList tags={track.moods} maxVisible={2} />
                     </TableCell>
-                    <TableCell className="py-2 text-center font-mono text-[11px] text-zinc-500">
+                    <TableCell className="py-2 text-center font-mono text-[11px] text-[var(--text-tertiary)]">
                       {track.hasVocals === null ? "—" : track.hasVocals ? "yes" : "no"}
                     </TableCell>
                     <TableCell className="py-2 text-center">
@@ -354,7 +361,7 @@ export function TrackTable({
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          className="text-zinc-600 transition-colors hover:text-zinc-300"
+                          className="hover:text-foreground text-[var(--text-disabled)] transition-colors"
                         >
                           ▶
                         </a>

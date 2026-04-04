@@ -84,10 +84,10 @@ export function GenerateSection({
             showProgress ? "opacity-100" : "opacity-0"
           }`}
         >
-          <div className="mb-2 flex flex-col gap-3 rounded-xl border border-violet-500/20 bg-zinc-900/70 p-4 shadow-lg shadow-black/30">
+          <div className="bg-secondary/70 mb-2 flex flex-col gap-3 rounded-xl border border-[var(--border-emphasis)] p-4">
             <div className="flex items-center gap-2">
-              <Spinner className="h-3 w-3 shrink-0 text-violet-400" />
-              <span className="text-[11px] font-semibold tracking-widest text-violet-400 uppercase">
+              <Spinner className="text-primary h-3 w-3 shrink-0" />
+              <span className="text-primary text-[11px] font-medium tracking-widest uppercase">
                 Curating your playlist…
               </span>
             </div>
@@ -97,38 +97,42 @@ export function GenerateSection({
                 <div key={entry.id} className="flex min-w-0 items-start gap-2">
                   <div className="mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center">
                     {entry.status === GameProgressStatus.Active ? (
-                      <Spinner className="h-3 w-3 text-violet-400" />
+                      <Spinner className="text-primary h-3 w-3" />
                     ) : entry.status === GameProgressStatus.Done ? (
                       <CheckIcon className="h-3 w-3 text-emerald-400" />
                     ) : entry.status === GameProgressStatus.Error ? (
                       <XIcon className="h-3 w-3 text-red-400" />
                     ) : (
-                      <span className="block h-1.5 w-1.5 rounded-full bg-zinc-600" />
+                      <span className="block h-1.5 w-1.5 rounded-full bg-[var(--text-disabled)]" />
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <span
                       className={`truncate text-xs font-medium ${
                         entry.status === GameProgressStatus.Active
-                          ? "text-white"
+                          ? "text-foreground"
                           : entry.status === GameProgressStatus.Done
-                            ? "text-zinc-400"
+                            ? "text-muted-foreground"
                             : entry.status === GameProgressStatus.Error
                               ? "text-red-400"
-                              : "text-zinc-600"
+                              : "text-[var(--text-disabled)]"
                       }`}
                     >
                       {entry.title}
                     </span>
                     {entry.status !== GameProgressStatus.Waiting && entry.message && (
-                      <span className="ml-1.5 text-[11px] text-zinc-500">{entry.message}</span>
+                      <span className="ml-1.5 text-[11px] text-[var(--text-tertiary)]">
+                        {entry.message}
+                      </span>
                     )}
                   </div>
                 </div>
               ))}
             </div>
 
-            {genGlobalMsg && <p className="text-[11px] text-zinc-500 italic">{genGlobalMsg}</p>}
+            {genGlobalMsg && (
+              <p className="text-[11px] text-[var(--text-tertiary)]">{genGlobalMsg}</p>
+            )}
           </div>
         </div>
       </div>

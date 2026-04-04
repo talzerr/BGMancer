@@ -22,9 +22,9 @@ const CURATION_ADD_OPTIONS: {
   label: string;
   colorClass: string;
 }[] = [
-  { mode: CurationMode.Focus, label: "Focus", colorClass: "text-amber-300" },
-  { mode: CurationMode.Include, label: "Include", colorClass: "text-violet-300" },
-  { mode: CurationMode.Lite, label: "Lite", colorClass: "text-blue-300" },
+  { mode: CurationMode.Focus, label: "Focus", colorClass: "text-primary" },
+  { mode: CurationMode.Include, label: "Include", colorClass: "text-primary" },
+  { mode: CurationMode.Lite, label: "Lite", colorClass: "text-primary" },
 ];
 
 export function CatalogBrowser({
@@ -84,10 +84,10 @@ export function CatalogBrowser({
       {/* Game grid */}
       {loading ? (
         <div className="flex justify-center py-10">
-          <Spinner className="h-5 w-5 text-zinc-500" />
+          <Spinner className="h-5 w-5 text-[var(--text-tertiary)]" />
         </div>
       ) : filtered.length === 0 ? (
-        <p className="py-6 text-center text-xs text-zinc-600">
+        <p className="py-6 text-center text-xs text-[var(--text-disabled)]">
           {searchFilter?.trim() ? "No games match your search." : "No published games yet."}
         </p>
       ) : (
@@ -117,7 +117,7 @@ export function CatalogBrowser({
             <div className="flex justify-center pt-2">
               <button
                 onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
-                className="cursor-pointer rounded-lg border border-white/[0.06] bg-zinc-900/60 px-4 py-2 text-xs font-semibold text-zinc-400 transition-colors hover:border-white/[0.12] hover:text-white"
+                className="border-border bg-secondary/60 text-muted-foreground hover:text-foreground cursor-pointer rounded-lg border px-4 py-2 text-xs font-medium transition-colors hover:border-[var(--border-emphasis)]"
               >
                 Show more
               </button>
@@ -126,7 +126,7 @@ export function CatalogBrowser({
         </>
       )}
 
-      <p className="text-[10px] text-zinc-600">
+      <p className="text-[10px] text-[var(--text-disabled)]">
         {searchFilter?.trim()
           ? `${filtered.length} of ${catalog.length} game${catalog.length === 1 ? "" : "s"}`
           : `${catalog.length} game${catalog.length === 1 ? "" : "s"} in catalog`}
@@ -175,8 +175,8 @@ function CatalogCard({
     <div
       className={`group relative flex flex-col overflow-hidden rounded-xl border transition-colors ${
         inLibrary
-          ? "border-violet-500/20 bg-violet-950/10"
-          : "border-white/[0.06] bg-zinc-900/60 hover:border-white/[0.12]"
+          ? "border-primary/20 bg-primary/5"
+          : "border-border bg-secondary/60 hover:border-[var(--border-emphasis)]"
       }`}
     >
       {/* Cover art */}
@@ -187,14 +187,14 @@ function CatalogCard({
             alt={game.title}
             width={460}
             height={215}
-            className="aspect-[460/215] w-full bg-zinc-800 object-cover"
+            className="bg-secondary aspect-[460/215] w-full object-cover"
             sizes="(min-width: 1280px) 280px, (min-width: 768px) 33vw, 50vw"
             loading="lazy"
             unoptimized
           />
         ) : (
-          <div className="flex aspect-[460/215] w-full items-center justify-center bg-zinc-800/80">
-            <span className="text-xs font-bold text-zinc-600">BGM</span>
+          <div className="bg-secondary/80 flex aspect-[460/215] w-full items-center justify-center">
+            <span className="text-xs font-medium text-[var(--text-disabled)]">BGM</span>
           </div>
         )}
 
@@ -212,12 +212,12 @@ function CatalogCard({
             }}
             className={`absolute top-2 right-2 z-10 cursor-pointer rounded-full p-1 transition-all duration-200 ${
               isFavorite
-                ? "opacity-100 drop-shadow-[0_0_6px_rgba(251,191,36,0.4)]"
+                ? "opacity-100 drop-shadow-[0_0_6px_rgba(212,160,74,0.4)]"
                 : "opacity-0 group-hover:opacity-100"
             }`}
           >
             {isFavorite ? (
-              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-amber-400">
+              <svg viewBox="0 0 20 20" fill="currentColor" className="text-primary h-4 w-4">
                 <path
                   fillRule="evenodd"
                   d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z"
@@ -241,18 +241,18 @@ function CatalogCard({
 
       {/* Title + action */}
       <div className="flex flex-1 flex-col gap-2 p-2.5">
-        <p className="font-display line-clamp-2 text-xs leading-snug font-medium text-zinc-200">
+        <p className="font-display text-foreground line-clamp-2 text-xs leading-snug font-medium">
           {game.title}
         </p>
 
         <div className="mt-auto">
           {inLibrary ? (
-            <span className="flex items-center gap-1 text-[11px] text-violet-500/80">
+            <span className="flex items-center gap-1 text-[11px] text-[var(--text-tertiary)]">
               <CheckIcon className="h-3 w-3" />
               In library
             </span>
           ) : isAdding ? (
-            <div className="flex items-center gap-1.5 text-[11px] text-zinc-500">
+            <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-tertiary)]">
               <Spinner className="h-3 w-3" />
               Adding…
             </div>
@@ -261,21 +261,21 @@ function CatalogCard({
               <div className="flex overflow-hidden rounded-lg">
                 <button
                   onClick={() => onAdd(CurationMode.Include)}
-                  className="flex-1 cursor-pointer bg-violet-600/80 px-2 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-violet-500"
+                  className="bg-primary/80 text-primary-foreground flex-1 cursor-pointer px-2 py-1 text-[11px] font-medium transition-colors hover:bg-[var(--primary-hover)]"
                 >
                   + Add
                 </button>
                 <button
                   onClick={() => setDropdownOpen((v) => !v)}
-                  className="cursor-pointer border-l border-violet-700/60 bg-violet-600/80 px-1.5 py-1 text-white transition-colors hover:bg-violet-500"
+                  className="bg-primary/80 text-primary-foreground cursor-pointer border-l border-[var(--primary-muted)]/60 px-1.5 py-1 transition-colors hover:bg-[var(--primary-hover)]"
                 >
                   <ChevronDownIcon className="h-3 w-3" />
                 </button>
               </div>
 
               {dropdownOpen && (
-                <div className="absolute right-0 bottom-full z-30 mb-1 w-full min-w-[120px] overflow-hidden rounded-lg border border-white/[0.1] bg-zinc-800 shadow-xl shadow-black/50">
-                  <p className="px-2.5 py-1.5 text-[10px] font-semibold tracking-wider text-zinc-500 uppercase">
+                <div className="bg-secondary absolute right-0 bottom-full z-30 mb-1 w-full min-w-[120px] overflow-hidden rounded-lg border border-[var(--border-emphasis)]">
+                  <p className="px-2.5 py-1.5 text-[10px] font-medium tracking-wider text-[var(--text-tertiary)] uppercase">
                     Add as…
                   </p>
                   {CURATION_ADD_OPTIONS.map(({ mode, label, colorClass }) => (
@@ -285,7 +285,7 @@ function CatalogCard({
                         setDropdownOpen(false);
                         onAdd(mode);
                       }}
-                      className={`flex w-full cursor-pointer items-center px-2.5 py-1.5 text-left text-xs font-medium transition-colors hover:bg-white/[0.06] ${colorClass}`}
+                      className={`hover:bg-accent flex w-full cursor-pointer items-center px-2.5 py-1.5 text-left text-xs font-medium transition-colors ${colorClass}`}
                     >
                       {label}
                     </button>

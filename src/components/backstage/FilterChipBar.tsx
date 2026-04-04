@@ -41,20 +41,20 @@ export function FilterChipBar({ filters, definitions, onChange, onReset }: Filte
         const current = getValue(def.key);
         return (
           <div key={def.key} className="flex items-center gap-1.5">
-            <span className="text-xs text-zinc-500">{def.label}</span>
+            <span className="text-xs text-[var(--text-tertiary)]">{def.label}</span>
             <Select
               value={current}
               onValueChange={(v) => onChange(def.key, !v || v === ANY ? "" : v)}
             >
-              <SelectTrigger className="h-7 w-auto min-w-[80px] border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-300">
+              <SelectTrigger className="border-border bg-secondary text-foreground h-7 w-auto min-w-[80px] px-2 text-xs">
                 <span className="flex flex-1 text-left">{getDisplayLabel(def, current)}</span>
               </SelectTrigger>
-              <SelectContent className="border-zinc-700 bg-zinc-900">
-                <SelectItem value={ANY} className="text-xs text-zinc-400">
+              <SelectContent className="border-border bg-secondary">
+                <SelectItem value={ANY} className="text-muted-foreground text-xs">
                   Any
                 </SelectItem>
                 {def.options.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value} className="text-xs text-zinc-300">
+                  <SelectItem key={opt.value} value={opt.value} className="text-foreground text-xs">
                     {opt.label}
                   </SelectItem>
                 ))}
@@ -67,7 +67,7 @@ export function FilterChipBar({ filters, definitions, onChange, onReset }: Filte
         <button
           type="button"
           onClick={onReset}
-          className="text-xs text-zinc-500 transition-colors hover:text-zinc-300"
+          className="hover:text-foreground text-xs text-[var(--text-tertiary)] transition-colors"
         >
           Reset
         </button>

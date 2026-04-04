@@ -16,7 +16,7 @@ export function DirectorReference() {
     <>
       {/* Arc Template */}
       <Section title="Arc Template">
-        <p className="mb-4 text-xs text-zinc-400">
+        <p className="text-muted-foreground mb-4 text-xs">
           The Director assembles playlists in 6 phases, each targeting a fraction of the total track
           count with specific energy, role, and mood preferences.
         </p>
@@ -24,11 +24,11 @@ export function DirectorReference() {
           {ARC_TEMPLATE.map((t) => (
             <div
               key={t.phase}
-              className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3"
+              className="border-border bg-secondary/60 space-y-2 rounded-lg border p-3"
             >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-zinc-100 capitalize">{t.phase}</span>
-                <span className="font-mono text-[11px] text-zinc-500">
+                <span className="text-foreground text-sm font-medium capitalize">{t.phase}</span>
+                <span className="font-mono text-[11px] text-[var(--text-tertiary)]">
                   {Math.round(t.fraction * 100)}%
                 </span>
               </div>
@@ -48,7 +48,7 @@ export function DirectorReference() {
               <TagGroup
                 label="Instruments"
                 tags={t.preferredInstrumentation}
-                color="text-cyan-400"
+                color="text-primary"
               />
             </div>
           ))}
@@ -57,10 +57,10 @@ export function DirectorReference() {
 
       {/* Scoring Weights */}
       <Section title="Scoring Weights">
-        <div className="overflow-hidden rounded-lg border border-zinc-800">
+        <div className="border-border overflow-hidden rounded-lg border">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-zinc-800 text-[11px] tracking-wider text-zinc-500 uppercase">
+              <tr className="border-border border-b text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                 <th className="px-3 py-2 text-left">Dimension</th>
                 <th className="px-3 py-2 text-left">Weight (raw vibes / view bias)</th>
                 <th className="px-3 py-2 text-left">Method</th>
@@ -68,10 +68,10 @@ export function DirectorReference() {
             </thead>
             <tbody>
               {SCORING_WEIGHTS.map((w) => (
-                <tr key={w.dimension} className="border-b border-zinc-800/60">
-                  <td className="px-3 py-2 font-semibold text-zinc-200">{w.dimension}</td>
-                  <td className="px-3 py-2 font-mono text-violet-400">{w.weight}</td>
-                  <td className="px-3 py-2 text-zinc-400">{w.method}</td>
+                <tr key={w.dimension} className="border-border/60 border-b">
+                  <td className="text-foreground px-3 py-2 font-medium">{w.dimension}</td>
+                  <td className="text-primary px-3 py-2 font-mono">{w.weight}</td>
+                  <td className="text-muted-foreground px-3 py-2">{w.method}</td>
                 </tr>
               ))}
             </tbody>
@@ -81,17 +81,17 @@ export function DirectorReference() {
 
       {/* Budget Rules */}
       <Section title="Budget Allocation">
-        <p className="mb-3 text-xs text-zinc-400">
+        <p className="text-muted-foreground mb-3 text-xs">
           Each game&apos;s slot count = (curation weight / total weight) x target track count.
         </p>
         <div className="flex flex-wrap gap-3">
           {BUDGET_RULES.map((r) => (
             <div
               key={r.mode}
-              className="flex items-baseline gap-2 rounded border border-zinc-800 bg-zinc-900/60 px-3 py-2"
+              className="border-border bg-secondary/60 flex items-baseline gap-2 rounded border px-3 py-2"
             >
-              <span className="text-xs text-zinc-300">{r.mode}</span>
-              <span className={`font-mono text-sm font-semibold ${r.color}`}>{r.weight}</span>
+              <span className="text-foreground text-xs">{r.mode}</span>
+              <span className={`font-mono text-sm font-medium ${r.color}`}>{r.weight}</span>
             </div>
           ))}
         </div>
@@ -103,11 +103,11 @@ export function DirectorReference() {
           {PENALTIES.map((p) => (
             <div
               key={p.name}
-              className="flex items-center gap-3 rounded border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-xs"
+              className="border-border bg-secondary/60 flex items-center gap-3 rounded border px-3 py-2 text-xs"
             >
-              <span className="font-semibold text-zinc-200">{p.name}</span>
+              <span className="text-foreground font-medium">{p.name}</span>
               <span className="font-mono text-rose-400">{p.multiplier}</span>
-              <span className="text-zinc-500">— {p.trigger}</span>
+              <span className="text-[var(--text-tertiary)]">— {p.trigger}</span>
             </div>
           ))}
         </div>
@@ -117,12 +117,12 @@ export function DirectorReference() {
       <Section title="Selection Parameters">
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {SELECTION_PARAMS.map((p) => (
-            <div key={p.name} className="rounded border border-zinc-800 bg-zinc-900/60 px-3 py-2">
+            <div key={p.name} className="border-border bg-secondary/60 rounded border px-3 py-2">
               <div className="flex items-baseline gap-2">
-                <span className="text-xs text-zinc-300">{p.name}</span>
-                <span className="font-mono text-sm font-semibold text-violet-400">{p.value}</span>
+                <span className="text-foreground text-xs">{p.name}</span>
+                <span className="text-primary font-mono text-sm font-medium">{p.value}</span>
               </div>
-              <p className="mt-0.5 text-[11px] text-zinc-500">{p.desc}</p>
+              <p className="mt-0.5 text-[11px] text-[var(--text-tertiary)]">{p.desc}</p>
             </div>
           ))}
         </div>

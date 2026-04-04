@@ -21,7 +21,7 @@ export function ReviewFlagsPanel({
       className="group rounded-lg border border-amber-800/30 bg-amber-900/10 px-4 py-3"
     >
       <summary className="flex cursor-pointer list-none items-center justify-between">
-        <p className="text-[11px] font-semibold tracking-wider text-amber-500 uppercase">
+        <p className="text-[11px] font-medium tracking-wider text-amber-500 uppercase">
           <span className="mr-1 inline-block transition-transform group-open:rotate-90">▸</span>
           Review flags ({reviewFlags.length})
         </p>
@@ -30,7 +30,7 @@ export function ReviewFlagsPanel({
             e.preventDefault();
             await actions.clearAllFlags();
           }}
-          className="text-[10px] text-zinc-500 transition-colors hover:text-zinc-300"
+          className="hover:text-foreground text-[10px] text-[var(--text-tertiary)] transition-colors"
         >
           Clear all
         </button>
@@ -41,11 +41,13 @@ export function ReviewFlagsPanel({
             <Badge variant="outline" className="border-amber-700/50 bg-amber-500/10 text-amber-400">
               {flag.reason}
             </Badge>
-            {flag.detail && <span className="text-zinc-500">{flag.detail}</span>}
-            <span className="ml-auto text-zinc-600">{flag.createdAt.slice(0, 10)}</span>
+            {flag.detail && <span className="text-[var(--text-tertiary)]">{flag.detail}</span>}
+            <span className="ml-auto text-[var(--text-disabled)]">
+              {flag.createdAt.slice(0, 10)}
+            </span>
             <button
               onClick={() => actions.clearSingleFlag(flag.id)}
-              className="text-zinc-600 transition-colors hover:text-zinc-300"
+              className="hover:text-foreground text-[var(--text-disabled)] transition-colors"
             >
               ✕
             </button>

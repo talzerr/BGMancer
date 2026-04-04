@@ -204,7 +204,7 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
               {Array.from({ length: 6 }).map((_, i) => (
                 <div
                   key={i}
-                  className="h-[52px] animate-pulse rounded-xl bg-zinc-900/50"
+                  className="bg-secondary/50 h-[52px] rounded-xl"
                   style={{ opacity: 1 - i * 0.12 }}
                 />
               ))}

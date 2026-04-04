@@ -43,24 +43,24 @@ export function GameDetailBulkBar({
 
   return (
     <>
-      <div className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900/95 px-4 py-2.5 shadow-2xl backdrop-blur-sm">
-        <span className="mr-1 text-xs text-zinc-400">
-          <span className="font-semibold text-zinc-200">{selectedTracks.length}</span> selected
+      <div className="border-border bg-secondary/95 fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-xl border px-4 py-2.5 shadow-2xl backdrop-blur-sm">
+        <span className="text-muted-foreground mr-1 text-xs">
+          <span className="text-foreground font-medium">{selectedTracks.length}</span> selected
         </span>
         <button
           onClick={onClearSelection}
-          className="ml-0.5 text-zinc-600 transition-colors hover:text-zinc-300"
+          className="hover:text-foreground ml-0.5 text-[var(--text-disabled)] transition-colors"
           aria-label="Clear selection"
         >
           ✕
         </button>
 
-        <div className="h-4 w-px bg-zinc-700" />
+        <div className="bg-border h-4 w-px" />
 
         <Button
           size="sm"
           variant="ghost"
-          className="h-7 px-2 text-xs text-zinc-300 hover:text-zinc-100"
+          className="text-foreground hover:text-foreground h-7 px-2 text-xs"
           onClick={() => {
             actions.bulkSetActive(eligibleNames, true);
             onClearSelection();
@@ -72,7 +72,7 @@ export function GameDetailBulkBar({
         <Button
           size="sm"
           variant="ghost"
-          className="h-7 px-2 text-xs text-zinc-300 hover:text-zinc-100"
+          className="text-foreground hover:text-foreground h-7 px-2 text-xs"
           onClick={() => {
             actions.bulkSetActive(names, false);
             onClearSelection();
@@ -81,12 +81,12 @@ export function GameDetailBulkBar({
           Deactivate
         </Button>
 
-        <div className="h-4 w-px bg-zinc-700" />
+        <div className="bg-border h-4 w-px" />
 
         <Button
           size="sm"
           variant="ghost"
-          className="h-7 px-2 text-xs text-violet-400 hover:bg-violet-500/10 hover:text-violet-300"
+          className="text-primary hover:bg-primary/10 hover:text-primary h-7 px-2 text-xs"
           onClick={() => onSetActiveModal(BackstageModal.ResolveSelected)}
           disabled={unresolvedCount === 0}
         >
@@ -95,14 +95,14 @@ export function GameDetailBulkBar({
         <Button
           size="sm"
           variant="ghost"
-          className="h-7 px-2 text-xs text-violet-400 hover:bg-violet-500/10 hover:text-violet-300"
+          className="text-primary hover:bg-primary/10 hover:text-primary h-7 px-2 text-xs"
           onClick={() => onSetActiveModal(BackstageModal.TagSelected)}
           disabled={taggableCount === 0}
         >
           Tag ({taggableCount})
         </Button>
 
-        <div className="h-4 w-px bg-zinc-700" />
+        <div className="bg-border h-4 w-px" />
 
         <Button
           size="sm"
@@ -115,12 +115,12 @@ export function GameDetailBulkBar({
       </div>
 
       <Dialog open={confirmingDelete} onOpenChange={(v) => !v && setConfirmingDelete(false)}>
-        <DialogContent className="border-zinc-800 bg-zinc-900">
+        <DialogContent className="border-border bg-secondary">
           <DialogHeader>
-            <DialogTitle className="text-zinc-100">
+            <DialogTitle className="text-foreground">
               Delete {selectedTracks.length} tracks
             </DialogTitle>
-            <DialogDescription className="text-zinc-400">
+            <DialogDescription className="text-muted-foreground">
               Are you sure you want to delete {selectedTracks.length} track
               {selectedTracks.length === 1 ? "" : "s"}? This will also remove their video mappings.
             </DialogDescription>
@@ -128,7 +128,7 @@ export function GameDetailBulkBar({
           <DialogFooter>
             <Button
               variant="ghost"
-              className="text-zinc-400"
+              className="text-muted-foreground"
               onClick={() => setConfirmingDelete(false)}
             >
               Cancel

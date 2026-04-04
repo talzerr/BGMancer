@@ -23,12 +23,14 @@ export function CatalogHeaderBar({
   onFilterChange,
 }: CatalogHeaderBarProps) {
   return (
-    <div className="flex items-center gap-3 border-b border-white/[0.04] px-1 pb-2">
+    <div className="border-border flex items-center gap-3 border-b px-1 pb-2">
       <div className="flex gap-2">
         <button
           onClick={() => onFilterChange(FilterMode.All)}
           className={`text-[11px] font-medium transition-colors ${
-            filterMode === FilterMode.All ? "text-zinc-100" : "text-zinc-500 hover:text-zinc-300"
+            filterMode === FilterMode.All
+              ? "text-foreground"
+              : "hover:text-foreground text-[var(--text-tertiary)]"
           }`}
         >
           All
@@ -38,8 +40,8 @@ export function CatalogHeaderBar({
             onClick={() => onFilterChange(FilterMode.Favorites)}
             className={`text-[11px] font-medium transition-colors ${
               filterMode === FilterMode.Favorites
-                ? "text-amber-400"
-                : "text-zinc-500 hover:text-zinc-300"
+                ? "text-primary"
+                : "hover:text-foreground text-[var(--text-tertiary)]"
             }`}
           >
             ★ {favoriteCount}
@@ -52,7 +54,7 @@ export function CatalogHeaderBar({
         value={search}
         onChange={(e) => onSearchChange(e.target.value)}
         placeholder="Filter games..."
-        className="w-[160px] rounded-md border border-white/[0.06] bg-zinc-900/60 px-2.5 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none focus:border-white/[0.12]"
+        className="border-border bg-secondary/60 text-foreground w-[160px] rounded-md border px-2.5 py-1 text-xs placeholder-[var(--text-disabled)] outline-none focus:border-[var(--border-emphasis)]"
       />
     </div>
   );

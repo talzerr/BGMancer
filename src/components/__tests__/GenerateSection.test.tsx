@@ -225,10 +225,10 @@ describe("GenerateSection", () => {
       };
       renderWithTimers(props);
       // After timers flush, secsLeft > 0 so the button text changes to a
-      // cooldown quip and the button is disabled. Find it by its violet-600
-      // bg class (the main action button).
+      // cooldown quip and the button is disabled. Find it by its bg-primary
+      // class (the main action button).
       const actionButtons = screen.getAllByRole("button");
-      const generateBtn = actionButtons.find((btn) => btn.className.includes("bg-violet-600"));
+      const generateBtn = actionButtons.find((btn) => btn.className.includes("bg-primary"));
       expect(generateBtn).toBeDefined();
       expect(generateBtn).toBeDisabled();
     });

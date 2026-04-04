@@ -171,23 +171,23 @@ export function GamesClient() {
       {/* Search + actions */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+          <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-tertiary)]" />
           <Input
             placeholder="Search by title..."
             value={searchValues.title ?? ""}
             onChange={(e) => handleSearchChange("title", e.target.value)}
-            className="h-8 border-zinc-700 bg-zinc-900 pl-8 text-xs text-zinc-200 placeholder:text-zinc-600 focus-visible:ring-violet-500/50"
+            className="border-border bg-secondary text-foreground focus-visible:ring-ring/50 h-8 pl-8 text-xs placeholder:text-[var(--text-disabled)]"
           />
         </div>
         <div className="flex items-center gap-2">
           {hasSearched && (
-            <span className="font-mono text-xs whitespace-nowrap text-zinc-600">
+            <span className="font-mono text-xs whitespace-nowrap text-[var(--text-disabled)]">
               {games.length} result{games.length === 1 ? "" : "s"}
             </span>
           )}
           <Button
             size="sm"
-            className="h-8 bg-violet-600 px-3 text-xs whitespace-nowrap text-white hover:bg-violet-500"
+            className="bg-primary text-primary-foreground h-8 px-3 text-xs whitespace-nowrap hover:bg-[var(--primary-hover)]"
             onClick={() => setAddDialogOpen(true)}
           >
             + Add Game
@@ -207,8 +207,8 @@ export function GamesClient() {
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-2 rounded-md border border-violet-500/30 bg-violet-500/5 px-3 py-2">
-          <span className="text-xs text-violet-300">{selectedIds.size} selected</span>
+        <div className="border-primary/30 bg-primary/5 flex items-center gap-2 rounded-md border px-3 py-2">
+          <span className="text-primary text-xs">{selectedIds.size} selected</span>
           <div className="ml-auto flex items-center gap-2">
             <Button
               size="sm"
@@ -222,7 +222,7 @@ export function GamesClient() {
             <Button
               size="sm"
               variant="outline"
-              className="h-7 border-zinc-600 px-3 text-xs text-zinc-400 hover:bg-zinc-800"
+              className="text-muted-foreground hover:bg-secondary h-7 border-[var(--border-emphasis)] px-3 text-xs"
               onClick={() => handleBulkPublish(false)}
               disabled={bulkPublishing}
             >
@@ -231,7 +231,7 @@ export function GamesClient() {
             <Button
               size="sm"
               variant="ghost"
-              className="h-7 px-2 text-xs text-zinc-500 hover:text-zinc-300"
+              className="hover:text-foreground h-7 px-2 text-xs text-[var(--text-tertiary)]"
               onClick={() => setSelectedIds(new Set())}
             >
               Clear
@@ -242,40 +242,40 @@ export function GamesClient() {
 
       {/* Results */}
       {games.length === 0 && hasSearched ? (
-        <p className="py-10 text-center text-xs text-zinc-600">
+        <p className="py-10 text-center text-xs text-[var(--text-disabled)]">
           No games match the current filters.
         </p>
       ) : (
         hasSearched && (
           <div
-            className={`overflow-hidden rounded-lg border border-zinc-800 transition-opacity ${loading ? "opacity-60" : ""}`}
+            className={`border-border overflow-hidden rounded-lg border transition-opacity ${loading ? "opacity-60" : ""}`}
           >
             <Table>
               <TableHeader>
-                <TableRow className="border-zinc-800 hover:bg-transparent">
+                <TableRow className="border-border hover:bg-transparent">
                   <TableHead className="w-8 px-2">
                     <Checkbox
                       checked={games.length > 0 && selectedIds.size === games.length}
                       onCheckedChange={toggleSelectAll}
-                      className="h-3.5 w-3.5 border-zinc-600 data-[state=checked]:border-violet-500 data-[state=checked]:bg-violet-500"
+                      className="data-[state=checked]:border-primary data-[state=checked]:bg-primary h-3.5 w-3.5 border-[var(--border-emphasis)]"
                     />
                   </TableHead>
-                  <TableHead className="text-[11px] tracking-wider text-zinc-500 uppercase">
+                  <TableHead className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                     Title
                   </TableHead>
-                  <TableHead className="text-[11px] tracking-wider text-zinc-500 uppercase">
+                  <TableHead className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                     Phase
                   </TableHead>
-                  <TableHead className="text-[11px] tracking-wider text-zinc-500 uppercase">
+                  <TableHead className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                     Tracks
                   </TableHead>
-                  <TableHead className="text-[11px] tracking-wider text-zinc-500 uppercase">
+                  <TableHead className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                     Tagged
                   </TableHead>
-                  <TableHead className="text-[11px] tracking-wider text-zinc-500 uppercase">
+                  <TableHead className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                     Review
                   </TableHead>
-                  <TableHead className="text-[11px] tracking-wider text-zinc-500 uppercase">
+                  <TableHead className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                     Source
                   </TableHead>
                 </TableRow>
@@ -286,17 +286,17 @@ export function GamesClient() {
                   return (
                     <TableRow
                       key={game.id}
-                      className="cursor-pointer border-zinc-800/60 hover:bg-zinc-800/30"
+                      className="border-border/60 hover:bg-secondary/30 cursor-pointer"
                     >
                       <TableCell className="w-8 px-2 py-2.5" onClick={(e) => e.stopPropagation()}>
                         <Checkbox
                           checked={selectedIds.has(game.id)}
                           onCheckedChange={() => toggleSelect(game.id)}
-                          className="h-3.5 w-3.5 border-zinc-600 data-[state=checked]:border-violet-500 data-[state=checked]:bg-violet-500"
+                          className="data-[state=checked]:border-primary data-[state=checked]:bg-primary h-3.5 w-3.5 border-[var(--border-emphasis)]"
                         />
                       </TableCell>
                       <TableCell
-                        className="py-2.5 text-sm text-zinc-200"
+                        className="text-foreground py-2.5 text-sm"
                         onClick={() => router.push(href)}
                       >
                         {game.title}
@@ -308,18 +308,18 @@ export function GamesClient() {
                         <StatusBadge phase={game.onboarding_phase} />
                       </TableCell>
                       <TableCell
-                        className="py-2.5 font-mono text-xs text-zinc-400"
+                        className="text-muted-foreground py-2.5 font-mono text-xs"
                         onClick={() => router.push(href)}
                       >
                         {game.activeCount}/{game.trackCount}
                       </TableCell>
                       <TableCell
-                        className="py-2.5 font-mono text-xs text-zinc-400"
+                        className="text-muted-foreground py-2.5 font-mono text-xs"
                         onClick={() => router.push(href)}
                       >
                         {game.taggedCount}
                         {game.trackCount > 0 && (
-                          <span className="ml-1 text-zinc-600">
+                          <span className="ml-1 text-[var(--text-disabled)]">
                             ({Math.round((game.taggedCount / game.trackCount) * 100)}%)
                           </span>
                         )}
@@ -330,11 +330,11 @@ export function GamesClient() {
                             {game.reviewFlagCount}
                           </span>
                         ) : (
-                          <span className="text-zinc-700">—</span>
+                          <span className="text-[var(--text-disabled)]">—</span>
                         )}
                       </TableCell>
                       <TableCell
-                        className="py-2.5 font-mono text-[11px] text-zinc-500"
+                        className="py-2.5 font-mono text-[11px] text-[var(--text-tertiary)]"
                         onClick={() => router.push(href)}
                       >
                         {game.tracklist_source ?? "—"}

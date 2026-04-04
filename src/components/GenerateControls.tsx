@@ -72,18 +72,18 @@ export function GenerateControls({
     <div className="flex flex-col gap-5 px-1">
       {/* Playlist Size */}
       <div className="flex flex-col gap-1">
-        <span className="font-display text-[11px] font-semibold tracking-widest text-zinc-400 uppercase">
+        <span className="font-display text-muted-foreground text-[11px] font-medium tracking-widest uppercase">
           Playlist Size
         </span>
-        <div className="flex overflow-hidden rounded-lg border border-white/[0.07] bg-zinc-950/60">
+        <div className="border-border bg-background/60 flex overflow-hidden rounded-lg border">
           {PRESETS.map((n) => (
             <button
               key={n}
               onClick={() => handlePresetClick(n)}
-              className={`flex-1 cursor-pointer border-r border-white/[0.07] py-1.5 text-xs font-medium transition-colors ${
+              className={`border-border flex-1 cursor-pointer border-r py-1.5 text-xs font-medium transition-colors ${
                 activePreset === n
-                  ? "bg-zinc-700 text-white"
-                  : "text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200"
+                  ? "text-foreground bg-[var(--surface-hover)]"
+                  : "hover:text-foreground text-[var(--text-tertiary)] hover:bg-white/[0.04]"
               }`}
             >
               {n}
@@ -111,12 +111,12 @@ export function GenerateControls({
                   handlePresetClick(PRESETS[0]);
                 }
               }}
-              className="flex-1 [appearance:textfield] bg-zinc-700 py-1.5 text-center text-xs font-medium text-white tabular-nums focus:ring-1 focus:ring-violet-500/50 focus:outline-none focus:ring-inset [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              className="text-foreground focus:ring-ring/50 flex-1 [appearance:textfield] bg-[var(--surface-hover)] py-1.5 text-center text-xs font-medium tabular-nums focus:ring-1 focus:outline-none focus:ring-inset [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
           ) : (
             <button
               onClick={handleCustomClick}
-              className="flex-1 cursor-pointer py-1.5 text-xs font-medium text-zinc-500 transition-colors hover:bg-white/[0.04] hover:text-zinc-200"
+              className="hover:text-foreground flex-1 cursor-pointer py-1.5 text-xs font-medium text-[var(--text-tertiary)] transition-colors hover:bg-white/[0.04]"
             >
               Custom
             </button>
@@ -127,7 +127,7 @@ export function GenerateControls({
       {/* Options (logged-in only) */}
       {isSignedIn && (
         <div className="flex flex-col gap-1">
-          <span className="font-display text-[11px] font-semibold tracking-widest text-zinc-400 uppercase">
+          <span className="font-display text-muted-foreground text-[11px] font-medium tracking-widest uppercase">
             Options
           </span>
           <div className="flex flex-wrap gap-1.5">
@@ -138,25 +138,21 @@ export function GenerateControls({
                 disabled={llmCapReached}
                 className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
                   llmCapReached
-                    ? "cursor-not-allowed border-zinc-700/40 bg-zinc-900/30 text-zinc-600"
+                    ? "bg-secondary/30 cursor-not-allowed border-[var(--border-default)] text-[var(--text-disabled)]"
                     : skipLlm
-                      ? "cursor-pointer border-cyan-500/40 bg-cyan-900/30 text-cyan-300 hover:bg-cyan-900/50"
-                      : "cursor-pointer border-white/[0.06] bg-zinc-950/60 text-zinc-500 hover:border-white/[0.12] hover:text-zinc-300"
+                      ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 cursor-pointer"
+                      : "border-border bg-background/60 hover:text-foreground cursor-pointer text-[var(--text-tertiary)] hover:border-[var(--border-emphasis)]"
                 }`}
               >
                 <span>
-                  {llmCapReached
-                    ? "🎯 Express: always on"
-                    : skipLlm
-                      ? "🎯 Express: on"
-                      : "🎯 Express: off"}
+                  {llmCapReached ? "Express: always on" : skipLlm ? "Express: on" : "Express: off"}
                 </span>
               </button>
-              <div className="pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-56 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 opacity-0 shadow-xl shadow-black/50 transition-opacity group-hover:opacity-100">
-                <p className="text-xs font-medium text-zinc-200">
+              <div className="bg-secondary pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-56 rounded-lg border border-white/[0.08] px-3 py-2 opacity-0 transition-opacity group-hover:opacity-100">
+                <p className="text-foreground text-xs font-medium">
                   {llmCapReached ? "Daily AI limit reached" : "Express Mode"}
                 </p>
-                <p className="mt-0.5 text-[11px] leading-snug text-zinc-400">
+                <p className="text-muted-foreground mt-0.5 text-[11px] leading-snug">
                   {llmCapReached
                     ? "You've used all your AI-powered generations for today. Playlists are still curated, just without AI vibe scoring. Resets tomorrow."
                     : "When on, skips the AI Vibe Profiler for faster generation. Playlists are still curated by the Director engine, just without AI-tuned mood scoring."}
@@ -169,15 +165,15 @@ export function GenerateControls({
                 onClick={() => onToggleLongTracks(!allowLongTracks)}
                 className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
                   allowLongTracks
-                    ? "border-orange-500/40 bg-orange-900/30 text-orange-300 hover:bg-orange-900/50"
-                    : "border-white/[0.06] bg-zinc-950/60 text-zinc-500 hover:border-white/[0.12] hover:text-zinc-300"
+                    ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/15"
+                    : "border-border bg-background/60 hover:text-foreground text-[var(--text-tertiary)] hover:border-[var(--border-emphasis)]"
                 }`}
               >
-                <span>{allowLongTracks ? "⏱ Long tracks: on" : "⏱ Long tracks: off"}</span>
+                <span>{allowLongTracks ? "Long tracks: on" : "Long tracks: off"}</span>
               </button>
-              <div className="pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-56 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 opacity-0 shadow-xl shadow-black/50 transition-opacity group-hover:opacity-100">
-                <p className="text-xs font-medium text-zinc-200">Allow long tracks</p>
-                <p className="mt-0.5 text-[11px] leading-snug text-zinc-400">
+              <div className="bg-secondary pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-56 rounded-lg border border-white/[0.08] px-3 py-2 opacity-0 transition-opacity group-hover:opacity-100">
+                <p className="text-foreground text-xs font-medium">Allow long tracks</p>
+                <p className="text-muted-foreground mt-0.5 text-[11px] leading-snug">
                   When off (default), tracks longer than 10 minutes are excluded. Useful for keeping
                   a playlist focused — OST medleys and extended suites are skipped.
                 </p>
@@ -189,15 +185,15 @@ export function GenerateControls({
                 onClick={() => onToggleShortTracks(!allowShortTracks)}
                 className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
                   allowShortTracks
-                    ? "border-violet-500/40 bg-violet-900/30 text-violet-300 hover:bg-violet-900/50"
-                    : "border-white/[0.06] bg-zinc-950/60 text-zinc-500 hover:border-white/[0.12] hover:text-zinc-300"
+                    ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/15"
+                    : "border-border bg-background/60 hover:text-foreground text-[var(--text-tertiary)] hover:border-[var(--border-emphasis)]"
                 }`}
               >
-                <span>{allowShortTracks ? "⚡ Short tracks: on" : "⚡ Short tracks: off"}</span>
+                <span>{allowShortTracks ? "Short tracks: on" : "Short tracks: off"}</span>
               </button>
-              <div className="pointer-events-none absolute right-0 bottom-full z-10 mb-2 w-56 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 opacity-0 shadow-xl shadow-black/50 transition-opacity group-hover:opacity-100">
-                <p className="text-xs font-medium text-zinc-200">Allow short tracks</p>
-                <p className="mt-0.5 text-[11px] leading-snug text-zinc-400">
+              <div className="bg-secondary pointer-events-none absolute right-0 bottom-full z-10 mb-2 w-56 rounded-lg border border-white/[0.08] px-3 py-2 opacity-0 transition-opacity group-hover:opacity-100">
+                <p className="text-foreground text-xs font-medium">Allow short tracks</p>
+                <p className="text-muted-foreground mt-0.5 text-[11px] leading-snug">
                   When off (default), tracks under 90 seconds are excluded. Useful for keeping
                   things flowing — intros, stingers, and short jingles are skipped.
                 </p>
@@ -209,15 +205,15 @@ export function GenerateControls({
                 onClick={() => onToggleRawVibes(!rawVibes)}
                 className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
                   rawVibes
-                    ? "border-purple-500/40 bg-purple-900/30 text-purple-300 hover:bg-purple-900/50"
-                    : "border-white/[0.06] bg-zinc-950/60 text-zinc-500 hover:border-white/[0.12] hover:text-zinc-300"
+                    ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/15"
+                    : "border-border bg-background/60 hover:text-foreground text-[var(--text-tertiary)] hover:border-[var(--border-emphasis)]"
                 }`}
               >
-                <span>{rawVibes ? "♫ Raw vibes: on" : "♫ Raw vibes: off"}</span>
+                <span>{rawVibes ? "Raw vibes: on" : "Raw vibes: off"}</span>
               </button>
-              <div className="pointer-events-none absolute right-0 bottom-full z-10 mb-2 w-56 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 opacity-0 shadow-xl shadow-black/50 transition-opacity group-hover:opacity-100">
-                <p className="text-xs font-medium text-zinc-200">Raw vibes</p>
-                <p className="mt-0.5 text-[11px] leading-snug text-zinc-400">
+              <div className="bg-secondary pointer-events-none absolute right-0 bottom-full z-10 mb-2 w-56 rounded-lg border border-white/[0.08] px-3 py-2 opacity-0 transition-opacity group-hover:opacity-100">
+                <p className="text-foreground text-xs font-medium">Raw vibes</p>
+                <p className="text-muted-foreground mt-0.5 text-[11px] leading-snug">
                   When on, ignores YouTube view counts — all tracks scored purely on musical tags.
                   May surface more obscure tracks.
                 </p>
@@ -232,7 +228,7 @@ export function GenerateControls({
         <button
           onClick={onGenerate}
           disabled={gamesCount === 0 || secsLeft > 0}
-          className="cta-glow-pulse flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3.5 text-sm font-semibold text-white shadow-[0_0_24px_-4px] shadow-violet-500/40 transition-all duration-200 hover:scale-[1.02] hover:bg-violet-500 hover:shadow-[0_0_32px_-2px] hover:shadow-violet-500/50 active:scale-[0.97] active:bg-violet-700 active:shadow-[0_0_12px_-4px] active:shadow-violet-500/30 disabled:cursor-not-allowed disabled:border disabled:border-white/[0.05] disabled:bg-zinc-800/80 disabled:text-zinc-500 disabled:shadow-none disabled:hover:scale-100"
+          className="bg-primary text-foreground disabled:bg-secondary/80 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-medium transition-all duration-200 hover:bg-[var(--primary-hover)] active:scale-[0.98] active:bg-[var(--primary-muted)] disabled:cursor-not-allowed disabled:border disabled:border-white/[0.05] disabled:text-[var(--text-disabled)] disabled:hover:scale-100"
         >
           <MusicNote className="h-3.5 w-3.5" />
           {secsLeft > 0 ? (
@@ -244,10 +240,10 @@ export function GenerateControls({
         <div
           className={`flex px-1 ${gamesCount === 0 ? "flex-col gap-1" : "items-center justify-between"}`}
         >
-          <p className="text-[11px] leading-snug text-zinc-600">{summaryText}</p>
+          <p className="text-[11px] leading-snug text-[var(--text-disabled)]">{summaryText}</p>
           <button
             onClick={onSwitchToImport}
-            className={`shrink-0 text-[11px] text-zinc-600 transition-colors hover:text-zinc-400 ${gamesCount === 0 ? "self-end" : ""}`}
+            className={`hover:text-muted-foreground shrink-0 text-[11px] text-[var(--text-disabled)] transition-colors ${gamesCount === 0 ? "self-end" : ""}`}
           >
             Import from YouTube →
           </button>

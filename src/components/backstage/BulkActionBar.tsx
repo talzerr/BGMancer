@@ -36,12 +36,12 @@ export function BulkActionBar({
   if (selectedCount === 0) return null;
 
   return (
-    <div className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900/95 px-4 py-2.5 shadow-2xl backdrop-blur-sm">
-      <span className="mr-1 text-xs text-zinc-400">
-        <span className="font-semibold text-zinc-200">{selectedCount}</span> selected
+    <div className="border-border bg-secondary/95 fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-xl border px-4 py-2.5 backdrop-blur-sm">
+      <span className="text-muted-foreground mr-1 text-xs">
+        <span className="text-foreground font-medium">{selectedCount}</span> selected
       </span>
 
-      <div className="h-4 w-px bg-zinc-700" />
+      <div className="h-4 w-px bg-[var(--border-emphasis)]" />
 
       <Select
         value={energyValue}
@@ -52,10 +52,10 @@ export function BulkActionBar({
           setTimeout(() => setEnergyValue(""), 100);
         }}
       >
-        <SelectTrigger className="h-7 w-28 border-zinc-700 bg-zinc-800 text-xs text-zinc-300">
+        <SelectTrigger className="border-border bg-secondary text-foreground h-7 w-28 text-xs">
           <SelectValue placeholder="Set energy" />
         </SelectTrigger>
-        <SelectContent className="border-zinc-700 bg-zinc-900">
+        <SelectContent className="border-border bg-secondary">
           <SelectItem value="1" className="text-xs text-sky-400">
             1 — Calm
           </SelectItem>
@@ -77,24 +77,24 @@ export function BulkActionBar({
           setTimeout(() => setRoleValue(""), 100);
         }}
       >
-        <SelectTrigger className="h-7 w-28 border-zinc-700 bg-zinc-800 text-xs text-zinc-300">
+        <SelectTrigger className="border-border bg-secondary text-foreground h-7 w-28 text-xs">
           <SelectValue placeholder="Set role" />
         </SelectTrigger>
-        <SelectContent className="border-zinc-700 bg-zinc-900">
+        <SelectContent className="border-border bg-secondary">
           {Object.values(TrackRole).map((r) => (
-            <SelectItem key={r} value={r} className="text-xs text-zinc-300 capitalize">
+            <SelectItem key={r} value={r} className="text-foreground text-xs capitalize">
               {r}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
 
-      <div className="h-4 w-px bg-zinc-700" />
+      <div className="h-4 w-px bg-[var(--border-emphasis)]" />
 
       <Button
         size="sm"
         variant="ghost"
-        className="h-7 px-2 text-xs text-zinc-300 hover:text-zinc-100"
+        className="text-foreground hover:text-foreground h-7 px-2 text-xs"
         onClick={onActivate}
       >
         Activate
@@ -102,7 +102,7 @@ export function BulkActionBar({
       <Button
         size="sm"
         variant="ghost"
-        className="h-7 px-2 text-xs text-zinc-300 hover:text-zinc-100"
+        className="text-foreground hover:text-foreground h-7 px-2 text-xs"
         onClick={onDeactivate}
       >
         Deactivate
@@ -110,13 +110,13 @@ export function BulkActionBar({
       <Button
         size="sm"
         variant="ghost"
-        className="h-7 px-2 text-xs text-zinc-300 hover:text-zinc-100"
+        className="text-foreground hover:text-foreground h-7 px-2 text-xs"
         onClick={onMarkReviewed}
       >
         Mark reviewed
       </Button>
 
-      <div className="h-4 w-px bg-zinc-700" />
+      <div className="h-4 w-px bg-[var(--border-emphasis)]" />
 
       <Button
         size="sm"

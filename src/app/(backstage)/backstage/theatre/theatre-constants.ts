@@ -32,7 +32,7 @@ export const PHASE_COLORS: Record<string, string> = {
   [ArcPhase.Peak]: "bg-orange-900/40 border-orange-700/30",
   [ArcPhase.Valley]: "bg-emerald-900/40 border-emerald-700/30",
   [ArcPhase.Climax]: "bg-rose-900/40 border-rose-700/30",
-  [ArcPhase.Outro]: "bg-violet-900/40 border-violet-700/30",
+  [ArcPhase.Outro]: "bg-primary/10 border-primary/30",
 };
 
 export const PHASE_TEXT: Record<string, string> = {
@@ -41,7 +41,7 @@ export const PHASE_TEXT: Record<string, string> = {
   [ArcPhase.Peak]: "text-orange-400",
   [ArcPhase.Valley]: "text-emerald-400",
   [ArcPhase.Climax]: "text-rose-400",
-  [ArcPhase.Outro]: "text-violet-400",
+  [ArcPhase.Outro]: "text-primary",
 };
 
 export const PASS_STYLES: Record<string, { label: string; cls: string }> = {
@@ -51,7 +51,7 @@ export const PASS_STYLES: Record<string, { label: string; cls: string }> = {
   },
   [SelectionPass.FocusPre]: {
     label: "focus",
-    cls: "border-violet-700/50 bg-violet-500/10 text-violet-400",
+    cls: "border-primary/50 bg-primary/10 text-primary",
   },
   [SelectionPass.Fallback]: {
     label: "fallback",
@@ -109,10 +109,10 @@ export const SCORING_WEIGHTS: ScoringWeightRow[] = [
 ];
 
 export const BUDGET_RULES = [
-  { mode: "Focus", weight: "2.0x", color: "text-violet-400" },
-  { mode: "Include", weight: "1.0x", color: "text-zinc-300" },
-  { mode: "Lite", weight: "0.5x", color: "text-zinc-500" },
-  { mode: "Skip", weight: "excluded", color: "text-zinc-600" },
+  { mode: "Focus", weight: "2.0x", color: "text-primary" },
+  { mode: "Include", weight: "1.0x", color: "text-foreground" },
+  { mode: "Lite", weight: "0.5x", color: "text-[var(--text-tertiary)]" },
+  { mode: "Skip", weight: "excluded", color: "text-[var(--text-disabled)]" },
 ];
 
 export const PENALTIES = [

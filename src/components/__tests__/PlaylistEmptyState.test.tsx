@@ -36,12 +36,12 @@ describe("PlaylistEmptyState", () => {
   describe("when gamesLength is 0", () => {
     it("should show library-building message", () => {
       renderEmptyState({ gamesLength: 0 });
-      expect(screen.getByText(/build a library of game soundtracks/i)).toBeInTheDocument();
+      expect(screen.getByText(/add games to your library/i)).toBeInTheDocument();
     });
 
-    it("should show 'Build Your Library' CTA link", () => {
+    it("should show 'Browse catalog' CTA link", () => {
       renderEmptyState({ gamesLength: 0 });
-      expect(screen.getByRole("link", { name: /build your library/i })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /browse catalog/i })).toBeInTheDocument();
     });
   });
 

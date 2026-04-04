@@ -25,14 +25,14 @@ export function MetadataField({
 
   return (
     <>
-      <span className="flex items-center gap-1 text-[11px] font-medium text-zinc-500">
+      <span className="flex items-center gap-1 text-[11px] font-medium text-[var(--text-tertiary)]">
         {label}
         {href && value && (
           <a
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-zinc-600 transition-colors hover:text-zinc-300"
+            className="hover:text-foreground text-[var(--text-disabled)] transition-colors"
             onClick={(e) => e.stopPropagation()}
           >
             ↗
@@ -50,16 +50,20 @@ export function MetadataField({
             if (e.key === "Escape") cancel();
           }}
           placeholder={placeholder}
-          className="h-7 border-zinc-700 bg-zinc-800 font-mono text-xs text-zinc-100 placeholder:text-zinc-600"
+          className="border-border bg-background text-foreground h-7 font-mono text-xs placeholder:text-[var(--text-disabled)]"
         />
       ) : (
         <button
           onClick={() => !disabled && startEditing()}
           className={`truncate rounded px-1.5 py-1 text-left font-mono text-xs transition-colors ${
-            disabled ? "cursor-default text-zinc-600" : "text-zinc-300 hover:bg-zinc-800"
+            disabled
+              ? "cursor-default text-[var(--text-disabled)]"
+              : "text-foreground hover:bg-secondary"
           }`}
         >
-          {value || <span className="text-zinc-600">{disabled ? "—" : placeholder}</span>}
+          {value || (
+            <span className="text-[var(--text-disabled)]">{disabled ? "—" : placeholder}</span>
+          )}
         </button>
       )}
     </>

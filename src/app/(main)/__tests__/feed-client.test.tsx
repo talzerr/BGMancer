@@ -226,7 +226,7 @@ describe("FeedClient", () => {
     it("should show skeleton loaders instead of tracks or empty state", () => {
       mockPlayerContext.playlist.tracksLoading = true;
       const { container } = renderFeedClient();
-      const skeletons = container.querySelectorAll(".animate-pulse");
+      const skeletons = container.querySelectorAll("[class*='bg-secondary']");
       expect(skeletons.length).toBeGreaterThan(0);
       expect(screen.queryByTestId("playlist-empty-state")).not.toBeInTheDocument();
     });

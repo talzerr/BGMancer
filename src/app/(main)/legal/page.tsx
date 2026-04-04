@@ -8,14 +8,14 @@ export const metadata: Metadata = {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-2">
-      <h2 className="text-lg font-semibold text-zinc-100">{title}</h2>
+      <h2 className="text-foreground text-lg font-medium">{title}</h2>
       {children}
     </section>
   );
 }
 
 function P({ children }: { children: React.ReactNode }) {
-  return <p className="text-sm leading-relaxed text-zinc-400">{children}</p>;
+  return <p className="text-muted-foreground text-sm leading-relaxed">{children}</p>;
 }
 
 function ExtLink({ href, children }: { href: string; children: React.ReactNode }) {
@@ -24,7 +24,7 @@ function ExtLink({ href, children }: { href: string; children: React.ReactNode }
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-violet-400 hover:text-violet-300"
+      className="text-primary hover:text-[var(--primary-hover)]"
     >
       {children}
     </a>
@@ -34,11 +34,16 @@ function ExtLink({ href, children }: { href: string; children: React.ReactNode }
 export default function LegalPage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
-      <Link href="/" className="mb-8 inline-block text-xs text-zinc-600 hover:text-zinc-400">
+      <Link
+        href="/"
+        className="hover:text-muted-foreground mb-8 inline-block text-xs text-[var(--text-disabled)]"
+      >
         &larr; Back to BGMancer
       </Link>
 
-      <h1 className="font-display mb-8 text-2xl font-bold text-white">Legal & Disclaimers</h1>
+      <h1 className="font-display text-foreground mb-8 text-2xl font-medium">
+        Legal & Disclaimers
+      </h1>
 
       <div className="space-y-8">
         <Section title="Not affiliated">
@@ -78,7 +83,7 @@ export default function LegalPage() {
 
         <Section title="YouTube">
           <P>This application uses the YouTube Data API v3. By using BGMancer you also agree to:</P>
-          <ul className="list-inside list-disc space-y-1 text-sm text-zinc-400">
+          <ul className="text-muted-foreground list-inside list-disc space-y-1 text-sm">
             <li>
               <ExtLink href="https://www.youtube.com/t/terms">YouTube Terms of Service</ExtLink>
             </li>
@@ -120,22 +125,22 @@ export default function LegalPage() {
           <P>
             This use may qualify as Fair Use under 17 U.S.C. &sect; 107 on the following grounds:
           </P>
-          <ol className="list-inside list-decimal space-y-1 text-sm text-zinc-400">
+          <ol className="text-muted-foreground list-inside list-decimal space-y-1 text-sm">
             <li>
-              <strong className="text-zinc-300">Purpose and character</strong> — transformative
+              <strong className="text-foreground">Purpose and character</strong> — transformative
               curation for personal, non-commercial listening.
             </li>
             <li>
-              <strong className="text-zinc-300">Nature of the work</strong> — the underlying works
+              <strong className="text-foreground">Nature of the work</strong> — the underlying works
               are artistic, but the use is organizational, not reproductive.
             </li>
             <li>
-              <strong className="text-zinc-300">Amount used</strong> — no audio files are copied or
-              hosted.
+              <strong className="text-foreground">Amount used</strong> — no audio files are copied
+              or hosted.
             </li>
             <li>
-              <strong className="text-zinc-300">Market effect</strong> — BGMancer drives traffic to
-              YouTube and to the rights holders&apos; official content.
+              <strong className="text-foreground">Market effect</strong> — BGMancer drives traffic
+              to YouTube and to the rights holders&apos; official content.
             </li>
           </ol>
           <P>
@@ -173,7 +178,7 @@ export default function LegalPage() {
         </Section>
       </div>
 
-      <div className="mt-12 border-t border-white/[0.04] pt-4">
+      <div className="border-border mt-12 border-t pt-4">
         <P>
           Full source available on{" "}
           <ExtLink href="https://github.com/talzerr/bgmancer">GitHub</ExtLink>. See also{" "}

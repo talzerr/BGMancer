@@ -84,7 +84,7 @@ export function PlaylistHeader({
             if (e.key === "Escape") setEditingTitle(false);
           }}
           maxLength={SESSION_NAME_MAX_LENGTH}
-          className="font-display -mx-2 -my-1 w-[calc(100%+1rem)] resize-none overflow-hidden border-b border-violet-500 bg-transparent px-2 py-1 text-2xl leading-snug font-semibold break-words text-white caret-violet-400 focus:outline-none"
+          className="font-display border-primary text-foreground caret-primary -mx-2 -my-1 w-[calc(100%+1rem)] resize-none overflow-hidden border-b bg-transparent px-2 py-1 text-2xl leading-snug font-medium break-words focus:outline-none"
         />
       ) : (
         <button
@@ -94,7 +94,7 @@ export function PlaylistHeader({
             setEditingTitle(true);
             setTimeout(() => titleInputRef.current?.select(), 0);
           }}
-          className="group font-display -mx-2 -my-1 flex w-full min-w-0 cursor-text items-start gap-1.5 rounded-lg px-2 py-1 text-2xl font-semibold text-white transition-colors hover:bg-zinc-800/70"
+          className="group font-display text-foreground hover:bg-secondary/70 -mx-2 -my-1 flex w-full min-w-0 cursor-text items-start gap-1.5 rounded-lg px-2 py-1 text-2xl font-medium transition-colors"
         >
           <span className="min-w-0 flex-1 leading-snug break-words">
             {formatSessionName(currentSession?.name ?? "")}
@@ -103,7 +103,7 @@ export function PlaylistHeader({
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 16 16"
             fill="currentColor"
-            className="mt-0.5 h-3 w-3 shrink-0 text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100"
+            className="mt-0.5 h-3 w-3 shrink-0 text-[var(--text-tertiary)] opacity-0 transition-opacity group-hover:opacity-100"
           >
             <path d="M13.488 2.513a1.75 1.75 0 0 0-2.475 0L6.75 6.774a2.75 2.75 0 0 0-.596.892l-.848 2.047a.75.75 0 0 0 .98.98l2.047-.848a2.75 2.75 0 0 0 .892-.596l4.261-4.263a1.75 1.75 0 0 0 0-2.474ZM4.75 13.5c-.69 0-1.25-.56-1.25-1.25V4.75A1.25 1.25 0 0 1 4.75 3.5H8a.75.75 0 0 0 0-1.5H4.75A2.75 2.75 0 0 0 2 4.75v7.5A2.75 2.75 0 0 0 4.75 15h7.5A2.75 2.75 0 0 0 15 12.25V9a.75.75 0 0 0-1.5 0v3.25c0 .69-.56 1.25-1.25 1.25h-7.5Z" />
           </svg>
@@ -115,14 +115,16 @@ export function PlaylistHeader({
         {/* Stats */}
         {trackCount > 0 && (
           <div className="flex items-center gap-2">
-            <span className="font-display text-sm font-semibold text-white tabular-nums">
+            <span className="font-display text-foreground text-sm font-medium tabular-nums">
               {trackCount}
             </span>
-            <span className="text-xs text-zinc-500">track{trackCount !== 1 ? "s" : ""}</span>
+            <span className="text-xs text-[var(--text-tertiary)]">
+              track{trackCount !== 1 ? "s" : ""}
+            </span>
             {totalDurationSeconds > 0 && (
               <>
-                <span className="text-xs text-zinc-700">·</span>
-                <span className="font-display text-sm font-semibold text-orange-400 tabular-nums">
+                <span className="text-xs text-[var(--text-disabled)]">·</span>
+                <span className="font-display text-primary text-sm font-medium tabular-nums">
                   {formatDuration(totalDurationSeconds)}
                 </span>
               </>
@@ -139,7 +141,7 @@ export function PlaylistHeader({
                 onClick={() => {
                   player.startPlaying(playlist.tracks, 0, playlist.currentSessionId);
                 }}
-                className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-violet-500/25 transition-all hover:bg-violet-500 hover:shadow-violet-500/40 active:scale-95"
+                className="bg-primary text-foreground flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all hover:bg-[var(--primary-hover)] active:scale-[0.98]"
               >
                 <PlayIcon className="h-3 w-3" />
                 Play All
@@ -147,7 +149,7 @@ export function PlaylistHeader({
             )}
 
             {/* Separator between primary and secondary actions */}
-            {trackCount > 0 && <div className="mx-0.5 h-4 w-px bg-white/[0.06]" />}
+            {trackCount > 0 && <div className="bg-border mx-0.5 h-4 w-px" />}
 
             {/* Secondary actions */}
             {isSignedIn && !isDev && (
@@ -168,8 +170,8 @@ export function PlaylistHeader({
                         onClick={() => config.saveAntiSpoiler(!config.antiSpoilerEnabled)}
                         className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
                           config.antiSpoilerEnabled
-                            ? "border-violet-500/40 bg-violet-900/40 text-violet-300 hover:bg-violet-900/60"
-                            : "border-white/[0.06] bg-zinc-800/60 text-zinc-500 hover:border-white/[0.12] hover:text-zinc-300"
+                            ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/15"
+                            : "border-border bg-secondary/60 hover:text-foreground text-[var(--text-tertiary)] hover:border-[var(--border-emphasis)]"
                         }`}
                       />
                     }
@@ -188,7 +190,7 @@ export function PlaylistHeader({
 
                 {playlist.confirmClear ? (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-zinc-500">Delete?</span>
+                    <span className="text-xs text-[var(--text-tertiary)]">Delete?</span>
                     <button
                       onClick={() => {
                         playlist.setConfirmClear(false);
@@ -196,13 +198,13 @@ export function PlaylistHeader({
                           void onDeleteSession(playlist.currentSessionId);
                         }
                       }}
-                      className="cursor-pointer rounded-lg bg-red-600/90 px-2 py-1 text-xs font-medium text-white hover:bg-red-500"
+                      className="text-foreground cursor-pointer rounded-lg bg-red-600/90 px-2 py-1 text-xs font-medium hover:bg-red-500"
                     >
                       Yes
                     </button>
                     <button
                       onClick={() => playlist.setConfirmClear(false)}
-                      className="cursor-pointer rounded-lg bg-zinc-800 px-2 py-1 text-xs font-medium text-zinc-400 hover:bg-zinc-700"
+                      className="bg-secondary text-muted-foreground cursor-pointer rounded-lg px-2 py-1 text-xs font-medium hover:bg-[var(--surface-hover)]"
                     >
                       No
                     </button>
@@ -213,7 +215,7 @@ export function PlaylistHeader({
                       render={
                         <button
                           onClick={() => playlist.setConfirmClear(true)}
-                          className="flex cursor-pointer items-center rounded-lg p-1.5 text-zinc-600 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                          className="flex cursor-pointer items-center rounded-lg p-1.5 text-[var(--text-disabled)] transition-colors hover:bg-red-500/10 hover:text-red-400"
                         />
                       }
                     >

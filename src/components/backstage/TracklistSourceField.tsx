@@ -34,14 +34,14 @@ export function TracklistSourceField({
 
   return (
     <>
-      <span className="flex items-center gap-1 text-[11px] font-medium text-zinc-500">
+      <span className="flex items-center gap-1 text-[11px] font-medium text-[var(--text-tertiary)]">
         Tracklist Source
         {href && sourceId && (
           <a
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-zinc-600 transition-colors hover:text-zinc-300"
+            className="hover:text-foreground text-[var(--text-disabled)] transition-colors"
           >
             ↗
           </a>
@@ -60,17 +60,17 @@ export function TracklistSourceField({
           }}
           disabled={disabled}
         >
-          <SelectTrigger className="h-7 w-auto min-w-[130px] border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-300">
+          <SelectTrigger className="border-border bg-secondary text-foreground h-7 w-auto min-w-[130px] px-2 text-xs">
             <span className="flex flex-1 text-left">
               {sources.find((s) => s.key === sourceKey)?.label ?? "Auto-discover"}
             </span>
           </SelectTrigger>
-          <SelectContent className="border-zinc-700 bg-zinc-900">
-            <SelectItem value="" className="text-xs text-zinc-400">
+          <SelectContent className="border-border bg-secondary">
+            <SelectItem value="" className="text-muted-foreground text-xs">
               Auto-discover
             </SelectItem>
             {sources.map((s) => (
-              <SelectItem key={s.key} value={s.key} className="text-xs text-zinc-300">
+              <SelectItem key={s.key} value={s.key} className="text-foreground text-xs">
                 {s.label}
               </SelectItem>
             ))}
@@ -86,7 +86,7 @@ export function TracklistSourceField({
             }}
             placeholder="ID"
             disabled={disabled}
-            className="h-7 w-24 border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-300"
+            className="border-border bg-secondary text-foreground h-7 w-24 px-2 text-xs"
           />
         )}
         {isDirty && sourceKey && sourceId && (

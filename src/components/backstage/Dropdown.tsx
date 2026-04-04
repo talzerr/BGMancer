@@ -17,7 +17,7 @@ export function Dropdown({
   open,
   onOpenChange,
   disabled,
-  buttonClassName = "h-7 border-zinc-700 text-xs text-zinc-300 hover:text-zinc-100",
+  buttonClassName = "h-7 border-border text-xs text-foreground hover:text-foreground",
   width = "w-48",
   children,
 }: DropdownProps) {
@@ -35,7 +35,7 @@ export function Dropdown({
       </Button>
       {open && (
         <div
-          className={`absolute right-0 z-10 mt-1 ${width} rounded-md border border-zinc-700 bg-zinc-900 py-1 shadow-lg`}
+          className={`absolute right-0 z-10 mt-1 ${width} border-border bg-secondary rounded-md border py-1`}
         >
           {children}
         </div>

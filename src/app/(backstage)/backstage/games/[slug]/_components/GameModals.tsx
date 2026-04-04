@@ -222,10 +222,10 @@ export function GameModals({
           }
         }}
       >
-        <DialogContent className="border-zinc-800 bg-zinc-900">
+        <DialogContent className="border-border bg-secondary">
           <DialogHeader>
-            <DialogTitle className="text-zinc-100">Add track</DialogTitle>
-            <DialogDescription className="text-zinc-400">
+            <DialogTitle className="text-foreground">Add track</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
               Manually add a track to {game.title}. It will be untagged until the next re-tag.
             </DialogDescription>
           </DialogHeader>
@@ -241,20 +241,20 @@ export function GameModals({
                   setActiveModal(null);
                 }
               }}
-              className="border-zinc-700 bg-zinc-800 text-zinc-100 placeholder:text-zinc-600"
+              className="border-border bg-secondary text-foreground placeholder:text-[var(--text-disabled)]"
             />
             <div className="flex justify-end gap-2">
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-zinc-400"
+                className="text-muted-foreground"
                 onClick={() => setActiveModal(null)}
               >
                 Cancel
               </Button>
               <Button
                 size="sm"
-                className="bg-violet-600 text-white hover:bg-violet-700"
+                className="bg-primary text-primary-foreground hover:bg-[var(--primary-hover)]"
                 onClick={async () => {
                   await actions.addTrack(newTrackName);
                   setNewTrackName("");
@@ -280,10 +280,10 @@ export function GameModals({
           }
         }}
       >
-        <DialogContent className="border-zinc-800 bg-zinc-900 sm:max-w-xl">
+        <DialogContent className="border-border bg-secondary sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle className="text-zinc-100">Paste Tracks</DialogTitle>
-            <DialogDescription className="text-zinc-400">
+            <DialogTitle className="text-foreground">Paste Tracks</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
               Paste a tracklist — one track per line. Durations (M:SS) are detected automatically.
             </DialogDescription>
           </DialogHeader>
@@ -294,17 +294,17 @@ export function GameModals({
               "01. A Premonition 0:35\n02. Chrono Trigger 2:27\n03. Morning Sunlight 2:45"
             }
             rows={10}
-            className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 font-mono text-xs text-zinc-100 placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none"
+            className="border-border bg-secondary text-foreground w-full rounded-md border px-3 py-2 font-mono text-xs placeholder:text-[var(--text-disabled)] focus:border-[var(--border-emphasis)] focus:outline-none"
           />
           {pastePreview.length > 0 && (
-            <div className="max-h-48 overflow-y-auto rounded-md border border-zinc-700 bg-zinc-800/50 px-3 py-2">
-              <p className="mb-1 text-[10px] font-semibold tracking-wider text-zinc-500 uppercase">
+            <div className="border-border bg-secondary/50 max-h-48 overflow-y-auto rounded-md border px-3 py-2">
+              <p className="mb-1 text-[10px] font-medium tracking-wider text-[var(--text-tertiary)] uppercase">
                 Preview ({pastePreview.length} tracks)
               </p>
               {pastePreview.map((t) => (
                 <div key={t.position} className="flex items-center gap-2 py-0.5 text-xs">
-                  <span className="w-6 text-right text-zinc-600">{t.position}.</span>
-                  <span className="flex-1 text-zinc-300">{t.name}</span>
+                  <span className="w-6 text-right text-[var(--text-disabled)]">{t.position}.</span>
+                  <span className="text-foreground flex-1">{t.name}</span>
                 </div>
               ))}
             </div>
@@ -313,7 +313,7 @@ export function GameModals({
             <Button
               variant="ghost"
               size="sm"
-              className="text-zinc-400"
+              className="text-muted-foreground"
               onClick={() => {
                 setActiveModal(null);
                 setPasteText("");
@@ -324,7 +324,7 @@ export function GameModals({
             </Button>
             <Button
               size="sm"
-              className="bg-violet-600 text-white hover:bg-violet-700"
+              className="bg-primary text-primary-foreground hover:bg-[var(--primary-hover)]"
               onClick={async () => {
                 await actions.importPastedTracks(pastePreview);
                 setPasteText("");

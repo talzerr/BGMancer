@@ -9,18 +9,21 @@ export const metadata: Metadata = {
 
 export default function BackstageLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-zinc-950 font-mono">
-      <header className="sticky top-0 z-40 border-b border-zinc-800 bg-zinc-950/90 backdrop-blur">
+    <div className="bg-background min-h-screen font-mono">
+      <header className="border-border bg-background/90 sticky top-0 z-40 border-b backdrop-blur">
         <div className="mx-auto flex h-12 max-w-7xl items-center justify-between px-4">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold tracking-tight text-zinc-100">
+            <span className="text-foreground text-sm font-medium tracking-tight">
               BGMancer Backstage
             </span>
-            <span className="rounded bg-violet-900/40 px-1.5 py-0.5 text-[10px] font-medium tracking-wider text-violet-400 uppercase">
+            <span className="bg-primary/10 text-primary rounded px-1.5 py-0.5 text-[10px] font-medium tracking-wider uppercase">
               Admin
             </span>
           </div>
-          <Link href="/" className="text-xs text-zinc-500 transition-colors hover:text-zinc-300">
+          <Link
+            href="/"
+            className="hover:text-foreground text-xs text-[var(--text-tertiary)] transition-colors"
+          >
             ← Back to app
           </Link>
         </div>

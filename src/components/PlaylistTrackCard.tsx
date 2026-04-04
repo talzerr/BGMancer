@@ -66,10 +66,10 @@ export function PlaylistTrackCard({
       onClick={isPlayable ? onPlay : undefined}
       className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-150 ${
         isPlayable ? "cursor-pointer" : ""
-      } ${isDragging ? "opacity-50 shadow-lg shadow-black/40" : ""} ${
+      } ${isDragging ? "opacity-50" : ""} ${
         isPlaying
-          ? "bg-violet-950/40 shadow-[inset_3px_0_12px_-4px_rgba(139,92,246,0.4)]"
-          : "bg-white/[0.02] hover:bg-gradient-to-r hover:from-violet-500/[0.06] hover:to-transparent"
+          ? "bg-primary/5"
+          : "hover:from-primary/[0.04] bg-white/[0.02] hover:bg-gradient-to-r hover:to-transparent"
       }`}
     >
       {/* Drag handle */}
@@ -79,7 +79,7 @@ export function PlaylistTrackCard({
           onClick={(e) => e.stopPropagation()}
           className="shrink-0 cursor-grab touch-none opacity-0 transition-opacity group-hover:opacity-40 hover:!opacity-100 active:cursor-grabbing"
         >
-          <GripIcon className="h-3.5 w-3.5 text-zinc-400" />
+          <GripIcon className="text-muted-foreground h-3.5 w-3.5" />
         </div>
       )}
 
@@ -92,12 +92,14 @@ export function PlaylistTrackCard({
             <span className={`eq-bar${!isActivelyPlaying ? "eq-bar-paused" : ""}`} />
           </div>
         ) : (
-          <span className="font-mono text-xs text-zinc-500 select-none">{index + 1}</span>
+          <span className="font-mono text-xs text-[var(--text-tertiary)] select-none">
+            {index + 1}
+          </span>
         )}
       </div>
 
       {/* Thumbnail */}
-      <div className="relative h-12 w-[72px] shrink-0 overflow-hidden rounded-lg bg-zinc-800 ring-1 ring-white/[0.06]">
+      <div className="bg-secondary relative h-12 w-[72px] shrink-0 overflow-hidden rounded-lg ring-1 ring-white/[0.06]">
         {hasVideo && thumbnailSrc ? (
           <>
             <Image
@@ -125,7 +127,7 @@ export function PlaylistTrackCard({
           </>
         ) : (
           <div className="flex h-full w-full items-center justify-center">
-            <MusicNoteOutline className="h-5 w-5 text-zinc-500" />
+            <MusicNoteOutline className="h-5 w-5 text-[var(--text-tertiary)]" />
           </div>
         )}
       </div>
@@ -134,26 +136,26 @@ export function PlaylistTrackCard({
       <div className="min-w-0 flex-1">
         <div className="mb-0.5 flex items-center gap-1.5">
           <span
-            className={`truncate text-[11px] leading-none text-zinc-400 ${spoilerHidden ? "blur-sm select-none" : ""}`}
+            className={`text-muted-foreground truncate text-[11px] leading-none ${spoilerHidden ? "blur-sm select-none" : ""}`}
           >
             {track.game_title}
           </span>
         </div>
         {spoilerHidden ? (
-          <p className="line-clamp-1 text-sm leading-tight font-medium text-zinc-400 blur-sm select-none">
+          <p className="text-muted-foreground line-clamp-1 text-sm leading-tight font-medium blur-sm select-none">
             {track.track_name ?? track.video_title}
           </p>
         ) : (
           <p
             className={`line-clamp-1 text-sm leading-tight font-medium ${
-              isPlaying ? "text-violet-300" : "text-zinc-100"
+              isPlaying ? "text-primary" : "text-foreground"
             }`}
           >
             {track.track_name ?? track.video_title}
           </p>
         )}
         {hasVideo && track.channel_title && !spoilerHidden && (
-          <p className="mt-0.5 truncate text-[11px] leading-none text-zinc-400">
+          <p className="text-muted-foreground mt-0.5 truncate text-[11px] leading-none">
             {track.channel_title}
           </p>
         )}
@@ -161,7 +163,7 @@ export function PlaylistTrackCard({
 
       {/* Duration */}
       {track.duration_seconds != null && track.duration_seconds > 0 && (
-        <span className="shrink-0 font-mono text-xs text-zinc-500 tabular-nums">
+        <span className="shrink-0 font-mono text-xs text-[var(--text-tertiary)] tabular-nums">
           {formatTrackDuration(track.duration_seconds)}
         </span>
       )}
@@ -176,11 +178,11 @@ export function PlaylistTrackCard({
                 onReroll();
               }}
               disabled={isRerolling || isImported}
-              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-zinc-700/60 hover:text-zinc-300 disabled:cursor-not-allowed disabled:opacity-30"
+              className="hover:text-foreground flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-[var(--text-tertiary)] opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[var(--surface-hover)]/60 disabled:cursor-not-allowed disabled:opacity-30"
             >
               {isRerolling ? <Spinner className="h-3 w-3" /> : <RefreshIcon className="h-3 w-3" />}
             </button>
-            <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 rounded-md border border-white/[0.08] bg-zinc-900 px-2 py-1 text-[11px] whitespace-nowrap text-zinc-300 opacity-0 shadow-lg shadow-black/40 transition-opacity group-hover/reroll:opacity-100">
+            <div className="bg-secondary text-foreground pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 rounded-md border border-[var(--border-emphasis)] px-2 py-1 text-[11px] whitespace-nowrap opacity-0 transition-opacity group-hover/reroll:opacity-100">
               {isImported ? "Imported tracks cannot be rerolled" : "Replace with a different track"}
             </div>
           </div>
@@ -193,11 +195,11 @@ export function PlaylistTrackCard({
                 e.stopPropagation();
                 onRemove();
               }}
-              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-900/40 hover:text-red-400"
+              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-[var(--text-tertiary)] opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-900/40 hover:text-red-400"
             >
               <XIcon className="h-3 w-3" />
             </button>
-            <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 rounded-md border border-white/[0.08] bg-zinc-900 px-2 py-1 text-[11px] whitespace-nowrap text-zinc-300 opacity-0 shadow-lg shadow-black/40 transition-opacity group-hover/remove:opacity-100">
+            <div className="bg-secondary text-foreground pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 rounded-md border border-[var(--border-emphasis)] px-2 py-1 text-[11px] whitespace-nowrap opacity-0 transition-opacity group-hover/remove:opacity-100">
               Remove from playlist
             </div>
           </div>

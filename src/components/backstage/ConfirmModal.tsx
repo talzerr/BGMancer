@@ -53,22 +53,22 @@ export function ConfirmModal({
         onOpenChange(v);
       }}
     >
-      <DialogContent className="border-zinc-800 bg-zinc-900">
+      <DialogContent className="border-border bg-secondary">
         <DialogHeader>
-          <DialogTitle className="text-zinc-100">{title}</DialogTitle>
-          <DialogDescription className="text-zinc-400">{description}</DialogDescription>
+          <DialogTitle className="text-foreground">{title}</DialogTitle>
+          <DialogDescription className="text-muted-foreground">{description}</DialogDescription>
         </DialogHeader>
 
         {typeToConfirm && (
           <div className="space-y-1.5">
-            <p className="text-xs text-zinc-400">
-              Type <span className="font-mono text-zinc-200">{typeToConfirm}</span> to confirm
+            <p className="text-muted-foreground text-xs">
+              Type <span className="text-foreground font-mono">{typeToConfirm}</span> to confirm
             </p>
             <Input
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
               placeholder={typeToConfirm}
-              className="border-zinc-700 bg-zinc-800 font-mono text-zinc-100 placeholder:text-zinc-600"
+              className="border-border bg-background text-foreground font-mono placeholder:text-[var(--text-disabled)]"
               onKeyDown={(e) => e.key === "Enter" && handleConfirm()}
             />
           </div>

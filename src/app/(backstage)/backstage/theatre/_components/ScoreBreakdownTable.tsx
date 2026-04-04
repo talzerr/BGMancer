@@ -19,7 +19,7 @@ function ScoreCell({ value, highlight }: { value: number; highlight?: boolean })
   const opacity = Math.max(0.3, Math.min(1, value));
   return (
     <span
-      className={`font-mono text-[10px] ${highlight ? "font-semibold" : ""}`}
+      className={`font-mono text-[10px] ${highlight ? "font-medium" : ""}`}
       style={{ color: `rgba(${highlight ? "167, 139, 250" : "161, 161, 170"}, ${opacity})` }}
     >
       {value.toFixed(2)}
@@ -46,52 +46,52 @@ export function ScoreBreakdownTable({
 
   return (
     <Section title="Score Breakdown">
-      <div className="overflow-x-auto rounded-lg border border-zinc-800">
+      <div className="border-border overflow-x-auto rounded-lg border">
         <Table>
           <TableHeader>
-            <TableRow className="border-zinc-800 hover:bg-transparent">
-              <TableHead className="w-8 text-[10px] tracking-wider text-zinc-500 uppercase">
+            <TableRow className="border-border hover:bg-transparent">
+              <TableHead className="w-8 text-[10px] tracking-wider text-[var(--text-tertiary)] uppercase">
                 #
               </TableHead>
-              <TableHead className="text-[10px] tracking-wider text-zinc-500 uppercase">
+              <TableHead className="text-[10px] tracking-wider text-[var(--text-tertiary)] uppercase">
                 Phase
               </TableHead>
-              <TableHead className="text-[10px] tracking-wider text-zinc-500 uppercase">
+              <TableHead className="text-[10px] tracking-wider text-[var(--text-tertiary)] uppercase">
                 Game
               </TableHead>
-              <TableHead className="text-[10px] tracking-wider text-zinc-500 uppercase">
+              <TableHead className="text-[10px] tracking-wider text-[var(--text-tertiary)] uppercase">
                 Track
               </TableHead>
-              <TableHead className="w-10 text-[10px] tracking-wider text-zinc-500 uppercase">
+              <TableHead className="w-10 text-[10px] tracking-wider text-[var(--text-tertiary)] uppercase">
                 Role
               </TableHead>
-              <TableHead className="w-10 text-[10px] tracking-wider text-zinc-500 uppercase">
+              <TableHead className="w-10 text-[10px] tracking-wider text-[var(--text-tertiary)] uppercase">
                 Mood
               </TableHead>
-              <TableHead className="w-10 text-[10px] tracking-wider text-zinc-500 uppercase">
+              <TableHead className="w-10 text-[10px] tracking-wider text-[var(--text-tertiary)] uppercase">
                 Inst
               </TableHead>
               <TableHead
-                className={`w-10 text-[10px] tracking-wider uppercase ${hasViewBias ? "text-zinc-500" : "text-zinc-700"}`}
+                className={`w-10 text-[10px] tracking-wider uppercase ${hasViewBias ? "text-[var(--text-tertiary)]" : "text-[var(--text-disabled)]"}`}
                 title={
                   hasViewBias ? undefined : "View bias was off for this session (raw vibes mode)"
                 }
               >
                 Views
               </TableHead>
-              <TableHead className="w-12 text-[10px] tracking-wider text-zinc-500 uppercase">
+              <TableHead className="w-12 text-[10px] tracking-wider text-[var(--text-tertiary)] uppercase">
                 Final
               </TableHead>
-              <TableHead className="w-12 text-[10px] tracking-wider text-zinc-500 uppercase">
+              <TableHead className="w-12 text-[10px] tracking-wider text-[var(--text-tertiary)] uppercase">
                 Adj
               </TableHead>
-              <TableHead className="w-10 text-[10px] tracking-wider text-zinc-500 uppercase">
+              <TableHead className="w-10 text-[10px] tracking-wider text-[var(--text-tertiary)] uppercase">
                 Pool
               </TableHead>
-              <TableHead className="w-14 text-[10px] tracking-wider text-zinc-500 uppercase">
+              <TableHead className="w-14 text-[10px] tracking-wider text-[var(--text-tertiary)] uppercase">
                 Budget
               </TableHead>
-              <TableHead className="w-16 text-[10px] tracking-wider text-zinc-500 uppercase">
+              <TableHead className="w-16 text-[10px] tracking-wider text-[var(--text-tertiary)] uppercase">
                 Pass
               </TableHead>
             </TableRow>
@@ -101,21 +101,21 @@ export function ScoreBreakdownTable({
               const track = trackByPos[d.position];
               const passStyle = PASS_STYLES[d.selectionPass] ?? PASS_STYLES[SelectionPass.Scored];
               return (
-                <TableRow key={d.position} className="border-zinc-800/60 hover:bg-zinc-800/20">
-                  <TableCell className="py-1.5 font-mono text-[10px] text-zinc-500">
+                <TableRow key={d.position} className="border-border/60 hover:bg-secondary/20">
+                  <TableCell className="py-1.5 font-mono text-[10px] text-[var(--text-tertiary)]">
                     {d.position}
                   </TableCell>
                   <TableCell className="py-1.5">
                     <span
-                      className={`text-[10px] font-semibold uppercase ${PHASE_TEXT[d.arcPhase] ?? "text-zinc-400"}`}
+                      className={`text-[10px] font-medium uppercase ${PHASE_TEXT[d.arcPhase] ?? "text-muted-foreground"}`}
                     >
                       {d.arcPhase}
                     </span>
                   </TableCell>
-                  <TableCell className="py-1.5 text-[11px] text-zinc-300">
+                  <TableCell className="text-foreground py-1.5 text-[11px]">
                     {gameNames[d.gameId] ?? d.gameId.slice(0, 8)}
                   </TableCell>
-                  <TableCell className="max-w-[180px] truncate py-1.5 text-[11px] text-zinc-200">
+                  <TableCell className="text-foreground max-w-[180px] truncate py-1.5 text-[11px]">
                     {track?.track_name ?? track?.video_title ?? "—"}
                   </TableCell>
                   <TableCell className="py-1.5">
@@ -131,7 +131,7 @@ export function ScoreBreakdownTable({
                     {d.viewBiasActive ? (
                       <ScoreCell value={d.viewBiasScore} />
                     ) : (
-                      <span className="font-mono text-[10px] text-zinc-700">—</span>
+                      <span className="font-mono text-[10px] text-[var(--text-disabled)]">—</span>
                     )}
                   </TableCell>
                   <TableCell className="py-1.5">
@@ -140,10 +140,10 @@ export function ScoreBreakdownTable({
                   <TableCell className="py-1.5">
                     <ScoreCell value={d.adjustedScore} highlight />
                   </TableCell>
-                  <TableCell className="py-1.5 font-mono text-[10px] text-zinc-500">
+                  <TableCell className="py-1.5 font-mono text-[10px] text-[var(--text-tertiary)]">
                     {d.poolSize}
                   </TableCell>
-                  <TableCell className="py-1.5 font-mono text-[10px] text-zinc-500">
+                  <TableCell className="py-1.5 font-mono text-[10px] text-[var(--text-tertiary)]">
                     {d.gameBudgetUsed}/{d.gameBudget}
                   </TableCell>
                   <TableCell className="py-1.5">
