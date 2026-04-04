@@ -318,7 +318,7 @@ export function scoreTrack(
   return { roleScore, moodScore, instScore, viewBiasScore, finalScore, adjustedScore };
 }
 
-export interface PickResult {
+interface PickResult {
   track: TaggedTrack;
   breakdown: ScoreBreakdown;
   poolSize: number;
