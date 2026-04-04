@@ -146,11 +146,11 @@ Curation modes (see `CurationMode` enum in `src/types/index.ts`):
 
 **Game onboarding** (`onboarding.ts`): backstage-driven process that prepares a game for playlist generation. Three phases:
 
-1. **Load tracks** — fetch tracklist from Discogs, upsert into `tracks` table.
-2. **Resolve videos** (`resolver.ts`) — align track names to YouTube video IDs via LLM playlist matching + fallback search; results cached in `video_tracks` table.
-3. **Tag tracks** — LLM produces energy, roles, moods, instrumentation for each resolved track; stored in `tracks` table.
+1. **Load tracks** — fetch tracklist from a source (`TracklistSource` enum: `DiscogsRelease`, `DiscogsMaster`, `Vgmdb`, `Manual`). Source metadata and URL generation live in `src/lib/services/tracklist-source.ts`.
+2. **Resolve videos** (`youtube-resolve.ts`) — align track names to YouTube video IDs via LLM playlist matching + fallback search; results cached in `video_tracks` table. Resolution is capped at `RESOLVE_POOL_MAX` (80) tracks per batch and `RESOLVE_FALLBACK_MAX` (10) for YouTube search fallback.
+3. **Tag tracks** — LLM produces energy, roles, moods, instrumentation for each resolved track; stored in `tracks` table. Tags can be cleared selectively via `Tracks.clearTags(gameId, names?)`.
 
-Only after all three phases complete is a game ready for the Director. The Backstage reingest action re-runs all phases; retag re-runs only phase 3.
+Only after all three phases complete is a game ready for the Director. The Backstage reingest action re-runs all phases; retag re-runs only phase 3. Selective resolve/tag operations are available via `POST /api/backstage/resolve-selected` and `POST /api/backstage/tag-selected`, which operate on a subset of tracks chosen in the game detail view's multi-selection UI.
 
 ### LLM providers (`src/lib/llm/`)
 
@@ -218,6 +218,8 @@ Backstage API routes (all under `src/app/api/backstage/`, auth level: Admin via 
 - `GET /api/backstage/games/[gameId]/tracks` — tracks for a single game
 - `POST /api/backstage/reingest` — clear tracks and re-ingest from Discogs + retag; streams SSE progress
 - `POST /api/backstage/retag` — clear tags and re-run the LLM tagger for a game; streams SSE progress
+- `POST /api/backstage/resolve-selected` — resolve only selected tracks to YouTube videos; streams SSE progress
+- `POST /api/backstage/tag-selected` — tag only selected tracks; advances phase to Tagged when all taggable tracks are done; streams SSE progress
 - `GET/POST/DELETE /api/backstage/review-flags` — manage per-game review flags
 - `GET /api/backstage/tracks` — full track table with tag metadata
 - `GET /api/backstage/theatre/sessions` — session list for Theatre view

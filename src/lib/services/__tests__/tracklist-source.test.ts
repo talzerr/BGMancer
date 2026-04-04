@@ -36,6 +36,10 @@ describe("sourceUrl", () => {
     expect(sourceUrl("vgmdb:79")).toBe("https://vgmdb.net/album/79");
   });
 
+  it("returns empty string for manual source", () => {
+    expect(sourceUrl("manual")).toBe("");
+  });
+
   it("returns undefined for unknown or invalid sources", () => {
     expect(sourceUrl(null)).toBeUndefined();
     expect(sourceUrl("unknown-source:1")).toBeUndefined();

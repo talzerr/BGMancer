@@ -62,16 +62,15 @@ export async function POST(req: Request) {
         await Tracks.clearTags(gameId, taggableNames);
       }
 
+      // Null out taggedAt in memory so tagTracks sees them as untagged
+      const freshTaggable = taggable.map((t) => ({ ...t, taggedAt: null }));
+
       send({
         type: SSEEventType.Progress,
         current: 0,
-        total: taggable.length,
-        trackName: taggable[0]?.name ?? "",
+        total: freshTaggable.length,
+        trackName: freshTaggable[0]?.name ?? "",
       });
-
-      // Re-fetch tracks after clearing so tagTracks sees taggedAt = null
-      const freshTracks = await Tracks.getByGame(gameId);
-      const freshTaggable = freshTracks.filter((t) => taggableNames.includes(t.name));
 
       const provider = getTaggingProvider();
       await tagTracks(
@@ -84,16 +83,21 @@ export async function POST(req: Request) {
           send({ type: SSEEventType.Progress, current, total, trackName }),
       );
 
-      const afterTracks = await Tracks.getByGame(gameId);
-      const tagged = afterTracks.filter((t) => t.taggedAt !== null).length;
+      // Count results: previously tagged tracks (not in our set) + newly tagged
+      const taggableNameSet = new Set(taggableNames);
+      const previouslyTagged = allTracks.filter(
+        (t) => t.taggedAt !== null && !taggableNameSet.has(t.name),
+      ).length;
+      const tagged = previouslyTagged + freshTaggable.length;
 
-      // Advance phase to Tagged if all taggable tracks are now tagged
-      const remaining = afterTracks.filter(
-        (t) =>
-          t.taggedAt === null &&
-          (t.discovered === null || t.discovered === DiscoveredStatus.Approved),
+      // Advance phase to Tagged if all eligible tracks are now tagged
+      const allEligible = allTracks.filter(
+        (t) => t.discovered === null || t.discovered === DiscoveredStatus.Approved,
       );
-      if (remaining.length === 0 && tagged > 0) {
+      const untaggedRemaining = allEligible.filter(
+        (t) => t.taggedAt === null && !taggableNameSet.has(t.name),
+      ).length;
+      if (untaggedRemaining === 0 && tagged > 0) {
         await BackstageGames.setPhase(gameId, OnboardingPhase.Tagged);
       }
 

@@ -200,6 +200,17 @@ export const Tracks = {
     }
   },
 
+  async bulkSetActive(gameId: string, names: string[], active: boolean): Promise<void> {
+    await batch(
+      names.map((name) =>
+        getDB()
+          .update(tracks)
+          .set({ active: active ? 1 : 0 })
+          .where(and(eq(tracks.game_id, gameId), eq(tracks.name, name))),
+      ),
+    );
+  },
+
   async updateFields(
     gameId: string,
     name: string,

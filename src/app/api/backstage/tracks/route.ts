@@ -56,21 +56,40 @@ export async function PATCH(req: Request) {
     const body = (await req.json()) as TrackPatch | TrackPatch[];
     const patches = Array.isArray(body) ? body : [body];
 
-    for (const patch of patches) {
-      await Tracks.updateFields(patch.gameId, patch.name, {
-        newName: patch.updates.name,
-        active: patch.updates.active,
-        energy: patch.updates.energy,
-        roles: patch.updates.roles,
-        moods: patch.updates.moods,
-        instrumentation: patch.updates.instrumentation,
-        hasVocals: patch.updates.hasVocals,
-      });
+    // Fast path: uniform active-only updates for one game → single bulk query
+    const isBulkActive =
+      patches.length > 1 &&
+      patches.every(
+        (p) =>
+          p.gameId === patches[0].gameId &&
+          p.updates.active !== undefined &&
+          Object.keys(p.updates).length === 1 &&
+          !p.videoUpdates,
+      );
 
-      if (patch.videoUpdates?.videoId) {
-        await VideoTracks.upsertSingle(patch.gameId, patch.name, patch.videoUpdates);
-        if (patch.videoUpdates.durationSeconds == null) {
-          await ensureVideoMetadata([patch.videoUpdates.videoId], patch.gameId);
+    if (isBulkActive) {
+      await Tracks.bulkSetActive(
+        patches[0].gameId,
+        patches.map((p) => p.name),
+        patches[0].updates.active ?? true,
+      );
+    } else {
+      for (const patch of patches) {
+        await Tracks.updateFields(patch.gameId, patch.name, {
+          newName: patch.updates.name,
+          active: patch.updates.active,
+          energy: patch.updates.energy,
+          roles: patch.updates.roles,
+          moods: patch.updates.moods,
+          instrumentation: patch.updates.instrumentation,
+          hasVocals: patch.updates.hasVocals,
+        });
+
+        if (patch.videoUpdates?.videoId) {
+          await VideoTracks.upsertSingle(patch.gameId, patch.name, patch.videoUpdates);
+          if (patch.videoUpdates.durationSeconds == null) {
+            await ensureVideoMetadata([patch.videoUpdates.videoId], patch.gameId);
+          }
         }
       }
     }

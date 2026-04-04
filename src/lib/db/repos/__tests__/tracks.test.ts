@@ -310,6 +310,38 @@ describe("Tracks", () => {
         expect(otherTracks[0].taggedAt).not.toBeNull();
       });
     });
+
+    describe("when clearing tags for specific tracks by name", () => {
+      it("should only clear tags for the named tracks", async () => {
+        seedTestTracks(rawDb, gameId, 3, true);
+
+        await Tracks.clearTags(gameId, ["Track 1", "Track 3"]);
+
+        const tracks = await Tracks.getByGame(gameId);
+        const cleared = tracks.filter((t) => t.name === "Track 1" || t.name === "Track 3");
+        const untouched = tracks.find((t) => t.name === "Track 2")!;
+
+        for (const track of cleared) {
+          expect(track.energy).toBeNull();
+          expect(track.taggedAt).toBeNull();
+        }
+        expect(untouched.energy).not.toBeNull();
+        expect(untouched.taggedAt).not.toBeNull();
+      });
+    });
+  });
+
+  describe("bulkSetActive", () => {
+    it("should set active for named tracks and leave others unchanged", async () => {
+      seedTestTracks(rawDb, gameId, 3);
+
+      await Tracks.bulkSetActive(gameId, ["Track 1", "Track 3"], false);
+
+      const all = await Tracks.getByGame(gameId);
+      expect(all.find((t) => t.name === "Track 1")!.active).toBe(false);
+      expect(all.find((t) => t.name === "Track 2")!.active).toBe(true);
+      expect(all.find((t) => t.name === "Track 3")!.active).toBe(false);
+    });
   });
 
   describe("updateFields", () => {
