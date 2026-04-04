@@ -53,10 +53,6 @@ export function useGameLibrary(isSignedIn: boolean) {
     }
   }, [isSignedIn]);
 
-  function handleGameAdded(game: Game) {
-    setGames((prev) => [...prev, game]);
-  }
-
   async function addGame(game: Game, curation: CurationMode): Promise<void> {
     if (isSignedIn) {
       const res = await fetch("/api/games", {
@@ -116,7 +112,6 @@ export function useGameLibrary(isSignedIn: boolean) {
     games,
     gamesLoading,
     fetchGames,
-    handleGameAdded,
     addGame,
     updateCuration,
     deleteGame,
