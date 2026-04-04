@@ -2,15 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { TrackEditSheet } from "@/components/backstage/TrackEditSheet";
 import { ConfirmModal } from "@/components/backstage/ConfirmModal";
 import { BackstageModal } from "@/types";
@@ -22,6 +13,7 @@ import { MetadataEditor } from "./_components/MetadataEditor";
 import { ReviewFlagsPanel } from "./_components/ReviewFlagsPanel";
 import { TrackTable } from "./_components/TrackTable";
 import { GameModals } from "./_components/GameModals";
+import { GameDetailBulkBar } from "./_components/GameDetailBulkBar";
 
 interface VideoDetail {
   videoId: string;
@@ -50,9 +42,10 @@ export function GameDetailClient({
   const actions = useGameDetailActions(game, router);
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
   const [editTrack, setEditTrack] = useState<Track | null>(null);
-  const [editingTracks, setEditingTracks] = useState(false);
-  const [pendingDeleteTrack, setPendingDeleteTrack] = useState<Track | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const flagsRef = useRef<HTMLDetailsElement>(null);
+
+  const clearSelection = () => setSelected(new Set());
 
   // SSE modals set sseRunning when they open, clear on close
   const SSE_MODALS: ActiveModal[] = [
@@ -60,6 +53,8 @@ export function GameDetailClient({
     BackstageModal.Resolve,
     BackstageModal.QuickOnboard,
     BackstageModal.Retag,
+    BackstageModal.ResolveSelected,
+    BackstageModal.TagSelected,
   ];
   useEffect(() => {
     if (activeModal && SSE_MODALS.includes(activeModal)) {
@@ -72,10 +67,10 @@ export function GameDetailClient({
       <GameHeader
         game={game}
         tracks={tracks}
+        videoMap={videoMap}
         reviewFlags={reviewFlags}
         actions={actions}
         onSetActiveModal={setActiveModal}
-        flagsRef={flagsRef}
       />
 
       {actions.mutError && (
@@ -93,51 +88,30 @@ export function GameDetailClient({
         tracks={tracks}
         videoMap={videoMap}
         videoDetailMap={videoDetailMap}
-        editingTracks={editingTracks}
-        setEditingTracks={setEditingTracks}
         onSetActiveModal={setActiveModal}
         onSetEditTrack={setEditTrack}
-        onSetPendingDeleteTrack={setPendingDeleteTrack}
         actions={actions}
+        selected={selected}
+        onSelectionChange={setSelected}
       />
-
-      {/* Delete track confirmation */}
-      <Dialog open={!!pendingDeleteTrack} onOpenChange={(v) => !v && setPendingDeleteTrack(null)}>
-        <DialogContent className="border-zinc-800 bg-zinc-900">
-          <DialogHeader>
-            <DialogTitle className="text-zinc-100">Delete track</DialogTitle>
-            <DialogDescription className="text-zinc-400">
-              Are you sure you want to delete{" "}
-              <span className="font-mono text-zinc-200">{pendingDeleteTrack?.name}</span>? This will
-              also remove its video mapping.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="ghost"
-              className="text-zinc-400"
-              onClick={() => setPendingDeleteTrack(null)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={async () => {
-                if (pendingDeleteTrack) await actions.deleteTrack(pendingDeleteTrack);
-                setPendingDeleteTrack(null);
-              }}
-            >
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <GameModals
         game={game}
         activeModal={activeModal}
         setActiveModal={setActiveModal}
         actions={actions}
+        tracks={tracks}
+        videoMap={videoMap}
+        selected={selected}
+        onSseDone={clearSelection}
+      />
+
+      <GameDetailBulkBar
+        selectedTracks={tracks.filter((t) => selected.has(t.name))}
+        videoMap={videoMap}
+        actions={actions}
+        onSetActiveModal={setActiveModal}
+        onClearSelection={clearSelection}
       />
 
       {/* Track edit sheet */}

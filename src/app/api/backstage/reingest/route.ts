@@ -1,5 +1,5 @@
 import { BackstageGames, Games, Tracks, ReviewFlags } from "@/lib/db/repo";
-import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
+import { makeSSEStream, SSE_HEADERS, sanitizeErrorMessage } from "@/lib/sse";
 import { loadTracks, resolveVideos, tagGameTracks } from "@/lib/pipeline/onboarding";
 import { OnboardingPhase, ReviewReason, SSEEventType } from "@/types";
 import { createLogger } from "@/lib/logger";
@@ -60,9 +60,12 @@ export async function POST(req: Request) {
       try {
         resolveResult = await resolveVideos(game, progress, abort.signal);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        await ReviewFlags.markAsNeedsReview(gameId, ReviewReason.NoTracklistSource, msg);
-        send({ type: SSEEventType.Error, message: `Video resolution failed: ${msg}` });
+        const raw = err instanceof Error ? err.message : String(err);
+        await ReviewFlags.markAsNeedsReview(gameId, ReviewReason.NoTracklistSource, raw);
+        send({
+          type: SSEEventType.Error,
+          message: `Video resolution failed: ${sanitizeErrorMessage(err)}`,
+        });
         return;
       }
 
@@ -89,7 +92,7 @@ export async function POST(req: Request) {
         log.error("handler failed", {}, err);
         send({
           type: SSEEventType.Error,
-          message: err instanceof Error ? err.message : String(err),
+          message: sanitizeErrorMessage(err),
         });
       }
     } finally {

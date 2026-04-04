@@ -177,19 +177,38 @@ export const Tracks = {
     );
   },
 
-  async clearTags(gameId: string): Promise<void> {
-    await getDB()
-      .update(tracks)
-      .set({
-        energy: null,
-        roles: null,
-        moods: null,
-        instrumentation: null,
-        has_vocals: null,
-        tagged_at: null,
-      })
-      .where(eq(tracks.game_id, gameId))
-      .run();
+  async clearTags(gameId: string, names?: string[]): Promise<void> {
+    const set = {
+      energy: null,
+      roles: null,
+      moods: null,
+      instrumentation: null,
+      has_vocals: null,
+      tagged_at: null,
+    };
+    if (names) {
+      await batch(
+        names.map((name) =>
+          getDB()
+            .update(tracks)
+            .set(set)
+            .where(and(eq(tracks.game_id, gameId), eq(tracks.name, name))),
+        ),
+      );
+    } else {
+      await getDB().update(tracks).set(set).where(eq(tracks.game_id, gameId)).run();
+    }
+  },
+
+  async bulkSetActive(gameId: string, names: string[], active: boolean): Promise<void> {
+    await batch(
+      names.map((name) =>
+        getDB()
+          .update(tracks)
+          .set({ active })
+          .where(and(eq(tracks.game_id, gameId), eq(tracks.name, name))),
+      ),
+    );
   },
 
   async updateFields(

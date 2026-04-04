@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
-import type { Game, Track } from "@/types";
+import type { Game } from "@/types";
 import type { PatchUpdates } from "@/components/backstage/TrackEditSheet";
 import type { ParsedTrack } from "@/lib/services/track-parser";
 
@@ -62,6 +62,22 @@ export function useGameDetailActions(game: Game, router: AppRouterInstance) {
       router.refresh();
     } catch (err) {
       console.error("[GameDetail] markTracksReady failed:", err);
+      setMutError("Failed to update phase. Please try again.");
+    }
+  }
+
+  async function markTagged() {
+    setMutError(null);
+    try {
+      const res = await fetch(`/api/backstage/games/${game.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ onboarding_phase: "tagged" }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      router.refresh();
+    } catch (err) {
+      console.error("[GameDetail] markTagged failed:", err);
       setMutError("Failed to update phase. Please try again.");
     }
   }
@@ -126,24 +142,6 @@ export function useGameDetailActions(game: Game, router: AppRouterInstance) {
     }
   }
 
-  async function toggleTrackActive(track: Track) {
-    try {
-      await fetch("/api/backstage/tracks", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          gameId: game.id,
-          name: track.name,
-          updates: { active: !track.active },
-        }),
-      });
-      router.refresh();
-    } catch (err) {
-      console.error("[GameDetail] toggleTrackActive failed:", err);
-      setMutError("Failed to toggle track.");
-    }
-  }
-
   async function reviewDiscovered(approve: string[], reject: string[]) {
     setMutError(null);
     try {
@@ -157,20 +155,6 @@ export function useGameDetailActions(game: Game, router: AppRouterInstance) {
     } catch (err) {
       console.error("[GameDetail] reviewDiscovered failed:", err);
       setMutError("Failed to review tracks.");
-    }
-  }
-
-  async function deleteTrack(track: Track) {
-    try {
-      await fetch("/api/backstage/tracks", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gameId: game.id, names: [track.name] }),
-      });
-      router.refresh();
-    } catch (err) {
-      console.error("[GameDetail] deleteTrack failed:", err);
-      setMutError("Failed to delete track.");
     }
   }
 
@@ -205,6 +189,38 @@ export function useGameDetailActions(game: Game, router: AppRouterInstance) {
     router.refresh();
   }
 
+  async function bulkSetActive(names: string[], active: boolean) {
+    setMutError(null);
+    try {
+      const res = await fetch("/api/backstage/tracks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(names.map((name) => ({ gameId: game.id, name, updates: { active } }))),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      router.refresh();
+    } catch (err) {
+      console.error("[GameDetail] bulkSetActive failed:", err);
+      setMutError("Failed to update tracks.");
+    }
+  }
+
+  async function bulkDeleteTracks(names: string[]) {
+    setMutError(null);
+    try {
+      const res = await fetch("/api/backstage/tracks", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameId: game.id, names }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      router.refresh();
+    } catch (err) {
+      console.error("[GameDetail] bulkDeleteTracks failed:", err);
+      setMutError("Failed to delete tracks.");
+    }
+  }
+
   return {
     mutError,
     setMutError,
@@ -216,15 +232,16 @@ export function useGameDetailActions(game: Game, router: AppRouterInstance) {
     addTrack,
     importPastedTracks,
     markTracksReady,
+    markTagged,
     handleTrackSave,
     togglePublished,
     saveField,
-    toggleTrackActive,
     reviewDiscovered,
-    deleteTrack,
     deleteGame,
     clearAllFlags,
     clearSingleFlag,
+    bulkSetActive,
+    bulkDeleteTracks,
   };
 }
 

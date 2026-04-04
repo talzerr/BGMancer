@@ -41,6 +41,9 @@ export const RESOLVE_BATCH_SIZE = 50;
 /** Maximum per-track YouTube searches during the resolver fallback phase. */
 export const RESOLVE_FALLBACK_MAX = 10;
 
+/** Maximum tracks per game to resolve (mirrors TAG_POOL_MAX for consistency). */
+export const RESOLVE_POOL_MAX = 80;
+
 // ─── Pipeline tagging tuning ──────────────────────────────────────────────────
 
 /** Maximum tracks sent to the LLM in a single tagging call. */

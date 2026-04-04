@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { makeSSEStream } from "../sse";
+import { makeSSEStream, sanitizeErrorMessage } from "../sse";
 
 async function readAll(stream: ReadableStream<Uint8Array>): Promise<string> {
   const reader = stream.getReader();
@@ -91,5 +91,33 @@ describe("makeSSEStream", () => {
       const output = await readAll(stream);
       expect(output).toContain('"nested":{"arr":[1,2,3]}');
     });
+  });
+});
+
+describe("sanitizeErrorMessage", () => {
+  it("should extract message from Error objects", () => {
+    expect(sanitizeErrorMessage(new Error("something broke"))).toBe("something broke");
+  });
+
+  it("should convert non-Error values to string", () => {
+    expect(sanitizeErrorMessage("raw string")).toBe("raw string");
+    expect(sanitizeErrorMessage(42)).toBe("42");
+  });
+
+  it("should replace SQL dump messages with generic text", () => {
+    expect(sanitizeErrorMessage(new Error("Failed query: SELECT * FROM ..."))).toBe(
+      "A database query failed. Check the server logs for details.",
+    );
+  });
+
+  it("should truncate messages longer than 200 characters", () => {
+    const long = "x".repeat(250);
+    const result = sanitizeErrorMessage(new Error(long));
+    expect(result.length).toBe(201); // 200 chars + ellipsis
+    expect(result.endsWith("…")).toBe(true);
+  });
+
+  it("should return only the first line of multi-line messages", () => {
+    expect(sanitizeErrorMessage(new Error("line one\nline two\nline three"))).toBe("line one");
   });
 });

@@ -93,6 +93,7 @@ export function TrackEditSheet({
   const [viewCount, setViewCount] = useState<string>(
     videoMeta?.viewCount != null ? String(videoMeta.viewCount) : "",
   );
+  const [trackName, setTrackName] = useState<string>(track?.name ?? "");
   const [saving, setSaving] = useState(false);
 
   function toggleSet<T extends string>(arr: T[], val: T): T[] {
@@ -111,6 +112,9 @@ export function TrackEditSheet({
         hasVocals,
         active,
       };
+      if (trackName.trim() && trackName.trim() !== track.name) {
+        updates.name = trackName.trim();
+      }
       if (videoId.trim()) {
         updates.videoId = videoId.trim();
         updates.durationSeconds = durationSeconds ? Number(durationSeconds) : null;
@@ -130,9 +134,12 @@ export function TrackEditSheet({
         className="w-[400px] overflow-y-auto border-zinc-800 bg-zinc-900 p-0"
       >
         <SheetHeader className="border-b border-zinc-800 px-5 py-4">
-          <SheetTitle className="truncate font-sans text-sm text-zinc-100">
-            {track?.name ?? ""}
-          </SheetTitle>
+          <SheetTitle className="sr-only">{track?.name ?? "Edit track"}</SheetTitle>
+          <input
+            value={trackName}
+            onChange={(e) => setTrackName(e.target.value)}
+            className="w-full truncate border-none bg-transparent font-sans text-sm text-zinc-100 outline-none focus:ring-0"
+          />
           <p className="font-mono text-[11px] text-zinc-500">
             pos {track?.position ?? "—"} ·{" "}
             {track?.taggedAt ? `tagged ${track.taggedAt.slice(0, 10)}` : "untagged"}

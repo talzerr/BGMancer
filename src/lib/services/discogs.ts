@@ -1,12 +1,13 @@
 import { env } from "@/lib/env";
 import { createLogger } from "@/lib/logger";
+import { TracklistSource } from "@/types";
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export type TracklistResult = {
   tracks: Array<{ name: string; position: number }>;
   releaseTitle: string;
   releaseId: number;
-  sourceType: string;
+  sourceType: TracklistSource;
 };
 
 const log = createLogger("discogs");
@@ -128,7 +129,7 @@ async function tryMasterSearch(gameTitle: string): Promise<TracklistResult | nul
     tracks,
     releaseTitle: master.title ?? gameTitle,
     releaseId: best.id,
-    sourceType: "discogs-master",
+    sourceType: TracklistSource.DiscogsMaster,
   };
 }
 
@@ -160,7 +161,7 @@ async function tryReleaseSearch(gameTitle: string): Promise<TracklistResult | nu
     tracks,
     releaseTitle: release.title ?? gameTitle,
     releaseId: best.id,
-    sourceType: "discogs-release",
+    sourceType: TracklistSource.DiscogsRelease,
   };
 }
 
@@ -176,7 +177,7 @@ export async function fetchDiscogsRelease(id: number): Promise<TracklistResult |
     tracks,
     releaseTitle: release.title ?? String(id),
     releaseId: id,
-    sourceType: "discogs-release",
+    sourceType: TracklistSource.DiscogsRelease,
   };
 }
 
@@ -190,7 +191,7 @@ export async function fetchDiscogsMaster(id: number): Promise<TracklistResult | 
     tracks,
     releaseTitle: master.title ?? String(id),
     releaseId: id,
-    sourceType: "discogs-master",
+    sourceType: TracklistSource.DiscogsMaster,
   };
 }
 

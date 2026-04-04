@@ -1,7 +1,7 @@
-import { OnboardingPhase, ReviewReason, DiscoveredStatus } from "@/types";
+import { OnboardingPhase, ReviewReason, DiscoveredStatus, TracklistSource } from "@/types";
 import type { Game } from "@/types";
 import { Games, BackstageGames, Tracks, VideoTracks, ReviewFlags } from "@/lib/db/repo";
-import { GAME_MAX_TRACKS, SFX_DURATION_THRESHOLD_SECONDS } from "@/lib/constants";
+import { GAME_MAX_TRACKS, RESOLVE_POOL_MAX, SFX_DURATION_THRESHOLD_SECONDS } from "@/lib/constants";
 import {
   searchGameSoundtrack,
   fetchDiscogsRelease,
@@ -36,11 +36,21 @@ export async function loadTracks(
   let result: Awaited<ReturnType<typeof searchGameSoundtrack>>;
   let wasPreset = false;
 
-  if (parsed?.key === "discogs-release") {
+  if (parsed?.key === TracklistSource.Manual) {
+    onProgress?.("Tracklist source is manual — skipping Discogs fetch.");
+    const existing = await Tracks.getByGame(game.id);
+    if (existing.length > 0) {
+      await BackstageGames.setPhase(game.id, OnboardingPhase.TracksLoaded);
+      return { trackCount: existing.length };
+    }
+    return null;
+  }
+
+  if (parsed?.key === TracklistSource.DiscogsRelease) {
     onProgress?.(`Fetching Discogs release ${parsed.id}…`);
     result = await fetchDiscogsRelease(Number(parsed.id));
     wasPreset = true;
-  } else if (parsed?.key === "discogs-master") {
+  } else if (parsed?.key === TracklistSource.DiscogsMaster) {
     onProgress?.(`Fetching Discogs master ${parsed.id}…`);
     result = await fetchDiscogsMaster(Number(parsed.id));
     wasPreset = true;
@@ -136,10 +146,25 @@ export async function resolveVideos(
   const playlistItems = await fetchPlaylistItems(playlistId);
 
   const allTracks = await Tracks.getByGame(game.id);
-  onProgress?.(`Resolving ${allTracks.length} tracks to videos…`);
+
+  if (allTracks.length > RESOLVE_POOL_MAX) {
+    await ReviewFlags.markAsNeedsReview(
+      game.id,
+      ReviewReason.TrackCapReached,
+      `${allTracks.length - RESOLVE_POOL_MAX} tracks will remain unresolved (${allTracks.length} total, cap is ${RESOLVE_POOL_MAX})`,
+    );
+  }
+  const tracksToResolve = allTracks.slice(0, RESOLVE_POOL_MAX);
+  onProgress?.(`Resolving ${tracksToResolve.length} tracks to videos…`);
 
   const provider = getTaggingProvider();
-  const resolved = await resolveTracksToVideos(game, allTracks, playlistItems, provider, signal);
+  const resolved = await resolveTracksToVideos(
+    game,
+    tracksToResolve,
+    playlistItems,
+    provider,
+    signal,
+  );
 
   // Fetch metadata for ALL resolved video IDs (including auto-discovered inactive tracks)
   onProgress?.("Fetching video metadata…");

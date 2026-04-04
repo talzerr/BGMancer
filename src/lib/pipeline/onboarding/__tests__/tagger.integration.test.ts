@@ -341,6 +341,52 @@ describe("tagTracks (integration)", () => {
     });
   });
 
+  describe("when tracks include pending discovered tracks", () => {
+    it("should skip pending discovered tracks and only tag original/approved", async () => {
+      // Insert a pending discovered track directly
+      rawDb
+        .prepare(
+          `INSERT INTO tracks (game_id, name, position, discovered, active)
+           VALUES (?, ?, ?, ?, ?)`,
+        )
+        .run(gameId, "Discovered Pending", 99, "pending", 0);
+      // Insert an approved discovered track
+      rawDb
+        .prepare(
+          `INSERT INTO tracks (game_id, name, position, discovered, active)
+           VALUES (?, ?, ?, ?, ?)`,
+        )
+        .run(gameId, "Discovered Approved", 100, "approved", 1);
+
+      const allTracks = await Tracks.getByGame(gameId);
+      expect(allTracks).toHaveLength(5); // 3 original + 2 discovered
+
+      const response = JSON.stringify(
+        // 3 original + 1 approved = 4 taggable tracks
+        Array.from({ length: 4 }, (_, i) => ({
+          index: i + 1,
+          energy: 2,
+          roles: ["ambient"],
+          moods: ["peaceful"],
+          instrumentation: ["piano"],
+          hasVocals: false,
+          confident: true,
+        })),
+      );
+      await tagTracks(gameId, TEST_GAME_TITLE, allTracks, mockProvider(response));
+
+      const updated = await Tracks.getByGame(gameId);
+      const tagged = updated.filter((t) => t.taggedAt !== null);
+      expect(tagged).toHaveLength(4);
+
+      const pendingTrack = updated.find((t) => t.name === "Discovered Pending");
+      expect(pendingTrack?.taggedAt).toBeNull();
+
+      const approvedTrack = updated.find((t) => t.name === "Discovered Approved");
+      expect(approvedTrack?.taggedAt).not.toBeNull();
+    });
+  });
+
   describe("when there are no untagged tracks", () => {
     it("should return immediately without calling the provider", async () => {
       // Tag all tracks first

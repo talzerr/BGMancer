@@ -1,5 +1,6 @@
-import { Games, Tracks } from "@/lib/db/repo";
+import { BackstageGames, Games, Tracks } from "@/lib/db/repo";
 import { GAME_MAX_TRACKS } from "@/lib/constants";
+import { TracklistSource } from "@/types";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { zodErrorResponse } from "@/lib/validation";
@@ -37,6 +38,10 @@ export async function POST(req: Request) {
       position: t.position,
     })),
   );
+
+  if (!game.tracklist_source) {
+    await BackstageGames.update(gameId, { tracklist_source: TracklistSource.Manual });
+  }
 
   return NextResponse.json({ imported: tracks.length });
 }

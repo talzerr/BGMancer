@@ -18,18 +18,21 @@ const VALID_MOODS = new Set<string>(Object.values(TrackMood));
 const VALID_INSTRUMENTATION = new Set<string>(Object.values(TrackInstrumentation));
 
 const SYSTEM_PROMPT = `You are a music metadata classifier for a game soundtrack tagging system.
-Given a list of game soundtrack tracks, return a JSON array with one entry per track.
+Given a game title and a list of its soundtrack tracks, return a JSON array with one entry per track.
 
 Each entry must have:
 - "index": the track number (1-based, matching the input list)
 - "energy": 1 (calm/ambient/background), 2 (moderate/building), or 3 (high-intensity/combat/climactic)
 - "roles": array of 1-2 values from: opener, ambient, build, combat, closer, menu, cinematic
 - "moods": array of up to 3 values from: epic, tense, peaceful, melancholic, triumphant, mysterious, playful, dark, ethereal, heroic, nostalgic, ominous, serene, chaotic, whimsical
-- "instrumentation": array of up to 3 values from: orchestral, synth, acoustic, chiptune, piano, rock, metal, electronic, choir, ambient, jazz, folk, strings, brass, percussion
+- "instrumentation": array of up to 3 values from: orchestral, synth, acoustic, chiptune, piano, rock, metal, electronic, choir, ambient, jazz, folk, strings, brass, percussion. Tag the DOMINANT instruments — if a track is primarily piano with faint strings, tag "piano", not "orchestral".
 - "hasVocals": true if the track has significant sung vocals, false otherwise
-- "confident": false if you are uncertain about the classification (e.g. unfamiliar track name), true otherwise
+- "confident": false if you are inferring tags solely from the track title without specific knowledge of the track's arrangement or composition, true if you recognize the actual piece
 
-Return ONLY a JSON array. Do not include markdown fences or any other text.`;
+Example output for a single track:
+[{"index":1,"energy":3,"roles":["opener","cinematic"],"moods":["epic","heroic"],"instrumentation":["orchestral","choir","brass"],"hasVocals":true,"confident":true}]
+
+Return ONLY a valid JSON array. No markdown fences, no preamble, no commentary.`;
 
 export interface LLMTagItem {
   index: number;
@@ -101,7 +104,8 @@ export async function tagTracks(
   onProgress?: (current: number, total: number, trackName: string) => void,
 ): Promise<void> {
   const allUntagged = tracks.filter(
-    (t) => t.taggedAt === null && t.discovered !== DiscoveredStatus.Rejected,
+    (t) =>
+      t.taggedAt === null && (t.discovered === null || t.discovered === DiscoveredStatus.Approved),
   );
   if (allUntagged.length === 0) return;
 
