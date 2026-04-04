@@ -11,13 +11,16 @@ import type { PlaylistSessionWithCount } from "@/types";
 export function useSessionManager() {
   const { playlist, player } = usePlayerContext();
   const [sessions, setSessions] = useState<PlaylistSessionWithCount[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchSessions = useCallback(async () => {
     try {
+      setError(null);
       const res = await fetch("/api/sessions");
       if (res.ok) setSessions(await res.json());
     } catch (err) {
       console.error("Failed to fetch sessions:", err);
+      setError("Failed to load sessions");
     }
   }, []);
 
@@ -29,6 +32,7 @@ export function useSessionManager() {
 
   async function handleRenameSession(id: string, name: string) {
     try {
+      setError(null);
       await fetch(`/api/sessions/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -37,11 +41,13 @@ export function useSessionManager() {
       setSessions((prev) => prev.map((s) => (s.id === id ? { ...s, name } : s)));
     } catch (err) {
       console.error("Failed to rename session:", err);
+      setError("Failed to rename session");
     }
   }
 
   async function handleDeleteSession(id: string) {
     try {
+      setError(null);
       const res = await fetch(`/api/sessions/${id}`, { method: "DELETE" });
       if (!res.ok) return;
       const { nextSessionId } = (await res.json()) as { nextSessionId?: string };
@@ -63,8 +69,9 @@ export function useSessionManager() {
       await fetchSessions();
     } catch (err) {
       console.error("Failed to delete session:", err);
+      setError("Failed to delete session");
     }
   }
 
-  return { sessions, fetchSessions, handleRenameSession, handleDeleteSession };
+  return { sessions, error, fetchSessions, handleRenameSession, handleDeleteSession };
 }
