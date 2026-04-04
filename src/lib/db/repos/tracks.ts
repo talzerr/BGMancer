@@ -205,7 +205,7 @@ export const Tracks = {
       names.map((name) =>
         getDB()
           .update(tracks)
-          .set({ active: active ? 1 : 0 })
+          .set({ active })
           .where(and(eq(tracks.game_id, gameId), eq(tracks.name, name))),
       ),
     );
