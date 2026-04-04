@@ -61,21 +61,6 @@ describe("GET /api/games", () => {
     });
   });
 
-  describe("when includeDisabled=true", () => {
-    it("should include skip-curated games", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: "active", title: "Active Game" });
-      seedTestGame(rawDb, TEST_USER_ID, { id: "skipped", title: "Skipped Game", curation: "skip" });
-
-      const res = await GET(makeGetRequest("/api/games", { includeDisabled: "true" }));
-      expect(res.status).toBe(200);
-
-      const games = await parseJson<Array<{ id: string }>>(res);
-      const ids = games.map((g) => g.id);
-      expect(ids).toContain("active");
-      expect(ids).toContain("skipped");
-    });
-  });
-
   describe("when YT_IMPORT_GAME_ID game exists", () => {
     it("should NOT include it", async () => {
       seedTestGame(rawDb, TEST_USER_ID, { id: "yt-import", title: "YT Import" });

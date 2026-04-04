@@ -61,8 +61,7 @@ export function LibraryDrawer({
   onRemove,
   onGenerate,
 }: LibraryDrawerProps) {
-  const activeGames = games.filter((g) => g.curation !== CurationMode.Skip);
-  const hasActiveGames = activeGames.length > 0;
+  const hasActiveGames = games.length > 0;
 
   function cycleCuration(game: Game) {
     const currentIndex = CURATION_CYCLE.indexOf(game.curation);
@@ -176,7 +175,7 @@ export function LibraryDrawer({
         <div className="border-t border-white/[0.06] px-4 py-3">
           <div className="mb-2.5 flex items-center justify-between text-xs text-zinc-500">
             <span className="tabular-nums">
-              {activeGames.length} game{activeGames.length !== 1 ? "s" : ""}
+              {games.length} game{games.length !== 1 ? "s" : ""}
             </span>
             <span className="tabular-nums">{targetTrackCount} tracks</span>
           </div>

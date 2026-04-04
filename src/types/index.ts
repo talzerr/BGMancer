@@ -28,10 +28,8 @@ export interface PlaylistSessionWithCount extends PlaylistSession {
  *  Lite    — enters curation with half as many candidates (appears occasionally)
  *  Include — standard inclusion (default)
  *  Focus   — guaranteed tracks in every playlist, double weight
- *  Skip    — legacy value kept for DB compatibility, not exposed in UI
  */
 export enum CurationMode {
-  Skip = "skip",
   Lite = "lite",
   Include = "include",
   Focus = "focus",

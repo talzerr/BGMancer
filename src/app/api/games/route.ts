@@ -5,15 +5,11 @@ import { CurationMode } from "@/types";
 import { withOptionalAuth, withRequiredAuth } from "@/lib/services/route-wrappers";
 import { addGameSchema, updateCurationSchema, zodErrorResponse } from "@/lib/validation";
 
-/** GET /api/games — List active library games. Pass ?includeDisabled=true to include all games. */
-export const GET = withOptionalAuth(async (userId, request: Request) => {
+/** GET /api/games — List library games for the current user. */
+export const GET = withOptionalAuth(async (userId) => {
   if (!userId) return NextResponse.json([]);
 
-  const { searchParams } = new URL(request.url);
-  const includeDisabled = searchParams.get("includeDisabled") === "true";
-  const games = includeDisabled
-    ? (await Games.listAllIncludingDisabled(userId)).filter((g) => g.id !== YT_IMPORT_GAME_ID)
-    : await Games.listAll(userId, YT_IMPORT_GAME_ID);
+  const games = await Games.listAll(userId, YT_IMPORT_GAME_ID);
   return NextResponse.json(games);
 }, "GET /api/games");
 

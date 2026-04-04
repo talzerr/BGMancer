@@ -31,13 +31,6 @@ const GAME_CELESTE: Game = {
   steam_appid: 504230,
 };
 
-const GAME_SKIPPED: Game = {
-  ...BASE_GAME,
-  id: "game-skip",
-  title: "Skipped Game",
-  curation: CurationMode.Skip,
-};
-
 const GAME_FOCUS: Game = {
   ...BASE_GAME,
   id: "game-focus",
@@ -333,39 +326,6 @@ describe("LibraryDrawer", () => {
 
       expect(screen.getByText("1 game")).toBeInTheDocument();
       expect(screen.getByText("30 tracks")).toBeInTheDocument();
-    });
-
-    it("should exclude skipped games from active count", async () => {
-      const LibraryDrawer = await importComponent();
-      render(
-        <LibraryDrawer
-          games={[BASE_GAME, GAME_SKIPPED]}
-          targetTrackCount={50}
-          generating={false}
-          onCurationChange={vi.fn()}
-          onRemove={vi.fn()}
-          onGenerate={vi.fn()}
-        />,
-      );
-
-      // Only 1 active game (BASE_GAME), GAME_SKIPPED is filtered out
-      expect(screen.getByText("1 game")).toBeInTheDocument();
-    });
-
-    it("should not show footer when all games are skipped", async () => {
-      const LibraryDrawer = await importComponent();
-      render(
-        <LibraryDrawer
-          games={[GAME_SKIPPED]}
-          targetTrackCount={50}
-          generating={false}
-          onCurationChange={vi.fn()}
-          onRemove={vi.fn()}
-          onGenerate={vi.fn()}
-        />,
-      );
-
-      expect(screen.queryByText("Curate 50 Tracks")).not.toBeInTheDocument();
     });
   });
 
