@@ -31,6 +31,7 @@
 
 # claude code worktrees
 .claude/
+docs/claude/
 
 # claude superpowers
 .superpowers/
