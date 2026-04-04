@@ -8,6 +8,7 @@ import { readGuestLibrary, writeGuestLibrary } from "@/lib/guest-library";
 export function useGameLibrary(isSignedIn: boolean) {
   const [games, setGames] = useState<Game[]>([]);
   const [gamesLoading, setGamesLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   // Cache catalog for guest hydration so we don't re-fetch every time.
   const catalogCache = useRef<Game[] | null>(null);
 
@@ -28,6 +29,7 @@ export function useGameLibrary(isSignedIn: boolean) {
 
   const fetchGames = useCallback(async () => {
     try {
+      setError(null);
       if (isSignedIn) {
         const res = await fetch("/api/games");
         if (res.ok) setGames(await res.json());
@@ -48,6 +50,7 @@ export function useGameLibrary(isSignedIn: boolean) {
       }
     } catch (err) {
       console.error("Failed to fetch games:", err);
+      setError("Failed to load game library");
     } finally {
       setGamesLoading(false);
     }
@@ -89,6 +92,7 @@ export function useGameLibrary(isSignedIn: boolean) {
   }
 
   async function deleteGame(gameId: string): Promise<boolean> {
+    setError(null);
     if (isSignedIn) {
       try {
         const res = await fetch(`/api/games?id=${gameId}`, { method: "DELETE" });
@@ -98,6 +102,7 @@ export function useGameLibrary(isSignedIn: boolean) {
         }
       } catch (err) {
         console.error("Failed to delete game:", err);
+        setError("Failed to delete game");
       }
       return false;
     } else {
@@ -111,6 +116,7 @@ export function useGameLibrary(isSignedIn: boolean) {
   return {
     games,
     gamesLoading,
+    error,
     fetchGames,
     addGame,
     updateCuration,

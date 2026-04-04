@@ -225,9 +225,7 @@ export function computeGameBudgets(
   targetCount: number,
 ): Map<string, number> {
   const budgets = new Map<string, number>();
-  const activeGames = games.filter(
-    (g) => g.curation !== CurationMode.Skip && (taggedPools.get(g.id)?.length ?? 0) > 0,
-  );
+  const activeGames = games.filter((g) => (taggedPools.get(g.id)?.length ?? 0) > 0);
 
   if (activeGames.length === 0) return budgets;
 
@@ -318,7 +316,7 @@ export function scoreTrack(
   return { roleScore, moodScore, instScore, viewBiasScore, finalScore, adjustedScore };
 }
 
-export interface PickResult {
+interface PickResult {
   track: TaggedTrack;
   breakdown: ScoreBreakdown;
   poolSize: number;
@@ -428,12 +426,7 @@ export function assemblePlaylist(
   // Fill remaining slots from include + lite pool
   const nonFocusGameIds = shuffle(
     games
-      .filter(
-        (g) =>
-          g.curation !== CurationMode.Skip &&
-          g.curation !== CurationMode.Focus &&
-          (taggedPools.get(g.id)?.length ?? 0) > 0,
-      )
+      .filter((g) => g.curation !== CurationMode.Focus && (taggedPools.get(g.id)?.length ?? 0) > 0)
       .map((g) => g.id),
   );
 

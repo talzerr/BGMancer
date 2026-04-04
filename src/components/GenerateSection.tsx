@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type SyntheticEvent } from "react";
+import { useState, type SyntheticEvent } from "react";
 import { GameProgressStatus } from "@/types";
 import type { GameProgressEntry } from "@/hooks/usePlaylist";
-import { Spinner, CheckIcon, XIcon, ErrorCircle, MusicNote, PlayIcon } from "@/components/Icons";
-import { MAX_TRACK_COUNT, COOLDOWN_QUIPS } from "@/lib/constants";
+import { Spinner, CheckIcon, XIcon, ErrorCircle } from "@/components/Icons";
+import { useCooldownTimer } from "@/hooks/useCooldownTimer";
+import { GenerateControls } from "@/components/GenerateControls";
+import { ImportSection } from "@/components/ImportSection";
 
 interface GenerateSectionProps {
   generating: boolean;
@@ -35,8 +37,6 @@ interface GenerateSectionProps {
   onImport: (e: SyntheticEvent<HTMLFormElement>) => void;
 }
 
-const PRESETS = [25, 50, 100] as const;
-
 export function GenerateSection({
   generating,
   genProgress,
@@ -65,45 +65,7 @@ export function GenerateSection({
   onImport,
 }: GenerateSectionProps) {
   const [mode, setMode] = useState<"generate" | "import">("generate");
-  const isPresetValue = (PRESETS as readonly number[]).includes(targetTrackCount);
-  const [customActive, setCustomActive] = useState(!isPresetValue);
-  const customInputRef = useRef<HTMLInputElement>(null);
-  const [secsLeft, setSecsLeft] = useState(0);
-  const [quip, setQuip] = useState("");
-  useEffect(() => {
-    const update = () => setSecsLeft(Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000)));
-    // A zero-delay timeout fires in the next task (not synchronously in the effect body),
-    // giving an immediate first tick without triggering the cascading-renders lint rule.
-    // We also pick a new quip here so both updates happen in the same scheduled task.
-    const timeout = setTimeout(() => {
-      update();
-      if (cooldownUntil > Date.now()) {
-        setQuip(COOLDOWN_QUIPS[Math.floor(Math.random() * COOLDOWN_QUIPS.length)]);
-      }
-    }, 0);
-    const interval = setInterval(update, 250);
-    return () => {
-      clearTimeout(timeout);
-      clearInterval(interval);
-    };
-  }, [cooldownUntil]);
-
-  function handlePresetClick(n: number) {
-    setCustomActive(false);
-    onTargetSave(n);
-  }
-
-  function handleCustomClick() {
-    setCustomActive(true);
-    setTimeout(() => customInputRef.current?.select(), 0);
-  }
-
-  const activePreset = customActive ? null : isPresetValue ? targetTrackCount : null;
-
-  const summaryText =
-    gamesCount === 0
-      ? "Add games to your library to get started."
-      : `${gamesCount} game${gamesCount !== 1 ? "s" : ""} · ${targetTrackCount} tracks`;
+  const { secsLeft, quip } = useCooldownTimer(cooldownUntil);
 
   const showGenerate = mode === "generate" && !generating;
   const showProgress = mode === "generate" && generating;
@@ -184,193 +146,26 @@ export function GenerateSection({
               showGenerate ? "overflow-visible opacity-100" : "overflow-hidden opacity-0"
             }`}
           >
-            <div className="flex flex-col gap-5 px-1">
-              {/* Playlist Size */}
-              <div className="flex flex-col gap-1">
-                <span className="font-display text-[11px] font-semibold tracking-widest text-zinc-400 uppercase">
-                  Playlist Size
-                </span>
-                <div className="flex overflow-hidden rounded-lg border border-white/[0.07] bg-zinc-950/60">
-                  {PRESETS.map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => handlePresetClick(n)}
-                      className={`flex-1 cursor-pointer border-r border-white/[0.07] py-1.5 text-xs font-medium transition-colors ${
-                        activePreset === n
-                          ? "bg-zinc-700 text-white"
-                          : "text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200"
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                  {customActive ? (
-                    <input
-                      ref={customInputRef}
-                      type="number"
-                      min={1}
-                      max={MAX_TRACK_COUNT}
-                      value={targetTrackCount}
-                      autoFocus
-                      onChange={(e) => {
-                        const v = parseInt(e.target.value, 10);
-                        if (!isNaN(v) && v >= 1 && v <= 200) onTargetChange(v);
-                      }}
-                      onBlur={(e) => {
-                        const v = parseInt(e.target.value, 10);
-                        if (!isNaN(v) && v >= 1 && v <= 200) onTargetSave(v);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                        if (e.key === "Escape") {
-                          handlePresetClick(PRESETS[0]);
-                        }
-                      }}
-                      className="flex-1 [appearance:textfield] bg-zinc-700 py-1.5 text-center text-xs font-medium text-white tabular-nums focus:ring-1 focus:ring-violet-500/50 focus:outline-none focus:ring-inset [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                    />
-                  ) : (
-                    <button
-                      onClick={handleCustomClick}
-                      className="flex-1 cursor-pointer py-1.5 text-xs font-medium text-zinc-500 transition-colors hover:bg-white/[0.04] hover:text-zinc-200"
-                    >
-                      Custom
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Options (logged-in only) */}
-              {isSignedIn && (
-                <div className="flex flex-col gap-1">
-                  <span className="font-display text-[11px] font-semibold tracking-widest text-zinc-400 uppercase">
-                    Options
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {/* Express Mode toggle */}
-                    <div className="group relative">
-                      <button
-                        onClick={() => !llmCapReached && onToggleSkipLlm(!skipLlm)}
-                        disabled={llmCapReached}
-                        className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
-                          llmCapReached
-                            ? "cursor-not-allowed border-zinc-700/40 bg-zinc-900/30 text-zinc-600"
-                            : skipLlm
-                              ? "cursor-pointer border-cyan-500/40 bg-cyan-900/30 text-cyan-300 hover:bg-cyan-900/50"
-                              : "cursor-pointer border-white/[0.06] bg-zinc-950/60 text-zinc-500 hover:border-white/[0.12] hover:text-zinc-300"
-                        }`}
-                      >
-                        <span>
-                          {llmCapReached
-                            ? "🎯 Express: always on"
-                            : skipLlm
-                              ? "🎯 Express: on"
-                              : "🎯 Express: off"}
-                        </span>
-                      </button>
-                      <div className="pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-56 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 opacity-0 shadow-xl shadow-black/50 transition-opacity group-hover:opacity-100">
-                        <p className="text-xs font-medium text-zinc-200">
-                          {llmCapReached ? "Daily AI limit reached" : "Express Mode"}
-                        </p>
-                        <p className="mt-0.5 text-[11px] leading-snug text-zinc-400">
-                          {llmCapReached
-                            ? "You've used all your AI-powered generations for today. Playlists are still curated, just without AI vibe scoring. Resets tomorrow."
-                            : "When on, skips the AI Vibe Profiler for faster generation. Playlists are still curated by the Director engine, just without AI-tuned mood scoring."}
-                        </p>
-                      </div>
-                    </div>
-                    {/* Allow long tracks toggle */}
-                    <div className="group relative">
-                      <button
-                        onClick={() => onToggleLongTracks(!allowLongTracks)}
-                        className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
-                          allowLongTracks
-                            ? "border-orange-500/40 bg-orange-900/30 text-orange-300 hover:bg-orange-900/50"
-                            : "border-white/[0.06] bg-zinc-950/60 text-zinc-500 hover:border-white/[0.12] hover:text-zinc-300"
-                        }`}
-                      >
-                        <span>{allowLongTracks ? "⏱ Long tracks: on" : "⏱ Long tracks: off"}</span>
-                      </button>
-                      <div className="pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-56 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 opacity-0 shadow-xl shadow-black/50 transition-opacity group-hover:opacity-100">
-                        <p className="text-xs font-medium text-zinc-200">Allow long tracks</p>
-                        <p className="mt-0.5 text-[11px] leading-snug text-zinc-400">
-                          When off (default), tracks longer than 10 minutes are excluded. Useful for
-                          keeping a playlist focused — OST medleys and extended suites are skipped.
-                        </p>
-                      </div>
-                    </div>
-                    {/* Allow short tracks toggle */}
-                    <div className="group relative">
-                      <button
-                        onClick={() => onToggleShortTracks(!allowShortTracks)}
-                        className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
-                          allowShortTracks
-                            ? "border-violet-500/40 bg-violet-900/30 text-violet-300 hover:bg-violet-900/50"
-                            : "border-white/[0.06] bg-zinc-950/60 text-zinc-500 hover:border-white/[0.12] hover:text-zinc-300"
-                        }`}
-                      >
-                        <span>
-                          {allowShortTracks ? "⚡ Short tracks: on" : "⚡ Short tracks: off"}
-                        </span>
-                      </button>
-                      <div className="pointer-events-none absolute right-0 bottom-full z-10 mb-2 w-56 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 opacity-0 shadow-xl shadow-black/50 transition-opacity group-hover:opacity-100">
-                        <p className="text-xs font-medium text-zinc-200">Allow short tracks</p>
-                        <p className="mt-0.5 text-[11px] leading-snug text-zinc-400">
-                          When off (default), tracks under 90 seconds are excluded. Useful for
-                          keeping things flowing — intros, stingers, and short jingles are skipped.
-                        </p>
-                      </div>
-                    </div>
-                    {/* Raw vibes toggle */}
-                    <div className="group relative">
-                      <button
-                        onClick={() => onToggleRawVibes(!rawVibes)}
-                        className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
-                          rawVibes
-                            ? "border-purple-500/40 bg-purple-900/30 text-purple-300 hover:bg-purple-900/50"
-                            : "border-white/[0.06] bg-zinc-950/60 text-zinc-500 hover:border-white/[0.12] hover:text-zinc-300"
-                        }`}
-                      >
-                        <span>{rawVibes ? "♫ Raw vibes: on" : "♫ Raw vibes: off"}</span>
-                      </button>
-                      <div className="pointer-events-none absolute right-0 bottom-full z-10 mb-2 w-56 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 opacity-0 shadow-xl shadow-black/50 transition-opacity group-hover:opacity-100">
-                        <p className="text-xs font-medium text-zinc-200">Raw vibes</p>
-                        <p className="mt-0.5 text-[11px] leading-snug text-zinc-400">
-                          When on, ignores YouTube view counts — all tracks scored purely on musical
-                          tags. May surface more obscure tracks.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Action */}
-              <div className="flex flex-col gap-2">
-                <button
-                  onClick={onGenerate}
-                  disabled={gamesCount === 0 || secsLeft > 0}
-                  className="cta-glow-pulse flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3.5 text-sm font-semibold text-white shadow-[0_0_24px_-4px] shadow-violet-500/40 transition-all duration-200 hover:scale-[1.02] hover:bg-violet-500 hover:shadow-[0_0_32px_-2px] hover:shadow-violet-500/50 active:scale-[0.97] active:bg-violet-700 active:shadow-[0_0_12px_-4px] active:shadow-violet-500/30 disabled:cursor-not-allowed disabled:border disabled:border-white/[0.05] disabled:bg-zinc-800/80 disabled:text-zinc-500 disabled:shadow-none disabled:hover:scale-100"
-                >
-                  <MusicNote className="h-3.5 w-3.5" />
-                  {secsLeft > 0 ? (
-                    <span className="text-xs font-normal opacity-60">{quip}</span>
-                  ) : (
-                    `Curate ${targetTrackCount} Tracks`
-                  )}
-                </button>
-                <div
-                  className={`flex px-1 ${gamesCount === 0 ? "flex-col gap-1" : "items-center justify-between"}`}
-                >
-                  <p className="text-[11px] leading-snug text-zinc-600">{summaryText}</p>
-                  <button
-                    onClick={() => setMode("import")}
-                    className={`shrink-0 text-[11px] text-zinc-600 transition-colors hover:text-zinc-400 ${gamesCount === 0 ? "self-end" : ""}`}
-                  >
-                    Import from YouTube →
-                  </button>
-                </div>
-              </div>
-            </div>
+            <GenerateControls
+              targetTrackCount={targetTrackCount}
+              onTargetChange={onTargetChange}
+              onTargetSave={onTargetSave}
+              gamesCount={gamesCount}
+              onGenerate={onGenerate}
+              allowLongTracks={allowLongTracks}
+              onToggleLongTracks={onToggleLongTracks}
+              allowShortTracks={allowShortTracks}
+              onToggleShortTracks={onToggleShortTracks}
+              rawVibes={rawVibes}
+              onToggleRawVibes={onToggleRawVibes}
+              isSignedIn={isSignedIn}
+              skipLlm={skipLlm}
+              onToggleSkipLlm={onToggleSkipLlm}
+              llmCapReached={llmCapReached}
+              secsLeft={secsLeft}
+              quip={quip}
+              onSwitchToImport={() => setMode("import")}
+            />
           </div>
         </div>
 
@@ -385,48 +180,13 @@ export function GenerateSection({
               showImport ? "opacity-100" : "opacity-0"
             }`}
           >
-            <div className="flex flex-col gap-3 rounded-xl border border-white/[0.05] bg-zinc-900/50 p-3.5">
-              <button
-                onClick={() => setMode("generate")}
-                className="flex items-center gap-1 self-start text-[11px] text-zinc-600 transition-colors hover:text-zinc-400"
-              >
-                ← Back to Curate
-              </button>
-
-              <form onSubmit={onImport} className="flex flex-col gap-2">
-                <input
-                  id="playlist-url"
-                  type="text"
-                  placeholder="YouTube playlist URL or ID…"
-                  value={importUrl}
-                  onChange={(e) => onImportUrlChange(e.target.value)}
-                  disabled={importing}
-                  className="rounded-lg border border-white/[0.07] bg-zinc-950/70 px-3 py-2 text-sm text-white placeholder-zinc-600 transition-colors focus:border-violet-500/40 focus:ring-1 focus:ring-violet-500/30 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                />
-                <button
-                  type="submit"
-                  disabled={!importUrl.trim() || importing}
-                  className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-white/[0.07] bg-zinc-800/80 px-4 py-2 text-xs font-medium text-zinc-400 transition-colors hover:border-red-500/30 hover:bg-red-950/50 hover:text-red-400 active:bg-red-950/70 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {importing ? (
-                    <>
-                      <Spinner className="h-3 w-3" />
-                      Importing…
-                    </>
-                  ) : (
-                    <>
-                      <PlayIcon className="h-3 w-3" />
-                      Import from YouTube
-                    </>
-                  )}
-                </button>
-              </form>
-              {!importing && (
-                <p className="text-[11px] text-zinc-600">
-                  Imports all tracks — creates a new playlist in your history.
-                </p>
-              )}
-            </div>
+            <ImportSection
+              importUrl={importUrl}
+              onImportUrlChange={onImportUrlChange}
+              importing={importing}
+              onImport={onImport}
+              onSwitchToGenerate={() => setMode("generate")}
+            />
           </div>
         </div>
       </div>

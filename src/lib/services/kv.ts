@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
+/* eslint-disable @typescript-eslint/no-require-imports -- Lazy require() for @opennextjs/cloudflare avoids import errors in test/dev environments */
 import { env } from "@/lib/env";
 
 /**

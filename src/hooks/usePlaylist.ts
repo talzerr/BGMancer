@@ -39,6 +39,7 @@ export function usePlaylist() {
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [rerollingIds, setRerollingIds] = useState<Set<string>>(new Set());
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchTracks = useCallback(async (sessionId?: string) => {
     try {
@@ -56,6 +57,7 @@ export function usePlaylist() {
       }
     } catch (err) {
       console.error("Failed to fetch playlist:", err);
+      setFetchError("Failed to load playlist");
     } finally {
       setTracksLoading(false);
     }
@@ -92,15 +94,18 @@ export function usePlaylist() {
   }
 
   async function removeTrack(id: string) {
+    setFetchError(null);
     try {
       await fetch(`/api/playlist/${id}`, { method: "DELETE" });
       setTracks((prev) => prev.filter((t) => t.id !== id));
     } catch (err) {
       console.error("Failed to remove track:", err);
+      setFetchError("Failed to remove track");
     }
   }
 
   async function rerollTrack(id: string, allowLongTracks = false, allowShortTracks = false) {
+    setFetchError(null);
     setRerollingIds((prev) => new Set(prev).add(id));
     try {
       const res = await fetch(`/api/playlist/${id}/reroll`, {
@@ -114,6 +119,7 @@ export function usePlaylist() {
       }
     } catch (err) {
       console.error("Failed to reroll track:", err);
+      setFetchError("Failed to reroll track");
     } finally {
       setRerollingIds((prev) => {
         const next = new Set(prev);
@@ -132,7 +138,10 @@ export function usePlaylist() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ orderedIds }),
-    }).catch((err) => console.error("Failed to persist track order:", err));
+    }).catch((err) => {
+      console.error("Failed to persist track order:", err);
+      setFetchError("Failed to save track order");
+    });
   }
 
   async function handleGenerate(
@@ -248,11 +257,13 @@ export function usePlaylist() {
   }
 
   async function handleClearPlaylist() {
+    setFetchError(null);
     try {
       await fetch("/api/playlist", { method: "DELETE" });
       setTracks([]);
     } catch (err) {
       console.error("Failed to clear playlist:", err);
+      setFetchError("Failed to clear playlist");
     } finally {
       setConfirmClear(false);
     }
@@ -311,6 +322,7 @@ export function usePlaylist() {
     importing,
     importError,
     rerollingIds,
+    fetchError,
     fetchTracks,
     loadForSession,
     clearTracks,

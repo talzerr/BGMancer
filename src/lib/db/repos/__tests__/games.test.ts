@@ -63,23 +63,16 @@ describe("Games", () => {
     describe("when library has published games with various curations", () => {
       beforeEach(() => {
         seedTestGame(rawDb, TEST_USER_ID, { id: "g-inc", title: "Included", curation: "include" });
-        seedTestGame(rawDb, TEST_USER_ID, { id: "g-skip", title: "Skipped", curation: "skip" });
         seedTestGame(rawDb, TEST_USER_ID, { id: "g-lite", title: "Lite", curation: "lite" });
         seedTestGame(rawDb, TEST_USER_ID, { id: "g-focus", title: "Focused", curation: "focus" });
       });
 
-      it("should return non-skip games", async () => {
+      it("should return all games", async () => {
         const games = await Games.listAll(TEST_USER_ID);
         const ids = games.map((g) => g.id);
         expect(ids).toContain("g-inc");
         expect(ids).toContain("g-lite");
         expect(ids).toContain("g-focus");
-      });
-
-      it("should NOT include skip-curated games", async () => {
-        const games = await Games.listAll(TEST_USER_ID);
-        const ids = games.map((g) => g.id);
-        expect(ids).not.toContain("g-skip");
       });
     });
 
@@ -151,38 +144,6 @@ describe("Games", () => {
     it("should ignore unknown IDs", async () => {
       const games = await Games.getPublishedByIds(["nonexistent"]);
       expect(games).toEqual([]);
-    });
-  });
-
-  describe("listAllIncludingDisabled", () => {
-    describe("when library has skip-curated games", () => {
-      beforeEach(() => {
-        seedTestGame(rawDb, TEST_USER_ID, { id: "g-inc", title: "Included", curation: "include" });
-        seedTestGame(rawDb, TEST_USER_ID, { id: "g-skip", title: "Skipped", curation: "skip" });
-      });
-
-      it("should include skip-curated games", async () => {
-        const games = await Games.listAllIncludingDisabled(TEST_USER_ID);
-        const ids = games.map((g) => g.id);
-        expect(ids).toContain("g-inc");
-        expect(ids).toContain("g-skip");
-      });
-    });
-
-    describe("when library has unpublished games", () => {
-      beforeEach(() => {
-        seedTestGame(rawDb, TEST_USER_ID, {
-          id: "g-unpub",
-          title: "Unpublished",
-          published: false,
-        });
-      });
-
-      it("should still exclude unpublished games", async () => {
-        const games = await Games.listAllIncludingDisabled(TEST_USER_ID);
-        const ids = games.map((g) => g.id);
-        expect(ids).not.toContain("g-unpub");
-      });
     });
   });
 

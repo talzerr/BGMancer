@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+/* eslint-disable no-console -- Logger wraps console.log/warn/error; suppression is intentional */
 /**
  * Structured logger for Cloudflare Workers.
  *

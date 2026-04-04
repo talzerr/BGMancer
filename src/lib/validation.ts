@@ -44,7 +44,7 @@ export const importPlaylistSchema = z.object({
   url: z.string().min(1),
 });
 
-export const gameSelectionSchema = z.object({
+const gameSelectionSchema = z.object({
   gameId: z.string().min(1),
   curation: curationEnum.optional(),
 });

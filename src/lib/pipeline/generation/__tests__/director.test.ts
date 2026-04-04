@@ -379,21 +379,6 @@ describe("computeGameBudgets", () => {
     });
   });
 
-  describe("when a game has Skip curation", () => {
-    it("should be excluded from budgets", () => {
-      const budgets = computeGameBudgets(
-        [makeGame({ id: "g1", curation: CurationMode.Skip }), makeGame({ id: "g2" })],
-        new Map([
-          ["g1", Array.from({ length: 50 }, () => makeTrack())],
-          ["g2", Array.from({ length: 50 }, () => makeTrack())],
-        ]),
-        20,
-      );
-      expect(budgets.has("g1")).toBe(false);
-      expect(budgets.get("g2")).toBe(20);
-    });
-  });
-
   describe("when pool size is smaller than raw budget", () => {
     it("should cap at pool size", () => {
       const budgets = computeGameBudgets(
@@ -445,8 +430,8 @@ describe("computeGameBudgets", () => {
   describe("when no active games exist", () => {
     it("should return empty map", () => {
       const budgets = computeGameBudgets(
-        [makeGame({ curation: CurationMode.Skip })],
-        new Map([[DEFAULT_GAME_ID, [makeTrack()]]]),
+        [makeGame()],
+        new Map(), // no tracks in pool for any game
         20,
       );
       expect(budgets.size).toBe(0);
@@ -1027,26 +1012,23 @@ describe("assemblePlaylist", () => {
   });
 
   describe("when games have mixed curations", () => {
-    it("should exclude Skip games and weight Focus > Lite", () => {
+    it("should weight Focus > Lite", () => {
       const result = assemblePlaylist(
         new Map([
           ["g1", makePool("g1", 15)],
           ["g2", makePool("g2", 15)],
           ["g3", makePool("g3", 15)],
-          ["g4", makePool("g4", 15)],
         ]),
         [
           makeGame({ id: "g1" }),
           makeGame({ id: "g2", curation: CurationMode.Lite }),
-          makeGame({ id: "g3", curation: CurationMode.Skip }),
-          makeGame({ id: "g4", curation: CurationMode.Focus }),
+          makeGame({ id: "g3", curation: CurationMode.Focus }),
         ],
         20,
         undefined,
         false,
       );
-      expect(result.tracks.filter((t) => t.gameId === "g3")).toHaveLength(0);
-      expect(result.tracks.filter((t) => t.gameId === "g4").length).toBeGreaterThanOrEqual(
+      expect(result.tracks.filter((t) => t.gameId === "g3").length).toBeGreaterThanOrEqual(
         result.tracks.filter((t) => t.gameId === "g2").length,
       );
     });

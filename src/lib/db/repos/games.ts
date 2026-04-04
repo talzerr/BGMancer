@@ -15,7 +15,6 @@ export const Games = {
           SELECT g.*, lg.curation FROM games g
           JOIN library_games lg ON lg.game_id = g.id
           WHERE lg.library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
-            AND lg.curation != 'skip'
             AND g.published = 1
             AND g.id != ${excludeId}
           ORDER BY lg.added_at ASC
@@ -27,7 +26,6 @@ export const Games = {
         SELECT g.*, lg.curation FROM games g
         JOIN library_games lg ON lg.game_id = g.id
         WHERE lg.library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
-          AND lg.curation != 'skip'
           AND g.published = 1
         ORDER BY lg.added_at ASC
       `),
@@ -44,18 +42,6 @@ export const Games = {
       .all();
     // Guests have no library — default curation to "include".
     return rows.map((r) => toGame({ ...r, curation: CurationMode.Include }));
-  },
-
-  async listAllIncludingDisabled(userId: string): Promise<Game[]> {
-    return toGames(
-      await getDB().all(sql`
-        SELECT g.*, lg.curation FROM games g
-        JOIN library_games lg ON lg.game_id = g.id
-        WHERE lg.library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
-          AND g.published = 1
-        ORDER BY lg.added_at ASC
-      `),
-    );
   },
 
   async count(userId: string): Promise<number> {
