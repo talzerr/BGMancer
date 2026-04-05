@@ -78,14 +78,7 @@ describe("CatalogBrowser", () => {
   describe("when component mounts", () => {
     it("should fetch catalog from /api/games/catalog", async () => {
       const CatalogBrowser = await importComponent();
-      render(
-        <CatalogBrowser
-          libraryGameIds={new Set()}
-          onAdd={vi.fn()}
-          favoriteGameIds={new Set()}
-          onToggleFavorite={vi.fn()}
-        />,
-      );
+      render(<CatalogBrowser libraryGameIds={new Set()} onAdd={vi.fn()} />);
 
       await waitFor(() => {
         expect(globalThis.fetch).toHaveBeenCalledWith("/api/games/catalog");
@@ -96,14 +89,7 @@ describe("CatalogBrowser", () => {
   describe("when catalog has games", () => {
     it("should render game titles", async () => {
       const CatalogBrowser = await importComponent();
-      render(
-        <CatalogBrowser
-          libraryGameIds={new Set()}
-          onAdd={vi.fn()}
-          favoriteGameIds={new Set()}
-          onToggleFavorite={vi.fn()}
-        />,
-      );
+      render(<CatalogBrowser libraryGameIds={new Set()} onAdd={vi.fn()} />);
 
       expect(await screen.findByText("Hollow Knight")).toBeInTheDocument();
       expect(screen.getByText("Celeste")).toBeInTheDocument();
@@ -111,14 +97,7 @@ describe("CatalogBrowser", () => {
 
     it("should not show loading spinner after games load", async () => {
       const CatalogBrowser = await importComponent();
-      render(
-        <CatalogBrowser
-          libraryGameIds={new Set()}
-          onAdd={vi.fn()}
-          favoriteGameIds={new Set()}
-          onToggleFavorite={vi.fn()}
-        />,
-      );
+      render(<CatalogBrowser libraryGameIds={new Set()} onAdd={vi.fn()} />);
 
       await screen.findByText("Hollow Knight");
       // The spinner uses role="status" or we check for the loading state text
@@ -129,14 +108,7 @@ describe("CatalogBrowser", () => {
   describe("when a game is already in library", () => {
     it("should show 'In library' indicator", async () => {
       const CatalogBrowser = await importComponent();
-      render(
-        <CatalogBrowser
-          libraryGameIds={new Set(["game-hk"])}
-          onAdd={vi.fn()}
-          favoriteGameIds={new Set()}
-          onToggleFavorite={vi.fn()}
-        />,
-      );
+      render(<CatalogBrowser libraryGameIds={new Set(["game-hk"])} onAdd={vi.fn()} />);
 
       await screen.findByText("Hollow Knight");
       expect(screen.getByText("In library")).toBeInTheDocument();
@@ -145,12 +117,7 @@ describe("CatalogBrowser", () => {
     it("should not show add button for that game", async () => {
       const CatalogBrowser = await importComponent();
       render(
-        <CatalogBrowser
-          libraryGameIds={new Set(["game-hk", "game-celeste"])}
-          onAdd={vi.fn()}
-          favoriteGameIds={new Set()}
-          onToggleFavorite={vi.fn()}
-        />,
+        <CatalogBrowser libraryGameIds={new Set(["game-hk", "game-celeste"])} onAdd={vi.fn()} />,
       );
 
       await screen.findByText("Hollow Knight");
@@ -161,14 +128,7 @@ describe("CatalogBrowser", () => {
   describe("when a game is not in library", () => {
     it("should show add button", async () => {
       const CatalogBrowser = await importComponent();
-      render(
-        <CatalogBrowser
-          libraryGameIds={new Set()}
-          onAdd={vi.fn()}
-          favoriteGameIds={new Set()}
-          onToggleFavorite={vi.fn()}
-        />,
-      );
+      render(<CatalogBrowser libraryGameIds={new Set()} onAdd={vi.fn()} />);
 
       await screen.findByText("Hollow Knight");
       const addButtons = screen.getAllByText("+ Add");
@@ -179,15 +139,7 @@ describe("CatalogBrowser", () => {
   describe("when searchFilter prop is provided", () => {
     it("should filter games client-side by title", async () => {
       const CatalogBrowser = await importComponent();
-      render(
-        <CatalogBrowser
-          libraryGameIds={new Set()}
-          onAdd={vi.fn()}
-          searchFilter="hollow"
-          favoriteGameIds={new Set()}
-          onToggleFavorite={vi.fn()}
-        />,
-      );
+      render(<CatalogBrowser libraryGameIds={new Set()} onAdd={vi.fn()} searchFilter="hollow" />);
 
       expect(await screen.findByText("Hollow Knight")).toBeInTheDocument();
       expect(screen.queryByText("Celeste")).not.toBeInTheDocument();
@@ -195,15 +147,7 @@ describe("CatalogBrowser", () => {
 
     it("should show all games when searchFilter is empty", async () => {
       const CatalogBrowser = await importComponent();
-      render(
-        <CatalogBrowser
-          libraryGameIds={new Set()}
-          onAdd={vi.fn()}
-          searchFilter=""
-          favoriteGameIds={new Set()}
-          onToggleFavorite={vi.fn()}
-        />,
-      );
+      render(<CatalogBrowser libraryGameIds={new Set()} onAdd={vi.fn()} searchFilter="" />);
 
       expect(await screen.findByText("Hollow Knight")).toBeInTheDocument();
       expect(screen.getByText("Celeste")).toBeInTheDocument();
@@ -211,15 +155,7 @@ describe("CatalogBrowser", () => {
 
     it("should show filtered count in footer when filtering", async () => {
       const CatalogBrowser = await importComponent();
-      render(
-        <CatalogBrowser
-          libraryGameIds={new Set()}
-          onAdd={vi.fn()}
-          searchFilter="hollow"
-          favoriteGameIds={new Set()}
-          onToggleFavorite={vi.fn()}
-        />,
-      );
+      render(<CatalogBrowser libraryGameIds={new Set()} onAdd={vi.fn()} searchFilter="hollow" />);
 
       await screen.findByText("Hollow Knight");
       expect(screen.getByText("1 of 2 games")).toBeInTheDocument();
@@ -232,14 +168,7 @@ describe("CatalogBrowser", () => {
       const user = userEvent.setup();
 
       const CatalogBrowser = await importComponent();
-      render(
-        <CatalogBrowser
-          libraryGameIds={new Set()}
-          onAdd={onAdd}
-          favoriteGameIds={new Set()}
-          onToggleFavorite={vi.fn()}
-        />,
-      );
+      render(<CatalogBrowser libraryGameIds={new Set()} onAdd={onAdd} />);
 
       await screen.findByText("Hollow Knight");
 
@@ -257,14 +186,7 @@ describe("CatalogBrowser", () => {
       const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
       const CatalogBrowser = await importComponent();
-      render(
-        <CatalogBrowser
-          libraryGameIds={new Set()}
-          onAdd={onAdd}
-          favoriteGameIds={new Set()}
-          onToggleFavorite={vi.fn()}
-        />,
-      );
+      render(<CatalogBrowser libraryGameIds={new Set()} onAdd={onAdd} />);
 
       await screen.findByText("Hollow Knight");
 

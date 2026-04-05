@@ -60,10 +60,6 @@ export const generateSchema = z.object({
   turnstileToken: z.string().optional(),
 });
 
-export const toggleFavoriteSchema = z.object({
-  gameId: z.string().min(1),
-});
-
 export const rerollSchema = z.object({
   allowLongTracks: z.boolean().optional(),
   allowShortTracks: z.boolean().optional(),

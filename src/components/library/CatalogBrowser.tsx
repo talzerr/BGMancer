@@ -10,9 +10,6 @@ interface CatalogBrowserProps {
   libraryGameIds: Set<string>;
   onAdd: (game: Game, curation: CurationMode) => Promise<void>;
   searchFilter?: string;
-  favoriteGameIds?: Set<string>;
-  onToggleFavorite?: (gameId: string) => void;
-  showFavoritesOnly?: boolean;
 }
 
 const PAGE_SIZE = 20;
@@ -27,14 +24,7 @@ const CURATION_ADD_OPTIONS: {
   { mode: CurationMode.Lite, label: "Lite", colorClass: "text-primary" },
 ];
 
-export function CatalogBrowser({
-  libraryGameIds,
-  onAdd,
-  searchFilter,
-  favoriteGameIds,
-  onToggleFavorite,
-  showFavoritesOnly,
-}: CatalogBrowserProps) {
+export function CatalogBrowser({ libraryGameIds, onAdd, searchFilter }: CatalogBrowserProps) {
   const [catalog, setCatalog] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [addingId, setAddingId] = useState<string | null>(null);
@@ -58,13 +48,11 @@ export function CatalogBrowser({
   // Reset visible count when filter changes
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [searchFilter, showFavoritesOnly]);
+  }, [searchFilter]);
 
-  const filtered = catalog
-    .filter((g) => !showFavoritesOnly || favoriteGameIds?.has(g.id))
-    .filter(
-      (g) => !searchFilter?.trim() || g.title.toLowerCase().includes(searchFilter.toLowerCase()),
-    );
+  const filtered = catalog.filter(
+    (g) => !searchFilter?.trim() || g.title.toLowerCase().includes(searchFilter.toLowerCase()),
+  );
 
   const visible = filtered.slice(0, visibleCount);
 
@@ -105,9 +93,7 @@ export function CatalogBrowser({
                   game={game}
                   inLibrary={inLibrary}
                   isAdding={isAdding}
-                  isFavorite={favoriteGameIds?.has(game.id) ?? false}
                   onAdd={(curation) => handleAdd(game, curation)}
-                  onToggleFavorite={onToggleFavorite}
                 />
               );
             })}
@@ -139,16 +125,12 @@ function CatalogCard({
   game,
   inLibrary,
   isAdding,
-  isFavorite,
   onAdd,
-  onToggleFavorite,
 }: {
   game: Game;
   inLibrary: boolean;
   isAdding: boolean;
-  isFavorite: boolean;
   onAdd: (curation: CurationMode) => void;
-  onToggleFavorite?: (gameId: string) => void;
 }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -196,46 +178,6 @@ function CatalogCard({
           <div className="bg-secondary/80 flex aspect-[460/215] w-full items-center justify-center">
             <span className="text-xs font-medium text-[var(--text-disabled)]">BGM</span>
           </div>
-        )}
-
-        {/* Favorite star (auth-only) */}
-        {onToggleFavorite && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              const el = e.currentTarget;
-              el.classList.add("star-animate");
-              el.addEventListener("animationend", () => el.classList.remove("star-animate"), {
-                once: true,
-              });
-              onToggleFavorite(game.id);
-            }}
-            className={`absolute top-2 right-2 z-10 cursor-pointer rounded-full p-1 transition-all duration-200 ${
-              isFavorite
-                ? "opacity-100 drop-shadow-[0_0_6px_rgba(212,160,74,0.4)]"
-                : "opacity-0 group-hover:opacity-100"
-            }`}
-          >
-            {isFavorite ? (
-              <svg viewBox="0 0 20 20" fill="currentColor" className="text-primary h-4 w-4">
-                <path
-                  fillRule="evenodd"
-                  d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            ) : (
-              <svg
-                viewBox="0 0 20 20"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                className="h-4 w-4 text-white/50"
-              >
-                <path d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z" />
-              </svg>
-            )}
-          </button>
         )}
       </div>
 

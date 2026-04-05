@@ -135,7 +135,7 @@ export async function POST(request: Request) {
   } catch (err) {
     log.error("handler failed", {}, err);
     return NextResponse.json(
-      { error: "Import failed", detail: err instanceof Error ? err.message : String(err) },
+      { error: "Playlist import failed. Please try again." },
       { status: 500 },
     );
   }

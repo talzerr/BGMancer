@@ -101,26 +101,6 @@ a {
   }
 }
 
-/* Favorite star pop on toggle */
-@keyframes star-pop {
-  0% {
-    transform: scale(1);
-  }
-  30% {
-    transform: scale(1.4);
-  }
-  60% {
-    transform: scale(0.9);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-.star-animate {
-  animation: star-pop 400ms ease-out;
-}
-
 :root {
   /* Design system tokens */
   --surface-elevated: #1c1b17;
