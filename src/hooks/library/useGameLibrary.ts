@@ -7,7 +7,7 @@ import { readGuestLibrary, writeGuestLibrary } from "@/lib/guest-library";
 
 export function useGameLibrary(isSignedIn: boolean) {
   const [games, setGames] = useState<Game[]>([]);
-  const [gamesLoading, setGamesLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // Cache catalog for guest hydration so we don't re-fetch every time.
   const catalogCache = useRef<Game[] | null>(null);
@@ -52,7 +52,7 @@ export function useGameLibrary(isSignedIn: boolean) {
       console.error("Failed to fetch games:", err);
       setError("Failed to load game library");
     } finally {
-      setGamesLoading(false);
+      setIsLoading(false);
     }
   }, [isSignedIn]);
 
@@ -115,7 +115,7 @@ export function useGameLibrary(isSignedIn: boolean) {
 
   return {
     games,
-    gamesLoading,
+    isLoading,
     error,
     fetchGames,
     addGame,

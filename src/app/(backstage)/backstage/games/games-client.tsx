@@ -91,7 +91,7 @@ export function GamesClient() {
     handleFilterChange,
     resetFilters,
     items: games,
-    loading,
+    isLoading: loading,
     hasSearched,
     fetchError,
     refetch,

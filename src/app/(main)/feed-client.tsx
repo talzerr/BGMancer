@@ -19,15 +19,15 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { usePlayerContext } from "@/context/player-context";
-import { useSessionManager } from "@/hooks/useSessionManager";
-import { useTrackDeleteUndo } from "@/hooks/useTrackDeleteUndo";
+import { useSessionManager } from "@/hooks/library/useSessionManager";
+import { useTrackDeleteUndo } from "@/hooks/player/useTrackDeleteUndo";
 import { GenerateSection } from "@/components/GenerateSection";
-import { SessionList } from "@/components/SessionList";
-import { LibraryWidget } from "@/components/LibraryWidget";
-import { PlaylistHeader } from "@/components/PlaylistHeader";
-import { SortableTrackItem } from "@/components/SortableTrackItem";
-import { PlaylistEmptyState } from "@/components/PlaylistEmptyState";
-import { UndoToast } from "@/components/UndoToast";
+import { SessionList } from "@/components/session/SessionList";
+import { LibraryWidget } from "@/components/library/LibraryWidget";
+import { PlaylistHeader } from "@/components/session/PlaylistHeader";
+import { SortableTrackItem } from "@/components/player/SortableTrackItem";
+import { PlaylistEmptyState } from "@/components/session/PlaylistEmptyState";
+import { UndoToast } from "@/components/player/UndoToast";
 import { InfoToast } from "@/components/InfoToast";
 
 interface FeedClientProps {
@@ -199,7 +199,7 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
             onDeleteSession={handleDeleteSession}
           />
 
-          {playlist.tracksLoading ? (
+          {playlist.isLoading ? (
             <div className="space-y-1.5">
               {Array.from({ length: 6 }).map((_, i) => (
                 <div

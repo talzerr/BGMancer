@@ -4,7 +4,7 @@ import { steamHeaderUrl } from "@/lib/constants";
 
 export function LibraryWidget() {
   const { gameLibrary, player, playlist } = usePlayerContext();
-  const { games, gamesLoading } = gameLibrary;
+  const { games, isLoading } = gameLibrary;
 
   const playingGameTitle =
     playlist.tracks.find((t) => t.id === player.playingTrackId)?.game_title ?? null;
@@ -89,7 +89,7 @@ export function LibraryWidget() {
         </div>
       )}
 
-      {!gamesLoading && games.length === 0 && (
+      {!isLoading && games.length === 0 && (
         <p className="mt-2 text-xs text-[var(--text-disabled)]">
           No active games — add and enable some to get started.
         </p>

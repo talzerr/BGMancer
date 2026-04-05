@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect } from "react";
 import type { PlaylistTrack } from "@/types";
-import type { PlayerBarHandle } from "@/components/PlayerBar";
+import type { PlayerBarHandle } from "@/components/player/PlayerBar";
 
 export function usePlayerState() {
   const [currentTrackIndex, setCurrentTrackIndex] = useState<number | null>(null);

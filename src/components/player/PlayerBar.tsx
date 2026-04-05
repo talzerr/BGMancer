@@ -3,7 +3,7 @@
 import { forwardRef, useImperativeHandle, useState } from "react";
 import Image from "next/image";
 import type { PlaylistTrack } from "@/types";
-import { useYouTubePlayer } from "@/hooks/useYouTubePlayer";
+import { useYouTubePlayer } from "@/hooks/player/useYouTubePlayer";
 import {
   YouTubeLogo,
   MusicNote,

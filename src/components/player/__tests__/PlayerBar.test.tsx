@@ -38,7 +38,7 @@ const mockYTPlayer = {
   playerDivRef: { current: null },
 };
 
-vi.mock("@/hooks/useYouTubePlayer", () => ({
+vi.mock("@/hooks/player/useYouTubePlayer", () => ({
   useYouTubePlayer: () => mockYTPlayer,
 }));
 

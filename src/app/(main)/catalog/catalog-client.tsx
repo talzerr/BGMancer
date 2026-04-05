@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePlayerContext } from "@/context/player-context";
-import { CatalogBrowser } from "@/components/CatalogBrowser";
-import { CatalogHeaderBar, FilterMode } from "@/components/CatalogHeaderBar";
-import { LibraryDrawer } from "@/components/LibraryDrawer";
+import { CatalogBrowser } from "@/components/library/CatalogBrowser";
+import { CatalogHeaderBar, FilterMode } from "@/components/library/CatalogHeaderBar";
+import { LibraryDrawer } from "@/components/library/LibraryDrawer";
 import type { CurationMode, Game } from "@/types";
 
 export function CatalogClient() {

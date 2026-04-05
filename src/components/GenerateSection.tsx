@@ -2,9 +2,9 @@
 
 import { useState, type SyntheticEvent } from "react";
 import { GameProgressStatus } from "@/types";
-import type { GameProgressEntry } from "@/hooks/usePlaylist";
+import type { GameProgressEntry } from "@/hooks/player/usePlaylist";
 import { Spinner, CheckIcon, XIcon, ErrorCircle } from "@/components/Icons";
-import { useCooldownTimer } from "@/hooks/useCooldownTimer";
+import { useCooldownTimer } from "@/hooks/shared/useCooldownTimer";
 import { GenerateControls } from "@/components/GenerateControls";
 import { ImportSection } from "@/components/ImportSection";
 

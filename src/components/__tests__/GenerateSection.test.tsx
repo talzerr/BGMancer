@@ -11,7 +11,7 @@ afterEach(() => {
 
 import { GenerateSection } from "../GenerateSection";
 import { GameProgressStatus } from "@/types";
-import type { GameProgressEntry } from "@/hooks/usePlaylist";
+import type { GameProgressEntry } from "@/hooks/player/usePlaylist";
 
 // ─── File-level constants ────────────────────────────────────────────────────
 

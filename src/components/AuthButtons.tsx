@@ -1,7 +1,7 @@
 "use client";
 
 import { signIn, signOut } from "next-auth/react";
-import { useLoginPromptDismissed } from "@/hooks/useLoginPromptDismissed";
+import { useLoginPromptDismissed } from "@/hooks/shared/useLoginPromptDismissed";
 
 interface AuthButtonsProps {
   user: { name?: string | null; email?: string | null; image?: string | null } | null;

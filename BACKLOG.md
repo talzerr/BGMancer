@@ -65,3 +65,41 @@ Current Vibe Check uses random 2.5× sample. For large libraries, only ~8% of tr
 ## Deferred
 
 - **Playlist seed share** — encode playlists as compact strings; `/share/[seed]` read-only view.
+
+- **Settings panel redesign:** Whether pill toggles are the right pattern for generation
+  options, label naming for remaining toggles (long tracks, short tracks, popularity toggle),
+  overall settings UX.
+- **Express toggle removal:** Express toggle is removed. AI daily cap is handled silently
+  on the backend. Resurface when AI scoring is perceptibly differentiated.
+- **Favorites feature:** Shelved. Revisit as part of catalog discovery UX — the actual
+  problem is catalog filtering/browsing, not bookmarking.
+- **Catalog discovery:** Genre filtering, recommendations, Steam import — these solve
+  the browse problem that favorites was patching.
+- **Spoilers toggle rename:** Current name reflects old functionality. Needs renaming to
+  match actual behavior (hiding upcoming tracks, not game narrative spoilers).
+- **Session/playlist naming:** Auto-generated names, user editing, what the title
+  should look like for multi-game playlists.
+- **Post-generation layout collapse:** The specific mechanism for how controls recede
+  after playlist generation.
+- **Playlist history UX:** Where it lives, how it's accessed, panel vs dropdown vs page.
+- **Dynamic game art background:** Implementation of the hero image wash as an ambient
+  layer over the base surface.
+- **Player bar density:** Whether "Up Next" preview is needed, YouTube logo placement,
+  overall player bar information architecture.
+- **Now-playing track indicator:** Current full-width highlight is too aggressive.
+  Needs redesign — subtle left-edge amber bar or small indicator.
+
+- **App/backstage shared code boundary.** They share `lib/db/`, `types/`, and some services.
+  They don't share context or UI components (except `ui/` primitives). The boundary is clean
+  but informal. Any feature that crosses this line requires a PM discussion.
+
+- **URL state strategy.** The app doesn't persist meaningful state in URLs. No shareable
+  playlist links, no deep-linkable filter states. This becomes a product question if sharing
+  or link-based navigation becomes a feature.
+
+- **Rate limiting strategy.** Some rate limiting exists but there's no unified approach. A
+  consistent rate limiting service with a clean API needs to be designed when scale demands it.
+
+- **Caching strategy.** No documented caching layer. YouTube metadata, Discogs data, and
+  vibe profiles could benefit from caching. Whether that's KV, D1, or in-memory is a future
+  architecture decision.

@@ -94,7 +94,7 @@ export function TrackLabClient() {
     handleFilterChange,
     resetFilters,
     items: tracks,
-    loading,
+    isLoading: loading,
     hasSearched,
     fetchError,
     refetch,

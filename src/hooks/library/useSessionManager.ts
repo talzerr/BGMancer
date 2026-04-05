@@ -11,16 +11,20 @@ import type { PlaylistSessionWithCount } from "@/types";
 export function useSessionManager() {
   const { playlist, player } = usePlayerContext();
   const [sessions, setSessions] = useState<PlaylistSessionWithCount[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchSessions = useCallback(async () => {
     try {
       setError(null);
+      setIsLoading(true);
       const res = await fetch("/api/sessions");
       if (res.ok) setSessions(await res.json());
     } catch (err) {
       console.error("Failed to fetch sessions:", err);
       setError("Failed to load sessions");
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
@@ -73,5 +77,5 @@ export function useSessionManager() {
     }
   }
 
-  return { sessions, error, fetchSessions, handleRenameSession, handleDeleteSession };
+  return { sessions, isLoading, error, fetchSessions, handleRenameSession, handleDeleteSession };
 }

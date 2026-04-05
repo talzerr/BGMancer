@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { PlaylistTrackCard } from "@/components/PlaylistTrackCard";
+import { PlaylistTrackCard } from "@/components/player/PlaylistTrackCard";
 import type { PlaylistTrack } from "@/types";
 
 interface SortableTrackItemProps {

@@ -4,7 +4,7 @@ import { SyncButton } from "@/components/SyncButton";
 import { EyeIcon, EyeOffIcon, PlayIcon, TrashIcon } from "@/components/Icons";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { SESSION_NAME_MAX_LENGTH } from "@/lib/constants";
-import { formatSessionName } from "@/components/SessionList";
+import { formatSessionName } from "@/components/session/SessionList";
 import type { PlaylistSessionWithCount } from "@/types";
 
 interface PlaylistHeaderProps {
