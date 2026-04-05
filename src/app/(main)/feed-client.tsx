@@ -225,7 +225,7 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
               onDragEnd={handleDragEnd}
             >
               <SortableContext items={trackIds} strategy={verticalListSortingStrategy}>
-                <div className="flex flex-col gap-1 pb-24">
+                <div className="flex flex-col gap-0 pb-24">
                   {(() => {
                     const viewingPlayingSession =
                       player.playingSessionId === playlist.currentSessionId;

@@ -41,7 +41,7 @@ export default function LegalPage() {
         &larr; Back to BGMancer
       </Link>
 
-      <h1 className="font-display text-foreground mb-8 text-2xl font-medium">
+      <h1 className="font-display text-foreground mb-8 text-2xl font-medium -tracking-[0.03em]">
         Legal & Disclaimers
       </h1>
 

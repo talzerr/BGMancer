@@ -67,9 +67,7 @@ export function PlaylistTrackCard({
       className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-150 ${
         isPlayable ? "cursor-pointer" : ""
       } ${isDragging ? "opacity-50" : ""} ${
-        isPlaying
-          ? "bg-primary/5"
-          : "hover:from-primary/[0.04] bg-white/[0.02] hover:bg-gradient-to-r hover:to-transparent"
+        isPlaying ? "bg-primary/5" : "bg-white/[0.02] hover:bg-white/[0.04]"
       }`}
     >
       {/* Drag handle */}

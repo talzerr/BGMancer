@@ -12,7 +12,7 @@ export default async function HomePage() {
     <div className="bg-background relative min-h-screen">
       {/* Header */}
       <header className="bg-background/80 after:bg-border sticky top-0 z-40 backdrop-blur-xl after:absolute after:bottom-0 after:left-0 after:h-px after:w-full">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5">
             <div className="h-8 w-8 shrink-0 overflow-hidden rounded-xl">
@@ -41,7 +41,7 @@ export default async function HomePage() {
       </header>
 
       {/* Main content */}
-      <main className="relative mx-auto max-w-6xl px-4 py-6 sm:px-6">
+      <main className="relative mx-auto max-w-6xl px-4 pt-12 pb-6 sm:px-6">
         <FeedClient
           isSignedIn={!!session?.user}
           isDev={env.isDev}

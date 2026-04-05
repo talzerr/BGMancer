@@ -84,7 +84,7 @@ export function PlaylistHeader({
             if (e.key === "Escape") setEditingTitle(false);
           }}
           maxLength={SESSION_NAME_MAX_LENGTH}
-          className="font-display border-primary text-foreground caret-primary -mx-2 -my-1 w-[calc(100%+1rem)] resize-none overflow-hidden border-b bg-transparent px-2 py-1 text-2xl leading-snug font-medium break-words focus:outline-none"
+          className="font-display border-primary text-foreground caret-primary -mx-2 -my-1 w-[calc(100%+1rem)] resize-none overflow-hidden border-b bg-transparent px-2 py-1 text-2xl leading-snug font-medium -tracking-[0.03em] break-words focus:outline-none"
         />
       ) : (
         <button
@@ -94,7 +94,7 @@ export function PlaylistHeader({
             setEditingTitle(true);
             setTimeout(() => titleInputRef.current?.select(), 0);
           }}
-          className="group font-display text-foreground hover:bg-secondary/70 -mx-2 -my-1 flex w-full min-w-0 cursor-text items-start gap-1.5 rounded-lg px-2 py-1 text-2xl font-medium transition-colors"
+          className="group font-display text-foreground hover:bg-secondary/70 -mx-2 -my-1 flex w-full min-w-0 cursor-text items-start gap-1.5 rounded-lg px-2 py-1 text-2xl font-medium -tracking-[0.03em] transition-colors"
         >
           <span className="min-w-0 flex-1 leading-snug break-words">
             {formatSessionName(currentSession?.name ?? "")}
