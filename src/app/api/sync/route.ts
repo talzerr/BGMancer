@@ -85,9 +85,6 @@ export async function POST() {
       );
     }
     log.error("handler failed", {}, err);
-    return NextResponse.json(
-      { error: "Sync failed", detail: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Sync failed. Please try again." }, { status: 500 });
   }
 }

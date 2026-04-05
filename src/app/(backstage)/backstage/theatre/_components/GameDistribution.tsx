@@ -41,14 +41,14 @@ export function GameDistribution({
         {distribution.map((g) => (
           <div key={g.gameId} className="space-y-0.5">
             <div className="flex items-baseline justify-between">
-              <span className="text-[11px] text-zinc-300">{g.name}</span>
-              <span className="font-mono text-[10px] text-zinc-500">
+              <span className="text-foreground text-[11px]">{g.name}</span>
+              <span className="font-mono text-[10px] text-[var(--text-tertiary)]">
                 {g.actual}/{g.budget}
               </span>
             </div>
-            <div className="relative h-3 rounded-full bg-zinc-800">
+            <div className="bg-secondary relative h-3 rounded-full">
               <div
-                className="absolute inset-y-0 left-0 rounded-full bg-zinc-700/50"
+                className="absolute inset-y-0 left-0 rounded-full bg-[var(--surface-hover)]/50"
                 style={{ width: `${(g.budget / g.maxVal) * 100}%` }}
               />
               <div

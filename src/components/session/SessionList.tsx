@@ -41,11 +41,11 @@ export function SessionList({ sessions, selectedId, onSelect, onDelete }: Sessio
   return (
     <div className="flex flex-col gap-1.5 border-t border-white/[0.06] pt-4">
       <div className="flex items-center gap-1.5 px-1">
-        <span className="font-display text-[11px] font-semibold tracking-widest text-zinc-400 uppercase">
+        <span className="font-display text-muted-foreground text-[11px] font-medium tracking-widest uppercase">
           Playlist History
         </span>
         {sessions.length > 0 && (
-          <span className="text-[10px] font-medium text-zinc-600 tabular-nums">
+          <span className="text-[10px] font-medium text-[var(--text-disabled)] tabular-nums">
             {sessions.length}/{MAX_PLAYLIST_SESSIONS}
           </span>
         )}
@@ -55,7 +55,7 @@ export function SessionList({ sessions, selectedId, onSelect, onDelete }: Sessio
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 16 16"
             fill="currentColor"
-            className="h-3 w-3 cursor-default text-zinc-700 hover:text-zinc-500"
+            className="h-3 w-3 cursor-default text-[var(--text-disabled)] hover:text-[var(--text-tertiary)]"
           >
             <path
               fillRule="evenodd"
@@ -63,9 +63,9 @@ export function SessionList({ sessions, selectedId, onSelect, onDelete }: Sessio
               clipRule="evenodd"
             />
           </svg>
-          <div className="pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-52 rounded-lg border border-white/[0.08] bg-zinc-900 px-3 py-2 opacity-0 shadow-xl shadow-black/50 transition-opacity group-hover:opacity-100">
-            <p className="text-xs font-medium text-zinc-200">Playlist History</p>
-            <p className="mt-0.5 text-[11px] leading-snug text-zinc-400">
+          <div className="bg-secondary pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-52 rounded-lg border border-[var(--border-emphasis)] px-3 py-2 opacity-0 transition-opacity group-hover:opacity-100">
+            <p className="text-foreground text-xs font-medium">Playlist History</p>
+            <p className="text-muted-foreground mt-0.5 text-[11px] leading-snug">
               Each time you curate or import, a new playlist is saved here so you can switch between
               past runs. Up to {MAX_PLAYLIST_SESSIONS} are kept — the oldest is automatically
               removed when a new one is created.
@@ -75,7 +75,7 @@ export function SessionList({ sessions, selectedId, onSelect, onDelete }: Sessio
       </div>
 
       {sessions.length === 0 ? (
-        <p className="px-1 py-2 text-[11px] text-zinc-600">
+        <p className="px-1 py-2 text-[11px] text-[var(--text-disabled)]">
           No playlists yet — curate or import one to get started.
         </p>
       ) : null}
@@ -95,13 +95,15 @@ export function SessionList({ sessions, selectedId, onSelect, onDelete }: Sessio
                 }
               }}
               className={`session-row-enter group relative flex cursor-pointer items-center gap-2.5 rounded-xl px-2.5 py-2 transition-colors ${
-                isSelected ? "bg-zinc-800/80 ring-1 ring-white/[0.08]" : "hover:bg-zinc-800/50"
+                isSelected
+                  ? "bg-secondary/80 ring-1 ring-[var(--border-emphasis)]"
+                  : "hover:bg-secondary/50"
               }`}
             >
               {/* Selection indicator */}
               <span
                 className={`h-1.5 w-1.5 shrink-0 rounded-full transition-colors ${
-                  isSelected ? "bg-violet-400" : "bg-zinc-700"
+                  isSelected ? "bg-primary" : "bg-[var(--text-disabled)]"
                 }`}
               />
 
@@ -109,14 +111,14 @@ export function SessionList({ sessions, selectedId, onSelect, onDelete }: Sessio
               <div className="min-w-0 flex-1">
                 <p
                   className={`truncate text-xs leading-tight font-medium ${
-                    isSelected ? "text-white" : "text-zinc-400"
+                    isSelected ? "text-foreground" : "text-muted-foreground"
                   }`}
                 >
                   {formatSessionName(session.name)}
                 </p>
-                <p className="mt-0.5 text-[10px] text-zinc-600 tabular-nums">
+                <p className="mt-0.5 text-[10px] text-[var(--text-disabled)] tabular-nums">
                   {session.track_count} track{session.track_count !== 1 ? "s" : ""}
-                  <span className="mx-1 text-zinc-700">·</span>
+                  <span className="mx-1 text-[var(--text-disabled)]">·</span>
                   {formatRelativeDate(session.created_at)}
                 </p>
               </div>
@@ -138,7 +140,7 @@ export function SessionList({ sessions, selectedId, onSelect, onDelete }: Sessio
                   </button>
                   <button
                     onClick={() => setConfirmDeleteId(null)}
-                    className="cursor-pointer rounded px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 hover:bg-zinc-700"
+                    className="cursor-pointer rounded px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-tertiary)] hover:bg-[var(--surface-hover)]"
                   >
                     Cancel
                   </button>
@@ -147,7 +149,7 @@ export function SessionList({ sessions, selectedId, onSelect, onDelete }: Sessio
                 <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                   <button
                     onClick={(e) => handleCopy(e, session.id)}
-                    className="cursor-pointer rounded p-0.5 text-zinc-700 hover:text-zinc-400"
+                    className="hover:text-muted-foreground cursor-pointer rounded p-0.5 text-[var(--text-disabled)]"
                     title="Copy session ID"
                   >
                     {copiedId === session.id ? (
@@ -155,7 +157,7 @@ export function SessionList({ sessions, selectedId, onSelect, onDelete }: Sessio
                         xmlns="http://www.w3.org/2000/svg"
                         viewBox="0 0 16 16"
                         fill="currentColor"
-                        className="h-3 w-3 text-violet-400"
+                        className="text-primary h-3 w-3"
                       >
                         <path
                           fillRule="evenodd"
@@ -183,7 +185,7 @@ export function SessionList({ sessions, selectedId, onSelect, onDelete }: Sessio
                       e.stopPropagation();
                       setConfirmDeleteId(session.id);
                     }}
-                    className="cursor-pointer rounded p-0.5 text-zinc-700 hover:text-red-400"
+                    className="cursor-pointer rounded p-0.5 text-[var(--text-disabled)] hover:text-red-400"
                     title="Delete session"
                   >
                     <svg

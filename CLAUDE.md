@@ -70,7 +70,6 @@ Schema is managed by Drizzle ORM with migrations stored in `drizzle/migrations/`
 | Generate playlist        | Director-only, no persistence  | Full pipeline (Vibe Profiler + Director), persisted |
 | Import YouTube playlist  | Returns tracks, no persistence | Persisted as session                                |
 | Game library             | localStorage-backed            | DB-backed                                           |
-| Favorites                | No                             | DB-backed                                           |
 | Session history          | No                             | DB-backed                                           |
 | Reroll / Sync to YouTube | No                             | Yes                                                 |
 
@@ -86,7 +85,7 @@ When adding a new API route:
 Next.js App Router with three main page areas:
 
 - `/` — main feed (`src/app/(main)/page.tsx` + `src/app/(main)/feed-client.tsx`) — playlist view, generation controls, session history
-- `/catalog` — catalog browser + library drawer (`src/app/(main)/catalog/page.tsx` + `src/app/(main)/catalog/catalog-client.tsx`) — browse published games, add to library with curation modes, favorites (auth only)
+- `/catalog` — catalog browser + library drawer (`src/app/(main)/catalog/page.tsx` + `src/app/(main)/catalog/catalog-client.tsx`) — browse published games, add to library with curation modes
 - `/backstage` — admin control plane (`src/app/(backstage)/backstage/`) — inspect/correct track metadata, review flags, and Director telemetry. Three views:
   - `/backstage/games` — game list with needs-review badges, re-ingest / retag actions
   - `/backstage/tracks` — track lab: full tag table with inline editing via `TrackEditSheet`, bulk actions, re-tag trigger
@@ -113,7 +112,7 @@ Uses **Drizzle ORM** with **Cloudflare D1** as the database driver everywhere (d
 - `index.ts` — `getDB()` returns a D1-backed Drizzle instance via `getCloudflareContext().env.DB`
 - `drizzle-schema.ts` — Drizzle schema definition for all tables, indexes, and foreign keys
 - `repo.ts` — barrel re-export for all repos in `repos/`
-- `repos/` — one file per domain: `games`, `backstage-games`, `users`, `sessions`, `playlist`, `tracks`, `video-tracks`, `review-flags`, `decisions`, `favorites`
+- `repos/` — one file per domain: `games`, `backstage-games`, `users`, `sessions`, `playlist`, `tracks`, `video-tracks`, `review-flags`, `decisions`
 - `mappers.ts` — row → typed object converters (used by repos that query via `sql` tagged template)
 - `queries.ts` — shared Drizzle subquery helpers
 - `test-helpers.ts` — `createTestDrizzleDB()` for in-memory test databases with D1-compat wrapper
@@ -207,8 +206,6 @@ All under `src/app/api/`. Auth levels are defined in `src/lib/route-config.ts`. 
 - `GET /api/sessions` — session list (Optional — guests get `[]`)
 - `PATCH/DELETE /api/sessions/[id]` — session management (Required + ownership)
 - `POST /api/sync` — sync playlist to YouTube account (Required + OAuth access token)
-- `GET /api/favorites` — user's favorited game IDs (Optional — guests get `[]`)
-- `POST /api/favorites` — toggle a game favorite (Required)
 - `GET /api/steam/games` / `GET /api/steam/search` / `POST /api/steam/import` — Steam lookups for game onboarding (Admin)
 
 Backstage API routes (all under `src/app/api/backstage/`, auth level: Admin via wildcard):

@@ -20,7 +20,7 @@ import {
 const mockPlayerContext = {
   playlist: {
     tracks: [] as PlaylistTrack[],
-    tracksLoading: false,
+    isLoading: false,
     generating: false,
     importing: false,
     genProgress: null,
@@ -94,11 +94,11 @@ vi.mock("@/context/player-context", () => ({
   usePlayerContext: () => mockPlayerContext,
 }));
 
-vi.mock("@/hooks/useSessionManager", () => ({
+vi.mock("@/hooks/library/useSessionManager", () => ({
   useSessionManager: () => mockSessionManager,
 }));
 
-vi.mock("@/hooks/useTrackDeleteUndo", () => ({
+vi.mock("@/hooks/player/useTrackDeleteUndo", () => ({
   useTrackDeleteUndo: () => mockTrackDeleteUndo,
 }));
 
@@ -106,30 +106,30 @@ vi.mock("@/components/GenerateSection", () => ({
   GenerateSection: () => <div data-testid="generate-section" />,
 }));
 
-vi.mock("@/components/SessionList", () => ({
+vi.mock("@/components/session/SessionList", () => ({
   SessionList: () => <div data-testid="session-list" />,
   formatSessionName: (name: string) => name,
 }));
 
-vi.mock("@/components/PlaylistHeader", () => ({
+vi.mock("@/components/session/PlaylistHeader", () => ({
   PlaylistHeader: () => <div data-testid="playlist-header" />,
 }));
 
-vi.mock("@/components/LibraryWidget", () => ({
+vi.mock("@/components/library/LibraryWidget", () => ({
   LibraryWidget: () => <div data-testid="library-widget" />,
 }));
 
-vi.mock("@/components/PlaylistEmptyState", () => ({
+vi.mock("@/components/session/PlaylistEmptyState", () => ({
   PlaylistEmptyState: () => <div data-testid="playlist-empty-state" />,
 }));
 
-vi.mock("@/components/SortableTrackItem", () => ({
+vi.mock("@/components/player/SortableTrackItem", () => ({
   SortableTrackItem: ({ track }: { track: PlaylistTrack }) => (
     <div data-testid={`track-${track.id}`}>{track.track_name ?? track.video_title}</div>
   ),
 }));
 
-vi.mock("@/components/UndoToast", () => ({
+vi.mock("@/components/player/UndoToast", () => ({
   UndoToast: () => <div data-testid="undo-toast" />,
 }));
 
@@ -156,7 +156,7 @@ afterEach(() => {
   vi.clearAllMocks();
   // Reset mutable mock state
   mockPlayerContext.playlist.tracks = [];
-  mockPlayerContext.playlist.tracksLoading = false;
+  mockPlayerContext.playlist.isLoading = false;
   mockPlayerContext.playlist.generating = false;
   mockPlayerContext.playlist.importing = false;
   mockPlayerContext.gameLibrary.games = [];
@@ -224,9 +224,9 @@ describe("FeedClient", () => {
 
   describe("when tracks are loading", () => {
     it("should show skeleton loaders instead of tracks or empty state", () => {
-      mockPlayerContext.playlist.tracksLoading = true;
+      mockPlayerContext.playlist.isLoading = true;
       const { container } = renderFeedClient();
-      const skeletons = container.querySelectorAll(".animate-pulse");
+      const skeletons = container.querySelectorAll("[class*='bg-secondary']");
       expect(skeletons.length).toBeGreaterThan(0);
       expect(screen.queryByTestId("playlist-empty-state")).not.toBeInTheDocument();
     });

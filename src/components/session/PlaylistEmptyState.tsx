@@ -22,17 +22,17 @@ export function PlaylistEmptyState({
   onImport,
 }: PlaylistEmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center gap-8 rounded-2xl border border-white/[0.04] bg-zinc-900/30 px-6 py-14 text-center">
+    <div className="border-border bg-secondary/30 flex flex-col items-center justify-center gap-8 rounded-2xl border px-6 py-14 text-center">
       <div className="flex flex-col items-center gap-4">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/[0.06] bg-zinc-800/60">
-          <MusicNoteOutline className="h-7 w-7 text-zinc-500" />
+        <div className="border-border bg-secondary/60 flex h-14 w-14 items-center justify-center rounded-full border">
+          <MusicNoteOutline className="h-7 w-7 text-[var(--text-tertiary)]" />
         </div>
         <div className="flex flex-col gap-2">
-          <h3 className="text-base font-semibold text-zinc-200">No playlist yet</h3>
-          <p className="max-w-xs text-sm leading-relaxed text-zinc-500">
+          <h3 className="text-foreground text-base font-medium">No playlist yet</h3>
+          <p className="max-w-xs text-sm leading-relaxed text-[var(--text-tertiary)]">
             {gamesLength > 0
-              ? "You have games in your library. Hit Curate to generate a playlist shaped to your session."
-              : "Build a library of game soundtracks and the Director will compose a playlist shaped to your session."}
+              ? "Hit Curate to generate a playlist."
+              : "Add games to your library, then curate a playlist."}
           </p>
         </div>
       </div>
@@ -41,14 +41,14 @@ export function PlaylistEmptyState({
         {gamesLength === 0 && (
           <Link
             href="/catalog"
-            className="w-full rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-500 focus:ring-2 focus:ring-violet-500/50 focus:outline-none"
+            className="bg-primary text-primary-foreground focus:ring-ring/50 w-full rounded-lg px-4 py-2.5 text-sm font-medium hover:bg-[var(--primary-hover)] focus:outline-none"
           >
-            Build Your Library
+            Browse catalog
           </Link>
         )}
 
         <div className="w-full">
-          <p className="mb-3 text-xs text-zinc-600">or import a YouTube playlist</p>
+          <p className="mb-3 text-xs text-[var(--text-disabled)]">or import a YouTube playlist</p>
           <form onSubmit={onImport} className="flex flex-col gap-2">
             <input
               type="text"
@@ -56,12 +56,12 @@ export function PlaylistEmptyState({
               onChange={(e) => onImportUrlChange(e.target.value)}
               placeholder="Paste a YouTube playlist URL…"
               disabled={importing}
-              className="w-full rounded-lg border border-white/[0.07] bg-zinc-800/80 px-3.5 py-2 text-sm text-white placeholder-zinc-500 focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/50 focus:outline-none disabled:opacity-50"
+              className="border-border bg-secondary/80 text-foreground focus:border-primary/50 focus:ring-ring/50 w-full rounded-lg border px-3.5 py-2 text-sm placeholder-[var(--text-tertiary)] focus:ring-2 focus:outline-none disabled:opacity-50"
             />
             <button
               type="submit"
               disabled={importing || !importUrl.trim()}
-              className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-white/[0.07] bg-zinc-800 px-4 py-2 text-xs font-medium text-zinc-400 hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="border-border bg-secondary text-muted-foreground flex cursor-pointer items-center justify-center gap-2 rounded-lg border px-4 py-2 text-xs font-medium hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {importing ? (
                 <>

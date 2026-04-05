@@ -97,8 +97,7 @@ export async function POST(request: Request) {
           log.error("generation failed", {}, err);
           send({
             type: "error",
-            message: "Generation failed",
-            detail: err instanceof Error ? err.message : String(err),
+            message: "Playlist generation failed. Please try again.",
           });
         }
       } finally {
@@ -134,8 +133,7 @@ export async function POST(request: Request) {
         log.error("guest generation failed", {}, err);
         send({
           type: "error",
-          message: "Generation failed",
-          detail: err instanceof Error ? err.message : String(err),
+          message: "Playlist generation failed. Please try again.",
         });
       } finally {
         close();

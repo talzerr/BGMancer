@@ -19,7 +19,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
   return (
     <PlayerProvider isSignedIn={!!session?.user}>
       {children}
-      <footer className="border-t border-white/[0.04] py-4 text-center text-[11px] leading-relaxed text-zinc-600">
+      <footer className="border-border border-t py-4 text-center text-[11px] leading-relaxed text-[var(--text-disabled)]">
         <p>
           © 2026 BGMancer™ · Fan-made curation tool · Not affiliated with any developer or publisher
         </p>
@@ -29,7 +29,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
             href="https://www.youtube.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="transition-colors hover:text-zinc-400"
+            className="hover:text-muted-foreground transition-colors"
           >
             YouTube
           </a>{" "}
@@ -40,12 +40,12 @@ export default async function MainLayout({ children }: { children: React.ReactNo
             href="https://github.com/talzerr/bgmancer"
             target="_blank"
             rel="noopener noreferrer"
-            className="transition-colors hover:text-zinc-400"
+            className="hover:text-muted-foreground transition-colors"
           >
             Source Code
           </a>
           <span className="mx-1.5">·</span>
-          <Link href="/legal" className="transition-colors hover:text-zinc-400">
+          <Link href="/legal" className="hover:text-muted-foreground transition-colors">
             Legal
           </Link>
           <span className="mx-1.5">·</span>

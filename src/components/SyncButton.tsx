@@ -92,7 +92,7 @@ export function SyncButton({ isSignedIn, isDev, hasFoundTracks, onSyncComplete }
           <button
             onClick={handleSync}
             disabled={disabled}
-            className="relative flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/[0.06] bg-zinc-800/80 px-2.5 py-1 text-xs font-medium text-zinc-300 hover:bg-zinc-700/80 disabled:cursor-not-allowed disabled:opacity-40"
+            className="bg-secondary/80 text-foreground relative flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/[0.06] px-2.5 py-1 text-xs font-medium hover:bg-[var(--surface-hover)]/80 disabled:cursor-not-allowed disabled:opacity-40"
           />
         }
       >

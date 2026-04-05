@@ -48,7 +48,7 @@ export function GameHeader({
   const thumbnailSrc = game.thumbnail_url;
 
   return (
-    <div className="flex items-start gap-4 rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-4">
+    <div className="border-border bg-secondary/60 flex items-start gap-4 rounded-lg border px-4 py-4">
       <div className="flex min-w-0 flex-1 gap-4">
         {thumbnailSrc && (
           <Image
@@ -74,7 +74,7 @@ export function GameHeader({
 
           <PhaseStepper currentPhase={phase} published={game.published} />
 
-          <div className="flex flex-wrap gap-4 font-mono text-[11px] text-zinc-500">
+          <div className="flex flex-wrap gap-4 font-mono text-[11px] text-[var(--text-tertiary)]">
             <span>{trackCount} tracks</span>
             <span>{activeCount} active</span>
             <span>{taggedCount} tagged</span>
@@ -138,7 +138,7 @@ export function GameHeader({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-7 border-violet-600/40 px-2 text-[10px] text-violet-400 hover:bg-violet-500/10"
+                  className="border-primary/40 text-primary hover:bg-primary/10 h-7 px-2 text-[10px]"
                   onClick={() => onSetActiveModal(BackstageModal.ResolveSelected)}
                   disabled={game.published}
                 >
@@ -149,7 +149,7 @@ export function GameHeader({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-7 border-violet-600/40 px-2 text-[10px] text-violet-400 hover:bg-violet-500/10"
+                  className="border-primary/40 text-primary hover:bg-primary/10 h-7 px-2 text-[10px]"
                   onClick={() => onSetActiveModal(BackstageModal.TagSelected)}
                   disabled={game.published}
                 >
@@ -164,7 +164,7 @@ export function GameHeader({
             open={dangerOpen}
             onOpenChange={setDangerOpen}
             disabled={game.published}
-            buttonClassName="h-7 w-7 border-zinc-700 p-0 text-xs text-zinc-500 hover:text-zinc-300"
+            buttonClassName="h-7 w-7 border-border p-0 text-xs text-[var(--text-tertiary)] hover:text-foreground"
             width="w-52"
           >
             <DropdownItem
@@ -193,12 +193,12 @@ export function GameHeader({
           <TooltipTrigger
             render={
               <button
-                className={`group w-[110px] shrink-0 rounded-lg py-1.5 text-center text-xs font-semibold transition-all ${
+                className={`group w-[110px] shrink-0 rounded-lg py-1.5 text-center text-xs font-medium transition-all ${
                   game.published
                     ? "border border-emerald-600/40 bg-emerald-500/10 text-emerald-400 hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-400"
                     : phase === OnboardingPhase.Tagged
-                      ? "bg-emerald-600 text-white shadow-sm shadow-emerald-500/25 hover:bg-emerald-700"
-                      : "cursor-not-allowed border border-zinc-700 text-zinc-600"
+                      ? "text-foreground bg-emerald-600 shadow-sm hover:bg-emerald-700"
+                      : "border-border cursor-not-allowed border text-[var(--text-disabled)]"
                 }`}
                 disabled={actions.publishing || phase !== OnboardingPhase.Tagged}
                 onClick={actions.togglePublished}

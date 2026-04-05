@@ -40,7 +40,7 @@ export function PrimaryAction({
       return (
         <Button
           size="sm"
-          className="h-7 bg-violet-600 text-xs text-white hover:bg-violet-700"
+          className="bg-primary text-primary-foreground h-7 text-xs hover:bg-[var(--primary-hover)]"
           onClick={onResolve}
         >
           Resolve Videos
@@ -51,7 +51,7 @@ export function PrimaryAction({
         <div className="flex items-center gap-1.5">
           <Button
             size="sm"
-            className="h-7 bg-violet-600 text-xs text-white hover:bg-violet-700"
+            className="bg-primary text-primary-foreground h-7 text-xs hover:bg-[var(--primary-hover)]"
             onClick={onTag}
           >
             Run LLM Tagging
@@ -83,7 +83,7 @@ export function PrimaryAction({
       return (
         <Button
           size="sm"
-          className="h-7 bg-violet-600 text-xs text-white hover:bg-violet-700"
+          className="bg-primary text-primary-foreground h-7 text-xs hover:bg-[var(--primary-hover)]"
           onClick={onRetry}
         >
           Retry: Fetch Tracklist

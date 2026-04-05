@@ -1,11 +1,11 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo } from "react";
-import { usePlaylist } from "@/hooks/usePlaylist";
-import { usePlayerState } from "@/hooks/usePlayerState";
-import { useConfig } from "@/hooks/useConfig";
-import { useGameLibrary } from "@/hooks/useGameLibrary";
-import { PlayerBar } from "@/components/PlayerBar";
+import { usePlaylist } from "@/hooks/player/usePlaylist";
+import { usePlayerState } from "@/hooks/player/usePlayerState";
+import { useConfig } from "@/hooks/config/useConfig";
+import { useGameLibrary } from "@/hooks/library/useGameLibrary";
+import { PlayerBar } from "@/components/player/PlayerBar";
 
 type PlaylistState = ReturnType<typeof usePlaylist>;
 type PlayerState = ReturnType<typeof usePlayerState>;

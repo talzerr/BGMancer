@@ -40,10 +40,10 @@ export function SSEDialog({
 }: SSEDialogProps) {
   return (
     <Dialog open={open} onOpenChange={(v) => !v && !sseRunning && onOpenChange(false)}>
-      <DialogContent className="border-zinc-800 bg-zinc-900" showCloseButton={false}>
+      <DialogContent className="border-border bg-secondary" showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle className="text-zinc-100">{title}</DialogTitle>
-          <DialogDescription className="text-zinc-400">{description}</DialogDescription>
+          <DialogTitle className="text-foreground">{title}</DialogTitle>
+          <DialogDescription className="text-muted-foreground">{description}</DialogDescription>
         </DialogHeader>
         <SSEProgress
           url={url}

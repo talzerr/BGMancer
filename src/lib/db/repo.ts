@@ -7,4 +7,3 @@ export * from "./repos/tracks";
 export * from "./repos/review-flags";
 export * from "./repos/video-tracks";
 export * from "./repos/decisions";
-export * from "./repos/favorites";

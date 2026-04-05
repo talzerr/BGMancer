@@ -99,30 +99,32 @@ export function AddGameDialog({ open, onOpenChange, onCreated }: AddGameDialogPr
         if (!v) reset();
       }}
     >
-      <DialogContent className="border-zinc-800 bg-zinc-900 sm:max-w-md">
+      <DialogContent className="border-border bg-secondary sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-zinc-100">Add Game</DialogTitle>
+          <DialogTitle className="text-foreground">Add Game</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           {/* Steam search */}
           <div className="space-y-1.5">
-            <label className="text-xs text-zinc-400">Search Steam</label>
+            <label className="text-muted-foreground text-xs">Search Steam</label>
             <Input
               value={steamQuery}
               onChange={(e) => handleSteamSearch(e.target.value)}
               placeholder="Type to search Steam..."
-              className="border-zinc-700 bg-zinc-800 text-zinc-100 placeholder:text-zinc-600"
+              className="border-border bg-background text-foreground placeholder:text-[var(--text-disabled)]"
               autoFocus
             />
-            {steamSearching && <p className="text-[11px] text-zinc-500">Searching…</p>}
+            {steamSearching && (
+              <p className="text-[11px] text-[var(--text-tertiary)]">Searching…</p>
+            )}
             {steamResults.length > 0 && (
-              <div className="max-h-48 overflow-y-auto rounded border border-zinc-700 bg-zinc-800/80">
+              <div className="border-border bg-secondary/80 max-h-48 overflow-y-auto rounded border">
                 {steamResults.map((r) => (
                   <button
                     key={r.appid}
                     type="button"
                     onClick={() => selectSteamResult(r)}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-zinc-200 transition-colors hover:bg-zinc-700"
+                    className="text-foreground flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-[var(--surface-hover)]"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -131,7 +133,7 @@ export function AddGameDialog({ open, onOpenChange, onCreated }: AddGameDialogPr
                       className="h-[22px] w-[30px] shrink-0 rounded object-cover"
                     />
                     <span className="min-w-0 truncate">{r.name}</span>
-                    <span className="ml-auto shrink-0 font-mono text-[10px] text-zinc-500">
+                    <span className="ml-auto shrink-0 font-mono text-[10px] text-[var(--text-tertiary)]">
                       {r.appid}
                     </span>
                   </button>
@@ -141,29 +143,29 @@ export function AddGameDialog({ open, onOpenChange, onCreated }: AddGameDialogPr
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="h-px flex-1 bg-zinc-800" />
-            <span className="text-[10px] text-zinc-600">or enter manually</span>
-            <div className="h-px flex-1 bg-zinc-800" />
+            <div className="bg-border h-px flex-1" />
+            <span className="text-[10px] text-[var(--text-disabled)]">or enter manually</span>
+            <div className="bg-border h-px flex-1" />
           </div>
 
           {/* Manual entry */}
           <div className="space-y-1.5">
-            <label className="text-xs text-zinc-400">Title</label>
+            <label className="text-muted-foreground text-xs">Title</label>
             <Input
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               placeholder="e.g. Hollow Knight"
-              className="border-zinc-700 bg-zinc-800 text-zinc-100 placeholder:text-zinc-600"
+              className="border-border bg-background text-foreground placeholder:text-[var(--text-disabled)]"
               onKeyDown={(e) => e.key === "Enter" && handleCreate()}
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs text-zinc-400">Steam App ID (optional)</label>
+            <label className="text-muted-foreground text-xs">Steam App ID (optional)</label>
             <Input
               value={newSteamAppid}
               onChange={(e) => setNewSteamAppid(e.target.value.replace(/\D/g, ""))}
               placeholder="e.g. 367520"
-              className="border-zinc-700 bg-zinc-800 font-mono text-zinc-100 placeholder:text-zinc-600"
+              className="border-border bg-background text-foreground font-mono placeholder:text-[var(--text-disabled)]"
               onKeyDown={(e) => e.key === "Enter" && handleCreate()}
             />
           </div>
@@ -173,7 +175,7 @@ export function AddGameDialog({ open, onOpenChange, onCreated }: AddGameDialogPr
             Cancel
           </Button>
           <Button
-            className="bg-violet-600 text-white hover:bg-violet-500"
+            className="bg-primary text-primary-foreground hover:bg-[var(--primary-hover)]"
             onClick={handleCreate}
             disabled={!newTitle.trim() || creating}
           >

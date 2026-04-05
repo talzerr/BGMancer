@@ -23,7 +23,7 @@ export function EnergyBadge({ energy, showLabel = false }: EnergyBadgeProps) {
     return (
       <Badge
         variant="outline"
-        className="border-zinc-700 bg-zinc-800/50 font-mono text-xs text-zinc-500"
+        className="border-border bg-secondary/50 font-mono text-xs text-[var(--text-tertiary)]"
       >
         —
       </Badge>

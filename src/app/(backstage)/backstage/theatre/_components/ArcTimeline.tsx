@@ -25,14 +25,14 @@ export function ArcTimeline({
 
   return (
     <Section title="Arc Timeline">
-      <div className="flex gap-0.5 overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-950 p-2">
+      <div className="border-border bg-background flex gap-0.5 overflow-x-auto rounded-lg border p-2">
         {phases.map(({ phase, items }) => (
           <div
             key={phase}
-            className={`flex min-w-0 flex-1 flex-col rounded border px-1 py-1.5 ${PHASE_COLORS[phase] ?? "border-zinc-800 bg-zinc-900"}`}
+            className={`flex min-w-0 flex-1 flex-col rounded border px-1 py-1.5 ${PHASE_COLORS[phase] ?? "border-border bg-secondary"}`}
           >
             <span
-              className={`mb-1 text-center text-[9px] font-semibold uppercase ${PHASE_TEXT[phase] ?? "text-zinc-400"}`}
+              className={`mb-1 text-center text-[9px] font-medium uppercase ${PHASE_TEXT[phase] ?? "text-muted-foreground"}`}
             >
               {phase}
             </span>
@@ -41,7 +41,7 @@ export function ArcTimeline({
                 <div
                   key={d.position}
                   title={`#${d.position} ${gameNames[d.gameId] ?? d.gameId.slice(0, 8)} — score: ${d.adjustedScore.toFixed(3)}`}
-                  className="h-4 w-4 rounded-sm border border-zinc-700/50 text-center font-mono text-[8px] leading-4"
+                  className="border-border/50 h-4 w-4 rounded-sm border text-center font-mono text-[8px] leading-4"
                   style={{
                     backgroundColor: `hsl(${gameHue(d.gameId)}, 40%, 25%)`,
                     color: `hsl(${gameHue(d.gameId)}, 50%, 70%)`,
@@ -62,7 +62,7 @@ export function ArcTimeline({
               className="inline-block h-2.5 w-2.5 rounded-sm"
               style={{ backgroundColor: `hsl(${gameHue(gid)}, 40%, 35%)` }}
             />
-            <span className="text-zinc-400">{gameNames[gid] ?? gid.slice(0, 8)}</span>
+            <span className="text-muted-foreground">{gameNames[gid] ?? gid.slice(0, 8)}</span>
           </span>
         ))}
       </div>

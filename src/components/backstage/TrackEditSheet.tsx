@@ -64,8 +64,8 @@ function ToggleChip({
       className={cn(
         "rounded border px-2 py-0.5 font-mono text-[11px] transition-colors",
         active
-          ? "border-violet-500/50 bg-violet-500/20 text-violet-300"
-          : "border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300",
+          ? "border-primary/50 bg-primary/10 text-primary"
+          : "border-border bg-secondary/50 text-muted-foreground hover:text-foreground hover:border-[var(--border-emphasis)]",
       )}
     >
       {label}
@@ -131,16 +131,16 @@ export function TrackEditSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-[400px] overflow-y-auto border-zinc-800 bg-zinc-900 p-0"
+        className="border-border bg-secondary w-[400px] overflow-y-auto p-0"
       >
-        <SheetHeader className="border-b border-zinc-800 px-5 py-4">
+        <SheetHeader className="border-border border-b px-5 py-4">
           <SheetTitle className="sr-only">{track?.name ?? "Edit track"}</SheetTitle>
           <input
             value={trackName}
             onChange={(e) => setTrackName(e.target.value)}
-            className="w-full truncate border-none bg-transparent font-sans text-sm text-zinc-100 outline-none focus:ring-0"
+            className="text-foreground w-full truncate border-none bg-transparent font-sans text-sm outline-none focus:ring-0"
           />
-          <p className="font-mono text-[11px] text-zinc-500">
+          <p className="font-mono text-[11px] text-[var(--text-tertiary)]">
             pos {track?.position ?? "—"} ·{" "}
             {track?.taggedAt ? `tagged ${track.taggedAt.slice(0, 10)}` : "untagged"}
           </p>
@@ -154,16 +154,18 @@ export function TrackEditSheet({
                 id="active"
                 checked={active}
                 onCheckedChange={(v) => setActive(!!v)}
-                className="border-zinc-600"
+                className="border-[var(--border-emphasis)]"
               />
-              <label htmlFor="active" className="cursor-pointer text-xs text-zinc-300">
+              <label htmlFor="active" className="text-foreground cursor-pointer text-xs">
                 Active (included in playlists)
               </label>
             </div>
 
             {/* Energy */}
             <div className="space-y-1.5">
-              <p className="text-[11px] tracking-wider text-zinc-500 uppercase">Energy</p>
+              <p className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
+                Energy
+              </p>
               <div className="flex gap-2">
                 {([1, 2, 3] as const).map((lvl) => (
                   <button
@@ -178,7 +180,7 @@ export function TrackEditSheet({
                           : lvl === 2
                             ? "border-amber-500/50 bg-amber-500/20 text-amber-300"
                             : "border-rose-500/50 bg-rose-500/20 text-rose-300"
-                        : "border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:border-zinc-600",
+                        : "border-border bg-secondary/50 text-muted-foreground hover:border-[var(--border-emphasis)]",
                     )}
                   >
                     {lvl}
@@ -188,7 +190,7 @@ export function TrackEditSheet({
                   <button
                     type="button"
                     onClick={() => setEnergy(null)}
-                    className="text-xs text-zinc-500 hover:text-zinc-300"
+                    className="hover:text-foreground text-xs text-[var(--text-tertiary)]"
                   >
                     clear
                   </button>
@@ -198,16 +200,16 @@ export function TrackEditSheet({
 
             {/* Role */}
             <div className="space-y-1.5">
-              <p className="text-[11px] tracking-wider text-zinc-500 uppercase">
-                Role <span className="text-zinc-600 normal-case">(select 1-2)</span>
+              <p className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
+                Role <span className="text-[var(--text-disabled)] normal-case">(select 1-2)</span>
               </p>
               <Select value={roles[0] ?? ""} onValueChange={(v) => setRoles(v ? [v] : [])}>
-                <SelectTrigger className="border-zinc-700 bg-zinc-800 text-xs text-zinc-200">
+                <SelectTrigger className="border-border bg-secondary text-foreground text-xs">
                   <SelectValue placeholder="Select role…" />
                 </SelectTrigger>
-                <SelectContent className="border-zinc-700 bg-zinc-900">
+                <SelectContent className="border-border bg-secondary">
                   {ROLES.map((r) => (
-                    <SelectItem key={r} value={r} className="text-xs text-zinc-300">
+                    <SelectItem key={r} value={r} className="text-foreground text-xs">
                       {r}
                     </SelectItem>
                   ))}
@@ -217,8 +219,8 @@ export function TrackEditSheet({
 
             {/* Moods */}
             <div className="space-y-1.5">
-              <p className="text-[11px] tracking-wider text-zinc-500 uppercase">
-                Moods <span className="text-zinc-600 normal-case">(up to 3)</span>
+              <p className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
+                Moods <span className="text-[var(--text-disabled)] normal-case">(up to 3)</span>
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {MOODS.map((m) => (
@@ -239,7 +241,7 @@ export function TrackEditSheet({
                     <Badge
                       key={m}
                       variant="outline"
-                      className="border-violet-500/30 bg-violet-500/10 text-[10px] text-violet-300"
+                      className="border-primary/30 bg-primary/10 text-primary text-[10px]"
                     >
                       {m}
                     </Badge>
@@ -250,8 +252,9 @@ export function TrackEditSheet({
 
             {/* Instrumentation */}
             <div className="space-y-1.5">
-              <p className="text-[11px] tracking-wider text-zinc-500 uppercase">
-                Instrumentation <span className="text-zinc-600 normal-case">(up to 3)</span>
+              <p className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
+                Instrumentation{" "}
+                <span className="text-[var(--text-disabled)] normal-case">(up to 3)</span>
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {INSTRUMENTATIONS.map((inst) => (
@@ -271,7 +274,9 @@ export function TrackEditSheet({
 
             {/* Vocals */}
             <div className="space-y-1.5">
-              <p className="text-[11px] tracking-wider text-zinc-500 uppercase">Vocals</p>
+              <p className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
+                Vocals
+              </p>
               <div className="flex gap-2">
                 {[true, false, null].map((v) => (
                   <button
@@ -281,8 +286,8 @@ export function TrackEditSheet({
                     className={cn(
                       "rounded border px-2 py-0.5 text-xs transition-colors",
                       hasVocals === v
-                        ? "border-violet-500/50 bg-violet-500/20 text-violet-300"
-                        : "border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:border-zinc-600",
+                        ? "border-primary/50 bg-primary/10 text-primary"
+                        : "border-border bg-secondary/50 text-muted-foreground hover:border-[var(--border-emphasis)]",
                     )}
                   >
                     {v === null ? "unknown" : v ? "yes" : "no"}
@@ -293,39 +298,43 @@ export function TrackEditSheet({
 
             {/* Video metadata */}
             <div className="space-y-1.5">
-              <p className="text-[11px] tracking-wider text-zinc-500 uppercase">Video</p>
+              <p className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
+                Video
+              </p>
               <div className="space-y-2">
                 <div className="space-y-1">
-                  <label className="text-[10px] text-zinc-500">Video ID</label>
+                  <label className="text-[10px] text-[var(--text-tertiary)]">Video ID</label>
                   <Input
                     value={videoId}
                     onChange={(e) => setVideoId(e.target.value)}
                     placeholder="e.g. dQw4w9WgXcQ"
-                    className="h-7 border-zinc-700 bg-zinc-800 font-mono text-xs text-zinc-200 placeholder:text-zinc-600"
+                    className="border-border bg-secondary text-foreground h-7 font-mono text-xs placeholder:text-[var(--text-disabled)]"
                   />
                 </div>
                 <div className="flex gap-2">
                   <div className="flex-1 space-y-1">
-                    <label className="text-[10px] text-zinc-500">Duration (sec)</label>
+                    <label className="text-[10px] text-[var(--text-tertiary)]">
+                      Duration (sec)
+                    </label>
                     <Input
                       value={durationSeconds}
                       onChange={(e) => setDurationSeconds(e.target.value.replace(/\D/g, ""))}
                       placeholder="180"
-                      className="h-7 border-zinc-700 bg-zinc-800 font-mono text-xs text-zinc-200 placeholder:text-zinc-600"
+                      className="border-border bg-secondary text-foreground h-7 font-mono text-xs placeholder:text-[var(--text-disabled)]"
                     />
                   </div>
                   <div className="flex-1 space-y-1">
-                    <label className="text-[10px] text-zinc-500">View count</label>
+                    <label className="text-[10px] text-[var(--text-tertiary)]">View count</label>
                     <Input
                       value={viewCount}
                       onChange={(e) => setViewCount(e.target.value.replace(/\D/g, ""))}
                       placeholder="1000"
-                      className="h-7 border-zinc-700 bg-zinc-800 font-mono text-xs text-zinc-200 placeholder:text-zinc-600"
+                      className="border-border bg-secondary text-foreground h-7 font-mono text-xs placeholder:text-[var(--text-disabled)]"
                     />
                   </div>
                 </div>
                 {durationSeconds && (
-                  <p className="font-mono text-[10px] text-zinc-600">
+                  <p className="font-mono text-[10px] text-[var(--text-disabled)]">
                     {Math.floor(Number(durationSeconds) / 60)}:
                     {String(Number(durationSeconds) % 60).padStart(2, "0")}
                   </p>
@@ -334,18 +343,18 @@ export function TrackEditSheet({
             </div>
 
             {/* Footer actions */}
-            <div className="flex gap-2 border-t border-zinc-800 pt-4">
+            <div className="border-border flex gap-2 border-t pt-4">
               <Button
                 variant="ghost"
                 size="sm"
-                className="flex-1 text-xs text-zinc-400"
+                className="text-muted-foreground flex-1 text-xs"
                 onClick={() => onOpenChange(false)}
               >
                 Discard
               </Button>
               <Button
                 size="sm"
-                className="flex-1 bg-violet-600 text-xs text-white hover:bg-violet-700"
+                className="bg-primary text-primary-foreground flex-1 text-xs hover:bg-[var(--primary-hover)]"
                 onClick={handleSave}
                 disabled={saving}
               >

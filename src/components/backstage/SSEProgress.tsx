@@ -120,9 +120,9 @@ export function SSEProgress({
 
   return (
     <div className="space-y-3">
-      <Progress value={progress} className="h-1.5 bg-zinc-800" />
+      <Progress value={progress} className="bg-secondary h-1.5" />
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-zinc-400">{message}</p>
+        <p className="text-muted-foreground text-xs">{message}</p>
         {!done ? (
           <Button
             size="sm"
@@ -137,7 +137,7 @@ export function SSEProgress({
           <Button
             size="sm"
             variant="ghost"
-            className="h-6 px-2 text-xs text-zinc-500 hover:text-zinc-300"
+            className="hover:text-foreground h-6 px-2 text-xs text-[var(--text-tertiary)]"
             onClick={onClose}
           >
             Close

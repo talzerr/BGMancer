@@ -30,7 +30,7 @@ export function EditableTitle({
           if (e.key === "Enter") commit({ trimmed: true });
           if (e.key === "Escape") cancel();
         }}
-        className="h-8 border-zinc-700 bg-zinc-800 font-sans text-xl font-semibold text-zinc-100"
+        className="border-border bg-secondary text-foreground h-8 font-sans text-xl font-medium"
       />
     );
   }
@@ -38,8 +38,8 @@ export function EditableTitle({
   return (
     <h1
       onClick={() => !disabled && startEditing()}
-      className={`font-sans text-xl font-semibold text-zinc-100 ${
-        disabled ? "" : "-ml-1 cursor-pointer rounded px-1 hover:bg-zinc-800/60"
+      className={`text-foreground font-sans text-xl font-medium ${
+        disabled ? "" : "hover:bg-secondary/60 -ml-1 cursor-pointer rounded px-1"
       }`}
     >
       {value}

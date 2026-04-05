@@ -3,7 +3,7 @@
 import { forwardRef, useImperativeHandle, useState } from "react";
 import Image from "next/image";
 import type { PlaylistTrack } from "@/types";
-import { useYouTubePlayer } from "@/hooks/useYouTubePlayer";
+import { useYouTubePlayer } from "@/hooks/player/useYouTubePlayer";
 import {
   YouTubeLogo,
   MusicNote,
@@ -92,7 +92,7 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
   if (!currentTrack) return null;
 
   return (
-    <div className="fixed right-0 bottom-0 left-0 z-50 border-t border-violet-500/20 bg-zinc-950/97 shadow-[0_-4px_24px_rgba(0,0,0,0.6)] backdrop-blur-xl">
+    <div className="border-border bg-background/97 fixed right-0 bottom-0 left-0 z-50 border-t backdrop-blur-xl">
       {/* Seek bar — full width, positioned at the very top of the player */}
       <input
         type="range"
@@ -111,9 +111,9 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
         }}
         aria-label="Seek"
         style={{
-          background: `linear-gradient(to right, rgb(139 92 246) 0%, rgb(139 92 246) ${fillPct}%, rgb(39 39 42) ${fillPct}%, rgb(39 39 42) 100%)`,
+          background: `linear-gradient(to right, #D4A04A 0%, #D4A04A ${fillPct}%, #1c1b17 ${fillPct}%, #1c1b17 100%)`,
         }}
-        className="absolute top-0 right-0 left-0 h-1 w-full cursor-pointer appearance-none accent-violet-500 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-violet-400 [&::-webkit-slider-thumb]:opacity-0 hover:[&::-webkit-slider-thumb]:opacity-100"
+        className="[&::-webkit-slider-thumb]:bg-primary absolute top-0 right-0 left-0 h-1 w-full cursor-pointer appearance-none accent-[#D4A04A] [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:opacity-0 hover:[&::-webkit-slider-thumb]:opacity-100"
       />
 
       {/* Hidden YT player div */}
@@ -127,7 +127,7 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
         <button
           onClick={() => setIsMinimized(false)}
           title="Expand player"
-          className="flex w-full items-center justify-center py-1 text-zinc-700 transition-colors hover:text-zinc-400"
+          className="hover:text-muted-foreground flex w-full items-center justify-center py-1 text-[var(--text-disabled)] transition-colors"
         >
           <ChevronUpIcon className="h-3 w-3" />
         </button>
@@ -136,14 +136,14 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
           {/* Track info */}
           <div className="flex min-w-0 items-center gap-3">
             {/* Track counter */}
-            <span className="shrink-0 font-mono text-[10px] text-zinc-600 tabular-nums">
-              <span className="text-zinc-400">{currentIndex + 1}</span>
+            <span className="shrink-0 font-mono text-[10px] text-[var(--text-disabled)] tabular-nums">
+              <span className="text-muted-foreground">{currentIndex + 1}</span>
               <span className="mx-0.5">/</span>
               <span>{tracks.length}</span>
             </span>
 
             {thumbnailSrc ? (
-              <div className="relative h-10 w-14 shrink-0 overflow-hidden rounded-md bg-zinc-800 ring-1 ring-white/10">
+              <div className="bg-secondary relative h-10 w-14 shrink-0 overflow-hidden rounded-md ring-1 ring-white/10">
                 <Image
                   src={thumbnailSrc}
                   alt=""
@@ -155,22 +155,24 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
                 {thumbnailIsYouTube && (
                   <div className="absolute right-0 bottom-0 flex items-center gap-0.5 rounded-tl bg-black/75 px-1 py-0.5">
                     <YouTubeLogo className="h-2 w-2 shrink-0 fill-current text-[#FF0000]" />
-                    <span className="text-[8px] leading-none font-medium tracking-tight text-white">
+                    <span className="text-foreground text-[8px] leading-none font-medium tracking-tight">
                       YouTube
                     </span>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="flex h-10 w-14 shrink-0 items-center justify-center rounded-md bg-zinc-800 ring-1 ring-white/10">
-                <MusicNote className="h-5 w-5 text-zinc-500" />
+              <div className="bg-secondary flex h-10 w-14 shrink-0 items-center justify-center rounded-md ring-1 ring-white/10">
+                <MusicNote className="h-5 w-5 text-[var(--text-tertiary)]" />
               </div>
             )}
             <div className="min-w-0">
-              <p className="truncate text-sm leading-tight font-medium text-white">
+              <p className="text-foreground truncate text-sm leading-tight font-medium">
                 {currentTrack.track_name ?? currentTrack.video_title ?? "Unknown track"}
               </p>
-              <p className="mt-0.5 truncate text-xs text-zinc-500">{currentTrack.game_title}</p>
+              <p className="mt-0.5 truncate text-xs text-[var(--text-tertiary)]">
+                {currentTrack.game_title}
+              </p>
             </div>
           </div>
 
@@ -181,7 +183,7 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
                 onClick={() => canPrev && onIndexChange(currentIndex - 1)}
                 disabled={!canPrev}
                 aria-label="Previous track"
-                className="cursor-pointer rounded-full p-2 text-zinc-500 hover:text-white disabled:cursor-default disabled:opacity-20"
+                className="hover:text-foreground cursor-pointer rounded-full p-2 text-[var(--text-tertiary)] disabled:cursor-default disabled:opacity-20"
               >
                 <PrevTrackIcon />
               </button>
@@ -189,7 +191,7 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
               <button
                 onClick={togglePlayPause}
                 aria-label={isPlaying ? "Pause" : "Play"}
-                className="cursor-pointer rounded-full bg-violet-600 p-2.5 text-white shadow-lg shadow-violet-900/40 hover:bg-violet-500"
+                className="bg-primary text-primary-foreground cursor-pointer rounded-full p-2.5 hover:bg-[var(--primary-hover)]"
               >
                 {isPlaying ? <PauseIcon /> : <PlayIcon />}
               </button>
@@ -198,15 +200,15 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
                 onClick={() => canNext && onIndexChange(currentIndex + 1)}
                 disabled={!canNext}
                 aria-label="Next track"
-                className="cursor-pointer rounded-full p-2 text-zinc-500 hover:text-white disabled:cursor-default disabled:opacity-20"
+                className="hover:text-foreground cursor-pointer rounded-full p-2 text-[var(--text-tertiary)] disabled:cursor-default disabled:opacity-20"
               >
                 <NextTrackIcon />
               </button>
             </div>
 
-            <div className="flex items-center gap-1.5 font-mono text-[11px] text-zinc-500 tabular-nums">
+            <div className="flex items-center gap-1.5 font-mono text-[11px] text-[var(--text-tertiary)] tabular-nums">
               <span>{fmtTime(currentTime)}</span>
-              <span className="text-zinc-700">/</span>
+              <span className="text-[var(--text-disabled)]">/</span>
               <span>{fmtTime(safeDuration)}</span>
             </div>
           </div>
@@ -215,15 +217,15 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
           <div className="flex min-w-0 items-center justify-end gap-2">
             {nextTrack && (
               <div className="hidden max-w-[160px] min-w-0 flex-col items-end lg:flex">
-                <span className="mb-0.5 text-[10px] leading-none tracking-wider text-zinc-600 uppercase">
+                <span className="mb-0.5 text-[10px] leading-none tracking-wider text-[var(--text-disabled)] uppercase">
                   Up Next
                 </span>
                 {nextTrack.game_title && (
-                  <span className="max-w-full truncate text-[10px] leading-tight text-zinc-600">
+                  <span className="max-w-full truncate text-[10px] leading-tight text-[var(--text-disabled)]">
                     {nextTrack.game_title}
                   </span>
                 )}
-                <span className="max-w-full truncate text-[11px] leading-tight text-zinc-400">
+                <span className="text-muted-foreground max-w-full truncate text-[11px] leading-tight">
                   {nextTrack.track_name ?? nextTrack.video_title ?? ""}
                 </span>
               </div>
@@ -237,8 +239,8 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
                 }
                 className={`cursor-pointer rounded-md p-1.5 transition-colors ${
                   shuffleMode
-                    ? "bg-violet-500/15 text-violet-400"
-                    : "text-zinc-500 hover:bg-zinc-800/80 hover:text-zinc-300"
+                    ? "bg-primary/15 text-primary"
+                    : "hover:bg-secondary/80 hover:text-foreground text-[var(--text-tertiary)]"
                 }`}
               >
                 <ShuffleIcon />
@@ -250,8 +252,8 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
               title={dimmed ? "Restore volume" : "Dim to 20%"}
               className={`cursor-pointer rounded-md p-1.5 transition-colors ${
                 dimmed
-                  ? "bg-amber-500/15 text-amber-400"
-                  : "text-zinc-500 hover:bg-zinc-800/80 hover:text-zinc-300"
+                  ? "bg-primary/15 text-primary"
+                  : "hover:bg-secondary/80 hover:text-foreground text-[var(--text-tertiary)]"
               }`}
             >
               {dimmed ? <VolumeMuted /> : <VolumeLow />}
@@ -264,7 +266,7 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
               value={volume}
               onChange={(e) => applyVolume(Number(e.target.value))}
               title={`Volume: ${volume}%`}
-              className="hidden h-1 w-20 cursor-pointer accent-violet-500 sm:block"
+              className="accent-primary hidden h-1 w-20 cursor-pointer sm:block"
             />
 
             <a
@@ -272,7 +274,7 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
               target="_blank"
               rel="noopener noreferrer"
               title="Watch on YouTube"
-              className="flex items-center gap-1 rounded-md border border-white/[0.06] bg-zinc-800/80 px-2 py-1 text-xs font-medium text-zinc-400 hover:bg-zinc-700/80 hover:text-white"
+              className="border-border bg-secondary/80 text-muted-foreground hover:text-foreground flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium hover:bg-[var(--surface-hover)]/80"
             >
               <YouTubeLogo className="h-3 w-3 fill-current text-[#FF0000]" />
               <span className="hidden sm:inline">YouTube</span>
@@ -281,7 +283,7 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
             <button
               onClick={() => setIsMinimized(true)}
               title="Minimize player"
-              className="cursor-pointer rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800/80 hover:text-zinc-200"
+              className="text-muted-foreground hover:bg-secondary/80 hover:text-foreground cursor-pointer rounded-md p-1.5"
             >
               <ChevronDownIcon />
             </button>

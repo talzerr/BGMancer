@@ -94,7 +94,7 @@ export function TrackLabClient() {
     handleFilterChange,
     resetFilters,
     items: tracks,
-    loading,
+    isLoading: loading,
     hasSearched,
     fetchError,
     refetch,
@@ -260,25 +260,25 @@ export function TrackLabClient() {
       {/* Search + filters */}
       <div className="flex items-center gap-2">
         <div className="relative w-52">
-          <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+          <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-tertiary)]" />
           <Input
             placeholder="Search by track name..."
             value={searchValues.name ?? ""}
             onChange={(e) => handleSearchChange("name", e.target.value)}
-            className="h-8 border-zinc-700 bg-zinc-900 pl-8 text-xs text-zinc-200 placeholder:text-zinc-600 focus-visible:ring-violet-500/50"
+            className="border-border bg-secondary text-foreground focus-visible:ring-ring/50 h-8 pl-8 text-xs placeholder:text-[var(--text-disabled)]"
           />
         </div>
         <div className="relative w-44">
-          <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+          <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-tertiary)]" />
           <Input
             placeholder="Filter by game..."
             value={searchValues.gameTitle ?? ""}
             onChange={(e) => handleSearchChange("gameTitle", e.target.value)}
-            className="h-8 border-zinc-700 bg-zinc-900 pl-8 text-xs text-zinc-200 placeholder:text-zinc-600 focus-visible:ring-violet-500/50"
+            className="border-border bg-secondary text-foreground focus-visible:ring-ring/50 h-8 pl-8 text-xs placeholder:text-[var(--text-disabled)]"
           />
         </div>
         {hasSearched && (
-          <span className="ml-auto font-mono text-xs whitespace-nowrap text-zinc-600">
+          <span className="ml-auto font-mono text-xs whitespace-nowrap text-[var(--text-disabled)]">
             {tracks.length} result{tracks.length === 1 ? "" : "s"}
           </span>
         )}
@@ -297,52 +297,52 @@ export function TrackLabClient() {
 
       {/* Results */}
       {tracks.length === 0 && hasSearched ? (
-        <p className="py-10 text-center text-xs text-zinc-600">
+        <p className="py-10 text-center text-xs text-[var(--text-disabled)]">
           No tracks match the current filters.
         </p>
       ) : (
         hasSearched && (
           <div
-            className={`overflow-hidden rounded-lg border border-zinc-800 transition-opacity ${loading ? "opacity-60" : ""}`}
+            className={`border-border overflow-hidden rounded-lg border transition-opacity ${loading ? "opacity-60" : ""}`}
           >
             <Table>
               <TableHeader>
-                <TableRow className="border-zinc-800 hover:bg-transparent">
+                <TableRow className="border-border hover:bg-transparent">
                   <TableHead className="w-8 px-2">
                     <Checkbox
                       checked={allSelected && tracks.length > 0}
                       onCheckedChange={toggleAll}
-                      className="h-3.5 w-3.5 border-zinc-600"
+                      className="h-3.5 w-3.5 border-[var(--border-emphasis)]"
                     />
                   </TableHead>
-                  <TableHead className="text-[11px] tracking-wider text-zinc-500 uppercase">
+                  <TableHead className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                     Game
                   </TableHead>
-                  <TableHead className="w-10 text-[11px] tracking-wider text-zinc-500 uppercase">
+                  <TableHead className="w-10 text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                     #
                   </TableHead>
-                  <TableHead className="w-10 text-[11px] tracking-wider text-zinc-500 uppercase">
+                  <TableHead className="w-10 text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                     On
                   </TableHead>
-                  <TableHead className="text-[11px] tracking-wider text-zinc-500 uppercase">
+                  <TableHead className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                     Name
                   </TableHead>
-                  <TableHead className="w-16 text-[11px] tracking-wider text-zinc-500 uppercase">
+                  <TableHead className="w-16 text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                     Energy
                   </TableHead>
-                  <TableHead className="text-[11px] tracking-wider text-zinc-500 uppercase">
+                  <TableHead className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                     Role
                   </TableHead>
-                  <TableHead className="text-[11px] tracking-wider text-zinc-500 uppercase">
+                  <TableHead className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                     Moods
                   </TableHead>
-                  <TableHead className="text-[11px] tracking-wider text-zinc-500 uppercase">
+                  <TableHead className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                     Instruments
                   </TableHead>
-                  <TableHead className="w-14 text-[11px] tracking-wider text-zinc-500 uppercase">
+                  <TableHead className="w-14 text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                     Vocals
                   </TableHead>
-                  <TableHead className="w-10 text-[11px] tracking-wider text-zinc-500 uppercase">
+                  <TableHead className="w-10 text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                     YT
                   </TableHead>
                 </TableRow>
@@ -354,7 +354,7 @@ export function TrackLabClient() {
                   return (
                     <TableRow
                       key={key}
-                      className={`cursor-pointer border-zinc-800/60 ${isSelected ? "bg-violet-500/5" : "hover:bg-zinc-800/30"}`}
+                      className={`border-border/60 cursor-pointer ${isSelected ? "bg-primary/5" : "hover:bg-secondary/30"}`}
                       onClick={() => setEditTrack(track)}
                     >
                       <TableCell
@@ -364,20 +364,27 @@ export function TrackLabClient() {
                           toggleOne(track);
                         }}
                       >
-                        <Checkbox checked={isSelected} className="h-3.5 w-3.5 border-zinc-600" />
+                        <Checkbox
+                          checked={isSelected}
+                          className="h-3.5 w-3.5 border-[var(--border-emphasis)]"
+                        />
                       </TableCell>
-                      <TableCell className="max-w-[160px] truncate py-2 text-xs text-zinc-400">
+                      <TableCell className="text-muted-foreground max-w-[160px] truncate py-2 text-xs">
                         {track.gameTitle}
                       </TableCell>
-                      <TableCell className="py-2 font-mono text-[11px] text-zinc-500">
+                      <TableCell className="py-2 font-mono text-[11px] text-[var(--text-tertiary)]">
                         {track.position}
                       </TableCell>
                       <TableCell className="py-2 text-center">
-                        <span className={track.active ? "text-emerald-400" : "text-zinc-600"}>
+                        <span
+                          className={
+                            track.active ? "text-emerald-400" : "text-[var(--text-disabled)]"
+                          }
+                        >
                           {track.active ? "●" : "○"}
                         </span>
                       </TableCell>
-                      <TableCell className="py-2 text-sm text-zinc-200">{track.name}</TableCell>
+                      <TableCell className="text-foreground py-2 text-sm">{track.name}</TableCell>
                       <TableCell className="py-2">
                         <EnergyBadge energy={track.energy} />
                       </TableCell>
@@ -390,7 +397,7 @@ export function TrackLabClient() {
                       <TableCell className="py-2">
                         <TagBadgeList tags={track.instrumentation} maxVisible={2} />
                       </TableCell>
-                      <TableCell className="py-2 text-center font-mono text-[11px] text-zinc-500">
+                      <TableCell className="py-2 text-center font-mono text-[11px] text-[var(--text-tertiary)]">
                         {track.hasVocals === null ? "—" : track.hasVocals ? "yes" : "no"}
                       </TableCell>
                       <TableCell className="py-2 text-center" onClick={(e) => e.stopPropagation()}>
@@ -399,13 +406,13 @@ export function TrackLabClient() {
                             href={`https://www.youtube.com/watch?v=${track.videoId}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-zinc-500 transition-colors hover:text-zinc-300"
+                            className="hover:text-foreground text-[var(--text-tertiary)] transition-colors"
                             title="Open on YouTube"
                           >
                             ▶
                           </a>
                         ) : (
-                          <span className="text-zinc-700">—</span>
+                          <span className="text-[var(--text-disabled)]">—</span>
                         )}
                       </TableCell>
                     </TableRow>

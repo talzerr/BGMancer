@@ -11,7 +11,7 @@ afterEach(() => {
 
 import { GenerateSection } from "../GenerateSection";
 import { GameProgressStatus } from "@/types";
-import type { GameProgressEntry } from "@/hooks/usePlaylist";
+import type { GameProgressEntry } from "@/hooks/player/usePlaylist";
 
 // ─── File-level constants ────────────────────────────────────────────────────
 
@@ -45,6 +45,10 @@ function defaultProps() {
     onToggleShortTracks: vi.fn(),
     rawVibes: false,
     onToggleRawVibes: vi.fn(),
+    isSignedIn: true,
+    skipLlm: false,
+    onToggleSkipLlm: vi.fn(),
+    llmCapReached: false,
     importUrl: "",
     onImportUrlChange: vi.fn(),
     importing: false,
@@ -225,10 +229,10 @@ describe("GenerateSection", () => {
       };
       renderWithTimers(props);
       // After timers flush, secsLeft > 0 so the button text changes to a
-      // cooldown quip and the button is disabled. Find it by its violet-600
-      // bg class (the main action button).
+      // cooldown quip and the button is disabled. Find it by its bg-primary
+      // class (the main action button).
       const actionButtons = screen.getAllByRole("button");
-      const generateBtn = actionButtons.find((btn) => btn.className.includes("bg-violet-600"));
+      const generateBtn = actionButtons.find((btn) => btn.className.includes("bg-primary"));
       expect(generateBtn).toBeDefined();
       expect(generateBtn).toBeDisabled();
     });

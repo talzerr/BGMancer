@@ -35,9 +35,10 @@ interface UseFilteredListReturn<T> {
   handleFilterChange: (key: string, value: string) => void;
   resetFilters: () => void;
   items: T[];
-  loading: boolean;
+  isLoading: boolean;
   hasSearched: boolean;
   fetchError: string | null;
+  error: string | null;
   refetch: () => Promise<void>;
 }
 
@@ -126,7 +127,7 @@ export function useFilteredList<T>(config: UseFilteredListConfig<T>): UseFiltere
   );
 
   const [items, setItems] = useState<T[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -144,7 +145,7 @@ export function useFilteredList<T>(config: UseFilteredListConfig<T>): UseFiltere
       const t = overrides?.tab ?? activeTab;
       const f = overrides?.filters ?? activeFilters;
 
-      setLoading(true);
+      setIsLoading(true);
       setFetchError(null);
 
       const params = buildParams(sv, t, f, tabPresets);
@@ -172,7 +173,7 @@ export function useFilteredList<T>(config: UseFilteredListConfig<T>): UseFiltere
         setFetchError("Failed to load data. Try again.");
         setHasSearched(true);
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     },
     [
@@ -252,9 +253,10 @@ export function useFilteredList<T>(config: UseFilteredListConfig<T>): UseFiltere
     handleFilterChange,
     resetFilters,
     items,
-    loading,
+    isLoading,
     hasSearched,
     fetchError,
+    error: fetchError,
     refetch: () => doFetch(),
   };
 }

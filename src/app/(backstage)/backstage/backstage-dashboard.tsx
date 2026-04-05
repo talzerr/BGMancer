@@ -20,9 +20,9 @@ const PHASE_LABELS: Record<string, string> = {
 };
 
 const PHASE_COLORS: Record<string, string> = {
-  [OnboardingPhase.Draft]: "border-zinc-600 text-zinc-400",
+  [OnboardingPhase.Draft]: "border-[var(--border-emphasis)] text-muted-foreground",
   [OnboardingPhase.TracksLoaded]: "border-blue-600/50 text-blue-400",
-  [OnboardingPhase.Resolved]: "border-violet-600/50 text-violet-400",
+  [OnboardingPhase.Resolved]: "border-primary/50 text-primary",
   [OnboardingPhase.Tagged]: "border-emerald-600/50 text-emerald-400",
   [OnboardingPhase.Failed]: "border-rose-600/50 text-rose-400",
 };
@@ -50,7 +50,7 @@ export function BackstageDashboard() {
   const failedCount = stats.find((s) => s.phase === OnboardingPhase.Failed)?.count ?? 0;
 
   if (loading) {
-    return <p className="py-20 text-center text-xs text-zinc-600">Loading…</p>;
+    return <p className="py-20 text-center text-xs text-[var(--text-disabled)]">Loading…</p>;
   }
 
   return (
@@ -80,22 +80,24 @@ export function BackstageDashboard() {
 
       {/* Phase breakdown */}
       <div>
-        <h2 className="mb-3 text-[11px] font-semibold tracking-wider text-zinc-500 uppercase">
+        <h2 className="mb-3 text-[11px] font-medium tracking-wider text-[var(--text-tertiary)] uppercase">
           By Phase
         </h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
           {Object.values(OnboardingPhase).map((phase) => {
             const stat = stats.find((s) => s.phase === phase);
             const count = stat?.count ?? 0;
-            const color = PHASE_COLORS[phase] ?? "border-zinc-700 text-zinc-400";
+            const color = PHASE_COLORS[phase] ?? "border-border text-muted-foreground";
             return (
               <Link
                 key={phase}
                 href={`/backstage/games?phase=${phase}`}
-                className={`rounded-lg border bg-zinc-900/50 px-4 py-3 transition-colors hover:bg-zinc-800/50 ${color}`}
+                className={`bg-secondary/50 hover:bg-secondary/50 rounded-lg border px-4 py-3 transition-colors ${color}`}
               >
-                <p className="text-2xl font-bold tabular-nums">{count}</p>
-                <p className="text-[11px] text-zinc-500">{PHASE_LABELS[phase] ?? phase}</p>
+                <p className="text-2xl font-medium tabular-nums">{count}</p>
+                <p className="text-[11px] text-[var(--text-tertiary)]">
+                  {PHASE_LABELS[phase] ?? phase}
+                </p>
               </Link>
             );
           })}
@@ -119,10 +121,10 @@ function StatCard({
   return (
     <Link
       href={href}
-      className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-4 py-3 transition-colors hover:bg-zinc-800/50"
+      className="border-border bg-secondary/50 hover:bg-secondary/50 rounded-lg border px-4 py-3 transition-colors"
     >
-      <p className={`text-2xl font-bold tabular-nums ${accent ?? "text-zinc-200"}`}>{value}</p>
-      <p className="text-[11px] text-zinc-500">{label}</p>
+      <p className={`text-2xl font-medium tabular-nums ${accent ?? "text-foreground"}`}>{value}</p>
+      <p className="text-[11px] text-[var(--text-tertiary)]">{label}</p>
     </Link>
   );
 }

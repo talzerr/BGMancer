@@ -12,10 +12,14 @@ export function MetadataEditor({
   onSaveField: (field: string, value: string | null) => void;
 }) {
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-3">
+    <div className="border-border bg-secondary/60 rounded-lg border px-4 py-3">
       <div className="mb-3 flex items-center gap-2">
-        <p className="text-[11px] font-semibold tracking-wider text-zinc-500 uppercase">Metadata</p>
-        {game.published && <span className="text-[10px] text-zinc-600">Unpublish to edit</span>}
+        <p className="text-[11px] font-medium tracking-wider text-[var(--text-tertiary)] uppercase">
+          Metadata
+        </p>
+        {game.published && (
+          <span className="text-[10px] text-[var(--text-disabled)]">Unpublish to edit</span>
+        )}
       </div>
       <div className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2">
         <TracklistSourceField

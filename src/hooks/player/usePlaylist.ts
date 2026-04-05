@@ -26,7 +26,7 @@ export type GameProgressEntry = {
 
 export function usePlaylist() {
   const [tracks, setTracks] = useState<PlaylistTrack[]>([]);
-  const [tracksLoading, setTracksLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
@@ -59,13 +59,13 @@ export function usePlaylist() {
       console.error("Failed to fetch playlist:", err);
       setFetchError("Failed to load playlist");
     } finally {
-      setTracksLoading(false);
+      setIsLoading(false);
     }
   }, []);
 
   const loadForSession = useCallback(
     async (id: string) => {
-      setTracksLoading(true);
+      setIsLoading(true);
       await fetchTracks(id);
     },
     [fetchTracks],
@@ -74,7 +74,7 @@ export function usePlaylist() {
   function clearTracks() {
     setTracks([]);
     setCurrentSessionId(null);
-    setTracksLoading(false);
+    setIsLoading(false);
   }
 
   function removeTracksForGame(gameId: string) {
@@ -306,9 +306,11 @@ export function usePlaylist() {
     }
   }
 
+  const error = genError ?? fetchError ?? importError;
+
   return {
     tracks,
-    tracksLoading,
+    isLoading,
     currentSessionId,
     generating,
     genError,
@@ -323,6 +325,7 @@ export function usePlaylist() {
     importError,
     rerollingIds,
     fetchError,
+    error,
     fetchTracks,
     loadForSession,
     clearTracks,

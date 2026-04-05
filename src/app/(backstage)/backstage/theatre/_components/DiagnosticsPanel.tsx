@@ -95,7 +95,7 @@ export function DiagnosticsPanel({
               className={`flex items-start gap-2 rounded px-2 py-1.5 text-xs ${
                 d.severity === "warning"
                   ? "bg-amber-900/10 text-amber-400"
-                  : "bg-zinc-800/30 text-zinc-400"
+                  : "bg-secondary/30 text-muted-foreground"
               }`}
             >
               <span className="shrink-0">{d.severity === "warning" ? "!" : "i"}</span>

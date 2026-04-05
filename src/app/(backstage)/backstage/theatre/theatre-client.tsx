@@ -55,8 +55,8 @@ export function TheatreClient() {
   return (
     <div className="space-y-6">
       {/* Session Picker */}
-      <div className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
-        <h2 className="text-[11px] font-semibold tracking-wider text-zinc-500 uppercase">
+      <div className="border-border bg-secondary/60 space-y-3 rounded-lg border p-4">
+        <h2 className="text-[11px] font-medium tracking-wider text-[var(--text-tertiary)] uppercase">
           Playlist Inspector
         </h2>
         <div className="flex gap-2">
@@ -68,12 +68,12 @@ export function TheatreClient() {
             onKeyDown={(e) =>
               e.key === "Enter" && playlistIdInput.trim() && loadPlaylist(playlistIdInput.trim())
             }
-            className="h-8 flex-1 border-zinc-700 bg-zinc-800 font-mono text-xs text-zinc-200 placeholder:text-zinc-600"
+            className="border-border bg-secondary text-foreground h-8 flex-1 font-mono text-xs placeholder:text-[var(--text-disabled)]"
           />
           <Button
             size="sm"
             variant="outline"
-            className="h-8 border-zinc-700 px-4 text-xs text-zinc-300 hover:text-zinc-100"
+            className="border-border text-foreground hover:text-foreground h-8 px-4 text-xs"
             onClick={() => playlistIdInput.trim() && loadPlaylist(playlistIdInput.trim())}
             disabled={loading || !playlistIdInput.trim()}
           >
@@ -84,7 +84,9 @@ export function TheatreClient() {
 
         {recentSessions && recentSessions.length > 0 && (
           <div className="space-y-1">
-            <p className="text-[10px] tracking-wider text-zinc-600 uppercase">Recent sessions</p>
+            <p className="text-[10px] tracking-wider text-[var(--text-disabled)] uppercase">
+              Recent sessions
+            </p>
             {recentSessions.map((s) => (
               <button
                 key={s.id}
@@ -92,17 +94,19 @@ export function TheatreClient() {
                   setPlaylistIdInput(s.id);
                   loadPlaylist(s.id);
                 }}
-                className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left transition-colors hover:bg-zinc-800/50"
+                className="hover:bg-secondary/50 flex w-full items-center justify-between rounded px-2 py-1.5 text-left transition-colors"
               >
                 <div className="min-w-0">
-                  <span className="block truncate text-xs text-zinc-300">{s.name}</span>
-                  <span className="font-mono text-[10px] text-zinc-600">{s.id.slice(0, 8)}</span>
+                  <span className="text-foreground block truncate text-xs">{s.name}</span>
+                  <span className="font-mono text-[10px] text-[var(--text-disabled)]">
+                    {s.id.slice(0, 8)}
+                  </span>
                 </div>
                 <div className="ml-3 shrink-0 text-right">
-                  <span className="font-mono text-[10px] text-zinc-500">
+                  <span className="font-mono text-[10px] text-[var(--text-tertiary)]">
                     {s.track_count} tracks
                   </span>
-                  <span className="block font-mono text-[10px] text-zinc-600">
+                  <span className="block font-mono text-[10px] text-[var(--text-disabled)]">
                     {s.created_at.slice(0, 10)}
                   </span>
                 </div>
@@ -116,18 +120,20 @@ export function TheatreClient() {
       {telemetry && <PlaylistInspector telemetry={telemetry} />}
 
       {/* Collapsible reference */}
-      <div className="rounded-lg border border-zinc-800">
+      <div className="border-border rounded-lg border">
         <button
           onClick={() => setRefOpen(!refOpen)}
-          className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-zinc-800/30"
+          className="hover:bg-secondary/30 flex w-full items-center justify-between px-4 py-3 text-left transition-colors"
         >
-          <span className="text-[11px] font-semibold tracking-wider text-zinc-500 uppercase">
+          <span className="text-[11px] font-medium tracking-wider text-[var(--text-tertiary)] uppercase">
             Director Reference
           </span>
-          <span className="text-xs text-zinc-600">{refOpen ? "Collapse" : "Expand"}</span>
+          <span className="text-xs text-[var(--text-disabled)]">
+            {refOpen ? "Collapse" : "Expand"}
+          </span>
         </button>
         {refOpen && (
-          <div className="space-y-6 border-t border-zinc-800 px-4 py-4">
+          <div className="border-border space-y-6 border-t px-4 py-4">
             <DirectorReference />
           </div>
         )}
