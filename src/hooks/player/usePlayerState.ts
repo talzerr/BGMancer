@@ -37,7 +37,6 @@ export function usePlayerState() {
     clearPlaybackState();
   }
 
-  /** Restore playback UI without auto-playing — used on page reload */
   function restorePlayback(tracks: PlaylistTrack[], index: number, sessionId: string | null) {
     setPlayingTracks(tracks);
     setPlayingSessionId(sessionId);

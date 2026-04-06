@@ -39,12 +39,7 @@ declare global {
   }
 }
 
-// ─── Module-level singleton ──────────────────────────────────────────────────
-// Only one YouTube player instance can exist at a time. Storing the reference
-// at module scope (rather than in a useRef) guarantees that even if the hook
-// unmounts and remounts, the previous player is destroyed before a new one is
-// created. This prevents the "two tracks playing simultaneously" bug.
-
+// Module-level singleton — only one YT player can exist at a time.
 let singletonPlayer: YTPlayer | null = null;
 
 function destroySingleton() {
@@ -61,11 +56,8 @@ interface UseYouTubePlayerOptions {
   currentIndex: number;
   onIndexChange: (i: number) => void;
   onPlayingChange?: (playing: boolean) => void;
-  /** When true, the player loads the video but does not auto-play (used for restore) */
   startPaused?: boolean;
-  /** Seek to this position (seconds) when the player first loads (used for restore) */
   initialSeekSeconds?: number;
-  /** Called periodically (~5s) with the current playback position while playing */
   onTimeUpdate?: (time: number) => void;
 }
 
@@ -93,13 +85,11 @@ export function useYouTubePlayer({
   const volumeRef = useRef(100);
   const preVolumeRef = useRef(100);
 
-  // Restore refs — consumed once on first player load, then cleared
   const startPausedRef = useRef(!!startPaused);
   const initialSeekSecondsRef = useRef(initialSeekSeconds ?? 0);
   const onTimeUpdateRef = useRef(onTimeUpdate);
   const tickCountRef = useRef(0);
 
-  // Stable refs for YT callbacks
   const currentIndexRef = useRef(currentIndex);
   const tracksRef = useRef(tracks);
   const onIndexChangeRef = useRef(onIndexChange);
@@ -156,7 +146,6 @@ export function useYouTubePlayer({
     setCurrentTime(seconds);
   }
 
-  // Poll elapsed time while playing; call onTimeUpdate every ~5s (20 ticks × 250ms)
   useEffect(() => {
     if (!isPlaying) return;
     tickCountRef.current = 0;
@@ -176,7 +165,6 @@ export function useYouTubePlayer({
     return () => clearInterval(id);
   }, [isPlaying]);
 
-  // Load the YT IFrame API script once
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (window.YT?.Player) {
@@ -193,16 +181,15 @@ export function useYouTubePlayer({
     window.onYouTubeIframeAPIReady = () => setApiReady(true);
   }, []);
 
-  // Create the player once the API is ready
   useEffect(() => {
     if (!apiReady || !playerDivRef.current) return;
     const videoId = tracksRef.current[currentIndexRef.current]?.video_id;
     if (!videoId) return;
 
-    // Destroy any existing player before creating a new one (singleton guarantee)
     destroySingleton();
 
     const paused = startPausedRef.current;
+    startPausedRef.current = false;
     singletonPlayer = new window.YT.Player(playerDivRef.current, {
       videoId,
       width: 1,
@@ -230,34 +217,20 @@ export function useYouTubePlayer({
         },
       },
     });
-    // currentIndexRef and tracksRef are intentionally omitted: the player is
-    // created once on API ready with whatever track is current at that moment.
-    // Adding them would tear down and recreate the player on every track change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiReady]);
 
-  // Load a new video when the track changes
   const currentVideoId = tracks[currentIndex]?.video_id;
   useEffect(() => {
     if (!currentVideoId || !singletonPlayer) return;
-    // On restore, the video was already loaded by the creation effect — skip
-    // the redundant loadVideoById and its auto-play side effect.
-    if (startPausedRef.current) {
-      startPausedRef.current = false;
-      return;
-    }
     singletonPlayer.loadVideoById(currentVideoId);
     singletonPlayer.setVolume(volumeRef.current);
     setCurrentTime(0);
     setDuration(0);
     setPlaying(true);
-    // setPlaying is intentionally omitted: it's a plain function that captures
-    // onPlayingChange from props. Wrapping it in useCallback would couple this
-    // effect's stability to the onPlayingChange prop reference chain.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentVideoId]);
 
-  // Cleanup
   useEffect(() => {
     return () => destroySingleton();
   }, []);

@@ -1,6 +1,14 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { usePlaylist } from "@/hooks/player/usePlaylist";
 import { usePlayerState } from "@/hooks/player/usePlayerState";
 import { useConfig } from "@/hooks/config/useConfig";
@@ -8,8 +16,9 @@ import { useGameLibrary } from "@/hooks/library/useGameLibrary";
 import { PlayerBar } from "@/components/player/PlayerBar";
 import {
   readPlaybackState,
+  readPlaybackTracks,
   savePlaybackState,
-  type SavedPlaybackState,
+  savePlaybackTracks,
 } from "@/hooks/player/playback-state";
 
 type PlaylistState = ReturnType<typeof usePlaylist>;
@@ -51,19 +60,29 @@ export function PlayerProvider({
     handleToggleShuffle,
   } = player;
 
-  // ─── Playback restore ────────────────────────────────────────────────────────
-  const [pendingRestore, setPendingRestore] = useState<SavedPlaybackState | null>(null);
   const [restoredSeekSeconds, setRestoredSeekSeconds] = useState<number | null>(null);
+  const cacheRestoredRef = useRef(false);
 
   const fetchTracks = playlist.fetchTracks;
   const fetchGames = gameLibrary.fetchGames;
   const clearPlayedTracks = player.clearPlayedTracks;
 
-  // Read saved playback state once on mount (signed-in users only)
+  // Hydrate from localStorage cache instantly on mount; server fetch refreshes in background
   useEffect(() => {
-    if (!isSignedIn) return;
+    if (!isSignedIn || cacheRestoredRef.current) return;
+    cacheRestoredRef.current = true;
+
     const saved = readPlaybackState();
-    if (saved) setPendingRestore(saved);
+    const cachedTracks = readPlaybackTracks();
+    if (!saved || !cachedTracks) return;
+
+    const track = cachedTracks[saved.trackIndex];
+    if (!track || track.video_id !== saved.videoId) return;
+
+    playlist.hydrateFromCache(cachedTracks, saved.sessionId);
+    player.restorePlayback(cachedTracks, saved.trackIndex, saved.sessionId);
+    setRestoredSeekSeconds(saved.positionSeconds);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSignedIn]);
 
   useEffect(() => {
@@ -74,36 +93,10 @@ export function PlayerProvider({
     fetchGames();
   }, [fetchGames]);
 
-  // Apply restore once the correct session's tracks have loaded
-  useEffect(() => {
-    if (!pendingRestore || playlist.isLoading) return;
-
-    // If the loaded session doesn't match, load the saved one
-    if (pendingRestore.sessionId !== playlist.currentSessionId) {
-      playlist.loadForSession(pendingRestore.sessionId);
-      return;
-    }
-
-    // Validate the track at the saved index still matches
-    const track = playlist.tracks[pendingRestore.trackIndex];
-    if (track && track.video_id === pendingRestore.videoId) {
-      player.restorePlayback(playlist.tracks, pendingRestore.trackIndex, pendingRestore.sessionId);
-      setRestoredSeekSeconds(pendingRestore.positionSeconds);
-    }
-
-    setPendingRestore(null);
-    // playlist.loadForSession is stable (useCallback). player.restorePlayback is a plain
-    // function that only reads setState closures, so omitting it avoids stale-closure issues
-    // without causing missed updates — the effect re-runs when pendingRestore or isLoading change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingRestore, playlist.isLoading, playlist.currentSessionId, playlist.tracks]);
-
-  // Clear restoredSeekSeconds after PlayerBar has consumed it (one render later)
   useEffect(() => {
     if (restoredSeekSeconds !== null) setRestoredSeekSeconds(null);
   }, [restoredSeekSeconds]);
 
-  // Save playback position periodically (~5s via onTimeUpdate from PlayerBar)
   const handleTimeUpdate = useCallback(
     (time: number) => {
       const idx = player.currentTrackIndex;
@@ -121,7 +114,6 @@ export function PlayerProvider({
     [player.currentTrackIndex, player.playingSessionId, player.effectiveFoundTracks],
   );
 
-  // Save on track change (position 0) to catch rapid skips
   useEffect(() => {
     const idx = player.currentTrackIndex;
     const sessionId = player.playingSessionId;
@@ -129,9 +121,14 @@ export function PlayerProvider({
     const track = player.effectiveFoundTracks[idx];
     if (!track?.video_id) return;
     savePlaybackState({ sessionId, trackIndex: idx, positionSeconds: 0, videoId: track.video_id });
-    // effectiveFoundTracks omitted: save should fire on index change, not playlist mutations
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [player.currentTrackIndex, player.playingSessionId]);
+
+  useEffect(() => {
+    if (playlist.tracks.length > 0 && playlist.currentSessionId) {
+      savePlaybackTracks(playlist.tracks);
+    }
+  }, [playlist.tracks, playlist.currentSessionId]);
 
   // Re-blur all tracks when anti-spoiler is re-enabled
   useEffect(() => {

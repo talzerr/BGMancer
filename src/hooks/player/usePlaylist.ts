@@ -72,6 +72,12 @@ export function usePlaylist() {
     [fetchTracks],
   );
 
+  function hydrateFromCache(cachedTracks: PlaylistTrack[], sessionId: string) {
+    setTracks(cachedTracks);
+    setCurrentSessionId(sessionId);
+    setIsLoading(false);
+  }
+
   function clearTracks() {
     setTracks([]);
     setCurrentSessionId(null);
@@ -331,6 +337,7 @@ export function usePlaylist() {
     error,
     fetchTracks,
     loadForSession,
+    hydrateFromCache,
     clearTracks,
     removeTracksForGame,
     removeTrackLocal,
