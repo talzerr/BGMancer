@@ -106,7 +106,7 @@ Per-phase fields:
 Global fields:
 - penalizedMoods: 2-3 moods that universally clash with these games' aesthetics.
 - allowVocals: true if vocals fit, false if instrumental-only is better, null if no preference.
-- sessionName: a 2-4 word evocative playlist title capturing the mood of this game combination. No exclamation marks, no first-person, no marketing language. Examples: "Soulsborne Descent", "Pixel Nostalgia", "Moonlit Kingdoms", "Neon Underground".
+- sessionName: a 2-4 word evocative playlist title capturing the mood of this game combination. Think album title, not description. No exclamation marks, no first-person, no marketing language. Do not reuse words from these examples — they show the style, not a template. Examples: "Moonlit Kingdoms", "Fading Embers", "Crystalline Drift", "Velvet Circuitry".
 
 ## Example
 

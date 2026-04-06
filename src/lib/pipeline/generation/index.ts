@@ -263,26 +263,19 @@ export async function generatePlaylist(
   if (filteredPools.size > 0 && targetCount > 0) {
     const activeGames = games.filter((g) => filteredPools.has(g.id));
 
-    let profilerResult: ProfilerResult | undefined;
-    if (!config.skip_llm) {
-      // 1. Try cache first — no cap consumption, no LLM call
-      const cached = await findCachedRubric(
+    // 1. Try rubric cache first — no cap consumption, no LLM call
+    let profilerResult: ProfilerResult | undefined =
+      (await findCachedRubric(
         userId,
         activeGames.map((g) => g.id),
-      );
-      if (cached) {
-        profilerResult = cached;
-        send({ type: "progress", message: "Reusing vibe profile from previous session…" });
-      } else {
-        // 2. Cache miss — check AI cap
-        const cap = await acquireLlmGeneration(userId);
-        if (cap) {
-          config.skip_llm = true;
-          send({ type: "llm_cap_reached" });
-        } else {
-          // 3. Cap OK — run the profiler
-          profilerResult = await profileVibe(activeGames, filteredPools, send);
-        }
+      )) ?? undefined;
+
+    // 2. Cache miss — check daily LLM cap. If under, run the profiler.
+    //    If over, the Director silently uses the default arc template.
+    if (!profilerResult) {
+      const capExceeded = await acquireLlmGeneration(userId);
+      if (!capExceeded) {
+        profilerResult = await profileVibe(activeGames, filteredPools, send);
       }
     }
 

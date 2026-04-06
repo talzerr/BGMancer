@@ -26,9 +26,6 @@ interface GenerateSectionProps {
   rawVibes: boolean;
   onToggleRawVibes: (enabled: boolean) => void;
   isSignedIn: boolean;
-  skipLlm: boolean;
-  onToggleSkipLlm: (enabled: boolean) => void;
-  llmCapReached: boolean;
   // Import-related props
   importUrl: string;
   onImportUrlChange: (url: string) => void;
@@ -55,9 +52,6 @@ export function GenerateSection({
   rawVibes,
   onToggleRawVibes,
   isSignedIn,
-  skipLlm,
-  onToggleSkipLlm,
-  llmCapReached,
   importUrl,
   onImportUrlChange,
   importing,
@@ -163,9 +157,6 @@ export function GenerateSection({
               rawVibes={rawVibes}
               onToggleRawVibes={onToggleRawVibes}
               isSignedIn={isSignedIn}
-              skipLlm={skipLlm}
-              onToggleSkipLlm={onToggleSkipLlm}
-              llmCapReached={llmCapReached}
               secsLeft={secsLeft}
               quip={quip}
               onSwitchToImport={() => setMode("import")}

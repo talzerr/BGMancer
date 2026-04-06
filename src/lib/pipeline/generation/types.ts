@@ -14,8 +14,7 @@ export type GenerateEvent =
       tracks: PlaylistTrack[];
       count: number;
     }
-  | { type: "error"; message: string; detail?: string }
-  | { type: "llm_cap_reached" };
+  | { type: "error"; message: string; detail?: string };
 
 export type PendingTrack = Omit<
   PlaylistTrack,
