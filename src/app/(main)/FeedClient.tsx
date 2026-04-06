@@ -134,7 +134,6 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
           <GenerateSection
             generating={playlist.generating}
             genProgress={playlist.genProgress}
-            genGlobalMsg={playlist.genGlobalMsg}
             genError={playlist.genError}
             cooldownUntil={playlist.cooldownUntil}
             targetTrackCount={config.targetTrackCount}

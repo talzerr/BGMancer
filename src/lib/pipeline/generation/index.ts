@@ -44,7 +44,6 @@ async function gatherCandidates(games: Game[], send: Send): Promise<Map<string, 
         gameId: game.id,
         title: game.title,
         status: GameProgressStatus.Error,
-        message: err instanceof Error ? err.message : "Failed",
       });
     }
   }
@@ -77,10 +76,8 @@ function filterByDuration(
 async function profileVibe(
   activeGames: Game[],
   taggedPools: Map<string, TaggedTrack[]>,
-  send: Send,
 ): Promise<ProfilerResult | undefined> {
   try {
-    send({ type: "progress", message: "Generating vibe profile…" });
     const gameProfiles = buildGameProfiles(activeGames, taggedPools);
     const result = await generateRubric({ gameProfiles }, getVibeProfilerProvider());
     return result ?? undefined;
@@ -197,7 +194,6 @@ export async function generatePlaylistForGuest(
 
   if (filteredPools.size > 0 && targetCount > 0) {
     const activeGames = games.filter((g) => filteredPools.has(g.id));
-    send({ type: "progress", message: "Assembling playlist arc…" });
     const directorResult = runDirector(filteredPools, activeGames, targetCount, undefined, false);
     tracks = directorResult.pendingTracks;
   }
@@ -275,11 +271,10 @@ export async function generatePlaylist(
     if (!profilerResult) {
       const capExceeded = await acquireLlmGeneration(userId);
       if (!capExceeded) {
-        profilerResult = await profileVibe(activeGames, filteredPools, send);
+        profilerResult = await profileVibe(activeGames, filteredPools);
       }
     }
 
-    send({ type: "progress", message: "Assembling playlist arc…" });
     const directorResult = runDirector(
       filteredPools,
       activeGames,
@@ -300,7 +295,6 @@ export async function generatePlaylist(
   // only keep decisions for positions that survived the cut.
   const slicedDecisions = decisions.filter((d) => d.position < allTracks.length);
 
-  send({ type: "progress", message: "Saving playlist…" });
   const { session, inserted } = await persistSession(
     userId,
     allTracks,

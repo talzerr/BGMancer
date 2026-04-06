@@ -11,7 +11,6 @@ import { ImportSection } from "@/components/ImportSection";
 interface GenerateSectionProps {
   generating: boolean;
   genProgress: GameProgressEntry[];
-  genGlobalMsg: string;
   genError: string | null;
   cooldownUntil: number;
   targetTrackCount: number;
@@ -37,7 +36,6 @@ interface GenerateSectionProps {
 export function GenerateSection({
   generating,
   genProgress,
-  genGlobalMsg,
   genError,
   cooldownUntil,
   targetTrackCount,
@@ -93,7 +91,7 @@ export function GenerateSection({
                     {entry.status === GameProgressStatus.Active ? (
                       <Spinner className="text-primary h-3 w-3" />
                     ) : entry.status === GameProgressStatus.Done ? (
-                      <CheckIcon className="h-3 w-3 text-emerald-400" />
+                      <CheckIcon className="text-primary h-3 w-3" />
                     ) : entry.status === GameProgressStatus.Error ? (
                       <XIcon className="h-3 w-3 text-red-400" />
                     ) : (
@@ -114,19 +112,10 @@ export function GenerateSection({
                     >
                       {entry.title}
                     </span>
-                    {entry.status !== GameProgressStatus.Waiting && entry.message && (
-                      <span className="ml-1.5 text-[11px] text-[var(--text-tertiary)]">
-                        {entry.message}
-                      </span>
-                    )}
                   </div>
                 </div>
               ))}
             </div>
-
-            {genGlobalMsg && (
-              <p className="text-[11px] text-[var(--text-tertiary)]">{genGlobalMsg}</p>
-            )}
           </div>
         </div>
       </div>

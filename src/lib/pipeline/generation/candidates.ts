@@ -50,7 +50,6 @@ export async function fetchGameCandidates(game: Game, send: Send): Promise<Tagge
     gameId: game.id,
     title: game.title,
     status: GameProgressStatus.Active,
-    message: "Loading tracks…",
   });
 
   const tracks = await getTaggedPool(game.id, game.title);
@@ -60,7 +59,6 @@ export async function fetchGameCandidates(game: Game, send: Send): Promise<Tagge
     gameId: game.id,
     title: game.title,
     status: GameProgressStatus.Done,
-    message: tracks.length > 0 ? `${tracks.length} tracks ready` : "No active tagged tracks",
   });
 
   return tracks;

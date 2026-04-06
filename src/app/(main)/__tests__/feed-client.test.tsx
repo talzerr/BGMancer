@@ -24,7 +24,6 @@ const mockPlayerContext = {
     generating: false,
     importing: false,
     genProgress: null,
-    genGlobalMsg: null,
     genError: null,
     importUrl: "",
     importError: null,

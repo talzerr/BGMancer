@@ -3,10 +3,9 @@ import type { PlaylistTrack, GameProgressStatus } from "@/types";
 export type GenerateEvent =
   | {
       type: "progress";
-      gameId?: string;
-      title?: string;
-      status?: GameProgressStatus;
-      message: string;
+      gameId: string;
+      title: string;
+      status: GameProgressStatus;
     }
   | {
       type: "done";
