@@ -37,6 +37,9 @@ interface PlayerBarProps {
   shuffleMode?: boolean;
   onToggleShuffle?: () => void;
   gameThumbnailByGameId?: Map<string, string>;
+  startPaused?: boolean;
+  initialSeekSeconds?: number;
+  onTimeUpdate?: (time: number) => void;
 }
 
 export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function PlayerBar(
@@ -48,6 +51,9 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
     shuffleMode = false,
     onToggleShuffle,
     gameThumbnailByGameId,
+    startPaused,
+    initialSeekSeconds,
+    onTimeUpdate,
   },
   ref,
 ) {
@@ -62,7 +68,15 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
     seekTo,
     applyVolume,
     toggleDim,
-  } = useYouTubePlayer({ tracks, currentIndex, onIndexChange, onPlayingChange });
+  } = useYouTubePlayer({
+    tracks,
+    currentIndex,
+    onIndexChange,
+    onPlayingChange,
+    startPaused,
+    initialSeekSeconds,
+    onTimeUpdate,
+  });
 
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekingValue, setSeekingValue] = useState(0);

@@ -39,6 +39,21 @@ declare global {
   }
 }
 
+// ─── Module-level singleton ──────────────────────────────────────────────────
+// Only one YouTube player instance can exist at a time. Storing the reference
+// at module scope (rather than in a useRef) guarantees that even if the hook
+// unmounts and remounts, the previous player is destroyed before a new one is
+// created. This prevents the "two tracks playing simultaneously" bug.
+
+let singletonPlayer: YTPlayer | null = null;
+
+function destroySingleton() {
+  if (singletonPlayer) {
+    singletonPlayer.destroy();
+    singletonPlayer = null;
+  }
+}
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 interface UseYouTubePlayerOptions {
@@ -46,6 +61,12 @@ interface UseYouTubePlayerOptions {
   currentIndex: number;
   onIndexChange: (i: number) => void;
   onPlayingChange?: (playing: boolean) => void;
+  /** When true, the player loads the video but does not auto-play (used for restore) */
+  startPaused?: boolean;
+  /** Seek to this position (seconds) when the player first loads (used for restore) */
+  initialSeekSeconds?: number;
+  /** Called periodically (~5s) with the current playback position while playing */
+  onTimeUpdate?: (time: number) => void;
 }
 
 export function useYouTubePlayer({
@@ -53,9 +74,11 @@ export function useYouTubePlayer({
   currentIndex,
   onIndexChange,
   onPlayingChange,
+  startPaused,
+  initialSeekSeconds,
+  onTimeUpdate,
 }: UseYouTubePlayerOptions) {
   const playerDivRef = useRef<HTMLDivElement>(null);
-  const playerRef = useRef<YTPlayer | null>(null);
   const [apiReady, setApiReady] = useState(false);
   const [isPlaying, setIsPlayingState] = useState(false);
   const isPlayingRef = useRef(false);
@@ -69,6 +92,12 @@ export function useYouTubePlayer({
   const [dimmed, setDimmed] = useState(false);
   const volumeRef = useRef(100);
   const preVolumeRef = useRef(100);
+
+  // Restore refs — consumed once on first player load, then cleared
+  const startPausedRef = useRef(!!startPaused);
+  const initialSeekSecondsRef = useRef(initialSeekSeconds ?? 0);
+  const onTimeUpdateRef = useRef(onTimeUpdate);
+  const tickCountRef = useRef(0);
 
   // Stable refs for YT callbacks
   const currentIndexRef = useRef(currentIndex);
@@ -84,6 +113,9 @@ export function useYouTubePlayer({
   useEffect(() => {
     onIndexChangeRef.current = onIndexChange;
   }, [onIndexChange]);
+  useEffect(() => {
+    onTimeUpdateRef.current = onTimeUpdate;
+  }, [onTimeUpdate]);
 
   function setPlaying(value: boolean) {
     setIsPlayingState(value);
@@ -94,7 +126,7 @@ export function useYouTubePlayer({
   function applyVolume(v: number) {
     volumeRef.current = v;
     setVolumeState(v);
-    playerRef.current?.setVolume(v);
+    singletonPlayer?.setVolume(v);
   }
 
   function toggleDim() {
@@ -109,30 +141,36 @@ export function useYouTubePlayer({
   }
 
   function togglePlayPause() {
-    if (!playerRef.current) return;
+    if (!singletonPlayer) return;
     if (isPlayingRef.current) {
-      playerRef.current.pauseVideo();
+      singletonPlayer.pauseVideo();
       setPlaying(false);
     } else {
-      playerRef.current.playVideo();
+      singletonPlayer.playVideo();
       setPlaying(true);
     }
   }
 
   function seekTo(seconds: number) {
-    playerRef.current?.seekTo(seconds, true);
+    singletonPlayer?.seekTo(seconds, true);
     setCurrentTime(seconds);
   }
 
-  // Poll elapsed time while playing
+  // Poll elapsed time while playing; call onTimeUpdate every ~5s (20 ticks × 250ms)
   useEffect(() => {
     if (!isPlaying) return;
+    tickCountRef.current = 0;
     const id = setInterval(() => {
-      if (playerRef.current) {
-        const ct = playerRef.current.getCurrentTime();
-        const dur = playerRef.current.getDuration();
+      if (singletonPlayer) {
+        const ct = singletonPlayer.getCurrentTime();
+        const dur = singletonPlayer.getDuration();
         if (isFinite(ct)) setCurrentTime(ct);
         if (isFinite(dur) && dur > 0) setDuration(dur);
+        tickCountRef.current += 1;
+        if (tickCountRef.current >= 20) {
+          tickCountRef.current = 0;
+          if (isFinite(ct)) onTimeUpdateRef.current?.(ct);
+        }
       }
     }, 250);
     return () => clearInterval(id);
@@ -157,20 +195,31 @@ export function useYouTubePlayer({
 
   // Create the player once the API is ready
   useEffect(() => {
-    if (!apiReady || !playerDivRef.current || playerRef.current) return;
+    if (!apiReady || !playerDivRef.current) return;
     const videoId = tracksRef.current[currentIndexRef.current]?.video_id;
     if (!videoId) return;
 
-    playerRef.current = new window.YT.Player(playerDivRef.current, {
+    // Destroy any existing player before creating a new one (singleton guarantee)
+    destroySingleton();
+
+    const paused = startPausedRef.current;
+    singletonPlayer = new window.YT.Player(playerDivRef.current, {
       videoId,
       width: 1,
       height: 1,
-      playerVars: { autoplay: 1, controls: 0 },
+      playerVars: { autoplay: paused ? 0 : 1, controls: 0 },
       events: {
         onReady: () => {
-          playerRef.current?.setVolume(volumeRef.current);
-          playerRef.current?.playVideo();
-          setPlaying(true);
+          singletonPlayer?.setVolume(volumeRef.current);
+          if (initialSeekSecondsRef.current > 0) {
+            singletonPlayer?.seekTo(initialSeekSecondsRef.current, true);
+            setCurrentTime(initialSeekSecondsRef.current);
+            initialSeekSecondsRef.current = 0;
+          }
+          if (!paused) {
+            singletonPlayer?.playVideo();
+            setPlaying(true);
+          }
         },
         onStateChange: (e) => {
           setPlaying(e.data === 1);
@@ -190,9 +239,15 @@ export function useYouTubePlayer({
   // Load a new video when the track changes
   const currentVideoId = tracks[currentIndex]?.video_id;
   useEffect(() => {
-    if (!currentVideoId || !playerRef.current) return;
-    playerRef.current.loadVideoById(currentVideoId);
-    playerRef.current.setVolume(volumeRef.current);
+    if (!currentVideoId || !singletonPlayer) return;
+    // On restore, the video was already loaded by the creation effect — skip
+    // the redundant loadVideoById and its auto-play side effect.
+    if (startPausedRef.current) {
+      startPausedRef.current = false;
+      return;
+    }
+    singletonPlayer.loadVideoById(currentVideoId);
+    singletonPlayer.setVolume(volumeRef.current);
     setCurrentTime(0);
     setDuration(0);
     setPlaying(true);
@@ -204,10 +259,7 @@ export function useYouTubePlayer({
 
   // Cleanup
   useEffect(() => {
-    return () => {
-      playerRef.current?.destroy();
-      playerRef.current = null;
-    };
+    return () => destroySingleton();
   }, []);
 
   return {

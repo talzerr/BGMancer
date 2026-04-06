@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import type { PlaylistTrack } from "@/types";
 import type { PlayerBarHandle } from "@/components/player/PlayerBar";
+import { clearPlaybackState } from "@/hooks/player/playback-state";
 
 export function usePlayerState() {
   const [currentTrackIndex, setCurrentTrackIndex] = useState<number | null>(null);
@@ -33,6 +34,17 @@ export function usePlayerState() {
     setPlayedTrackIds(new Set());
     setPlayingTracks([]);
     setPlayingSessionId(null);
+    clearPlaybackState();
+  }
+
+  /** Restore playback UI without auto-playing — used on page reload */
+  function restorePlayback(tracks: PlaylistTrack[], index: number, sessionId: string | null) {
+    setPlayingTracks(tracks);
+    setPlayingSessionId(sessionId);
+    setCurrentTrackIndex(index);
+    setShuffleMode(false);
+    setShuffleOrder([]);
+    setPlayedTrackIds(new Set());
   }
 
   const clearPlayedTracks = useCallback(() => {
@@ -101,6 +113,7 @@ export function usePlayerState() {
     playerBarRef,
     reset,
     startPlaying,
+    restorePlayback,
     clearPlayedTracks,
     effectiveFoundTracks,
     playingTrackId,

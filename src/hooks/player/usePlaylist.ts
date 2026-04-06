@@ -5,6 +5,7 @@ import type { SyntheticEvent } from "react";
 import { GameProgressStatus } from "@/types";
 import type { Game, PlaylistTrack } from "@/types";
 import { GENERATION_COOLDOWN_MS } from "@/lib/constants";
+import { clearPlaybackState } from "@/hooks/player/playback-state";
 
 export interface GenerateConfig {
   target_track_count: number;
@@ -75,6 +76,7 @@ export function usePlaylist() {
     setTracks([]);
     setCurrentSessionId(null);
     setIsLoading(false);
+    clearPlaybackState();
   }
 
   function removeTracksForGame(gameId: string) {
@@ -261,6 +263,7 @@ export function usePlaylist() {
     try {
       await fetch("/api/playlist", { method: "DELETE" });
       setTracks([]);
+      clearPlaybackState();
     } catch (err) {
       console.error("Failed to clear playlist:", err);
       setFetchError("Failed to clear playlist");
