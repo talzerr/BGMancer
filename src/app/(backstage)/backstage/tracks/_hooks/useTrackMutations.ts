@@ -36,7 +36,7 @@ export function useTrackMutations({
         await refetch();
         router.refresh();
       } catch (err) {
-        console.error("[TrackLabClient] patchTracks failed:", err);
+        console.error("[useTrackMutations] patchTracks failed:", err);
         setMutError("Failed to save changes. Please try again.");
       }
     },
@@ -82,7 +82,7 @@ export function useTrackMutations({
       }
       router.refresh();
     } catch (err) {
-      console.error("[TrackLabClient] bulkMarkReviewed failed:", err);
+      console.error("[useTrackMutations] bulkMarkReviewed failed:", err);
       setMutError("Failed to clear review flags. Please try again.");
     }
   }
@@ -102,7 +102,7 @@ export function useTrackMutations({
       await refetch();
       router.refresh();
     } catch (err) {
-      console.error("[TrackLabClient] bulkDelete failed:", err);
+      console.error("[useTrackMutations] bulkDelete failed:", err);
       setMutError("Failed to delete tracks. Please try again.");
       setDeleteModalOpen(false);
     }
@@ -124,7 +124,7 @@ export function useTrackMutations({
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       await refetch();
     } catch (err) {
-      console.error("[TrackLabClient] handleTrackSave failed:", err);
+      console.error("[useTrackMutations] handleTrackSave failed:", err);
       setMutError("Failed to save track. Please try again.");
     }
   }

@@ -113,6 +113,7 @@ export function GamesClient() {
     toggleSelect,
     toggleSelectAll,
     handleBulkPublish,
+    error: selectionError,
   } = useGameSelection({ games, refetch });
 
   // ─── Derived state ───────────────────────────────────────────────────────
@@ -173,6 +174,7 @@ export function GamesClient() {
       />
 
       {fetchError && <p className="text-xs text-rose-400">{fetchError}</p>}
+      {selectionError && <p className="text-xs text-rose-400">{selectionError}</p>}
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (

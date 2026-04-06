@@ -11,9 +11,6 @@ export function trackKey(t: { gameId: string; name: string }): TrackKey {
 
 export function useTrackSelection(tracks: BackstageTrackRow[]) {
   const [selected, setSelected] = useState<Set<TrackKey>>(new Set());
-  const [editTrack, setEditTrack] = useState<BackstageTrackRow | null>(null);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [mutError, setMutError] = useState<string | null>(null);
 
   const allSelected = tracks.length > 0 && tracks.every((t) => selected.has(trackKey(t)));
 
@@ -38,12 +35,6 @@ export function useTrackSelection(tracks: BackstageTrackRow[]) {
   return {
     selected,
     setSelected,
-    editTrack,
-    setEditTrack,
-    deleteModalOpen,
-    setDeleteModalOpen,
-    mutError,
-    setMutError,
     allSelected,
     toggleAll,
     toggleOne,

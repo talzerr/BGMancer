@@ -11,6 +11,7 @@ interface UseGameSelectionOptions {
 export function useGameSelection({ games, refetch }: UseGameSelectionOptions) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkPublishing, setBulkPublishing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
@@ -31,6 +32,7 @@ export function useGameSelection({ games, refetch }: UseGameSelectionOptions) {
 
   async function handleBulkPublish(published: boolean) {
     if (selectedIds.size === 0) return;
+    setError(null);
     setBulkPublishing(true);
     try {
       const res = await fetch("/api/backstage/bulk-publish", {
@@ -41,8 +43,8 @@ export function useGameSelection({ games, refetch }: UseGameSelectionOptions) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setSelectedIds(new Set());
       await refetch();
-    } catch (err) {
-      console.error("[GamesClient] bulk publish failed:", err);
+    } catch {
+      setError("Failed to update published status. Please try again.");
     } finally {
       setBulkPublishing(false);
     }
@@ -55,5 +57,6 @@ export function useGameSelection({ games, refetch }: UseGameSelectionOptions) {
     toggleSelect,
     toggleSelectAll,
     handleBulkPublish,
+    error,
   };
 }

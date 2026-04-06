@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Table,
@@ -100,24 +100,15 @@ export function TrackLabClient() {
     initialOverrides: initialGameId ? { gameId: initialGameId } : undefined,
   });
 
-  const selection = useTrackSelection(tracks);
-  const {
-    selected,
-    setSelected,
-    editTrack,
-    setEditTrack,
-    deleteModalOpen,
-    setDeleteModalOpen,
-    mutError,
-    allSelected,
-    toggleAll,
-    toggleOne,
-  } = selection;
+  const { selected, setSelected, allSelected, toggleAll, toggleOne } = useTrackSelection(tracks);
+  const [editTrack, setEditTrack] = useState<BackstageTrackRow | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [mutError, setMutError] = useState<string | null>(null);
 
   const mutations = useTrackMutations({
     tracks,
     selected,
-    setMutError: selection.setMutError,
+    setMutError,
     setDeleteModalOpen,
     refetch,
     router,
