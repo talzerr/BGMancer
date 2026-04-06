@@ -245,7 +245,7 @@ export interface TrackDecision {
 export interface DirectorResult {
   tracks: TaggedTrack[];
   decisions: TrackDecision[];
-  rubric?: ScoringRubric;
+  rubric?: VibeRubric;
   gameBudgets: Record<string, number>;
 }
 
@@ -303,12 +303,14 @@ export interface ResolvedTrack {
   hasVocals: boolean | null;
 }
 
-export interface ScoringRubric {
-  targetEnergy: Array<1 | 2 | 3>;
+export interface PhaseOverride {
   preferredMoods: TrackMood[];
-  penalizedMoods: TrackMood[];
   preferredInstrumentation: TrackInstrumentation[];
-  penalizedInstrumentation: TrackInstrumentation[];
-  allowVocals: boolean | null;
   preferredRoles: TrackRole[];
+}
+
+export interface VibeRubric {
+  phases: Partial<Record<ArcPhase, PhaseOverride>>;
+  penalizedMoods: TrackMood[];
+  allowVocals: boolean | null;
 }

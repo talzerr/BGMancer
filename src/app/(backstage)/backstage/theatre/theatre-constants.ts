@@ -1,4 +1,4 @@
-import type { PlaylistTrack, TrackDecision, ScoringRubric, PlaylistSession } from "@/types";
+import type { PlaylistTrack, TrackDecision, VibeRubric, PlaylistSession } from "@/types";
 import { ArcPhase, SelectionPass } from "@/types";
 import {
   SCORE_WEIGHT_ROLE,
@@ -21,7 +21,7 @@ export interface PlaylistTelemetry {
   tracks: PlaylistTrack[];
   decisions: TrackDecision[];
   gameBudgets: Record<string, number> | null;
-  rubric: ScoringRubric | null;
+  rubric: VibeRubric | null;
 }
 
 // ─── Color maps ─────────────────────────────────────────────────────────────────

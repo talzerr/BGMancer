@@ -3,7 +3,7 @@ import { VIEW_BIAS_LOG_MIN, VIEW_BIAS_LOG_MAX } from "@/lib/constants";
 import type {
   TaggedTrack,
   Game,
-  ScoringRubric,
+  VibeRubric,
   ScoreBreakdown,
   TrackDecision,
   DirectorResult,
@@ -279,20 +279,22 @@ export const ZERO_BREAKDOWN: ScoreBreakdown = {
 export function scoreTrack(
   track: TaggedTrack,
   slot: ArcSlot,
-  rubric: ScoringRubric | undefined,
+  rubric: VibeRubric | undefined,
   viewBiasScores: Map<string, number> | null,
 ): ScoreBreakdown | null {
   if (!slot.energyPrefs.includes(track.energy)) return null;
 
+  const phaseOverride = rubric?.phases[slot.phase];
+
   const slotRoleMatch = track.roles.some((r) => slot.rolePrefs.includes(r));
   const rubricRoleMatch =
-    rubric != null && track.roles.some((r) => rubric.preferredRoles.includes(r));
+    phaseOverride != null && track.roles.some((r) => phaseOverride.preferredRoles.includes(r));
   const roleScore = slotRoleMatch || rubricRoleMatch ? 1.0 : 0.0;
 
-  const targetMoods = rubric?.preferredMoods ?? slot.preferredMoods;
+  const targetMoods = phaseOverride?.preferredMoods ?? slot.preferredMoods;
   const moodScore = jaccard(track.moods, targetMoods);
 
-  const targetInst = rubric?.preferredInstrumentation ?? slot.preferredInstrumentation;
+  const targetInst = phaseOverride?.preferredInstrumentation ?? slot.preferredInstrumentation;
   const instScore = jaccard(track.instrumentation, targetInst);
 
   const viewBiasScore = viewBiasScores?.get(track.videoId) ?? VIEW_BIAS_SCORE_BASELINE;
@@ -330,7 +332,7 @@ export function assemblePlaylist(
   taggedPools: Map<string, TaggedTrack[]>,
   games: Game[],
   targetCount: number,
-  rubric: ScoringRubric | undefined,
+  rubric: VibeRubric | undefined,
   useViewBias: boolean,
 ): DirectorResult {
   const viewBiasScores = useViewBias ? computeViewBiasScores(taggedPools) : null;
@@ -542,7 +544,7 @@ export function pickBestTrack(
   used: Set<string>,
   _gameId: string,
   lastGameId: string | null,
-  rubric: ScoringRubric | undefined,
+  rubric: VibeRubric | undefined,
   viewBiasScores: Map<string, number> | null,
 ): PickResult | null {
   // Pass 1: avoid consecutive same-game

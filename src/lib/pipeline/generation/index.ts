@@ -5,10 +5,14 @@ import type { CurationMode, TrackDecision } from "@/types";
 import { fetchGameCandidates } from "@/lib/pipeline/generation/candidates";
 import { toInsertable, taggedTrackToPending } from "@/lib/pipeline/generation/assembly";
 import { assemblePlaylist } from "@/lib/pipeline/generation/director";
-import { generateRubric } from "@/lib/pipeline/generation/vibe-profiler";
+import {
+  generateRubric,
+  buildGameProfiles,
+  type ProfilerResult,
+} from "@/lib/pipeline/generation/vibe-profiler";
 import { getVibeProfilerProvider } from "@/lib/llm";
 import type { GenerateEvent, PendingTrack } from "@/lib/pipeline/generation/types";
-import type { AppConfig, Game, PlaylistTrack, TaggedTrack, ScoringRubric } from "@/types";
+import type { AppConfig, Game, PlaylistTrack, TaggedTrack, VibeRubric } from "@/types";
 import {
   MIN_TRACK_DURATION_SECONDS,
   MAX_TRACK_DURATION_SECONDS,
@@ -68,13 +72,15 @@ function filterByDuration(
   return filtered;
 }
 
-async function profileVibe(activeGames: Game[], send: Send): Promise<ScoringRubric | undefined> {
+async function profileVibe(
+  activeGames: Game[],
+  taggedPools: Map<string, TaggedTrack[]>,
+  send: Send,
+): Promise<ProfilerResult | undefined> {
   try {
     send({ type: "progress", message: "Generating vibe profile…" });
-    const result = await generateRubric(
-      { gameTitles: activeGames.map((g) => g.title) },
-      getVibeProfilerProvider(),
-    );
+    const gameProfiles = buildGameProfiles(activeGames, taggedPools);
+    const result = await generateRubric({ gameProfiles }, getVibeProfilerProvider());
     return result ?? undefined;
   } catch (err) {
     log.error("Vibe Profiler failed, continuing without rubric", {}, err);
@@ -86,12 +92,12 @@ function runDirector(
   taggedPools: Map<string, TaggedTrack[]>,
   activeGames: Game[],
   targetCount: number,
-  rubric: ScoringRubric | undefined,
+  rubric: VibeRubric | undefined,
   useViewBias: boolean,
 ): {
   pendingTracks: PendingTrack[];
   decisions: TrackDecision[];
-  usedRubric?: ScoringRubric;
+  usedRubric?: VibeRubric;
   gameBudgets: Record<string, number>;
 } {
   const assembleTarget = Math.ceil(targetCount * 1.15);
@@ -108,17 +114,23 @@ async function persistSession(
   userId: string,
   allTracks: PendingTrack[],
   decisions: TrackDecision[],
-  usedRubric?: ScoringRubric,
+  usedRubric?: VibeRubric,
   gameBudgets?: Record<string, number>,
+  generatedName?: string | null,
 ): Promise<{ session: { id: string }; inserted: PlaylistTrack[] }> {
-  const gameNames = [...new Set(allTracks.map((t) => t.game_title ?? t.game_id))];
-  const rawNameList =
-    gameNames.slice(0, SESSION_NAME_MAX_GAMES).join(", ") +
-    (gameNames.length > SESSION_NAME_MAX_GAMES ? " and more" : "");
-  const sessionName =
-    rawNameList.length > SESSION_NAME_MAX_LENGTH
-      ? `${rawNameList.slice(0, SESSION_NAME_MAX_LENGTH - 1).trimEnd()}…`
-      : rawNameList;
+  let sessionName: string;
+  if (generatedName) {
+    sessionName = generatedName;
+  } else {
+    const gameNames = [...new Set(allTracks.map((t) => t.game_title ?? t.game_id))];
+    const rawNameList =
+      gameNames.slice(0, SESSION_NAME_MAX_GAMES).join(", ") +
+      (gameNames.length > SESSION_NAME_MAX_GAMES ? " and more" : "");
+    sessionName =
+      rawNameList.length > SESSION_NAME_MAX_LENGTH
+        ? `${rawNameList.slice(0, SESSION_NAME_MAX_LENGTH - 1).trimEnd()}…`
+        : rawNameList;
+  }
 
   const session = await Sessions.create(userId, sessionName);
   await Playlist.replaceAll(session.id, toInsertable(allTracks));
@@ -218,7 +230,7 @@ export async function generatePlaylistForGuest(
  *
  * Three phases (all track data is pre-cached during onboarding):
  *   1 — Candidate gathering: load tagged tracks + cached video metadata from DB.
- *   2 — Vibe Profiler: LLM produces a ScoringRubric from game titles.
+ *   2 — Vibe Profiler: LLM produces a VibeRubric from game titles.
  *   3 — Arc assembly: the Director builds the final ordered playlist.
  */
 export async function generatePlaylist(
@@ -242,24 +254,28 @@ export async function generatePlaylist(
 
   let individualTracks: PendingTrack[] = [];
   let decisions: TrackDecision[] = [];
-  let usedRubric: ScoringRubric | undefined;
+  let usedRubric: VibeRubric | undefined;
   let gameBudgets: Record<string, number> = {};
+  let sessionName: string | null | undefined;
 
   if (filteredPools.size > 0 && targetCount > 0) {
     const activeGames = games.filter((g) => filteredPools.has(g.id));
-    const rubric = config.skip_llm ? undefined : await profileVibe(activeGames, send);
+    const profilerResult = config.skip_llm
+      ? undefined
+      : await profileVibe(activeGames, filteredPools, send);
     send({ type: "progress", message: "Assembling playlist arc…" });
     const directorResult = runDirector(
       filteredPools,
       activeGames,
       targetCount,
-      rubric,
+      profilerResult?.rubric,
       !config.raw_vibes,
     );
     individualTracks = directorResult.pendingTracks;
     decisions = directorResult.decisions;
     usedRubric = directorResult.usedRubric;
     gameBudgets = directorResult.gameBudgets;
+    sessionName = profilerResult?.sessionName;
   }
 
   const allTracks = individualTracks.slice(0, targetCount);
@@ -275,6 +291,7 @@ export async function generatePlaylist(
     slicedDecisions,
     usedRubric,
     gameBudgets,
+    sessionName,
   );
 
   // Enrich with JOIN-derived fields from the games already in memory.
