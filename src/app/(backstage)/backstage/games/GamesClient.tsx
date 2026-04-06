@@ -24,6 +24,7 @@ import type { FilterDef } from "@/components/backstage/FilterChipBar";
 import { OnboardingPhase } from "@/types";
 import type { BackstageGame } from "@/lib/db/repos/backstage-games";
 import { gameSlug } from "@/lib/utils";
+import { useGameSelection } from "./_hooks/useGameSelection";
 
 // ─── Tab presets ────────────────────────────────────────────────────────────
 
@@ -103,48 +104,16 @@ export function GamesClient() {
     fetchFn: fetchGames,
   });
 
-  // Add Game dialog
   const [addDialogOpen, setAddDialogOpen] = useState(false);
 
-  // Bulk selection
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkPublishing, setBulkPublishing] = useState(false);
-
-  function toggleSelect(id: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  function toggleSelectAll() {
-    if (selectedIds.size === games.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(games.map((g) => g.id)));
-    }
-  }
-
-  async function handleBulkPublish(published: boolean) {
-    if (selectedIds.size === 0) return;
-    setBulkPublishing(true);
-    try {
-      const res = await fetch("/api/backstage/bulk-publish", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gameIds: [...selectedIds], published }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setSelectedIds(new Set());
-      await refetch();
-    } catch (err) {
-      console.error("[GamesClient] bulk publish failed:", err);
-    } finally {
-      setBulkPublishing(false);
-    }
-  }
+  const {
+    selectedIds,
+    setSelectedIds,
+    bulkPublishing,
+    toggleSelect,
+    toggleSelectAll,
+    handleBulkPublish,
+  } = useGameSelection({ games, refetch });
 
   // ─── Derived state ───────────────────────────────────────────────────────
 

@@ -4,6 +4,9 @@ import { TracklistSource } from "@/types";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { zodErrorResponse } from "@/lib/validation";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("backstage-import-tracks");
 
 const importTracksSchema = z.object({
   gameId: z.string().min(1),
@@ -26,22 +29,27 @@ export async function POST(req: Request) {
 
   const { gameId, tracks } = parsed.data;
 
-  const game = await Games.getById(gameId);
-  if (!game) {
-    return NextResponse.json({ error: "Game not found" }, { status: 404 });
+  try {
+    const game = await Games.getById(gameId);
+    if (!game) {
+      return NextResponse.json({ error: "Game not found" }, { status: 404 });
+    }
+
+    await Tracks.upsertBatch(
+      tracks.map((t) => ({
+        gameId,
+        name: t.name,
+        position: t.position,
+      })),
+    );
+
+    if (!game.tracklist_source) {
+      await BackstageGames.update(gameId, { tracklist_source: TracklistSource.Manual });
+    }
+
+    return NextResponse.json({ imported: tracks.length });
+  } catch (err) {
+    log.error("handler failed", {}, err);
+    return NextResponse.json({ error: "Failed to import tracks" }, { status: 500 });
   }
-
-  await Tracks.upsertBatch(
-    tracks.map((t) => ({
-      gameId,
-      name: t.name,
-      position: t.position,
-    })),
-  );
-
-  if (!game.tracklist_source) {
-    await BackstageGames.update(gameId, { tracklist_source: TracklistSource.Manual });
-  }
-
-  return NextResponse.json({ imported: tracks.length });
 }

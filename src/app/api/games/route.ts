@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Games } from "@/lib/db/repo";
 import { YT_IMPORT_GAME_ID, LIBRARY_MAX_GAMES } from "@/lib/constants";
 import { CurationMode } from "@/types";
-import { withOptionalAuth, withRequiredAuth } from "@/lib/services/route-wrappers";
+import { withOptionalAuth, withRequiredAuth } from "@/lib/services/auth/route-wrappers";
 import { addGameSchema, updateCurationSchema, zodErrorResponse } from "@/lib/validation";
 
 /** GET /api/games — List library games for the current user. */

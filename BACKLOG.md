@@ -1,105 +1,126 @@
-# What's Coming
+# BACKLOG.md — BGMancer
 
-## Player
-
-- **Repeat modes** — off / repeat all / repeat one.
-- **Keyboard shortcuts** — Space (play/pause), ←/→ (prev/next), `m` (mute), `?` (help).
-- **State retention** — remember playback position on reload; resume from that track.
-
-## Playlist & UX
-
-- **Track rating** — thumbs up / down while playing; seed data for future personalization.
-- **Track blacklist** — permanently exclude a video from future generations.
-- **Better session names** — optional LLM side-call to produce evocative names (e.g. "Soulsborne Descent") from track energy and roles.
-- **Playlist preview before commit** — review assembled tracks before saving; allow manual swaps/removals.
-- **Playlist export** — export as plain text or CSV.
-- **Mobile layout** — responsive design for phone/tablet. The catalog library drawer should become a collapsible bottom sheet on mobile viewports.
-- **Collapsible library drawer** — on mobile, the library drawer should be toggleable (collapsed by default, expand on tap). Desktop keeps it always visible.
-- **PWA install** — web app manifest + service worker for home screen install.
-
-## Library & Integration
-
-- **User-facing Steam import** — let users import their Steam game list directly (currently admin-only via Backstage).
-
-## Walled Garden (Curated Library Model)
-
-- **"Request a Game" flow** — a request button for games not yet in the catalogue; creates a `game_requests` record (title, requester info, vote count) visible in Backstage. Admin performs high-fidelity onboarding at their own pace; game moves from `pending` → `ready` and becomes selectable by all users.
-- **Request schema** — `game_requests` table: `id`, `title`, `requester_id`, `vote_count`, `status` (`pending` / `in_progress` / `ready` / `rejected`), `linked_game_id` (nullable FK to `games`), `created_at`.
-- **Backstage request queue** — view and manage pending requests; promote a request to a full game record and trigger onboarding from within Backstage.
-
-## Curation Tuning
-
-- **Tagger role skew validation** — if >50% of game's tracks are `ambient`, re-tag with role-diversity bias.
-- **Per-game soft cap tuning** — revisit 40% soft cap if users report thin single-game playlists.
-- **Focus mode budget hardening** — option to enforce strict "always N tracks per focus game" (currently soft guarantee).
-
-## Curation Intelligence
-
-Current Vibe Check uses random 2.5× sample. For large libraries, only ~8% of tracks get scored.
-
-- **Vibe input UI** _(depends on Vibe Profiler)_ — structured selectors: **Energy** (Calm / Balanced / Intense) + **Activity** (Study, Gaming, Commute, Exercise, Relaxing).
-
-## Per-user Generation Caps
-
-- **Admin-configurable cap** — move the daily LLM generation limit from a hardcoded constant to a DB-backed setting with per-user admin overrides via Backstage.
-
-## Pre-Launch
-
-- **IMPORTANT: Verify admin route protection after removing site-wide Zero Trust** — Currently the entire site is behind Cloudflare Zero Trust. Once it goes public, only `bgmancer.com/backstage*` will remain behind Access. The `/api/steam/*` routes (`/api/steam/search`, `/api/steam/games`, `/api/steam/import`) are `AuthLevel.Admin` in route-config and protected by the middleware `CF_Authorization` cookie check, but they are NOT under the `/backstage*` path. Verify these routes return 404 to unauthenticated users after the Access policy is narrowed.
-
-## Bugs
-
-## Backstage
-
-- **Inline track name editing** — allow admin to manually edit track names in Backstage (e.g. via the TrackEditSheet or inline in the track table).
-- **Bulk retag selection** — allow admin to multi-select tracks and trigger a retag on just the selected subset.
-- **Prominent "Run full pipeline" for draft games** — make the full pipeline button more prominent when a game is in draft phase, and less prominent otherwise; add a confirmation dialog since it's a destructive/unexpected action on non-draft games.
-- **Manual VGMdb onboarding in Backstage** — add a button on a game's Backstage page to onboard/re-onboard its soundtrack from VGMdb using a manually provided VGMdb album ID, as an alternative to the automatic Discogs-based onboarding.
-- **Additive onboarding (merge semantics)** — manual onboarding (and re-onboarding generally) should behave like a merge: existing track/metadata values are preserved and only new data is added. A separate "clean onboard" option should be available when the user explicitly wants to discard existing data and start fresh.
-- **User/Admin view toggle** — add a persistent toggle that switches between user and admin experience; admin mode surfaces all admin-only affordances (e.g. Backstage quick-open on tracks, dev overlays) without requiring separate accounts.
-- **Quick-open in Backstage from playlist track** — admin-only dev affordance on each playlist track card (e.g. small icon) that navigates directly to that track's game in Backstage for quick metadata edits.
-- **Users page in Backstage** — once multi-user auth is in place, add a `/backstage/users` view to manage users (activity, library stats, account status, etc.).
+Work items and ideas. Organized by readiness, not priority within sections.
+When picking up a task, check its status: some need a PM session before a
+Claude Code session can implement them.
 
 ---
 
-## Deferred
+## Bugs
 
-- **Playlist seed share** — encode playlists as compact strings; `/share/[seed]` read-only view.
+- **[player] Playback state lost on reload** — playback position doesn't survive
+  page reload. Should resume from the current track.
 
-- **Settings panel redesign:** Whether pill toggles are the right pattern for generation
-  options, label naming for remaining toggles (long tracks, short tracks, popularity toggle),
-  overall settings UX.
-- **Express toggle removal:** Express toggle is removed. AI daily cap is handled silently
-  on the backend. Resurface when AI scoring is perceptibly differentiated.
-- **Favorites feature:** Shelved. Revisit as part of catalog discovery UX — the actual
-  problem is catalog filtering/browsing, not bookmarking.
-- **Catalog discovery:** Genre filtering, recommendations, Steam import — these solve
-  the browse problem that favorites was patching.
-- **Spoilers toggle rename:** Current name reflects old functionality. Needs renaming to
-  match actual behavior (hiding upcoming tracks, not game narrative spoilers).
-- **Session/playlist naming:** Auto-generated names, user editing, what the title
-  should look like for multi-game playlists.
-- **Post-generation layout collapse:** The specific mechanism for how controls recede
-  after playlist generation.
-- **Playlist history UX:** Where it lives, how it's accessed, panel vs dropdown vs page.
-- **Dynamic game art background:** Implementation of the hero image wash as an ambient
-  layer over the base surface.
-- **Player bar density:** Whether "Up Next" preview is needed, YouTube logo placement,
-  overall player bar information architecture.
-- **Now-playing track indicator:** Current full-width highlight is too aggressive.
+---
+
+## Pre-launch
+
+Items that must be done before removing Zero Trust and going public.
+
+- **[infra] Verify admin route protection** — `/api/steam/*` routes are `AuthLevel.Admin`
+  but not under the `/backstage*` path. Confirm these return 404 to unauthenticated users
+  after the Cloudflare Access policy is narrowed to backstage only.
+- **[infra] Rate limiting baseline** — no unified rate limiting strategy exists. Need at
+  minimum a clear alignment on approach before opening to the public. Known gap:
+  `POST /api/sync` and `POST /api/playlist/import` have no rate limit for authenticated
+  users and could hammer YouTube API quota. Needs PM session.
+- **[infra] App/backstage shared code boundary** — currently clean but informal. Needs
+  explicit documentation or enforcement before the codebase grows further.
+- **[catalog] Catalog page design** — in progress. The catalog is mid-overhaul and needs
+  to be finished to design system standards.
+- **[catalog] Collapsible library drawer (desktop)** — part of the catalog page work.
+  The drawer behavior needs to be finalized per the design system.
+- **[catalog] Steam import** — let users provide their Steam profile URL/ID, fetch their
+  public library, match against the BGMancer catalog, and show owned games with a filter
+  or indicator. Manual re-sync on button press. PM-approved concept (DEC-003), needs UX
+  session for specifics before implementation.
+- **[catalog] "Can't find your game?" path** — minimal solution so users don't hit a dead
+  end when a game isn't in the catalog. Could be as simple as a link to a request form.
+  Needs PM session for scoping.
+- **[ux] Make AI generation cap invisible** — remove any UI indication of the daily AI
+  limit. Backend silently falls back to non-AI scoring when exhausted. User never knows.
+  PM-decided (DEC-003).
+- **[ux] Spoilers toggle rename** — current name reflects old functionality. Needs renaming
+  to match actual behavior (hiding upcoming tracks, not game narrative spoilers).
+- **[ux] Better session names** — LLM side-call to generate evocative playlist names from
+  track energy and roles (e.g., "Soulsborne Descent").
+- **[engine] Revisit vibe profiler prompt** — current profiler may not produce perceptible
+  results. Review and improve the prompt before launch.
+- **[backstage] Users page** — baseline view at `/backstage/users` to see who's using the
+  app (activity, library stats). Expand later.
+
+---
+
+## Needs PM Session
+
+Ideas with merit that need discussion and scoping before implementation. Cannot go
+to a Claude Code session directly.
+
+- **[ux] Settings panel redesign** — are pill toggles the right pattern for generation
+  options? Label naming, overall settings UX.
+- **[ux] Post-generation layout collapse** — how controls recede after playlist generation.
+  The principle is decided (listening wins over configuration), the mechanism is not.
+- **[ux] Playlist history UX** — where it lives, how it's accessed. Panel, dropdown, or
+  page.
+- **[player] Player bar density** — whether "Up Next" preview is needed, YouTube logo
+  placement, overall player bar information architecture.
+- **[player] Now-playing track indicator** — current full-width highlight is too aggressive.
   Needs redesign — subtle left-edge amber bar or small indicator.
+- **[player] Revisit playlist manipulation features** — shuffle, reorder, remove, reroll.
+  The arc changes what makes sense here. Some of these may conflict with the Director's
+  sequencing. Needs a principled decision on which controls exist.
+- **[infra] Service extraction audit** — review route handlers for inlined business logic
+  that should live in a service. Per ARCHITECTURE.md: handlers orchestrate, services
+  implement. PM reviews proposed extractions before refactoring.
+- **[product] Library and catalog model review** — the current model has relics from
+  earlier iterations. Needs a focused PM session to align on: library size limit (drop
+  from 500 to ~20–25, exact number TBD), UX for communicating and enforcing the limit,
+  catalog pagination (load ~50 then "load more"), guest vs. authenticated experience
+  gaps, CurationMode clarity (lite/include/focus — is this understood by users?), and
+  YouTube import's role (minimize but keep available). Touches architecture, design,
+  and product — all three documents may need updates.
 
-- **App/backstage shared code boundary.** They share `lib/db/`, `types/`, and some services.
-  They don't share context or UI components (except `ui/` primitives). The boundary is clean
-  but informal. Any feature that crosses this line requires a PM discussion.
+---
 
-- **URL state strategy.** The app doesn't persist meaningful state in URLs. No shareable
-  playlist links, no deep-linkable filter states. This becomes a product question if sharing
-  or link-based navigation becomes a feature.
+## Post-launch
 
-- **Rate limiting strategy.** Some rate limiting exists but there's no unified approach. A
-  consistent rate limiting service with a clean API needs to be designed when scale demands it.
+Future work. No urgency, no commitment.
 
-- **Caching strategy.** No documented caching layer. YouTube metadata, Discogs data, and
-  vibe profiles could benefit from caching. Whether that's KV, D1, or in-memory is a future
-  architecture decision.
+- **[player] Repeat modes** — off / repeat all / repeat one. Straightforward, doesn't
+  conflict with the arc.
+- **[player] Keyboard shortcuts** — space (play/pause), ←/→ (prev/next), m (mute),
+  ? (help).
+- **[ux] Shareable playlist seeds** — encode playlists as compact strings, `/share/[seed]`
+  read-only view. Merges the old "playlist export" and "playlist seed share" ideas.
+- **[engine] Vibe input UI** — structured selectors for energy (calm/balanced/intense) and
+  activity (study, gaming, commute, exercise, relaxing). Depends on the profiler being
+  perceptibly useful first.
+- **[catalog] Full "request a game" flow** — VGMdb integration, backstage request queue,
+  status tracking (pending → in progress → ready → rejected). Expands the pre-launch
+  "can't find your game?" path into a proper system.
+- **[ux] Dynamic game art background** — hero image wash as ambient layer. Heavily blurred
+  and desaturated, 3–6% opacity, crossfade on game transitions. Approved in principle,
+  implementation deferred.
+- **[ux] Track rating** — thumbs up/down while playing. Vague idea for future
+  personalization. Low priority, may not be relevant.
+- **[ux] Track flagging by users** — let users flag problematic tracks (bad YouTube match,
+  wrong metadata). Appears in backstage for admin review. Replaces the old track
+  blacklist idea.
+- **[ux] URL state strategy** — shareable playlist links, deep-linkable filter states.
+  Becomes relevant if sharing or link-based navigation becomes a feature.
+- **[backstage] User/Admin view toggle** — toggle between user and admin experience in
+  the main app. Surfaces admin affordances (backstage quick-open on tracks, dev overlays)
+  without separate accounts. Not relevant until admin features exist in the main app.
+- **[backstage] Quick-open from playlist track** — admin-only affordance on playlist
+  track cards to navigate directly to that track's game in backstage. Depends on
+  admin view toggle.
+
+---
+
+## Mobile
+
+Not a current priority. Grouped separately to keep the main backlog focused.
+
+- **Responsive layout** — phone/tablet support for main page and catalog.
+- **Collapsible library drawer (mobile)** — bottom sheet pattern, collapsed by default.
+- **PWA install** — web app manifest + service worker for home screen install.

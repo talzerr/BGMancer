@@ -48,7 +48,7 @@ vi.mock("@/lib/db", async () => {
   };
 });
 
-vi.mock("@/lib/services/auth-helpers", async () => {
+vi.mock("@/lib/services/auth/auth-helpers", async () => {
   const { TEST_USER_ID } = await import("@/test/constants");
   return {
     getAuthUserId: async () => TEST_USER_ID,

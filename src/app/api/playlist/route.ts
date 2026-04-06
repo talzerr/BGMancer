@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { Playlist } from "@/lib/db/repo";
-import { withOptionalAuth, withRequiredAuth } from "@/lib/services/route-wrappers";
+import { withOptionalAuth, withRequiredAuth } from "@/lib/services/auth/route-wrappers";
 import { reorderSchema, zodErrorResponse } from "@/lib/validation";
 
 /** GET /api/playlist — Fetch tracks for the active session, or a specific session via ?sessionId=. */

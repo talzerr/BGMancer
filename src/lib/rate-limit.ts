@@ -4,7 +4,7 @@
  * Stores an array of timestamps per key. Entries auto-expire via KV TTL.
  */
 
-import { KV } from "@/lib/services/kv";
+import { KV } from "@/lib/services/infra/kv";
 import { USER_DAILY_LLM_CAP, GUEST_MAX_REQUESTS, GUEST_WINDOW_MS } from "@/lib/constants";
 
 /**

@@ -188,7 +188,8 @@ export function useFilteredList<T>(config: UseFilteredListConfig<T>): UseFiltere
     ],
   );
 
-  // Auto-fetch on mount
+  // Mount-only: doFetch captures filter/search state that changes after mount.
+  // Including deps would cause unwanted refetches on every state transition.
   useEffect(() => {
     Promise.resolve().then(() => doFetch(initialOverrides ? { skipUrlSync: true } : undefined));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps

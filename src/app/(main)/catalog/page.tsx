@@ -1,9 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
-import { auth } from "@/lib/services/auth";
+import { auth } from "@/lib/services/auth/auth";
 import { env } from "@/lib/env";
 import { AuthButtons } from "@/components/AuthButtons";
-import { CatalogClient } from "./catalog-client";
+import { CatalogClient } from "./CatalogClient";
 
 export const metadata = { title: "Catalog — BGMancer" };
 

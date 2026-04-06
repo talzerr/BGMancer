@@ -16,7 +16,7 @@ import { TagBadgeList } from "@/components/backstage/TagBadgeList";
 import { BackstageModal, DiscoveredStatus, OnboardingPhase, TrackFilter } from "@/types";
 import type { Game, Track } from "@/types";
 import type { GameDetailActions } from "../_hooks/useGameDetailActions";
-import type { ActiveModal } from "../game-detail-client";
+import type { ActiveModal } from "../GameDetailClient";
 import { SFX_DURATION_THRESHOLD_SECONDS } from "@/lib/constants";
 
 interface VideoDetail {

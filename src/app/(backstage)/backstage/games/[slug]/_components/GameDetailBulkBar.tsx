@@ -13,7 +13,7 @@ import {
 import { BackstageModal, DiscoveredStatus } from "@/types";
 import type { Track } from "@/types";
 import type { GameDetailActions } from "../_hooks/useGameDetailActions";
-import type { ActiveModal } from "../game-detail-client";
+import type { ActiveModal } from "../GameDetailClient";
 
 interface GameDetailBulkBarProps {
   selectedTracks: Track[];

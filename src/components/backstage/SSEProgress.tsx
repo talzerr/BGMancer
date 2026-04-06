@@ -111,7 +111,10 @@ export function SSEProgress({
     })();
 
     return () => abort.abort();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // Mount-only: SSE stream must be established once. Including props as deps
+    // would tear down and recreate the stream on any parent re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleCancel() {
     setCancelled(true);

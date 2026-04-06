@@ -1,9 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
-import { auth } from "@/lib/services/auth";
+import { auth } from "@/lib/services/auth/auth";
 import { env } from "@/lib/env";
 import { AuthButtons } from "@/components/AuthButtons";
-import { FeedClient } from "./feed-client";
+import { FeedClient } from "./FeedClient";
 
 export default async function HomePage() {
   const session = await auth();

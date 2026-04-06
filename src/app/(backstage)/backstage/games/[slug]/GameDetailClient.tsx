@@ -60,7 +60,10 @@ export function GameDetailClient({
     if (activeModal && SSE_MODALS.includes(activeModal)) {
       actions.setSseRunning(true);
     }
-  }, [activeModal]); // eslint-disable-line react-hooks/exhaustive-deps
+    // actions is intentionally omitted — the object is not referentially stable
+    // (new object each render). Including it would re-trigger setSseRunning on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeModal]);
 
   return (
     <div className="space-y-4">

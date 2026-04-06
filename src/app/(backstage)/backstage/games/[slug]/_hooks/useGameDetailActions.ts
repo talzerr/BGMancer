@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import type { Game } from "@/types";
 import type { PatchUpdates } from "@/components/backstage/TrackEditSheet";
-import type { ParsedTrack } from "@/lib/services/track-parser";
+import type { ParsedTrack } from "@/lib/services/parsing/track-parser";
 
 export function useGameDetailActions(game: Game, router: AppRouterInstance) {
   const [mutError, setMutError] = useState<string | null>(null);

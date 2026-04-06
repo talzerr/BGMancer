@@ -116,6 +116,15 @@ export const Tracks = {
     return row.cnt > 0;
   },
 
+  async countTagged(gameId: string): Promise<number> {
+    const row = (await getDB()
+      .select({ cnt: count() })
+      .from(tracks)
+      .where(and(eq(tracks.game_id, gameId), isNotNull(tracks.tagged_at)))
+      .get()) ?? { cnt: 0 };
+    return row.cnt;
+  },
+
   async updateTags(
     gameId: string,
     name: string,

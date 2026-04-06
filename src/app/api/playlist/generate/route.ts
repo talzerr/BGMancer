@@ -5,13 +5,13 @@ import {
   type GenerateEvent,
 } from "@/lib/pipeline/generation";
 import { Users } from "@/lib/db/repo";
-import { getAuthSession } from "@/lib/services/auth-helpers";
-import { YouTubeQuotaError, YouTubeInvalidKeyError } from "@/lib/services/youtube";
+import { getAuthSession } from "@/lib/services/auth/auth-helpers";
+import { YouTubeQuotaError, YouTubeInvalidKeyError } from "@/lib/services/external/youtube";
 import { GENERATION_COOLDOWN_MS, DEFAULT_TRACK_COUNT } from "@/lib/constants";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
 import { generateSchema } from "@/lib/validation";
 import { checkGuestRateLimit, getClientIp, acquireLlmGeneration } from "@/lib/rate-limit";
-import { verifyTurnstileToken } from "@/lib/services/turnstile";
+import { verifyTurnstileToken } from "@/lib/services/external/turnstile";
 import type { AppConfig } from "@/types";
 import { createLogger } from "@/lib/logger";
 

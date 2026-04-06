@@ -55,7 +55,7 @@ export async function POST(req: Request) {
 
       await BackstageGames.setPhase(gameId, OnboardingPhase.Tagged);
 
-      const tagged = (await Tracks.getByGame(gameId)).filter((t) => t.taggedAt !== null).length;
+      const tagged = await Tracks.countTagged(gameId);
       const updatedGame = await Games.getById(gameId);
       const needsReview = updatedGame?.needs_review ? 1 : 0;
 

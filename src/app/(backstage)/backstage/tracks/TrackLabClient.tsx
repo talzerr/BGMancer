@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Table,
@@ -16,7 +16,6 @@ import { Search } from "lucide-react";
 import { EnergyBadge } from "@/components/backstage/EnergyBadge";
 import { TagBadgeList } from "@/components/backstage/TagBadgeList";
 import { TrackEditSheet } from "@/components/backstage/TrackEditSheet";
-import type { PatchUpdates } from "@/components/backstage/TrackEditSheet";
 import { BulkActionBar } from "@/components/backstage/BulkActionBar";
 import { ConfirmModal } from "@/components/backstage/ConfirmModal";
 import { QuickViewTabs } from "@/components/backstage/QuickViewTabs";
@@ -25,6 +24,8 @@ import { useFilteredList } from "@/hooks/backstage/useFilteredList";
 import type { TabPreset } from "@/hooks/backstage/useFilteredList";
 import type { FilterDef } from "@/components/backstage/FilterChipBar";
 import type { BackstageTrackRow } from "@/lib/db/repos/tracks";
+import { useTrackSelection, trackKey } from "./_hooks/useTrackSelection";
+import { useTrackMutations } from "./_hooks/useTrackMutations";
 
 // ─── Tab presets ────────────────────────────────────────────────────────────
 
@@ -61,14 +62,6 @@ const TRACK_FILTER_DEFS: FilterDef[] = [
     options: [{ label: "Yes", value: "1" }],
   },
 ];
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-type TrackKey = `${string}::${string}`;
-
-function trackKey(t: { gameId: string; name: string }): TrackKey {
-  return `${t.gameId}::${t.name}`;
-}
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
@@ -107,141 +100,28 @@ export function TrackLabClient() {
     initialOverrides: initialGameId ? { gameId: initialGameId } : undefined,
   });
 
-  // Selection + editing
-  const [selected, setSelected] = useState<Set<TrackKey>>(new Set());
-  const [editTrack, setEditTrack] = useState<BackstageTrackRow | null>(null);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [mutError, setMutError] = useState<string | null>(null);
+  const selection = useTrackSelection(tracks);
+  const {
+    selected,
+    setSelected,
+    editTrack,
+    setEditTrack,
+    deleteModalOpen,
+    setDeleteModalOpen,
+    mutError,
+    allSelected,
+    toggleAll,
+    toggleOne,
+  } = selection;
 
-  // ─── Selection helpers ──────────────────────────────────────────────────
-
-  const allSelected = tracks.length > 0 && tracks.every((t) => selected.has(trackKey(t)));
-
-  function toggleAll() {
-    if (allSelected) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(tracks.map(trackKey)));
-    }
-  }
-
-  function toggleOne(t: BackstageTrackRow) {
-    const key = trackKey(t);
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
-
-  // ─── Mutations ──────────────────────────────────────────────────────────
-
-  const patchTracks = useCallback(
-    async (patches: { gameId: string; name: string; updates: PatchUpdates }[]) => {
-      setMutError(null);
-      try {
-        const res = await fetch("/api/backstage/tracks", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(patches),
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        await refetch();
-        router.refresh();
-      } catch (err) {
-        console.error("[TrackLabClient] patchTracks failed:", err);
-        setMutError("Failed to save changes. Please try again.");
-      }
-    },
-    [refetch, router],
-  );
-
-  function selectedTracks(): BackstageTrackRow[] {
-    return tracks.filter((t) => selected.has(trackKey(t)));
-  }
-
-  async function bulkSetEnergy(energy: 1 | 2 | 3) {
-    const sel = selectedTracks();
-    await patchTracks(sel.map((t) => ({ gameId: t.gameId, name: t.name, updates: { energy } })));
-  }
-
-  async function bulkSetRole(role: string) {
-    const sel = selectedTracks();
-    await patchTracks(
-      sel.map((t) => ({
-        gameId: t.gameId,
-        name: t.name,
-        updates: { roles: JSON.stringify([role]) },
-      })),
-    );
-  }
-
-  async function bulkSetActive(active: boolean) {
-    const sel = selectedTracks();
-    await patchTracks(sel.map((t) => ({ gameId: t.gameId, name: t.name, updates: { active } })));
-  }
-
-  async function bulkMarkReviewed() {
-    setMutError(null);
-    try {
-      const gameIds = [...new Set(selectedTracks().map((t) => t.gameId))];
-      for (const gameId of gameIds) {
-        const res = await fetch("/api/backstage/review-flags", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ gameId }),
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      }
-      router.refresh();
-    } catch (err) {
-      console.error("[TrackLabClient] bulkMarkReviewed failed:", err);
-      setMutError("Failed to clear review flags. Please try again.");
-    }
-  }
-
-  async function bulkDelete() {
-    setMutError(null);
-    try {
-      const sel = selectedTracks();
-      const keys = sel.map((t) => ({ gameId: t.gameId, name: t.name }));
-      const res = await fetch("/api/backstage/tracks", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ keys }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setDeleteModalOpen(false);
-      await refetch();
-      router.refresh();
-    } catch (err) {
-      console.error("[TrackLabClient] bulkDelete failed:", err);
-      setMutError("Failed to delete tracks. Please try again.");
-      setDeleteModalOpen(false);
-    }
-  }
-
-  async function handleTrackSave(gameId: string, name: string, updates: PatchUpdates) {
-    const { videoId, durationSeconds, viewCount, ...trackUpdates } = updates;
-    const body: Record<string, unknown> = { gameId, name, updates: trackUpdates };
-    if (videoId) {
-      body.videoUpdates = { videoId, durationSeconds, viewCount };
-    }
-    setMutError(null);
-    try {
-      const res = await fetch("/api/backstage/tracks", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      await refetch();
-    } catch (err) {
-      console.error("[TrackLabClient] handleTrackSave failed:", err);
-      setMutError("Failed to save track. Please try again.");
-    }
-  }
+  const mutations = useTrackMutations({
+    tracks,
+    selected,
+    setMutError: selection.setMutError,
+    setDeleteModalOpen,
+    refetch,
+    router,
+  });
 
   // ─── Render ─────────────────────────────────────────────────────────────
 
@@ -427,11 +307,11 @@ export function TrackLabClient() {
       {/* Bulk action bar */}
       <BulkActionBar
         selectedCount={selected.size}
-        onSetEnergy={bulkSetEnergy}
-        onSetRole={bulkSetRole}
-        onActivate={() => bulkSetActive(true)}
-        onDeactivate={() => bulkSetActive(false)}
-        onMarkReviewed={bulkMarkReviewed}
+        onSetEnergy={mutations.bulkSetEnergy}
+        onSetRole={mutations.bulkSetRole}
+        onActivate={() => mutations.bulkSetActive(true)}
+        onDeactivate={() => mutations.bulkSetActive(false)}
+        onMarkReviewed={mutations.bulkMarkReviewed}
         onDelete={() => setDeleteModalOpen(true)}
       />
 
@@ -443,7 +323,7 @@ export function TrackLabClient() {
         description={`This will permanently delete ${selected.size} track${selected.size === 1 ? "" : "s"}. This cannot be undone.`}
         confirmLabel="Delete"
         destructive
-        onConfirm={bulkDelete}
+        onConfirm={mutations.bulkDelete}
       />
 
       {/* Track edit sheet */}
@@ -464,7 +344,7 @@ export function TrackLabClient() {
           onOpenChange={(open) => {
             if (!open) setEditTrack(null);
           }}
-          onSave={handleTrackSave}
+          onSave={mutations.handleTrackSave}
         />
       )}
     </div>

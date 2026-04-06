@@ -6,9 +6,9 @@ import {
   searchGameSoundtrack,
   fetchDiscogsRelease,
   fetchDiscogsMaster,
-} from "@/lib/services/discogs";
-import { parseSource } from "@/lib/services/tracklist-source";
-import { fetchPlaylistItems } from "@/lib/services/youtube";
+} from "@/lib/services/external/discogs";
+import { parseSource } from "@/lib/services/parsing/tracklist-source";
+import { fetchPlaylistItems } from "@/lib/services/external/youtube";
 import { tagTracks } from "@/lib/pipeline/onboarding/tagger";
 import { resolveTracksToVideos } from "@/lib/pipeline/onboarding/resolver";
 import {

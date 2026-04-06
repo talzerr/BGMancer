@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { Sessions } from "@/lib/db/repo";
-import { withRequiredAuth } from "@/lib/services/route-wrappers";
+import { withRequiredAuth } from "@/lib/services/auth/route-wrappers";
 import { renameSessionSchema, zodErrorResponse } from "@/lib/validation";
 
 /** PATCH /api/sessions/:id — Rename a session. Body: { name: string }. */

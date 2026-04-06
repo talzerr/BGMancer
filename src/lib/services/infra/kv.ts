@@ -8,7 +8,7 @@ import { env } from "@/lib/env";
  * - Local dev / tests: backed by an in-memory Map with manual expiry.
  *
  * Usage:
- *   import { KV } from "@/lib/services/kv";
+ *   import { KV } from "@/lib/services/infra/kv";
  *   await KV.set("key", { foo: 1 }, 3600);  // TTL in seconds
  *   const val = await KV.get<{ foo: number }>("key");
  *   await KV.del("key");

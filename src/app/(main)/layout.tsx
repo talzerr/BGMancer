@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { auth } from "@/lib/services/auth";
+import { auth } from "@/lib/services/auth/auth";
 import { PlayerProvider } from "@/context/player-context";
 
 export const metadata: Metadata = {

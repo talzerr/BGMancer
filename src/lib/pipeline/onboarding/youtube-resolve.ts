@@ -1,6 +1,6 @@
 import { BackstageGames, VideoTracks } from "@/lib/db/repo";
-import { searchOSTPlaylist, fetchVideoMetadata } from "@/lib/services/youtube";
-import type { VideoMetadata } from "@/lib/services/youtube";
+import { searchOSTPlaylist, fetchVideoMetadata } from "@/lib/services/external/youtube";
+import type { VideoMetadata } from "@/lib/services/external/youtube";
 import type { Game } from "@/types";
 
 /** Extract a bare playlist ID from a value that may be a full YouTube URL. */

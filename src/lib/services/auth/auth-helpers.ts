@@ -1,4 +1,4 @@
-import { auth } from "@/lib/services/auth";
+import { auth } from "./auth";
 
 export type AuthResult = { authenticated: true; userId: string } | { authenticated: false };
 

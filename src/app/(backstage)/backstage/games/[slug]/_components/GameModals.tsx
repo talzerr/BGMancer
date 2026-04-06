@@ -14,11 +14,11 @@ import {
 } from "@/components/ui/dialog";
 import { SSEDialog } from "@/components/backstage/SSEDialog";
 import { ConfirmModal } from "@/components/backstage/ConfirmModal";
-import { parseTracklist, type ParsedTrack } from "@/lib/services/track-parser";
+import { parseTracklist, type ParsedTrack } from "@/lib/services/parsing/track-parser";
 import { BackstageModal, DiscoveredStatus } from "@/types";
 import type { Game, Track } from "@/types";
 import type { GameDetailActions } from "../_hooks/useGameDetailActions";
-import type { ActiveModal } from "../game-detail-client";
+import type { ActiveModal } from "../GameDetailClient";
 
 export function GameModals({
   game,
