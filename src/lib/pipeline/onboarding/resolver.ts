@@ -2,8 +2,12 @@ import { createLogger } from "@/lib/logger";
 import type { Game, Track, ResolvedTrack } from "@/types";
 import { DiscoveredStatus, ReviewReason } from "@/types";
 import type { LLMProvider } from "@/lib/llm/provider";
-import type { OSTTrack } from "@/lib/services/youtube";
-import { searchYouTube, YouTubeQuotaError, YouTubeInvalidKeyError } from "@/lib/services/youtube";
+import type { OSTTrack } from "@/lib/services/external/youtube";
+import {
+  searchYouTube,
+  YouTubeQuotaError,
+  YouTubeInvalidKeyError,
+} from "@/lib/services/external/youtube";
 import { Tracks, VideoTracks, ReviewFlags } from "@/lib/db/repo";
 import { RESOLVE_BATCH_SIZE, RESOLVE_FALLBACK_MAX } from "@/lib/constants";
 

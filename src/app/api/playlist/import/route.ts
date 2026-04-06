@@ -6,10 +6,10 @@ import {
   fetchPlaylistItems,
   fetchPlaylistMetadata,
   YouTubeQuotaError,
-} from "@/lib/services/youtube";
+} from "@/lib/services/external/youtube";
 import { newId } from "@/lib/uuid";
 import type { PlaylistTrack } from "@/types";
-import { getAuthUserId } from "@/lib/services/auth-helpers";
+import { getAuthUserId } from "@/lib/services/auth/auth-helpers";
 import { importPlaylistSchema, zodErrorResponse } from "@/lib/validation";
 import { checkGuestRateLimit } from "@/lib/rate-limit";
 

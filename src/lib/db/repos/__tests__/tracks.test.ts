@@ -166,6 +166,38 @@ describe("Tracks", () => {
     });
   });
 
+  describe("countTagged", () => {
+    describe("when some tracks are tagged", () => {
+      it("should return the count of tagged tracks", async () => {
+        seedTestTracks(rawDb, gameId, 3, true);
+        // Untag one track
+        await Tracks.clearTags(gameId, ["Track 1"]);
+
+        expect(await Tracks.countTagged(gameId)).toBe(2);
+      });
+    });
+
+    describe("when all tracks are tagged", () => {
+      it("should return the total count", async () => {
+        seedTestTracks(rawDb, gameId, 3, true);
+        expect(await Tracks.countTagged(gameId)).toBe(3);
+      });
+    });
+
+    describe("when no tracks are tagged", () => {
+      it("should return 0", async () => {
+        seedTestTracks(rawDb, gameId, 2, false);
+        expect(await Tracks.countTagged(gameId)).toBe(0);
+      });
+    });
+
+    describe("when no tracks exist", () => {
+      it("should return 0", async () => {
+        expect(await Tracks.countTagged(gameId)).toBe(0);
+      });
+    });
+  });
+
   describe("updateTags", () => {
     describe("when tagging a track", () => {
       it("should set all tag fields and tagged_at", async () => {

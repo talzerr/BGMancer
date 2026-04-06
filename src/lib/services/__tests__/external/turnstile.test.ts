@@ -19,7 +19,7 @@ vi.mock("@/lib/env", () => ({
 const fetchSpy = vi.fn();
 vi.stubGlobal("fetch", fetchSpy);
 
-const { verifyTurnstileToken } = await import("../turnstile");
+const { verifyTurnstileToken } = await import("../../external/turnstile");
 
 beforeEach(() => {
   mockIsDev = false;

@@ -106,9 +106,7 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
         await fetchSessions();
       })();
     }
-    // Intentionally omit fetchSessions — it's stable and never changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playlist.generating, playlist.importing]);
+  }, [playlist.generating, playlist.importing, fetchSessions]);
 
   // ── DnD ──────────────────────────────────────────────────────────────────
 

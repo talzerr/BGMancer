@@ -14,7 +14,7 @@ import { BackstageModal, DiscoveredStatus, OnboardingPhase } from "@/types";
 import type { Game, Track } from "@/types";
 import type { ReviewFlag } from "@/lib/db/repos/review-flags";
 import type { GameDetailActions } from "../_hooks/useGameDetailActions";
-import type { ActiveModal } from "../game-detail-client";
+import type { ActiveModal } from "../GameDetailClient";
 
 export function GameHeader({
   game,

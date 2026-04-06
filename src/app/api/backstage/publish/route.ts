@@ -15,12 +15,12 @@ export async function POST(req: Request) {
     );
   }
 
-  const game = await Games.getById(gameId);
-  if (!game) {
-    return NextResponse.json({ error: "Game not found" }, { status: 404 });
-  }
-
   try {
+    const game = await Games.getById(gameId);
+    if (!game) {
+      return NextResponse.json({ error: "Game not found" }, { status: 404 });
+    }
+
     await BackstageGames.setPublished(gameId, published);
     return NextResponse.json({ ok: true, published });
   } catch (err) {

@@ -8,7 +8,7 @@ import {
   formatSource,
   sourceUrl,
   getRegisteredSources,
-} from "@/lib/services/tracklist-source";
+} from "@/lib/services/parsing/tracklist-source";
 
 export function TracklistSourceField({
   value,

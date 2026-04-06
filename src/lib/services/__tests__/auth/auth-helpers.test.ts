@@ -2,11 +2,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockAuth = vi.fn();
 
-vi.mock("@/lib/services/auth", () => ({
+vi.mock("@/lib/services/auth/auth", () => ({
   auth: () => mockAuth(),
 }));
 
-const { getAuthSession, getAuthUserId, AuthRequiredError } = await import("../auth-helpers");
+const { getAuthSession, getAuthUserId, AuthRequiredError } =
+  await import("../../auth/auth-helpers");
 
 beforeEach(() => {
   mockAuth.mockReset();

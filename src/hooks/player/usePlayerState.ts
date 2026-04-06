@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import type { PlaylistTrack } from "@/types";
 import type { PlayerBarHandle } from "@/components/player/PlayerBar";
 
@@ -35,9 +35,9 @@ export function usePlayerState() {
     setPlayingSessionId(null);
   }
 
-  function clearPlayedTracks() {
+  const clearPlayedTracks = useCallback(() => {
     setPlayedTrackIds(new Set());
-  }
+  }, []);
 
   function handleToggleShuffle() {
     const cur = currentTrackIndex ?? 0;

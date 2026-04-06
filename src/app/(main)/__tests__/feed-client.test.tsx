@@ -149,7 +149,7 @@ vi.mock("@dnd-kit/sortable", () => ({
   arrayMove: vi.fn(),
 }));
 
-import { FeedClient } from "../feed-client";
+import { FeedClient } from "../FeedClient";
 
 afterEach(() => {
   cleanup();

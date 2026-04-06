@@ -1,4 +1,4 @@
-import { TheatreClient } from "./theatre-client";
+import { TheatreClient } from "./TheatreClient";
 
 export default function TheatrePage() {
   return <TheatreClient />;

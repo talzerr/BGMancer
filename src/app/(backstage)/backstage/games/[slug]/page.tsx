@@ -1,7 +1,7 @@
 import { Games, Tracks, VideoTracks, ReviewFlags } from "@/lib/db/repo";
 import { notFound } from "next/navigation";
 import { idFromGameSlug } from "@/lib/utils";
-import { GameDetailClient } from "./game-detail-client";
+import { GameDetailClient } from "./GameDetailClient";
 
 export default async function GameDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

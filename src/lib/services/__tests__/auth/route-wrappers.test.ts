@@ -3,11 +3,11 @@ import { NextResponse } from "next/server";
 
 const mockGetAuthUserId = vi.fn();
 
-vi.mock("@/lib/services/auth-helpers", () => ({
+vi.mock("@/lib/services/auth/auth-helpers", () => ({
   getAuthUserId: () => mockGetAuthUserId(),
 }));
 
-const { withRequiredAuth, withOptionalAuth } = await import("../route-wrappers");
+const { withRequiredAuth, withOptionalAuth } = await import("../../auth/route-wrappers");
 
 beforeEach(() => {
   mockGetAuthUserId.mockReset();

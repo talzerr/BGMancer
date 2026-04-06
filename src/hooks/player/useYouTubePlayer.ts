@@ -196,8 +196,9 @@ export function useYouTubePlayer({
     setCurrentTime(0);
     setDuration(0);
     setPlaying(true);
-    // setPlaying is intentionally omitted: it's a stable internal helper derived
-    // from setState calls; including it would cause the effect to re-run spuriously.
+    // setPlaying is intentionally omitted: it's a plain function that captures
+    // onPlayingChange from props. Wrapping it in useCallback would couple this
+    // effect's stability to the onPlayingChange prop reference chain.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentVideoId]);
 

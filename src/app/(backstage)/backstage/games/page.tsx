@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { GamesClient } from "./games-client";
+import { GamesClient } from "./GamesClient";
 
 export default function GamesPage() {
   return (

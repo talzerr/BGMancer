@@ -43,7 +43,7 @@ export function CatalogBrowser({ libraryGameIds, onAdd, searchFilter }: CatalogB
 
   useEffect(() => {
     Promise.resolve().then(() => fetchCatalog());
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetchCatalog]);
 
   // Reset visible count when filter changes
   useEffect(() => {

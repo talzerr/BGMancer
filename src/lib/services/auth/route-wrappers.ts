@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthUserId } from "@/lib/services/auth-helpers";
+import { getAuthUserId } from "./auth-helpers";
 import { createLogger } from "@/lib/logger";
 
 type RouteArgs = [Request, ...unknown[]];

@@ -63,8 +63,7 @@ export function PlayerProvider({
     if (config.antiSpoilerEnabled) {
       clearPlayedTracks();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config.antiSpoilerEnabled]);
+  }, [config.antiSpoilerEnabled, clearPlayedTracks]);
 
   // Game thumbnail map — built from playlist tracks so skipped games are included.
   // Each track carries game_thumbnail_url via JOIN, so no extra fetch is needed.

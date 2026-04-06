@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { searchGameSoundtrack, fetchDiscogsRelease, fetchDiscogsMaster } from "../discogs";
+import {
+  searchGameSoundtrack,
+  fetchDiscogsRelease,
+  fetchDiscogsMaster,
+} from "../../external/discogs";
 import { TEST_GAME_TITLE, TEST_TRACK_NAME } from "@/test/constants";
 import { TracklistSource } from "@/types";
 

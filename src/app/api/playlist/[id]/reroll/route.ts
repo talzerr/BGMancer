@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { Playlist, Games } from "@/lib/db/repo";
 import { MIN_TRACK_DURATION_SECONDS, MAX_TRACK_DURATION_SECONDS } from "@/lib/constants";
-import { withRequiredAuth } from "@/lib/services/route-wrappers";
+import { withRequiredAuth } from "@/lib/services/auth/route-wrappers";
 import { rerollSchema, zodErrorResponse } from "@/lib/validation";
 import { getTaggedPool } from "@/lib/pipeline/generation/candidates";
 

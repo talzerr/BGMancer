@@ -42,6 +42,8 @@ Schema is managed by Drizzle ORM with migrations stored in `drizzle/migrations/`
 
 ## Architecture
 
+This section describes the current codebase. For prescriptive rules and patterns, `docs/claude/ARCHITECTURE.md` and `docs/claude/DESIGN_SYSTEM.md` are authoritative and take precedence over descriptions here.
+
 ### Authentication & Security
 
 **Auth system:** NextAuth v5 (beta) as the sole auth provider. In dev, a Credentials provider allows sign-in with any name. In production, Google OAuth.
@@ -52,9 +54,9 @@ Schema is managed by Drizzle ORM with migrations stored in `drizzle/migrations/`
 
 **Middleware (`src/middleware.ts`):** Runs on all non-static requests. Reads the route config and enforces: (1) allowlist — unregistered routes get 404, (2) admin routes — in production, requires `CF_Authorization` cookie (set by Cloudflare Access) as defense in depth. Uses the deprecated `middleware.ts` convention (not Next.js 16's `proxy.ts`) for `@opennextjs/cloudflare` compatibility.
 
-**Route wrappers (`src/lib/services/route-wrappers.ts`):** `withRequiredAuth(handler, label)` and `withOptionalAuth(handler, label)` enforce user auth at the handler level. Middleware can't call `auth()` (NextAuth doesn't work in the middleware layer), so user auth is enforced here.
+**Route wrappers (`src/lib/services/auth/route-wrappers.ts`):** `withRequiredAuth(handler, label)` and `withOptionalAuth(handler, label)` enforce user auth at the handler level. Middleware can't call `auth()` (NextAuth doesn't work in the middleware layer), so user auth is enforced here.
 
-**Auth helpers (`src/lib/services/auth-helpers.ts`):** `getAuthSession()`, `getAuthUserId()`, `AuthRequiredError`. Used by route wrappers and custom handlers (generate, sync).
+**Auth helpers (`src/lib/services/auth/auth-helpers.ts`):** `getAuthSession()`, `getAuthUserId()`, `AuthRequiredError`. Used by route wrappers and custom handlers (generate, sync).
 
 **Ownership checks:** Mutation routes for sessions and playlist tracks verify the resource belongs to the requesting user (403 on mismatch).
 
@@ -84,8 +86,8 @@ When adding a new API route:
 
 Next.js App Router with three main page areas:
 
-- `/` — main feed (`src/app/(main)/page.tsx` + `src/app/(main)/feed-client.tsx`) — playlist view, generation controls, session history
-- `/catalog` — catalog browser + library drawer (`src/app/(main)/catalog/page.tsx` + `src/app/(main)/catalog/catalog-client.tsx`) — browse published games, add to library with curation modes
+- `/` — main feed (`src/app/(main)/page.tsx` + `src/app/(main)/FeedClient.tsx`) — playlist view, generation controls, session history
+- `/catalog` — catalog browser + library drawer (`src/app/(main)/catalog/page.tsx` + `src/app/(main)/catalog/CatalogClient.tsx`) — browse published games, add to library with curation modes
 - `/backstage` — admin control plane (`src/app/(backstage)/backstage/`) — inspect/correct track metadata, review flags, and Director telemetry. Three views:
   - `/backstage/games` — game list with needs-review badges, re-ingest / retag actions
   - `/backstage/tracks` — track lab: full tag table with inline editing via `TrackEditSheet`, bulk actions, re-tag trigger
@@ -144,7 +146,7 @@ Curation modes (see `CurationMode` enum in `src/types/index.ts`):
 
 **Game onboarding** (`onboarding.ts`): backstage-driven process that prepares a game for playlist generation. Three phases:
 
-1. **Load tracks** — fetch tracklist from a source (`TracklistSource` enum: `DiscogsRelease`, `DiscogsMaster`, `Vgmdb`, `Manual`). Source metadata and URL generation live in `src/lib/services/tracklist-source.ts`.
+1. **Load tracks** — fetch tracklist from a source (`TracklistSource` enum: `DiscogsRelease`, `DiscogsMaster`, `Vgmdb`, `Manual`). Source metadata and URL generation live in `src/lib/services/parsing/tracklist-source.ts`.
 2. **Resolve videos** (`youtube-resolve.ts`) — align track names to YouTube video IDs via LLM playlist matching + fallback search; results cached in `video_tracks` table. Resolution is capped at `RESOLVE_POOL_MAX` (80) tracks per batch and `RESOLVE_FALLBACK_MAX` (10) for YouTube search fallback.
 3. **Tag tracks** — LLM produces energy, roles, moods, instrumentation for each resolved track; stored in `tracks` table. Tags can be cleared selectively via `Tracks.clearTags(gameId, names?)`.
 

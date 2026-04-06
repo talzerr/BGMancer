@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { matchRoute } from "@/lib/route-matcher";
 import { AuthLevel } from "@/lib/route-config";
-import { hasCloudflareAccessToken } from "@/lib/services/cloudflare-access";
+import { hasCloudflareAccessToken } from "@/lib/services/auth/cloudflare-access";
 import { env } from "./lib/env";
 
 export function middleware(request: NextRequest) {

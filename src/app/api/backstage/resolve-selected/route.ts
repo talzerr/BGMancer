@@ -5,7 +5,7 @@ import {
   discoverOSTPlaylist,
   ensureVideoMetadata,
 } from "@/lib/pipeline/onboarding/youtube-resolve";
-import { fetchPlaylistItems } from "@/lib/services/youtube";
+import { fetchPlaylistItems } from "@/lib/services/external/youtube";
 import { getTaggingProvider } from "@/lib/llm";
 import { SSEEventType } from "@/types";
 import { createLogger } from "@/lib/logger";

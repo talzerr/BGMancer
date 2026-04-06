@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { parseSource, formatSource, sourceUrl, getRegisteredSources } from "../tracklist-source";
+import {
+  parseSource,
+  formatSource,
+  sourceUrl,
+  getRegisteredSources,
+} from "../../parsing/tracklist-source";
 import { TracklistSource } from "@/types";
 
 describe("parseSource", () => {

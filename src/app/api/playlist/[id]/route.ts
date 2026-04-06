@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { Playlist } from "@/lib/db/repo";
-import { withRequiredAuth } from "@/lib/services/route-wrappers";
+import { withRequiredAuth } from "@/lib/services/auth/route-wrappers";
 
 /** DELETE /api/playlist/:id — Remove a single track from the playlist. */
 export const DELETE = withRequiredAuth(
