@@ -100,12 +100,15 @@ All non-backstage pages are wrapped by `PlayerProvider` (in `src/app/layout.tsx`
 `PlayerProvider` (rendered in `src/app/(main)/layout.tsx`) composes four hooks and shares their state app-wide. It receives `isSignedIn` from the server layout (via `auth()`) and exposes it on the context:
 
 - `usePlaylist` — playlist tracks + session management, fetches from `/api/playlist`
-- `usePlayerState` — playback state (current track, shuffle, play/pause)
+- `usePlayerState` — playback state (current track, shuffle, play/pause, revealed tracks for anti-spoiler)
 - `useConfig` — app config (track count, anti-spoiler, etc.) stored in localStorage
 - `useGameLibrary(isSignedIn)` — game library; authenticated users fetch from `/api/games`, guests use localStorage (key `bgm_guest_library`) hydrated against `/api/games/catalog`
 - `isSignedIn` — boolean, available on the context for auth-gating UI
+- `toggleAntiSpoiler` — single callback that flips the anti-spoiler config and clears revealed tracks (preserving the currently playing one) when the toggle goes from off→on. This logic lives on the context because both `usePlayerState` (revealed tracks) and `useConfig` (the toggle) are involved.
 
 Use `usePlayerContext()` to access any of these from any client component.
+
+**Playback persistence (authenticated users only):** On mount, `PlayerProvider` reads cached playback state from localStorage (`bgm_playback_state` for position/track, `bgm_playback_tracks` for the playlist, `bgm_revealed_tracks` for anti-spoiler state — see `src/hooks/player/playback-state.ts`) and hydrates the playlist + player instantly. The server fetch then refreshes in the background. Cached track lookups verify by `video_id` to detect stale entries. While playing, the player polls position every ~5s (20 ticks of the 250ms interval) and writes to `bgm_playback_state`. The YouTube IFrame player itself is a module-level singleton (`useYouTubePlayer.ts`) — only one instance ever exists, preventing the dual-player bug when switching playlists.
 
 ### Database layer (`src/lib/db/`)
 

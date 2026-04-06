@@ -42,6 +42,11 @@ declare global {
 // Module-level singleton — only one YT player can exist at a time.
 let singletonPlayer: YTPlayer | null = null;
 
+const POLL_INTERVAL_MS = 250;
+// Emit an onTimeUpdate callback every Nth poll tick. At 250ms × 20 = ~5s,
+// which is the cadence we use to persist the playback position.
+const TIME_UPDATE_TICK_INTERVAL = 20;
+
 function destroySingleton() {
   if (singletonPlayer) {
     singletonPlayer.destroy();
@@ -156,12 +161,12 @@ export function useYouTubePlayer({
         if (isFinite(ct)) setCurrentTime(ct);
         if (isFinite(dur) && dur > 0) setDuration(dur);
         tickCountRef.current += 1;
-        if (tickCountRef.current >= 20) {
+        if (tickCountRef.current >= TIME_UPDATE_TICK_INTERVAL) {
           tickCountRef.current = 0;
           if (isFinite(ct)) onTimeUpdateRef.current?.(ct);
         }
       }
-    }, 250);
+    }, POLL_INTERVAL_MS);
     return () => clearInterval(id);
   }, [isPlaying]);
 
