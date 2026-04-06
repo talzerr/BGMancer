@@ -5,6 +5,7 @@ const log = createLogger("vibe-profiler");
 import { ArcPhase, TrackMood, TrackInstrumentation, TrackRole } from "@/types";
 import type { VibeRubric, PhaseOverride } from "@/types";
 import { SESSION_NAME_MAX_LENGTH } from "@/lib/constants";
+import { Sessions } from "@/lib/db/repo";
 
 export interface ProfilerResult {
   rubric: VibeRubric;
@@ -262,4 +263,35 @@ export async function generateRubric(
     rubric: { phases, penalizedMoods, allowVocals },
     sessionName,
   };
+}
+
+/**
+ * Checks the user's existing sessions for one with a matching game set and returns
+ * its stored rubric + name. Game sets are compared as unordered sets of game IDs.
+ * Returns null if no session matches or if no cached session has valid telemetry.
+ *
+ * Sessions are FIFO-capped at MAX_PLAYLIST_SESSIONS (3), so this is bounded.
+ */
+export async function findCachedRubric(
+  userId: string,
+  activeGameIds: string[],
+): Promise<ProfilerResult | null> {
+  const sessions = await Sessions.listAllWithCounts(userId);
+  if (sessions.length === 0) return null;
+
+  const targetSize = activeGameIds.length;
+  const targetSet = new Set(activeGameIds);
+
+  for (const session of sessions) {
+    const telemetry = await Sessions.getByIdWithTelemetry(session.id);
+    if (!telemetry?.rubric || !telemetry.gameBudgets) continue;
+
+    const cachedIds = Object.keys(telemetry.gameBudgets);
+    if (cachedIds.length !== targetSize) continue;
+    if (!cachedIds.every((id) => targetSet.has(id))) continue;
+
+    return { rubric: telemetry.rubric, sessionName: telemetry.name };
+  }
+
+  return null;
 }

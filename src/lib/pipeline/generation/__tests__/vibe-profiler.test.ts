@@ -1,9 +1,16 @@
-import { describe, it, expect, vi } from "vitest";
-import { generateRubric, buildGameProfiles } from "../vibe-profiler";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { generateRubric, buildGameProfiles, findCachedRubric } from "../vibe-profiler";
 import type { GameProfile } from "../vibe-profiler";
 import type { LLMProvider } from "@/lib/llm/provider";
 import { ArcPhase, TrackMood, TrackInstrumentation, TrackRole } from "@/types";
+import type { VibeRubric, PlaylistSession } from "@/types";
+import { Sessions } from "@/lib/db/repo";
+import type { SessionWithTelemetry } from "@/lib/db/repos/sessions";
 import { TEST_GAME_TITLE } from "@/test/constants";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 function makeProfile(title = TEST_GAME_TITLE): GameProfile {
   return {
@@ -463,5 +470,150 @@ describe("buildGameProfiles", () => {
     const profiles = buildGameProfiles(games, pools);
     expect(profiles).toHaveLength(1);
     expect(profiles[0].title).toBe("Game A");
+  });
+});
+
+describe("findCachedRubric", () => {
+  const TEST_USER_ID = "user-1";
+
+  function makeSession(id: string, name: string): PlaylistSession & { track_count: number } {
+    return {
+      id,
+      user_id: TEST_USER_ID,
+      name,
+      description: null,
+      is_archived: false,
+      created_at: "2026-04-06T00:00:00Z",
+      track_count: 10,
+    };
+  }
+
+  function makeRubric(): VibeRubric {
+    return {
+      phases: {
+        [ArcPhase.Intro]: {
+          preferredMoods: [TrackMood.Peaceful, TrackMood.Mysterious],
+          preferredInstrumentation: [TrackInstrumentation.Piano, TrackInstrumentation.Strings],
+          preferredRoles: [TrackRole.Opener],
+        },
+      },
+      penalizedMoods: [TrackMood.Playful],
+      allowVocals: false,
+    };
+  }
+
+  function makeTelemetry(
+    id: string,
+    name: string,
+    rubric: VibeRubric | null,
+    gameBudgets: Record<string, number> | null,
+  ): SessionWithTelemetry {
+    return {
+      id,
+      user_id: TEST_USER_ID,
+      name,
+      description: null,
+      is_archived: false,
+      created_at: "2026-04-06T00:00:00Z",
+      rubric,
+      gameBudgets,
+    };
+  }
+
+  it("should return null when user has no sessions", async () => {
+    vi.spyOn(Sessions, "listAllWithCounts").mockResolvedValue([]);
+    const result = await findCachedRubric(TEST_USER_ID, ["g1", "g2"]);
+    expect(result).toBeNull();
+  });
+
+  it("should return null when no session has a rubric", async () => {
+    vi.spyOn(Sessions, "listAllWithCounts").mockResolvedValue([makeSession("s1", "Old Session")]);
+    vi.spyOn(Sessions, "getByIdWithTelemetry").mockResolvedValue(
+      makeTelemetry("s1", "Old Session", null, { g1: 5, g2: 5 }),
+    );
+    const result = await findCachedRubric(TEST_USER_ID, ["g1", "g2"]);
+    expect(result).toBeNull();
+  });
+
+  it("should return null when session has rubric but no gameBudgets", async () => {
+    vi.spyOn(Sessions, "listAllWithCounts").mockResolvedValue([makeSession("s1", "Old Session")]);
+    vi.spyOn(Sessions, "getByIdWithTelemetry").mockResolvedValue(
+      makeTelemetry("s1", "Old Session", makeRubric(), null),
+    );
+    const result = await findCachedRubric(TEST_USER_ID, ["g1", "g2"]);
+    expect(result).toBeNull();
+  });
+
+  it("should skip sessions with different game set size", async () => {
+    vi.spyOn(Sessions, "listAllWithCounts").mockResolvedValue([makeSession("s1", "Old Session")]);
+    vi.spyOn(Sessions, "getByIdWithTelemetry").mockResolvedValue(
+      makeTelemetry("s1", "Old Session", makeRubric(), { g1: 5, g2: 5 }),
+    );
+    const result = await findCachedRubric(TEST_USER_ID, ["g1", "g2", "g3"]);
+    expect(result).toBeNull();
+  });
+
+  it("should skip sessions with same size but different game IDs", async () => {
+    vi.spyOn(Sessions, "listAllWithCounts").mockResolvedValue([makeSession("s1", "Old Session")]);
+    vi.spyOn(Sessions, "getByIdWithTelemetry").mockResolvedValue(
+      makeTelemetry("s1", "Old Session", makeRubric(), { g1: 5, g2: 5 }),
+    );
+    const result = await findCachedRubric(TEST_USER_ID, ["g1", "g3"]);
+    expect(result).toBeNull();
+  });
+
+  it("should return rubric and sessionName on exact match", async () => {
+    const rubric = makeRubric();
+    vi.spyOn(Sessions, "listAllWithCounts").mockResolvedValue([
+      makeSession("s1", "Moonlit Descent"),
+    ]);
+    vi.spyOn(Sessions, "getByIdWithTelemetry").mockResolvedValue(
+      makeTelemetry("s1", "Moonlit Descent", rubric, { g1: 5, g2: 5 }),
+    );
+    const result = await findCachedRubric(TEST_USER_ID, ["g1", "g2"]);
+    expect(result).not.toBeNull();
+    expect(result!.rubric).toBe(rubric);
+    expect(result!.sessionName).toBe("Moonlit Descent");
+  });
+
+  it("should match regardless of game ID order", async () => {
+    vi.spyOn(Sessions, "listAllWithCounts").mockResolvedValue([makeSession("s1", "Cached")]);
+    vi.spyOn(Sessions, "getByIdWithTelemetry").mockResolvedValue(
+      makeTelemetry("s1", "Cached", makeRubric(), { g2: 5, g1: 5 }),
+    );
+    const result = await findCachedRubric(TEST_USER_ID, ["g1", "g2"]);
+    expect(result).not.toBeNull();
+    expect(result!.sessionName).toBe("Cached");
+  });
+
+  it("should return the first matching session (newest-first)", async () => {
+    const rubric1 = makeRubric();
+    const rubric2 = makeRubric();
+    vi.spyOn(Sessions, "listAllWithCounts").mockResolvedValue([
+      makeSession("s1", "Newest"),
+      makeSession("s2", "Older"),
+    ]);
+    const spy = vi
+      .spyOn(Sessions, "getByIdWithTelemetry")
+      .mockResolvedValueOnce(makeTelemetry("s1", "Newest", rubric1, { g1: 5, g2: 5 }))
+      .mockResolvedValueOnce(makeTelemetry("s2", "Older", rubric2, { g1: 5, g2: 5 }));
+    const result = await findCachedRubric(TEST_USER_ID, ["g1", "g2"]);
+    expect(result!.sessionName).toBe("Newest");
+    expect(result!.rubric).toBe(rubric1);
+    // Should short-circuit after finding the first match
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("should fall through to later sessions when the first doesn't match", async () => {
+    vi.spyOn(Sessions, "listAllWithCounts").mockResolvedValue([
+      makeSession("s1", "Different"),
+      makeSession("s2", "Match"),
+    ]);
+    vi.spyOn(Sessions, "getByIdWithTelemetry")
+      .mockResolvedValueOnce(makeTelemetry("s1", "Different", makeRubric(), { g3: 5, g4: 5 }))
+      .mockResolvedValueOnce(makeTelemetry("s2", "Match", makeRubric(), { g1: 5, g2: 5 }));
+    const result = await findCachedRubric(TEST_USER_ID, ["g1", "g2"]);
+    expect(result).not.toBeNull();
+    expect(result!.sessionName).toBe("Match");
   });
 });

@@ -8,9 +8,11 @@ import { assemblePlaylist } from "@/lib/pipeline/generation/director";
 import {
   generateRubric,
   buildGameProfiles,
+  findCachedRubric,
   type ProfilerResult,
 } from "@/lib/pipeline/generation/vibe-profiler";
 import { getVibeProfilerProvider } from "@/lib/llm";
+import { acquireLlmGeneration } from "@/lib/rate-limit";
 import type { GenerateEvent, PendingTrack } from "@/lib/pipeline/generation/types";
 import type { AppConfig, Game, PlaylistTrack, TaggedTrack, VibeRubric } from "@/types";
 import {
@@ -260,9 +262,30 @@ export async function generatePlaylist(
 
   if (filteredPools.size > 0 && targetCount > 0) {
     const activeGames = games.filter((g) => filteredPools.has(g.id));
-    const profilerResult = config.skip_llm
-      ? undefined
-      : await profileVibe(activeGames, filteredPools, send);
+
+    let profilerResult: ProfilerResult | undefined;
+    if (!config.skip_llm) {
+      // 1. Try cache first — no cap consumption, no LLM call
+      const cached = await findCachedRubric(
+        userId,
+        activeGames.map((g) => g.id),
+      );
+      if (cached) {
+        profilerResult = cached;
+        send({ type: "progress", message: "Reusing vibe profile from previous session…" });
+      } else {
+        // 2. Cache miss — check AI cap
+        const cap = await acquireLlmGeneration(userId);
+        if (cap) {
+          config.skip_llm = true;
+          send({ type: "llm_cap_reached" });
+        } else {
+          // 3. Cap OK — run the profiler
+          profilerResult = await profileVibe(activeGames, filteredPools, send);
+        }
+      }
+    }
+
     send({ type: "progress", message: "Assembling playlist arc…" });
     const directorResult = runDirector(
       filteredPools,
