@@ -56,8 +56,15 @@ export function usePlayerState() {
   }
 
   const clearPlayedTracks = useCallback(() => {
-    setPlayedTrackIds(new Set());
-    clearRevealedTracks();
+    const currentId = playingTrackIdRef.current;
+    if (currentId) {
+      const preserved = new Set([currentId]);
+      setPlayedTrackIds(preserved);
+      saveRevealedTracks(preserved);
+    } else {
+      setPlayedTrackIds(new Set());
+      clearRevealedTracks();
+    }
   }, []);
 
   function handleToggleShuffle() {
@@ -89,6 +96,10 @@ export function usePlayerState() {
 
   const playingTrackId =
     currentTrackIndex !== null ? (effectiveFoundTracks[currentTrackIndex]?.id ?? null) : null;
+  const playingTrackIdRef = useRef(playingTrackId);
+  useEffect(() => {
+    playingTrackIdRef.current = playingTrackId;
+  }, [playingTrackId]);
 
   const activeGameId =
     currentTrackIndex !== null ? (effectiveFoundTracks[currentTrackIndex]?.game_id ?? null) : null;

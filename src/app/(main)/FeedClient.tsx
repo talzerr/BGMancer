@@ -231,7 +231,9 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
                       const isCurrentTrack =
                         viewingPlayingSession && track.id === player.playingTrackId;
                       const spoilerHidden =
-                        config.antiSpoilerEnabled && !player.playedTrackIds.has(track.id);
+                        config.antiSpoilerEnabled &&
+                        !player.playedTrackIds.has(track.id) &&
+                        track.id !== player.playingTrackId;
                       return (
                         <SortableTrackItem
                           key={track.id}

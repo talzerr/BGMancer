@@ -116,6 +116,7 @@ export function PlayerProvider({
   );
 
   useEffect(() => {
+    if (restoredSeekSeconds !== null) return;
     const idx = player.currentTrackIndex;
     const sessionId = player.playingSessionId;
     if (idx === null || !sessionId) return;
