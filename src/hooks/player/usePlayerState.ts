@@ -3,7 +3,12 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import type { PlaylistTrack } from "@/types";
 import type { PlayerBarHandle } from "@/components/player/PlayerBar";
-import { clearPlaybackState } from "@/hooks/player/playback-state";
+import {
+  clearPlaybackState,
+  saveRevealedTracks,
+  readRevealedTracks,
+  clearRevealedTracks,
+} from "@/hooks/player/playback-state";
 
 export function usePlayerState() {
   const [currentTrackIndex, setCurrentTrackIndex] = useState<number | null>(null);
@@ -19,12 +24,15 @@ export function usePlayerState() {
 
   /** Start playing a set of tracks from a given index */
   function startPlaying(tracks: PlaylistTrack[], index: number, sessionId: string | null) {
+    if (sessionId !== null && playingSessionId !== null && sessionId !== playingSessionId) {
+      setPlayedTrackIds(new Set());
+      clearRevealedTracks();
+    }
     setPlayingTracks(tracks);
     setPlayingSessionId(sessionId);
     setCurrentTrackIndex(index);
     setShuffleMode(false);
     setShuffleOrder([]);
-    setPlayedTrackIds(new Set());
   }
 
   function reset() {
@@ -38,16 +46,18 @@ export function usePlayerState() {
   }
 
   function restorePlayback(tracks: PlaylistTrack[], index: number, sessionId: string | null) {
+    const revealed = readRevealedTracks();
     setPlayingTracks(tracks);
     setPlayingSessionId(sessionId);
     setCurrentTrackIndex(index);
     setShuffleMode(false);
     setShuffleOrder([]);
-    setPlayedTrackIds(new Set());
+    setPlayedTrackIds(revealed);
   }
 
   const clearPlayedTracks = useCallback(() => {
     setPlayedTrackIds(new Set());
+    clearRevealedTracks();
   }, []);
 
   function handleToggleShuffle() {
@@ -92,13 +102,11 @@ export function usePlayerState() {
           if (prev.has(track.id)) return prev;
           const next = new Set(prev);
           next.add(track.id);
+          saveRevealedTracks(next);
           return next;
         });
       }
     }
-    // effectiveFoundTracks is intentionally omitted: we only want to mark a track
-    // as played when the *index* changes (i.e. the user or auto-advance moves to a
-    // new track), not on every playlist mutation (reorder, delete, etc.).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTrackIndex]);
 

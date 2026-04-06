@@ -31,9 +31,9 @@ interface PlayerContextValue {
   player: PlayerState;
   config: ConfigState;
   gameLibrary: GameLibraryState;
-  /** Game thumbnail URL keyed by game ID. Computed once; use instead of re-deriving. */
   gameThumbnailByGameId: Map<string, string>;
   isSignedIn: boolean;
+  toggleAntiSpoiler: () => void;
 }
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
@@ -62,12 +62,12 @@ export function PlayerProvider({
 
   const [restoredSeekSeconds, setRestoredSeekSeconds] = useState<number | null>(null);
   const cacheRestoredRef = useRef(false);
+  const restoredSessionIdRef = useRef<string | null>(null);
 
   const fetchTracks = playlist.fetchTracks;
   const fetchGames = gameLibrary.fetchGames;
   const clearPlayedTracks = player.clearPlayedTracks;
 
-  // Hydrate from localStorage cache instantly on mount; server fetch refreshes in background
   useEffect(() => {
     if (!isSignedIn || cacheRestoredRef.current) return;
     cacheRestoredRef.current = true;
@@ -79,6 +79,7 @@ export function PlayerProvider({
     const track = cachedTracks[saved.trackIndex];
     if (!track || track.video_id !== saved.videoId) return;
 
+    restoredSessionIdRef.current = saved.sessionId;
     playlist.hydrateFromCache(cachedTracks, saved.sessionId);
     player.restorePlayback(cachedTracks, saved.trackIndex, saved.sessionId);
     setRestoredSeekSeconds(saved.positionSeconds);
@@ -86,7 +87,7 @@ export function PlayerProvider({
   }, [isSignedIn]);
 
   useEffect(() => {
-    fetchTracks();
+    fetchTracks(restoredSessionIdRef.current ?? undefined);
   }, [fetchTracks]);
 
   useEffect(() => {
@@ -130,15 +131,13 @@ export function PlayerProvider({
     }
   }, [playlist.tracks, playlist.currentSessionId]);
 
-  // Re-blur all tracks when anti-spoiler is re-enabled
-  useEffect(() => {
-    if (config.antiSpoilerEnabled) {
-      clearPlayedTracks();
-    }
-  }, [config.antiSpoilerEnabled, clearPlayedTracks]);
+  const toggleAntiSpoiler = useCallback(() => {
+    const enabling = !config.antiSpoilerEnabled;
+    config.saveAntiSpoiler(enabling);
+    if (enabling) clearPlayedTracks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.antiSpoilerEnabled, config.saveAntiSpoiler, clearPlayedTracks]);
 
-  // Game thumbnail map — built from playlist tracks so skipped games are included.
-  // Each track carries game_thumbnail_url via JOIN, so no extra fetch is needed.
   const gameThumbnailByGameId = useMemo(() => {
     const map = new Map<string, string>();
     for (const track of playlist.tracks) {
@@ -151,7 +150,15 @@ export function PlayerProvider({
 
   return (
     <PlayerContext.Provider
-      value={{ playlist, player, config, gameLibrary, gameThumbnailByGameId, isSignedIn }}
+      value={{
+        playlist,
+        player,
+        config,
+        gameLibrary,
+        gameThumbnailByGameId,
+        isSignedIn,
+        toggleAntiSpoiler,
+      }}
     >
       {children}
       {currentTrackIndex !== null && effectiveFoundTracks.length > 0 && (

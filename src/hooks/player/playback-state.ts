@@ -9,6 +9,7 @@ export interface SavedPlaybackState {
 
 const PLAYBACK_STATE_KEY = "bgm_playback_state";
 const PLAYBACK_TRACKS_KEY = "bgm_playback_tracks";
+const REVEALED_TRACKS_KEY = "bgm_revealed_tracks";
 
 function isValidState(s: unknown): s is SavedPlaybackState {
   return (
@@ -42,6 +43,7 @@ export function clearPlaybackState(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(PLAYBACK_STATE_KEY);
   localStorage.removeItem(PLAYBACK_TRACKS_KEY);
+  localStorage.removeItem(REVEALED_TRACKS_KEY);
 }
 
 // ─── Track cache (separate key, written only when tracks change) ─────────────
@@ -62,4 +64,27 @@ export function readPlaybackTracks(): PlaylistTrack[] | null {
   } catch {
     return null;
   }
+}
+
+export function saveRevealedTracks(ids: Set<string>): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(REVEALED_TRACKS_KEY, JSON.stringify([...ids]));
+}
+
+export function readRevealedTracks(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(REVEALED_TRACKS_KEY);
+    if (!raw) return new Set();
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((v): v is string => typeof v === "string"));
+  } catch {
+    return new Set();
+  }
+}
+
+export function clearRevealedTracks(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(REVEALED_TRACKS_KEY);
 }

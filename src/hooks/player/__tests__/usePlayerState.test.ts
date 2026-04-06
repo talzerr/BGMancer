@@ -63,29 +63,32 @@ describe("usePlayerState", () => {
       expect(result.current.effectiveFoundTracks).toEqual(tracks);
     });
 
-    it("should reset playedTrackIds when starting new playback", () => {
+    it("should preserve playedTrackIds across startPlaying calls", () => {
       const { result } = renderHook(() => usePlayerState());
       const tracks = [makeTrack("t1"), makeTrack("t2")];
 
-      // Start playing track 0 — it gets marked as played via the useEffect
       act(() => {
         result.current.startPlaying(tracks, 0, "session-1");
       });
       expect(result.current.playedTrackIds.has("t1")).toBe(true);
 
-      // Advance to track 1 so t2 also gets marked
       act(() => {
         result.current.setCurrentTrackIndex(1);
       });
       expect(result.current.playedTrackIds.has("t2")).toBe(true);
 
-      // Start playing a new set at a different index — playedTrackIds should be cleared
+      // Same session: preserves revealed tracks
+      act(() => {
+        result.current.startPlaying(tracks, 0, "session-1");
+      });
+      expect(result.current.playedTrackIds.has("t1")).toBe(true);
+      expect(result.current.playedTrackIds.has("t2")).toBe(true);
+
+      // Different session: clears revealed tracks
       const newTracks = [makeTrack("t3"), makeTrack("t4")];
       act(() => {
         result.current.startPlaying(newTracks, 0, "session-2");
       });
-
-      // Old track IDs should be gone
       expect(result.current.playedTrackIds.has("t1")).toBe(false);
       expect(result.current.playedTrackIds.has("t2")).toBe(false);
     });
