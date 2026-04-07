@@ -183,7 +183,7 @@ function CatalogCard({
 
       {/* Title + action */}
       <div className="flex flex-1 flex-col gap-2 p-2.5">
-        <p className="font-display text-foreground line-clamp-2 text-xs leading-snug font-medium">
+        <p className="text-foreground line-clamp-2 text-xs leading-snug font-medium">
           {game.title}
         </p>
 

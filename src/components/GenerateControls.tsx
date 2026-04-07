@@ -66,7 +66,7 @@ export function GenerateControls({
     <div className="flex flex-col gap-5 px-1">
       {/* Playlist Size */}
       <div className="flex flex-col gap-1">
-        <span className="font-display text-muted-foreground text-[11px] font-medium tracking-widest uppercase">
+        <span className="text-muted-foreground text-[11px] font-medium tracking-widest uppercase">
           Playlist Size
         </span>
         <div className="border-border bg-background/60 flex overflow-hidden rounded-lg border">
@@ -121,7 +121,7 @@ export function GenerateControls({
       {/* Options (logged-in only) */}
       {isSignedIn && (
         <div className="flex flex-col gap-1">
-          <span className="font-display text-muted-foreground text-[11px] font-medium tracking-widest uppercase">
+          <span className="text-muted-foreground text-[11px] font-medium tracking-widest uppercase">
             Options
           </span>
           <div className="flex flex-wrap gap-1.5">
