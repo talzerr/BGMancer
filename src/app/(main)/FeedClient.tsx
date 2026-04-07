@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useCallback, useState } from "react";
+import { useEffect, useMemo, useRef, useCallback } from "react";
 import Script from "next/script";
 import type { SyntheticEvent } from "react";
 import {
@@ -28,7 +28,6 @@ import { PlaylistHeader } from "@/components/session/PlaylistHeader";
 import { SortableTrackItem } from "@/components/player/SortableTrackItem";
 import { PlaylistEmptyState } from "@/components/session/PlaylistEmptyState";
 import { UndoToast } from "@/components/player/UndoToast";
-import { InfoToast } from "@/components/InfoToast";
 
 interface FeedClientProps {
   isSignedIn: boolean;
@@ -39,8 +38,6 @@ interface FeedClientProps {
 export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientProps) {
   const { playlist, player, config, gameLibrary, gameThumbnailByGameId } = usePlayerContext();
   const { sessions, fetchSessions, handleRenameSession, handleDeleteSession } = useSessionManager();
-  const [llmCapReached, setLlmCapReached] = useState(false);
-  const [showLlmCapToast, setShowLlmCapToast] = useState(false);
   const { pendingDelete, initiateRemove, undoRemove } = useTrackDeleteUndo();
 
   // ── Turnstile (guest bot protection) ──────────────────────────────────────
@@ -69,26 +66,17 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
   async function handleGenerate() {
     const turnstileToken = !isSignedIn ? await getTurnstileToken() : undefined;
 
-    await playlist.handleGenerate(
-      gameLibrary.games,
-      {
-        target_track_count: config.targetTrackCount,
-        allow_long_tracks: config.allowLongTracks,
-        allow_short_tracks: config.allowShortTracks,
-        anti_spoiler_enabled: config.antiSpoilerEnabled,
-        raw_vibes: config.rawVibes,
-        skip_llm: !isSignedIn ? true : config.skipLlm,
-        turnstileToken,
-        gameSelections: !isSignedIn
-          ? gameLibrary.games.map((g) => ({ gameId: g.id, curation: g.curation }))
-          : undefined,
-      },
-      () => {
-        config.saveSkipLlm(true);
-        setLlmCapReached(true);
-        setShowLlmCapToast(true);
-      },
-    );
+    await playlist.handleGenerate(gameLibrary.games, {
+      target_track_count: config.targetTrackCount,
+      allow_long_tracks: config.allowLongTracks,
+      allow_short_tracks: config.allowShortTracks,
+      anti_spoiler_enabled: config.antiSpoilerEnabled,
+      raw_vibes: config.rawVibes,
+      turnstileToken,
+      gameSelections: !isSignedIn
+        ? gameLibrary.games.map((g) => ({ gameId: g.id, curation: g.curation }))
+        : undefined,
+    });
     await fetchSessions();
   }
 
@@ -146,7 +134,6 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
           <GenerateSection
             generating={playlist.generating}
             genProgress={playlist.genProgress}
-            genGlobalMsg={playlist.genGlobalMsg}
             genError={playlist.genError}
             cooldownUntil={playlist.cooldownUntil}
             targetTrackCount={config.targetTrackCount}
@@ -161,9 +148,6 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
             rawVibes={config.rawVibes}
             onToggleRawVibes={config.saveRawVibes}
             isSignedIn={isSignedIn}
-            skipLlm={config.skipLlm}
-            onToggleSkipLlm={config.saveSkipLlm}
-            llmCapReached={llmCapReached}
             importUrl={playlist.importUrl}
             onImportUrlChange={playlist.setImportUrl}
             importing={playlist.importing}
@@ -231,7 +215,9 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
                       const isCurrentTrack =
                         viewingPlayingSession && track.id === player.playingTrackId;
                       const spoilerHidden =
-                        config.antiSpoilerEnabled && !player.playedTrackIds.has(track.id);
+                        config.antiSpoilerEnabled &&
+                        !player.playedTrackIds.has(track.id) &&
+                        track.id !== player.playingTrackId;
                       return (
                         <SortableTrackItem
                           key={track.id}
@@ -269,12 +255,6 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
       </div>
 
       {pendingDelete && <UndoToast track={pendingDelete.track} onUndo={undoRemove} />}
-      {showLlmCapToast && (
-        <InfoToast
-          message="Daily AI limit reached — switched to Express Mode."
-          onDone={() => setShowLlmCapToast(false)}
-        />
-      )}
     </>
   );
 }

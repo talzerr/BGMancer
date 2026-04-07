@@ -3,10 +3,9 @@ import type { PlaylistTrack, GameProgressStatus } from "@/types";
 export type GenerateEvent =
   | {
       type: "progress";
-      gameId?: string;
-      title?: string;
-      status?: GameProgressStatus;
-      message: string;
+      gameId: string;
+      title: string;
+      status: GameProgressStatus;
     }
   | {
       type: "done";
@@ -14,8 +13,7 @@ export type GenerateEvent =
       tracks: PlaylistTrack[];
       count: number;
     }
-  | { type: "error"; message: string; detail?: string }
-  | { type: "llm_cap_reached" };
+  | { type: "error"; message: string; detail?: string };
 
 export type PendingTrack = Omit<
   PlaylistTrack,

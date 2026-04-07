@@ -31,7 +31,6 @@ function defaultProps() {
   return {
     generating: false,
     genProgress: [] as GameProgressEntry[],
-    genGlobalMsg: "",
     genError: null as string | null,
     cooldownUntil: 0,
     targetTrackCount: DEFAULT_TRACK_COUNT,
@@ -46,9 +45,6 @@ function defaultProps() {
     rawVibes: false,
     onToggleRawVibes: vi.fn(),
     isSignedIn: true,
-    skipLlm: false,
-    onToggleSkipLlm: vi.fn(),
-    llmCapReached: false,
     importUrl: "",
     onImportUrlChange: vi.fn(),
     importing: false,
@@ -154,35 +150,12 @@ describe("GenerateSection", () => {
   describe("when genProgress has entries", () => {
     it("should display progress item titles", () => {
       const progress: GameProgressEntry[] = [
-        {
-          id: "g1",
-          title: PROGRESS_TITLE_A,
-          status: GameProgressStatus.Active,
-          message: "Fetching tracks...",
-        },
-        {
-          id: "g2",
-          title: PROGRESS_TITLE_B,
-          status: GameProgressStatus.Waiting,
-          message: "",
-        },
+        { id: "g1", title: PROGRESS_TITLE_A, status: GameProgressStatus.Active },
+        { id: "g2", title: PROGRESS_TITLE_B, status: GameProgressStatus.Waiting },
       ];
       render(<GenerateSection {...defaultProps()} generating={true} genProgress={progress} />);
       expect(screen.getByText(PROGRESS_TITLE_A)).toBeInTheDocument();
       expect(screen.getByText(PROGRESS_TITLE_B)).toBeInTheDocument();
-    });
-
-    it("should display the active entry's message", () => {
-      const progress: GameProgressEntry[] = [
-        {
-          id: "g1",
-          title: PROGRESS_TITLE_A,
-          status: GameProgressStatus.Active,
-          message: "Fetching tracks...",
-        },
-      ];
-      render(<GenerateSection {...defaultProps()} generating={true} genProgress={progress} />);
-      expect(screen.getByText("Fetching tracks...")).toBeInTheDocument();
     });
   });
 

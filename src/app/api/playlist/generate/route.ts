@@ -10,7 +10,7 @@ import { YouTubeQuotaError, YouTubeInvalidKeyError } from "@/lib/services/extern
 import { GENERATION_COOLDOWN_MS, DEFAULT_TRACK_COUNT } from "@/lib/constants";
 import { makeSSEStream, SSE_HEADERS } from "@/lib/sse";
 import { generateSchema } from "@/lib/validation";
-import { checkGuestRateLimit, getClientIp, acquireLlmGeneration } from "@/lib/rate-limit";
+import { checkGuestRateLimit, getClientIp } from "@/lib/rate-limit";
 import { verifyTurnstileToken } from "@/lib/services/external/turnstile";
 import type { AppConfig } from "@/types";
 import { createLogger } from "@/lib/logger";
@@ -60,7 +60,6 @@ export async function POST(request: Request) {
     allow_short_tracks: parsed.data.allow_short_tracks ?? false,
     anti_spoiler_enabled: parsed.data.anti_spoiler_enabled ?? false,
     raw_vibes: parsed.data.raw_vibes ?? false,
-    skip_llm: parsed.data.skip_llm ?? false,
   };
 
   const session = await getAuthSession();
@@ -69,15 +68,6 @@ export async function POST(request: Request) {
   if (session.authenticated) {
     // ── Authenticated: full pipeline with Vibe Profiler + persistence ──
     const userId = session.userId;
-
-    // Check LLM cap — auto-fallback to Director-only if exceeded
-    if (!config.skip_llm) {
-      const cap = await acquireLlmGeneration(userId);
-      if (cap) {
-        config.skip_llm = true;
-        send({ type: "llm_cap_reached" });
-      }
-    }
 
     const lock = await Users.tryAcquireGenerationLock(userId, GENERATION_COOLDOWN_MS);
     if (!lock.acquired) {

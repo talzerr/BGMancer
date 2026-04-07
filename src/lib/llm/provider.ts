@@ -2,6 +2,8 @@ export interface CompletionOptions {
   temperature?: number;
   maxTokens?: number;
   signal?: AbortSignal;
+  /** When true, the system prompt is marked for Anthropic prompt caching. */
+  cacheSystem?: boolean;
 }
 
 export interface LLMProvider {

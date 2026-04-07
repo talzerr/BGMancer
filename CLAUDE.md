@@ -100,12 +100,15 @@ All non-backstage pages are wrapped by `PlayerProvider` (in `src/app/layout.tsx`
 `PlayerProvider` (rendered in `src/app/(main)/layout.tsx`) composes four hooks and shares their state app-wide. It receives `isSignedIn` from the server layout (via `auth()`) and exposes it on the context:
 
 - `usePlaylist` — playlist tracks + session management, fetches from `/api/playlist`
-- `usePlayerState` — playback state (current track, shuffle, play/pause)
+- `usePlayerState` — playback state (current track, shuffle, play/pause, revealed tracks for anti-spoiler)
 - `useConfig` — app config (track count, anti-spoiler, etc.) stored in localStorage
 - `useGameLibrary(isSignedIn)` — game library; authenticated users fetch from `/api/games`, guests use localStorage (key `bgm_guest_library`) hydrated against `/api/games/catalog`
 - `isSignedIn` — boolean, available on the context for auth-gating UI
+- `toggleAntiSpoiler` — single callback that flips the anti-spoiler config and clears revealed tracks (preserving the currently playing one) when the toggle goes from off→on. This logic lives on the context because both `usePlayerState` (revealed tracks) and `useConfig` (the toggle) are involved.
 
 Use `usePlayerContext()` to access any of these from any client component.
+
+**Playback persistence (authenticated users only):** On mount, `PlayerProvider` reads cached playback state from localStorage (`bgm_playback_state` for position/track, `bgm_playback_tracks` for the playlist, `bgm_revealed_tracks` for anti-spoiler state — see `src/hooks/player/playback-state.ts`) and hydrates the playlist + player instantly. The server fetch then refreshes in the background. Cached track lookups verify by `video_id` to detect stale entries. While playing, the player polls position every ~5s (20 ticks of the 250ms interval) and writes to `bgm_playback_state`. The YouTube IFrame player itself is a module-level singleton (`useYouTubePlayer.ts`) — only one instance ever exists, preventing the dual-player bug when switching playlists.
 
 ### Database layer (`src/lib/db/`)
 
@@ -133,7 +136,7 @@ Both called from `POST /api/playlist/generate`, which wraps them in an SSE strea
 Three-phase process (all track data is pre-cached during backstage onboarding — no YouTube API or LLM calls needed for candidate loading):
 
 1. **Candidate gathering** (`candidates.ts`): `getTaggedPool()` loads active, tagged tracks with pre-resolved video IDs from the `tracks` + `video_tracks` tables. Only tracks that are active, tagged (energy + roles), and have a resolved YouTube video are included.
-2. **Vibe Profiler** (`vibe-profiler.ts`): LLM produces a `ScoringRubric` from the session's game titles. The rubric shapes the Director's scoring weights. Skipped in Express Mode (`skip_llm`) and for guests.
+2. **Vibe Profiler** (`vibe-profiler.ts`): LLM produces a `VibeRubric` from the session's game titles + per-game tag distributions. The rubric provides per-phase mood/instrument overrides that sharpen the Director's arc template. Before calling the LLM, the pipeline checks the user's existing sessions for a cached rubric matching the same game set (`findCachedRubric`); a cache hit reuses the rubric without an LLM call and does not consume the daily LLM cap. On cache miss, the daily cap (`USER_DAILY_LLM_CAP = 10` actual LLM calls) is checked silently — if exceeded, the Director falls back to the default arc template with no user-visible indication. Always skipped for guests.
 3. **Deterministic arc assembly** (`director.ts`): the TypeScript Director builds the final ordered playlist from the tagged pool, shaping energy flow and cross-game balance. **No LLM involvement.** Each selected track produces a `TrackDecision` record (score components, arc phase, pool size, game budget) persisted via `DirectorDecisions.bulkInsert()` into `playlist_track_decisions` — this is the Director telemetry shown in the Theatre view.
 
 **Track reroll** (`POST /api/playlist/[id]/reroll`): picks a random replacement from the same backstage-curated pool (`getTaggedPool`), excluding tracks already in the current session. No YouTube API calls — everything from DB.
@@ -165,14 +168,13 @@ All providers implement `LLMProvider` (`src/lib/llm/provider.ts`): `complete(sys
 
 Config is stored in **localStorage** (not the DB). `useConfig` (`src/hooks/useConfig.ts`) reads/writes via `localStorage` with the following keys:
 
-| Key                        | Type       | Default | Purpose                                                 |
-| -------------------------- | ---------- | ------- | ------------------------------------------------------- |
-| `bgm_target_track_count`   | number     | 50      | Target playlist length                                  |
-| `bgm_anti_spoiler_enabled` | "1" \| "0" | "0"     | Blur unplayed track titles                              |
-| `bgm_allow_long_tracks`    | "1" \| "0" | "0"     | Allow tracks >9min                                      |
-| `bgm_allow_short_tracks`   | "1" \| "0" | "1"     | Allow tracks <90s (note: always false in practice)      |
-| `bgm_raw_vibes`            | "1" \| "0" | "0"     | Disable view bias scoring — score on musical tags only  |
-| `bgm_skip_llm`             | "1" \| "0" | "0"     | Express Mode — skip Vibe Profiler for faster generation |
+| Key                        | Type       | Default | Purpose                                                |
+| -------------------------- | ---------- | ------- | ------------------------------------------------------ |
+| `bgm_target_track_count`   | number     | 50      | Target playlist length                                 |
+| `bgm_anti_spoiler_enabled` | "1" \| "0" | "0"     | Blur unplayed track titles                             |
+| `bgm_allow_long_tracks`    | "1" \| "0" | "0"     | Allow tracks >9min                                     |
+| `bgm_allow_short_tracks`   | "1" \| "0" | "1"     | Allow tracks <90s (note: always false in practice)     |
+| `bgm_raw_vibes`            | "1" \| "0" | "0"     | Disable view bias scoring — score on musical tags only |
 
 There is no `/api/config` route. The hook uses `localStorage.getItem()` / `localStorage.setItem()` directly with boolean parsing via `v === "1"`. To add a new config key:
 
@@ -189,7 +191,7 @@ Guests get a localStorage-backed game library that mirrors the authenticated DB-
 - **Authenticated:** all operations go through `/api/games` (GET/POST/PATCH/DELETE)
 - **Guest:** reads/writes `bgm_guest_library` in localStorage as `{ gameId, curation }[]`, hydrates into full `Game` objects via `/api/games/catalog`
 
-The hook exposes `addGame(game, curation)`, `updateCuration(gameId, curation)`, and `deleteGame(gameId)` which work identically for both paths. Guest generation sends `gameSelections` in the POST body to `/api/playlist/generate`, which the backend already supports via `generatePlaylistForGuest`. Guests always use Express Mode (Director-only, no Vibe Profiler).
+The hook exposes `addGame(game, curation)`, `updateCuration(gameId, curation)`, and `deleteGame(gameId)` which work identically for both paths. Guest generation sends `gameSelections` in the POST body to `/api/playlist/generate`, which the backend already supports via `generatePlaylistForGuest`. Guests never run the Vibe Profiler (Director uses the default arc template).
 
 ### API routes
 

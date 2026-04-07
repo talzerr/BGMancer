@@ -161,7 +161,6 @@ export const playlistTrackDecisions = sqliteTable(
     game_budget: integer("game_budget").notNull().default(0),
     game_budget_used: integer("game_budget_used").notNull().default(0),
     selection_pass: text("selection_pass").notNull().default("scored"),
-    rubric_used: integer("rubric_used", { mode: "boolean" }).notNull().default(false),
     view_bias_active: integer("view_bias_active", { mode: "boolean" }).notNull().default(false),
   },
   (table) => [primaryKey({ columns: [table.playlist_id, table.position] })],

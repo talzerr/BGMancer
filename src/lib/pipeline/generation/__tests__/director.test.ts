@@ -14,7 +14,7 @@ import {
   ZERO_BREAKDOWN,
 } from "../director";
 import type { ArcSlot } from "../director";
-import type { TaggedTrack, Game, ScoringRubric } from "@/types";
+import type { TaggedTrack, Game, VibeRubric } from "@/types";
 import {
   ArcPhase,
   CurationMode,
@@ -96,15 +96,11 @@ function makeSlot(overrides: Partial<ArcSlot> = {}): ArcSlot {
   };
 }
 
-function makeRubric(overrides: Partial<ScoringRubric> = {}): ScoringRubric {
+function makeRubric(overrides: Partial<VibeRubric> = {}): VibeRubric {
   return {
-    targetEnergy: [2],
-    preferredMoods: [],
+    phases: {},
     penalizedMoods: [],
-    preferredInstrumentation: [],
-    penalizedInstrumentation: [],
     allowVocals: null,
-    preferredRoles: [],
     ...overrides,
   };
 }
@@ -487,7 +483,15 @@ describe("scoreTrack", () => {
     describe("when track role matches only rubric preferredRoles", () => {
       it("should be 1.0", () => {
         const s = makeSlot({ rolePrefs: [TrackRole.Ambient] });
-        const rubric = makeRubric({ preferredRoles: [TrackRole.Combat] });
+        const rubric = makeRubric({
+          phases: {
+            [ArcPhase.Rising]: {
+              preferredMoods: [],
+              preferredInstrumentation: [],
+              preferredRoles: [TrackRole.Combat],
+            },
+          },
+        });
         const result = scoreTrack(
           makeTrack({ energy: 2, roles: [TrackRole.Combat] }),
           s,
@@ -527,7 +531,15 @@ describe("scoreTrack", () => {
     describe("when a rubric is provided", () => {
       it("should use rubric moods instead of slot moods", () => {
         const s = makeSlot({ preferredMoods: [TrackMood.Peaceful] });
-        const rubric = makeRubric({ preferredMoods: [TrackMood.Epic] });
+        const rubric = makeRubric({
+          phases: {
+            [ArcPhase.Rising]: {
+              preferredMoods: [TrackMood.Epic],
+              preferredInstrumentation: [],
+              preferredRoles: [],
+            },
+          },
+        });
         const result = scoreTrack(
           makeTrack({ energy: 2, moods: [TrackMood.Epic] }),
           s,
@@ -619,6 +631,7 @@ describe("scoreTrack", () => {
       it("should apply SCORE_PENALTY_MULTIPLIER", () => {
         const s = makeSlot({ penalizedMoods: [TrackMood.Chaotic] });
         const rubric = makeRubric({ penalizedMoods: [TrackMood.Dark] });
+        // penalizedMoods is global — no phase override needed
         const result = scoreTrack(
           makeTrack({ energy: 2, moods: [TrackMood.Dark] }),
           s,
@@ -955,7 +968,15 @@ describe("assemblePlaylist", () => {
     });
 
     it("should include rubric when provided", () => {
-      const rubric = makeRubric({ preferredMoods: [TrackMood.Epic] });
+      const rubric = makeRubric({
+        phases: {
+          [ArcPhase.Intro]: {
+            preferredMoods: [TrackMood.Epic],
+            preferredInstrumentation: [],
+            preferredRoles: [],
+          },
+        },
+      });
       const result = assemblePlaylist(
         new Map([["g1", makePool("g1", 10)]]),
         [makeGame({ id: "g1" })],

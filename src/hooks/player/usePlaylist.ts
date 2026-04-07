@@ -5,6 +5,7 @@ import type { SyntheticEvent } from "react";
 import { GameProgressStatus } from "@/types";
 import type { Game, PlaylistTrack } from "@/types";
 import { GENERATION_COOLDOWN_MS } from "@/lib/constants";
+import { clearPlaybackState } from "@/hooks/player/playback-state";
 
 export interface GenerateConfig {
   target_track_count: number;
@@ -12,7 +13,6 @@ export interface GenerateConfig {
   allow_short_tracks: boolean;
   anti_spoiler_enabled: boolean;
   raw_vibes: boolean;
-  skip_llm: boolean;
   turnstileToken?: string;
   gameSelections?: { gameId: string; curation?: string }[];
 }
@@ -21,7 +21,6 @@ export type GameProgressEntry = {
   id: string;
   title: string;
   status: GameProgressStatus;
-  message: string;
 };
 
 export function usePlaylist() {
@@ -31,7 +30,6 @@ export function usePlaylist() {
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [genProgress, setGenProgress] = useState<GameProgressEntry[]>([]);
-  const [genGlobalMsg, setGenGlobalMsg] = useState<string>("");
   // Unix ms timestamp after which a new generation is allowed (0 = no cooldown active).
   const [cooldownUntil, setCooldownUntil] = useState(0);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -71,10 +69,17 @@ export function usePlaylist() {
     [fetchTracks],
   );
 
+  function hydrateFromCache(cachedTracks: PlaylistTrack[], sessionId: string) {
+    setTracks(cachedTracks);
+    setCurrentSessionId(sessionId);
+    setIsLoading(false);
+  }
+
   function clearTracks() {
     setTracks([]);
     setCurrentSessionId(null);
     setIsLoading(false);
+    clearPlaybackState();
   }
 
   function removeTracksForGame(gameId: string) {
@@ -144,11 +149,7 @@ export function usePlaylist() {
     });
   }
 
-  async function handleGenerate(
-    games: Game[],
-    config?: GenerateConfig,
-    onLlmCapReached?: () => void,
-  ) {
+  async function handleGenerate(games: Game[], config?: GenerateConfig) {
     if (games.length === 0) return;
 
     // Client-side cooldown guard: skip the fetch entirely and let the UI countdown handle it.
@@ -200,11 +201,6 @@ export function usePlaylist() {
               return;
             }
 
-            if (event.type === "llm_cap_reached") {
-              onLlmCapReached?.();
-              continue;
-            }
-
             // First non-error event — generation is real; enter generating state now.
             if (!started) {
               started = true;
@@ -213,29 +209,15 @@ export function usePlaylist() {
                   id: g.id,
                   title: g.title,
                   status: GameProgressStatus.Waiting,
-                  message: "",
                 })),
               );
-              setGenGlobalMsg("");
               setGenerating(true);
             }
 
             if (event.type === "progress") {
-              if (event.gameId) {
-                setGenProgress((prev) =>
-                  prev.map((e) =>
-                    e.id === event.gameId
-                      ? {
-                          ...e,
-                          status: (event.status as GameProgressStatus) ?? GameProgressStatus.Active,
-                          message: event.message,
-                        }
-                      : e,
-                  ),
-                );
-              } else {
-                setGenGlobalMsg(event.message);
-              }
+              setGenProgress((prev) =>
+                prev.map((e) => (e.id === event.gameId ? { ...e, status: event.status } : e)),
+              );
             } else if (event.type === "done") {
               setTracks(event.tracks ?? []);
               if (event.sessionId) setCurrentSessionId(event.sessionId);
@@ -251,7 +233,6 @@ export function usePlaylist() {
       if (started) {
         setCooldownUntil(Date.now() + GENERATION_COOLDOWN_MS);
         setGenerating(false);
-        setGenGlobalMsg("");
       }
     }
   }
@@ -261,6 +242,7 @@ export function usePlaylist() {
     try {
       await fetch("/api/playlist", { method: "DELETE" });
       setTracks([]);
+      clearPlaybackState();
     } catch (err) {
       console.error("Failed to clear playlist:", err);
       setFetchError("Failed to clear playlist");
@@ -315,7 +297,6 @@ export function usePlaylist() {
     generating,
     genError,
     genProgress,
-    genGlobalMsg,
     cooldownUntil,
     confirmClear,
     setConfirmClear,
@@ -328,6 +309,7 @@ export function usePlaylist() {
     error,
     fetchTracks,
     loadForSession,
+    hydrateFromCache,
     clearTracks,
     removeTracksForGame,
     removeTrackLocal,

@@ -21,7 +21,7 @@ export function getTaggingProvider(): LLMProvider {
 }
 
 /**
- * Vibe Profiler provider — generates a ScoringRubric from game context.
+ * Vibe Profiler provider — generates a VibeRubric from game context.
  *
  * Override the Anthropic model independently via:
  *   ANTHROPIC_VIBE_MODEL=claude-haiku-4-5-20251001

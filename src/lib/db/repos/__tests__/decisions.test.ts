@@ -54,7 +54,6 @@ function makeDecision(
     gameBudget: 10,
     gameBudgetUsed: 3,
     selectionPass: SelectionPass.Scored,
-    rubricUsed: true,
     viewBiasActive: false,
     ...overrides,
   };
@@ -84,17 +83,12 @@ describe("DirectorDecisions", () => {
     });
 
     it("should store boolean fields as integers (0/1)", async () => {
-      await DirectorDecisions.bulkInsert(playlistId, [
-        makeDecision({ rubricUsed: true, viewBiasActive: false }),
-      ]);
+      await DirectorDecisions.bulkInsert(playlistId, [makeDecision({ viewBiasActive: false })]);
 
       const row = rawDb
-        .prepare(
-          "SELECT rubric_used, view_bias_active FROM playlist_track_decisions WHERE playlist_id = ?",
-        )
+        .prepare("SELECT view_bias_active FROM playlist_track_decisions WHERE playlist_id = ?")
         .get(playlistId) as Record<string, unknown>;
 
-      expect(row.rubric_used).toBe(1);
       expect(row.view_bias_active).toBe(0);
     });
 
@@ -134,22 +128,18 @@ describe("DirectorDecisions", () => {
       expect(result).toEqual([]);
     });
 
-    it("should map rubricUsed and viewBiasActive as booleans, not integers", async () => {
+    it("should map viewBiasActive as a boolean, not an integer", async () => {
       await DirectorDecisions.bulkInsert(playlistId, [
-        makeDecision({ position: 0, rubricUsed: true, viewBiasActive: true }),
-        makeDecision({ position: 1, rubricUsed: false, viewBiasActive: false }),
+        makeDecision({ position: 0, viewBiasActive: true }),
+        makeDecision({ position: 1, viewBiasActive: false }),
       ]);
 
       const result = await DirectorDecisions.listByPlaylist(playlistId);
 
-      expect(result[0].rubricUsed).toBe(true);
       expect(result[0].viewBiasActive).toBe(true);
-      expect(typeof result[0].rubricUsed).toBe("boolean");
       expect(typeof result[0].viewBiasActive).toBe("boolean");
 
-      expect(result[1].rubricUsed).toBe(false);
       expect(result[1].viewBiasActive).toBe(false);
-      expect(typeof result[1].rubricUsed).toBe("boolean");
       expect(typeof result[1].viewBiasActive).toBe("boolean");
     });
 

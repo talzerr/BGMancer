@@ -4,12 +4,12 @@ import { getDB } from "@/lib/db";
 const log = createLogger("sessions");
 import { eq, desc, asc, and, count } from "drizzle-orm";
 import { playlists, playlistTracks } from "@/lib/db/drizzle-schema";
-import type { PlaylistSession, ScoringRubric } from "@/types";
+import type { PlaylistSession, VibeRubric } from "@/types";
 import { newId } from "@/lib/uuid";
 import { MAX_PLAYLIST_SESSIONS } from "@/lib/constants";
 
 export interface SessionWithTelemetry extends PlaylistSession {
-  rubric: ScoringRubric | null;
+  rubric: VibeRubric | null;
   gameBudgets: Record<string, number> | null;
 }
 
@@ -113,7 +113,7 @@ export const Sessions = {
   /** Stores rubric + game budgets on a session after generation. */
   async updateTelemetry(
     id: string,
-    rubric?: ScoringRubric,
+    rubric?: VibeRubric,
     gameBudgets?: Record<string, number>,
   ): Promise<void> {
     await getDB()
@@ -130,11 +130,11 @@ export const Sessions = {
   async getByIdWithTelemetry(id: string): Promise<SessionWithTelemetry | null> {
     const row = await getDB().select().from(playlists).where(eq(playlists.id, id)).get();
     if (!row) return null;
-    let rubric: ScoringRubric | null = null;
+    let rubric: VibeRubric | null = null;
     let gameBudgets: Record<string, number> | null = null;
     if (row.rubric) {
       try {
-        rubric = JSON.parse(row.rubric) as ScoringRubric;
+        rubric = JSON.parse(row.rubric) as VibeRubric;
       } catch {
         log.error("failed to parse rubric", { sessionId: id });
       }

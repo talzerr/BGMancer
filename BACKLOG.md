@@ -8,8 +8,7 @@ Claude Code session can implement them.
 
 ## Bugs
 
-- **[player] Playback state lost on reload** — playback position doesn't survive
-  page reload. Should resume from the current track.
+No open bugs.
 
 ---
 
@@ -37,15 +36,6 @@ Items that must be done before removing Zero Trust and going public.
 - **[catalog] "Can't find your game?" path** — minimal solution so users don't hit a dead
   end when a game isn't in the catalog. Could be as simple as a link to a request form.
   Needs PM session for scoping.
-- **[ux] Make AI generation cap invisible** — remove any UI indication of the daily AI
-  limit. Backend silently falls back to non-AI scoring when exhausted. User never knows.
-  PM-decided (DEC-003).
-- **[ux] Spoilers toggle rename** — current name reflects old functionality. Needs renaming
-  to match actual behavior (hiding upcoming tracks, not game narrative spoilers).
-- **[ux] Better session names** — LLM side-call to generate evocative playlist names from
-  track energy and roles (e.g., "Soulsborne Descent").
-- **[engine] Revisit vibe profiler prompt** — current profiler may not produce perceptible
-  results. Review and improve the prompt before launch.
 - **[backstage] Users page** — baseline view at `/backstage/users` to see who's using the
   app (activity, library stats). Expand later.
 
@@ -114,6 +104,15 @@ Future work. No urgency, no commitment.
 - **[backstage] Quick-open from playlist track** — admin-only affordance on playlist
   track cards to navigate directly to that track's game in backstage. Depends on
   admin view toggle.
+- **[backstage] Visual guidelines doc** — lightweight guardrails for backstage UI.
+  Not a full design system — just a short doc that establishes backstage as visually
+  separate from the main app (no amber, no warm neutrals, no design system bleed).
+  Baseline: shadcn defaults, neutral palette, functional over polished. Keeps future
+  backstage sessions consistent without over-engineering admin tooling.
+- **[ux] Natural auth incentive** — explore non-intrusive ways to communicate that
+  signing in improves the experience (better playlist shaping, session history,
+  persistent library, sync to YouTube) without implying the guest experience is
+  inferior or using "AI-powered" language. Must feel discovered, not sold.
 
 ---
 

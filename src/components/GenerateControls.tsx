@@ -19,9 +19,6 @@ interface GenerateControlsProps {
   rawVibes: boolean;
   onToggleRawVibes: (enabled: boolean) => void;
   isSignedIn: boolean;
-  skipLlm: boolean;
-  onToggleSkipLlm: (enabled: boolean) => void;
-  llmCapReached: boolean;
   secsLeft: number;
   quip: string;
   onSwitchToImport: () => void;
@@ -40,9 +37,6 @@ export function GenerateControls({
   rawVibes,
   onToggleRawVibes,
   isSignedIn,
-  skipLlm,
-  onToggleSkipLlm,
-  llmCapReached,
   secsLeft,
   quip,
   onSwitchToImport,
@@ -131,34 +125,6 @@ export function GenerateControls({
             Options
           </span>
           <div className="flex flex-wrap gap-1.5">
-            {/* Express Mode toggle */}
-            <div className="group relative">
-              <button
-                onClick={() => !llmCapReached && onToggleSkipLlm(!skipLlm)}
-                disabled={llmCapReached}
-                className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
-                  llmCapReached
-                    ? "bg-secondary/30 cursor-not-allowed border-[var(--border-default)] text-[var(--text-disabled)]"
-                    : skipLlm
-                      ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 cursor-pointer"
-                      : "border-border bg-background/60 hover:text-foreground cursor-pointer text-[var(--text-tertiary)] hover:border-[var(--border-emphasis)]"
-                }`}
-              >
-                <span>
-                  {llmCapReached ? "Express: always on" : skipLlm ? "Express: on" : "Express: off"}
-                </span>
-              </button>
-              <div className="bg-secondary pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-56 rounded-lg border border-white/[0.08] px-3 py-2 opacity-0 transition-opacity group-hover:opacity-100">
-                <p className="text-foreground text-xs font-medium">
-                  {llmCapReached ? "Daily AI limit reached" : "Express Mode"}
-                </p>
-                <p className="text-muted-foreground mt-0.5 text-[11px] leading-snug">
-                  {llmCapReached
-                    ? "You've used all your AI-powered generations for today. Playlists are still curated, just without AI vibe scoring. Resets tomorrow."
-                    : "When on, skips the AI Vibe Profiler for faster generation. Playlists are still curated by the Director engine, just without AI-tuned mood scoring."}
-                </p>
-              </div>
-            </div>
             {/* Allow long tracks toggle */}
             <div className="group relative">
               <button

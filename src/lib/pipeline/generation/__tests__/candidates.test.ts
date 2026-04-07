@@ -122,7 +122,7 @@ describe("fetchGameCandidates", () => {
   });
 
   describe("when game has no tracks", () => {
-    it("should return empty array with done status", async () => {
+    it("should return empty array and emit a Done progress event", async () => {
       seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID });
       const events: GenerateEvent[] = [];
 
@@ -130,7 +130,9 @@ describe("fetchGameCandidates", () => {
         events.push(e),
       );
       expect(result).toHaveLength(0);
-      expect((events[1] as { message: string }).message).toContain("No active tagged tracks");
+      const done = events[1] as { type: string; status: GameProgressStatus };
+      expect(done.type).toBe("progress");
+      expect(done.status).toBe(GameProgressStatus.Done);
     });
   });
 

@@ -29,7 +29,7 @@ export function PlaylistHeader({
   onRename,
   onDeleteSession,
 }: PlaylistHeaderProps) {
-  const { playlist, config, player } = usePlayerContext();
+  const { playlist, config, player, toggleAntiSpoiler } = usePlayerContext();
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleEditValue, setTitleEditValue] = useState("");
   const titleInputRef = useRef<HTMLTextAreaElement>(null);
@@ -167,7 +167,7 @@ export function PlaylistHeader({
                   <TooltipTrigger
                     render={
                       <button
-                        onClick={() => config.saveAntiSpoiler(!config.antiSpoilerEnabled)}
+                        onClick={toggleAntiSpoiler}
                         className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
                           config.antiSpoilerEnabled
                             ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/15"
@@ -184,7 +184,7 @@ export function PlaylistHeader({
                     <span className="hidden sm:inline">Spoilers</span>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
-                    Anti-Spoiler Mode {config.antiSpoilerEnabled ? "(on)" : "(off)"}
+                    {config.antiSpoilerEnabled ? "Show all tracks" : "Blur unplayed tracks"}
                   </TooltipContent>
                 </Tooltip>
 
