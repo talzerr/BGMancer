@@ -4,8 +4,8 @@ import { CurationMode } from "@/types";
 import type { Game } from "@/types";
 import { steamHeaderUrl } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ChevronLeftIcon, ChevronRightIcon } from "@/components/Icons";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon } from "@/components/Icons";
 import { useState } from "react";
 
 interface LibraryDrawerProps {
@@ -19,17 +19,110 @@ interface LibraryDrawerProps {
   onGenerate: () => void;
 }
 
-const CURATION_CYCLE: CurationMode[] = [
-  CurationMode.Focus,
-  CurationMode.Include,
-  CurationMode.Lite,
+// Order shown inside the row popover.
+// `colorClass` reflects the intensity gradient: Focus is loud (amber), Include
+// is the default text weight, Lite is muted. Selection is communicated by the
+// checkmark, not the color.
+const CURATION_OPTIONS: {
+  mode: CurationMode;
+  label: string;
+  subtitle: string;
+  colorClass: string;
+}[] = [
+  {
+    mode: CurationMode.Focus,
+    label: "Focus",
+    subtitle: "Featured in the playlist",
+    colorClass: "text-primary",
+  },
+  {
+    mode: CurationMode.Include,
+    label: "Include",
+    subtitle: "Mixed in naturally (default)",
+    colorClass: "text-foreground",
+  },
+  {
+    mode: CurationMode.Lite,
+    label: "Lite",
+    subtitle: "Light presence",
+    colorClass: "text-[var(--text-tertiary)]",
+  },
 ];
 
-const CURATION_BADGE: Record<string, { label: string; className: string }> = {
-  [CurationMode.Focus]: { label: "Focus", className: "bg-primary/10 text-primary" },
-  [CurationMode.Include]: { label: "Include", className: "bg-primary/10 text-primary" },
-  [CurationMode.Lite]: { label: "Lite", className: "bg-primary/10 text-primary" },
-};
+function CurationLabel({ curation }: { curation: CurationMode }) {
+  if (curation === CurationMode.Focus) {
+    return <span className="text-primary shrink-0 text-[11px]">focus</span>;
+  }
+  if (curation === CurationMode.Lite) {
+    return <span className="shrink-0 text-[11px] text-[var(--text-disabled)]">lite</span>;
+  }
+  return null;
+}
+
+function GameRow({
+  game,
+  onCurationChange,
+  onRemove,
+}: {
+  game: Game;
+  onCurationChange: (gameId: string, curation: CurationMode) => void;
+  onRemove: (gameId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  function handleSelect(mode: CurationMode) {
+    setOpen(false);
+    if (mode !== game.curation) onCurationChange(game.id, mode);
+  }
+
+  function handleRemove() {
+    setOpen(false);
+    onRemove(game.id);
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        className="hover:bg-secondary/60 flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors"
+        aria-label={`Configure ${game.title}`}
+      >
+        <GameThumbnail game={game} />
+        <span className="text-foreground min-w-0 flex-1 truncate text-[13px]">{game.title}</span>
+        <CurationLabel curation={game.curation} />
+      </PopoverTrigger>
+      <PopoverContent side="left" align="start" sideOffset={8} className="min-w-[220px]">
+        {CURATION_OPTIONS.map(({ mode, label, subtitle, colorClass }) => {
+          const isCurrent = mode === game.curation;
+          return (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => handleSelect(mode)}
+              className="hover:bg-secondary/60 flex w-full cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 text-left transition-colors"
+            >
+              <span className="mt-[2px] flex h-3 w-3 shrink-0 items-center justify-center">
+                {isCurrent ? <CheckIcon className="text-primary h-3 w-3" /> : null}
+              </span>
+              <span className="flex min-w-0 flex-col">
+                <span className={`text-[13px] ${colorClass}`}>{label}</span>
+                <span className="text-[11px] text-[var(--text-tertiary)]">{subtitle}</span>
+              </span>
+            </button>
+          );
+        })}
+        <div className="border-border my-1 border-t" />
+        <button
+          type="button"
+          onClick={handleRemove}
+          className="hover:bg-destructive/10 flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-[var(--destructive)] transition-colors"
+        >
+          <span className="h-3 w-3 shrink-0" />
+          Remove
+        </button>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 function GameThumbnail({ game }: { game: Game }) {
   const [failed, setFailed] = useState(false);
@@ -69,12 +162,6 @@ export function LibraryDrawer({
   onGenerate,
 }: LibraryDrawerProps) {
   const hasActiveGames = games.length > 0;
-
-  function cycleCuration(game: Game) {
-    const currentIndex = CURATION_CYCLE.indexOf(game.curation);
-    const nextIndex = (currentIndex + 1) % CURATION_CYCLE.length;
-    onCurationChange(game.id, CURATION_CYCLE[nextIndex]);
-  }
 
   return (
     <aside
@@ -118,32 +205,6 @@ export function LibraryDrawer({
               <span className="text-xs text-[var(--text-tertiary)] tabular-nums">
                 {games.length}
               </span>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <span className="hover:text-muted-foreground cursor-help text-[10px] text-[var(--text-disabled)]">
-                      ⓘ
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent
-                    side="bottom"
-                    className="!bg-background !block max-w-[220px] space-y-1.5 border border-[var(--border-emphasis)] p-3 text-xs"
-                  >
-                    <div>
-                      <span className="text-primary font-medium">Focus</span>
-                      <span className="text-muted-foreground"> — more tracks from this game</span>
-                    </div>
-                    <div>
-                      <span className="text-primary font-medium">Include</span>
-                      <span className="text-muted-foreground"> — normal amount</span>
-                    </div>
-                    <div>
-                      <span className="text-primary font-medium">Lite</span>
-                      <span className="text-muted-foreground"> — fewer tracks from this game</span>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
             </div>
             <button
               type="button"
@@ -182,40 +243,12 @@ export function LibraryDrawer({
             <div className="flex-1 overflow-y-auto">
               <div className="flex flex-col gap-px p-2">
                 {games.map((game) => (
-                  <div
+                  <GameRow
                     key={game.id}
-                    className="group hover:bg-secondary/60 flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors"
-                  >
-                    <GameThumbnail game={game} />
-
-                    <span className="text-foreground min-w-0 flex-1 truncate text-[13px]">
-                      {game.title}
-                    </span>
-
-                    <button
-                      onClick={() => cycleCuration(game)}
-                      className={`shrink-0 cursor-pointer rounded-md px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase transition-colors ${(CURATION_BADGE[game.curation] ?? CURATION_BADGE[CurationMode.Include]).className}`}
-                    >
-                      {
-                        (CURATION_BADGE[game.curation] ?? CURATION_BADGE[CurationMode.Include])
-                          .label
-                      }
-                    </button>
-
-                    <button
-                      onClick={() => onRemove(game.id)}
-                      className="shrink-0 cursor-pointer rounded-md p-0.5 text-[var(--text-disabled)] opacity-0 transition-all group-hover:opacity-100 hover:text-red-400"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        className="h-3.5 w-3.5"
-                      >
-                        <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
-                      </svg>
-                    </button>
-                  </div>
+                    game={game}
+                    onCurationChange={onCurationChange}
+                    onRemove={onRemove}
+                  />
                 ))}
               </div>
             </div>

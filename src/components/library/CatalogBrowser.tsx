@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { CheckIcon, ChevronDownIcon, Spinner } from "@/components/Icons";
+import { CheckIcon, Spinner } from "@/components/Icons";
 import { CurationMode } from "@/types";
 import type { Game } from "@/types";
 
@@ -22,16 +22,6 @@ const GRID_GAP = 12;
 const DRAWER_WIDTH_DELTA = 260;
 // Drawer width transition duration (DESIGN_SYSTEM.md §2 — 300ms panel open/close).
 const DRAWER_TRANSITION_MS = 300;
-
-const CURATION_ADD_OPTIONS: {
-  mode: CurationMode;
-  label: string;
-  colorClass: string;
-}[] = [
-  { mode: CurationMode.Focus, label: "Focus", colorClass: "text-primary" },
-  { mode: CurationMode.Include, label: "Include", colorClass: "text-primary" },
-  { mode: CurationMode.Lite, label: "Lite", colorClass: "text-primary" },
-];
 
 export function CatalogBrowser({
   libraryGameIds,
@@ -174,27 +164,6 @@ function CatalogCard({
   isAdding: boolean;
   onAdd: (curation: CurationMode) => void;
 }) {
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!dropdownOpen) return;
-    function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
-    }
-    function handleEscape(e: KeyboardEvent) {
-      if (e.key === "Escape") setDropdownOpen(false);
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [dropdownOpen]);
-
   return (
     <div
       className={`group relative flex flex-col overflow-hidden rounded-xl border transition-colors ${
@@ -241,42 +210,12 @@ function CatalogCard({
               Adding…
             </div>
           ) : (
-            <div ref={dropdownRef} className="relative">
-              <div className="flex overflow-hidden rounded-lg">
-                <button
-                  onClick={() => onAdd(CurationMode.Include)}
-                  className="bg-primary/80 text-primary-foreground flex-1 cursor-pointer px-2 py-1 text-[11px] font-medium transition-colors hover:bg-[var(--primary-hover)]"
-                >
-                  + Add
-                </button>
-                <button
-                  onClick={() => setDropdownOpen((v) => !v)}
-                  className="bg-primary/80 text-primary-foreground cursor-pointer border-l border-[var(--primary-muted)]/60 px-1.5 py-1 transition-colors hover:bg-[var(--primary-hover)]"
-                >
-                  <ChevronDownIcon className="h-3 w-3" />
-                </button>
-              </div>
-
-              {dropdownOpen && (
-                <div className="bg-secondary absolute right-0 bottom-full z-30 mb-1 w-full min-w-[120px] overflow-hidden rounded-lg border border-[var(--border-emphasis)]">
-                  <p className="px-2.5 py-1.5 text-[10px] font-medium tracking-wider text-[var(--text-tertiary)] uppercase">
-                    Add as…
-                  </p>
-                  {CURATION_ADD_OPTIONS.map(({ mode, label, colorClass }) => (
-                    <button
-                      key={mode}
-                      onClick={() => {
-                        setDropdownOpen(false);
-                        onAdd(mode);
-                      }}
-                      className={`hover:bg-accent flex w-full cursor-pointer items-center px-2.5 py-1.5 text-left text-xs font-medium transition-colors ${colorClass}`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <button
+              onClick={() => onAdd(CurationMode.Include)}
+              className="bg-primary/80 text-primary-foreground w-full cursor-pointer rounded-lg px-2 py-1 text-[11px] font-medium transition-colors hover:bg-[var(--primary-hover)]"
+            >
+              + Add
+            </button>
           )}
         </div>
       </div>

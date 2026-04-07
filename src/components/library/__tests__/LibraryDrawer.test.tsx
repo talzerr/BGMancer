@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
+import * as React from "react";
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, within, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CurationMode } from "@/types";
 import type { Game } from "@/types";
@@ -60,12 +61,54 @@ vi.mock("@/components/ui/button", () => ({
   ),
 }));
 
-vi.mock("@/components/ui/tooltip", () => ({
-  TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  TooltipTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  TooltipContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-}));
+// Mock the Popover primitive as a controlled wrapper that conditionally renders
+// its content. This lets us assert against popover contents without booting
+// base-ui's portal/positioning layer in jsdom.
+const PopoverCtx = React.createContext<{
+  open: boolean;
+  setOpen: (v: boolean) => void;
+}>({ open: false, setOpen: () => {} });
+
+vi.mock("@/components/ui/popover", () => {
+  return {
+    Popover: ({
+      children,
+      open,
+      onOpenChange,
+    }: {
+      children: React.ReactNode;
+      open?: boolean;
+      onOpenChange?: (v: boolean) => void;
+    }) => {
+      const [internalOpen, setInternalOpen] = React.useState(false);
+      const isControlled = open !== undefined;
+      const isOpen = isControlled ? !!open : internalOpen;
+      const setOpen = (v: boolean) => {
+        if (!isControlled) setInternalOpen(v);
+        onOpenChange?.(v);
+      };
+      return (
+        <PopoverCtx.Provider value={{ open: isOpen, setOpen }}>{children}</PopoverCtx.Provider>
+      );
+    },
+    PopoverTrigger: ({
+      children,
+      className,
+      ...props
+    }: React.ButtonHTMLAttributes<HTMLButtonElement>) => {
+      const { setOpen } = React.useContext(PopoverCtx);
+      return (
+        <button type="button" className={className} onClick={() => setOpen(true)} {...props}>
+          {children}
+        </button>
+      );
+    },
+    PopoverContent: ({ children }: { children: React.ReactNode }) => {
+      const { open } = React.useContext(PopoverCtx);
+      return open ? <div data-testid="popover-content">{children}</div> : null;
+    },
+  };
+});
 
 vi.mock("@/lib/constants", () => ({
   steamHeaderUrl: (appid: number) =>
@@ -210,21 +253,9 @@ describe("LibraryDrawer", () => {
     });
   });
 
-  describe("curation badge cycling", () => {
-    // The tooltip content also renders "Focus", "Include", "Lite" text,
-    // so we target the curation badge <button> elements specifically.
-    function getCurationBadgeButton(label: string): HTMLElement {
-      const allMatches = screen.getAllByText(label);
-      const badge = allMatches.find((el) => el.tagName === "BUTTON");
-      if (!badge) throw new Error(`No <button> found with text "${label}"`);
-      return badge;
-    }
-
-    it("should cycle Focus -> Include on click", async () => {
-      const onCurationChange = vi.fn();
-      const user = userEvent.setup();
+  describe("row label", () => {
+    it("should render lowercase 'focus' label for Focus mode", async () => {
       const LibraryDrawer = await importComponent();
-
       render(
         <LibraryDrawer
           games={[GAME_FOCUS]}
@@ -232,43 +263,16 @@ describe("LibraryDrawer", () => {
           generating={false}
           isExpanded={true}
           onExpandedChange={vi.fn()}
-          onCurationChange={onCurationChange}
+          onCurationChange={vi.fn()}
           onRemove={vi.fn()}
           onGenerate={vi.fn()}
         />,
       );
-
-      await user.click(getCurationBadgeButton("Focus"));
-      expect(onCurationChange).toHaveBeenCalledWith("game-focus", CurationMode.Include);
+      expect(screen.getByText("focus")).toBeInTheDocument();
     });
 
-    it("should cycle Include -> Lite on click", async () => {
-      const onCurationChange = vi.fn();
-      const user = userEvent.setup();
+    it("should render lowercase 'lite' label for Lite mode", async () => {
       const LibraryDrawer = await importComponent();
-
-      render(
-        <LibraryDrawer
-          games={[BASE_GAME]}
-          targetTrackCount={50}
-          generating={false}
-          isExpanded={true}
-          onExpandedChange={vi.fn()}
-          onCurationChange={onCurationChange}
-          onRemove={vi.fn()}
-          onGenerate={vi.fn()}
-        />,
-      );
-
-      await user.click(getCurationBadgeButton("Include"));
-      expect(onCurationChange).toHaveBeenCalledWith("game-hk", CurationMode.Lite);
-    });
-
-    it("should cycle Lite -> Focus on click", async () => {
-      const onCurationChange = vi.fn();
-      const user = userEvent.setup();
-      const LibraryDrawer = await importComponent();
-
       render(
         <LibraryDrawer
           games={[GAME_LITE]}
@@ -276,23 +280,16 @@ describe("LibraryDrawer", () => {
           generating={false}
           isExpanded={true}
           onExpandedChange={vi.fn()}
-          onCurationChange={onCurationChange}
+          onCurationChange={vi.fn()}
           onRemove={vi.fn()}
           onGenerate={vi.fn()}
         />,
       );
-
-      await user.click(getCurationBadgeButton("Lite"));
-      expect(onCurationChange).toHaveBeenCalledWith("game-lite", CurationMode.Focus);
+      expect(screen.getByText("lite")).toBeInTheDocument();
     });
-  });
 
-  describe("remove button", () => {
-    it("should call onRemove with game id when clicked", async () => {
-      const onRemove = vi.fn();
-      const user = userEvent.setup();
+    it("should render no curation label for Include mode", async () => {
       const LibraryDrawer = await importComponent();
-
       render(
         <LibraryDrawer
           games={[BASE_GAME]}
@@ -301,19 +298,91 @@ describe("LibraryDrawer", () => {
           isExpanded={true}
           onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
-          onRemove={onRemove}
+          onRemove={vi.fn()}
           onGenerate={vi.fn()}
         />,
       );
+      expect(screen.queryByText("focus")).not.toBeInTheDocument();
+      expect(screen.queryByText("lite")).not.toBeInTheDocument();
+    });
+  });
 
-      // The remove button is the only one matching its X-icon path data.
-      const removePath = document.querySelector('path[d^="M6.28 5.22"]');
-      expect(removePath).not.toBeNull();
-      const removeButton = removePath!.closest("button");
-      expect(removeButton).not.toBeNull();
-      await user.click(removeButton!);
+  describe("row popover", () => {
+    function renderWith(game: Game) {
+      const onCurationChange = vi.fn();
+      const onRemove = vi.fn();
+      return {
+        onCurationChange,
+        onRemove,
+        async open() {
+          const LibraryDrawer = await importComponent();
+          render(
+            <LibraryDrawer
+              games={[game]}
+              targetTrackCount={50}
+              generating={false}
+              isExpanded={true}
+              onExpandedChange={vi.fn()}
+              onCurationChange={onCurationChange}
+              onRemove={onRemove}
+              onGenerate={vi.fn()}
+            />,
+          );
+          const user = userEvent.setup();
+          // Open the popover by clicking the row trigger.
+          await user.click(screen.getByRole("button", { name: `Configure ${game.title}` }));
+          return user;
+        },
+      };
+    }
 
-      expect(onRemove).toHaveBeenCalledWith("game-hk");
+    it("should open popover with all three mode options when row is clicked", async () => {
+      const ctx = renderWith(BASE_GAME);
+      await ctx.open();
+
+      const popover = screen.getByTestId("popover-content");
+      expect(popover).toBeInTheDocument();
+      expect(within(popover).getByText("Focus")).toBeInTheDocument();
+      expect(within(popover).getByText("Include")).toBeInTheDocument();
+      expect(within(popover).getByText("Lite")).toBeInTheDocument();
+      expect(within(popover).getByText("Featured in the playlist")).toBeInTheDocument();
+      expect(within(popover).getByText("Mixed in naturally (default)")).toBeInTheDocument();
+      expect(within(popover).getByText("Light presence")).toBeInTheDocument();
+      expect(within(popover).getByText("Remove")).toBeInTheDocument();
+    });
+
+    it("should call onCurationChange and close popover when a non-selected mode is picked", async () => {
+      const ctx = renderWith(BASE_GAME);
+      const user = await ctx.open();
+
+      const popover = screen.getByTestId("popover-content");
+      await user.click(within(popover).getByText("Focus"));
+
+      expect(ctx.onCurationChange).toHaveBeenCalledWith("game-hk", CurationMode.Focus);
+      expect(screen.queryByTestId("popover-content")).not.toBeInTheDocument();
+    });
+
+    it("should not call onCurationChange when current mode is re-selected", async () => {
+      const ctx = renderWith(BASE_GAME); // Include
+      const user = await ctx.open();
+
+      const popover = screen.getByTestId("popover-content");
+      await user.click(within(popover).getByText("Include"));
+
+      expect(ctx.onCurationChange).not.toHaveBeenCalled();
+      // Popover still closes.
+      expect(screen.queryByTestId("popover-content")).not.toBeInTheDocument();
+    });
+
+    it("should call onRemove and close popover when Remove is clicked", async () => {
+      const ctx = renderWith(BASE_GAME);
+      const user = await ctx.open();
+
+      const popover = screen.getByTestId("popover-content");
+      await user.click(within(popover).getByText("Remove"));
+
+      expect(ctx.onRemove).toHaveBeenCalledWith("game-hk");
+      expect(screen.queryByTestId("popover-content")).not.toBeInTheDocument();
     });
   });
 
