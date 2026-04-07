@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { SteamIcon } from "./SteamIcon";
 
 interface SteamConnectDialogProps {
   open: boolean;
@@ -38,7 +39,10 @@ export function SteamConnectDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Connect Steam</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <SteamIcon size={16} />
+            Connect Steam
+          </DialogTitle>
         </DialogHeader>
         <p className="text-[13px] text-[var(--text-secondary)]">
           Paste your Steam profile URL or custom ID

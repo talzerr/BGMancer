@@ -1,7 +1,7 @@
 "use client";
 
 import { SteamFilterToggle } from "./SteamFilterToggle";
-import { SteamManagePopover } from "./SteamManagePopover";
+import { SteamIcon } from "./SteamIcon";
 
 interface CatalogHeaderBarProps {
   search: string;
@@ -33,7 +33,7 @@ export function CatalogHeaderBar({
   steamCooldownMinutes,
 }: CatalogHeaderBarProps) {
   return (
-    <div className="border-border flex items-center gap-3 border-b px-1 pb-2">
+    <div className="border-border flex items-center justify-between gap-3 border-b px-1 pb-2">
       <input
         type="text"
         value={search}
@@ -45,22 +45,22 @@ export function CatalogHeaderBar({
         <button
           type="button"
           onClick={onConnectSteamClick}
-          className="text-[13px] text-[var(--text-tertiary)] transition-colors duration-100 hover:text-[var(--text-secondary)]"
+          className="flex cursor-pointer items-center gap-1.5 text-[12px] text-[var(--text-tertiary)] transition-colors duration-100 hover:text-[var(--text-secondary)]"
         >
+          <SteamIcon size={14} />
           Connect Steam
         </button>
       )}
       {isSignedIn && steamLinked && steamSyncedAt && (
-        <div className="flex items-center gap-2">
-          <SteamFilterToggle active={steamFilterOn} onToggle={onSteamFilterToggle} />
-          <SteamManagePopover
-            steamSyncedAt={steamSyncedAt}
-            onSync={onSteamSync}
-            onDisconnect={onSteamDisconnect}
-            isSyncing={steamIsSyncing}
-            cooldownMinutes={steamCooldownMinutes}
-          />
-        </div>
+        <SteamFilterToggle
+          active={steamFilterOn}
+          onToggle={onSteamFilterToggle}
+          steamSyncedAt={steamSyncedAt}
+          onSync={onSteamSync}
+          onDisconnect={onSteamDisconnect}
+          isSyncing={steamIsSyncing}
+          cooldownMinutes={steamCooldownMinutes}
+        />
       )}
     </div>
   );
