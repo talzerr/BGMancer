@@ -168,7 +168,9 @@ describe("PlaylistHeader", () => {
       };
 
       render(<PlaylistHeader {...defaultProps} />);
-      expect(screen.getByText(TEST_SESSION_NAME)).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: new RegExp(TEST_SESSION_NAME) }),
+      ).toBeInTheDocument();
     });
   });
 
@@ -222,7 +224,7 @@ describe("PlaylistHeader", () => {
       render(<PlaylistHeader {...defaultProps} />);
 
       // Click the title button to enter edit mode
-      const titleButton = screen.getByText(TEST_SESSION_NAME);
+      const titleButton = screen.getByRole("button", { name: new RegExp(TEST_SESSION_NAME) });
       await user.click(titleButton);
 
       // Should now show a textarea with the session name
@@ -245,7 +247,7 @@ describe("PlaylistHeader", () => {
 
       render(<PlaylistHeader {...defaultProps} />);
 
-      await user.click(screen.getByText(TEST_SESSION_NAME));
+      await user.click(screen.getByRole("button", { name: new RegExp(TEST_SESSION_NAME) }));
 
       // The button containing the session name should be gone (replaced by textarea)
       expect(
