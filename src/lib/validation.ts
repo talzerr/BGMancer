@@ -44,6 +44,17 @@ export const importPlaylistSchema = z.object({
   url: z.string().min(1),
 });
 
+export const steamSyncSchema = z.object({
+  steamUrl: z
+    .string()
+    .optional()
+    .refine(
+      (v) =>
+        !v || v.includes("steamcommunity.com/id/") || v.includes("steamcommunity.com/profiles/"),
+      { message: "Couldn't find a Steam profile. Check the URL and try again." },
+    ),
+});
+
 const gameSelectionSchema = z.object({
   gameId: z.string().min(1),
   curation: curationEnum.optional(),

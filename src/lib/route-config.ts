@@ -59,14 +59,16 @@ export const routeConfig: Record<string, RouteEntry> = {
   "PATCH /api/sessions/[id]": { auth: AuthLevel.Required },
   "DELETE /api/sessions/[id]": { auth: AuthLevel.Required },
 
-  // ── API: Steam (admin — used by Backstage for game onboarding) ──
-  "GET /api/steam/games": { auth: AuthLevel.Admin },
-  "GET /api/steam/search": { auth: AuthLevel.Admin },
-  "POST /api/steam/import": { auth: AuthLevel.Admin },
+  // ── API: Steam (user-facing — library sync) ────────────────
+  "POST /api/steam/sync": { auth: AuthLevel.Required },
+  "GET /api/steam/library": { auth: AuthLevel.Required },
+  "DELETE /api/steam/link": { auth: AuthLevel.Required },
 
   // ── API: Sync ──────────────────────────────────────────────
   "POST /api/sync": { auth: AuthLevel.Required },
 
   // ── API: Backstage ─────────────────────────────────────────
+  // Includes backstage Steam routes (/api/backstage/steam/games, /api/backstage/steam/search)
+  // used for admin game onboarding.
   "/api/backstage/*": { auth: AuthLevel.Admin },
 };
