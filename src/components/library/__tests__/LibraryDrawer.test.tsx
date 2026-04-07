@@ -53,6 +53,14 @@ const GAME_NO_STEAM: Game = {
   steam_appid: null,
 };
 
+const GAME_NO_THUMBNAIL: Game = {
+  ...BASE_GAME,
+  id: "game-no-thumbnail",
+  title: "Xenoblade",
+  steam_appid: null,
+  thumbnail_url: null,
+};
+
 // ─── Mocks ─────────────────────────────────────────────────────────────────
 
 vi.mock("@/components/ui/button", () => ({
@@ -209,11 +217,28 @@ describe("LibraryDrawer", () => {
       );
     });
 
-    it("should show initial letter fallback for games without steam_appid", async () => {
+    it("should fall back to thumbnail_url for games without steam_appid", async () => {
       const LibraryDrawer = await importComponent();
       render(
         <LibraryDrawer
           games={[GAME_NO_STEAM]}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
+          onCurationChange={vi.fn()}
+          onRemove={vi.fn()}
+          onCurate={vi.fn()}
+        />,
+      );
+
+      const img = screen.getByAltText("Xenoblade");
+      expect(img).toHaveAttribute("src", "https://example.com/hk.jpg");
+    });
+
+    it("should show initial letter fallback when both steam_appid and thumbnail_url are missing", async () => {
+      const LibraryDrawer = await importComponent();
+      render(
+        <LibraryDrawer
+          games={[GAME_NO_THUMBNAIL]}
           isExpanded={true}
           onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}

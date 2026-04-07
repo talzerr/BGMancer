@@ -84,7 +84,7 @@ function GameRow({
         aria-label={`Configure ${game.title}`}
       >
         <GameThumbnail game={game} />
-        <span className="text-foreground min-w-0 flex-1 truncate text-[13px]">{game.title}</span>
+        <span className="text-foreground min-w-0 flex-1 text-[13px]">{game.title}</span>
         <CurationLabel curation={game.curation} />
       </PopoverTrigger>
       <PopoverContent side="left" align="start" sideOffset={8} className="min-w-[220px]">
@@ -123,12 +123,13 @@ function GameRow({
 
 function GameThumbnail({ game }: { game: Game }) {
   const [failed, setFailed] = useState(false);
+  const src = game.steam_appid ? steamHeaderUrl(game.steam_appid) : game.thumbnail_url;
 
-  if (game.steam_appid && !failed) {
+  if (src && !failed) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={steamHeaderUrl(game.steam_appid)}
+        src={src}
         alt={game.title}
         width={48}
         height={22}
