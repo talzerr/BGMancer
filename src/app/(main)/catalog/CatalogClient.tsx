@@ -10,7 +10,7 @@ import type { CurationMode, Game } from "@/types";
 
 export function CatalogClient() {
   const router = useRouter();
-  const { gameLibrary, config, playlist } = usePlayerContext();
+  const { gameLibrary } = usePlayerContext();
   const [search, setSearch] = useState("");
   // null = not yet manually overridden; derive from library state below.
   const [drawerOverride, setDrawerOverride] = useState<boolean | null>(null);
@@ -34,7 +34,7 @@ export function CatalogClient() {
     gameLibrary.deleteGame(gameId);
   }
 
-  function handleGenerate() {
+  function handleCurate() {
     router.push("/");
   }
 
@@ -56,13 +56,11 @@ export function CatalogClient() {
       {/* Right: library drawer */}
       <LibraryDrawer
         games={gameLibrary.games}
-        targetTrackCount={config.targetTrackCount}
-        generating={playlist.generating}
         isExpanded={drawerExpanded}
         onExpandedChange={setDrawerOverride}
         onCurationChange={handleCurationChange}
         onRemove={handleRemove}
-        onGenerate={handleGenerate}
+        onCurate={handleCurate}
       />
     </div>
   );

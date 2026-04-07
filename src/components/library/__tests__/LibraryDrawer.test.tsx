@@ -137,13 +137,11 @@ describe("LibraryDrawer", () => {
       render(
         <LibraryDrawer
           games={[]}
-          targetTrackCount={50}
-          generating={false}
           isExpanded={true}
           onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
-          onGenerate={vi.fn()}
+          onCurate={vi.fn()}
         />,
       );
 
@@ -151,24 +149,6 @@ describe("LibraryDrawer", () => {
       expect(
         screen.getByText("Add a few soundtracks from the catalog to start your first session."),
       ).toBeInTheDocument();
-    });
-
-    it("should not show the generate footer", async () => {
-      const LibraryDrawer = await importComponent();
-      render(
-        <LibraryDrawer
-          games={[]}
-          targetTrackCount={50}
-          generating={false}
-          isExpanded={true}
-          onExpandedChange={vi.fn()}
-          onCurationChange={vi.fn()}
-          onRemove={vi.fn()}
-          onGenerate={vi.fn()}
-        />,
-      );
-
-      expect(screen.queryByText("Curate 50 Tracks")).not.toBeInTheDocument();
     });
   });
 
@@ -178,13 +158,11 @@ describe("LibraryDrawer", () => {
       render(
         <LibraryDrawer
           games={[BASE_GAME, GAME_CELESTE]}
-          targetTrackCount={50}
-          generating={false}
           isExpanded={true}
           onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
-          onGenerate={vi.fn()}
+          onCurate={vi.fn()}
         />,
       );
 
@@ -197,13 +175,11 @@ describe("LibraryDrawer", () => {
       render(
         <LibraryDrawer
           games={[BASE_GAME, GAME_CELESTE]}
-          targetTrackCount={50}
-          generating={false}
           isExpanded={true}
           onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
-          onGenerate={vi.fn()}
+          onCurate={vi.fn()}
         />,
       );
 
@@ -218,13 +194,11 @@ describe("LibraryDrawer", () => {
       render(
         <LibraryDrawer
           games={[BASE_GAME]}
-          targetTrackCount={50}
-          generating={false}
           isExpanded={true}
           onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
-          onGenerate={vi.fn()}
+          onCurate={vi.fn()}
         />,
       );
 
@@ -240,13 +214,11 @@ describe("LibraryDrawer", () => {
       render(
         <LibraryDrawer
           games={[GAME_NO_STEAM]}
-          targetTrackCount={50}
-          generating={false}
           isExpanded={true}
           onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
-          onGenerate={vi.fn()}
+          onCurate={vi.fn()}
         />,
       );
 
@@ -260,13 +232,11 @@ describe("LibraryDrawer", () => {
       render(
         <LibraryDrawer
           games={[GAME_FOCUS]}
-          targetTrackCount={50}
-          generating={false}
           isExpanded={true}
           onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
-          onGenerate={vi.fn()}
+          onCurate={vi.fn()}
         />,
       );
       expect(screen.getByText("focus")).toBeInTheDocument();
@@ -277,13 +247,11 @@ describe("LibraryDrawer", () => {
       render(
         <LibraryDrawer
           games={[GAME_LITE]}
-          targetTrackCount={50}
-          generating={false}
           isExpanded={true}
           onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
-          onGenerate={vi.fn()}
+          onCurate={vi.fn()}
         />,
       );
       expect(screen.getByText("lite")).toBeInTheDocument();
@@ -294,13 +262,11 @@ describe("LibraryDrawer", () => {
       render(
         <LibraryDrawer
           games={[BASE_GAME]}
-          targetTrackCount={50}
-          generating={false}
           isExpanded={true}
           onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
-          onGenerate={vi.fn()}
+          onCurate={vi.fn()}
         />,
       );
       expect(screen.queryByText("focus")).not.toBeInTheDocument();
@@ -320,13 +286,11 @@ describe("LibraryDrawer", () => {
           render(
             <LibraryDrawer
               games={[game]}
-              targetTrackCount={50}
-              generating={false}
               isExpanded={true}
               onExpandedChange={vi.fn()}
               onCurationChange={onCurationChange}
               onRemove={onRemove}
-              onGenerate={vi.fn()}
+              onCurate={vi.fn()}
             />,
           );
           const user = userEvent.setup();
@@ -387,111 +351,59 @@ describe("LibraryDrawer", () => {
     });
   });
 
-  describe("footer", () => {
-    it("should show active game count and track count", async () => {
+  describe("header Curate button", () => {
+    it("should be disabled when the library is empty", async () => {
       const LibraryDrawer = await importComponent();
       render(
         <LibraryDrawer
-          games={[BASE_GAME, GAME_CELESTE]}
-          targetTrackCount={50}
-          generating={false}
+          games={[]}
           isExpanded={true}
           onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
-          onGenerate={vi.fn()}
+          onCurate={vi.fn()}
         />,
       );
 
-      expect(screen.getByText("2 games")).toBeInTheDocument();
-      expect(screen.getByText("50 tracks")).toBeInTheDocument();
-    });
-
-    it("should use singular 'game' when only one active game", async () => {
-      const LibraryDrawer = await importComponent();
-      render(
-        <LibraryDrawer
-          games={[BASE_GAME]}
-          targetTrackCount={30}
-          generating={false}
-          isExpanded={true}
-          onExpandedChange={vi.fn()}
-          onCurationChange={vi.fn()}
-          onRemove={vi.fn()}
-          onGenerate={vi.fn()}
-        />,
-      );
-
-      expect(screen.getByText("1 game")).toBeInTheDocument();
-      expect(screen.getByText("30 tracks")).toBeInTheDocument();
-    });
-  });
-
-  describe("generate button", () => {
-    it("should show track count in button text", async () => {
-      const LibraryDrawer = await importComponent();
-      render(
-        <LibraryDrawer
-          games={[BASE_GAME]}
-          targetTrackCount={50}
-          generating={false}
-          isExpanded={true}
-          onExpandedChange={vi.fn()}
-          onCurationChange={vi.fn()}
-          onRemove={vi.fn()}
-          onGenerate={vi.fn()}
-        />,
-      );
-
-      expect(screen.getByText("Curate 50 Tracks")).toBeInTheDocument();
-    });
-
-    it("should call onGenerate when clicked", async () => {
-      const onGenerate = vi.fn();
-      const user = userEvent.setup();
-      const LibraryDrawer = await importComponent();
-
-      render(
-        <LibraryDrawer
-          games={[BASE_GAME]}
-          targetTrackCount={50}
-          generating={false}
-          isExpanded={true}
-          onExpandedChange={vi.fn()}
-          onCurationChange={vi.fn()}
-          onRemove={vi.fn()}
-          onGenerate={onGenerate}
-        />,
-      );
-
-      await user.click(screen.getByText("Curate 50 Tracks"));
-      expect(onGenerate).toHaveBeenCalledOnce();
-    });
-
-    it("should be disabled and show loading text when generating", async () => {
-      const onGenerate = vi.fn();
-      const user = userEvent.setup();
-      const LibraryDrawer = await importComponent();
-
-      render(
-        <LibraryDrawer
-          games={[BASE_GAME]}
-          targetTrackCount={50}
-          generating={true}
-          isExpanded={true}
-          onExpandedChange={vi.fn()}
-          onCurationChange={vi.fn()}
-          onRemove={vi.fn()}
-          onGenerate={onGenerate}
-        />,
-      );
-
-      const button = screen.getByText("Curating\u2026");
-      expect(button).toBeInTheDocument();
+      const button = screen.getByRole("button", { name: /curate/i });
       expect(button).toBeDisabled();
+    });
 
-      await user.click(button);
-      expect(onGenerate).not.toHaveBeenCalled();
+    it("should be enabled when the library has games", async () => {
+      const LibraryDrawer = await importComponent();
+      render(
+        <LibraryDrawer
+          games={[BASE_GAME]}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
+          onCurationChange={vi.fn()}
+          onRemove={vi.fn()}
+          onCurate={vi.fn()}
+        />,
+      );
+
+      const button = screen.getByRole("button", { name: /curate/i });
+      expect(button).not.toBeDisabled();
+    });
+
+    it("should call onCurate when clicked", async () => {
+      const onCurate = vi.fn();
+      const user = userEvent.setup();
+      const LibraryDrawer = await importComponent();
+
+      render(
+        <LibraryDrawer
+          games={[BASE_GAME]}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
+          onCurationChange={vi.fn()}
+          onRemove={vi.fn()}
+          onCurate={onCurate}
+        />,
+      );
+
+      await user.click(screen.getByRole("button", { name: /curate/i }));
+      expect(onCurate).toHaveBeenCalledOnce();
     });
   });
 });

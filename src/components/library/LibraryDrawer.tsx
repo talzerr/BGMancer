@@ -3,20 +3,17 @@
 import { CurationMode } from "@/types";
 import type { Game } from "@/types";
 import { LIBRARY_MAX_GAMES, steamHeaderUrl } from "@/lib/constants";
-import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon } from "@/components/Icons";
 import { useState } from "react";
 
 interface LibraryDrawerProps {
   games: Game[];
-  targetTrackCount: number;
-  generating: boolean;
   isExpanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
   onCurationChange: (gameId: string, curation: CurationMode) => void;
   onRemove: (gameId: string) => void;
-  onGenerate: () => void;
+  onCurate: () => void;
 }
 
 // Order shown inside the row popover.
@@ -153,16 +150,12 @@ function GameThumbnail({ game }: { game: Game }) {
 
 export function LibraryDrawer({
   games,
-  targetTrackCount,
-  generating,
   isExpanded,
   onExpandedChange,
   onCurationChange,
   onRemove,
-  onGenerate,
+  onCurate,
 }: LibraryDrawerProps) {
-  const hasActiveGames = games.length > 0;
-
   return (
     <aside
       className="border-border bg-background/80 sticky top-[57px] hidden max-h-[calc(100vh-57px)] shrink-0 overflow-hidden border-l transition-[width] duration-300 [transition-timing-function:cubic-bezier(0.25,0.1,0.25,1)] lg:block"
@@ -212,15 +205,29 @@ export function LibraryDrawer({
                 </span>
               ) : null}
             </div>
-            <button
-              type="button"
-              onClick={() => onExpandedChange(false)}
-              aria-expanded={isExpanded}
-              aria-label="Collapse library"
-              className="hover:text-foreground shrink-0 cursor-pointer rounded-md p-1 text-[var(--text-tertiary)]"
-            >
-              <ChevronRightIcon />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onCurate}
+                disabled={games.length === 0}
+                className={
+                  games.length === 0
+                    ? "cursor-not-allowed rounded-md border border-[var(--border-default)] px-2 py-1 text-[12px] font-medium text-[var(--text-disabled)]"
+                    : "border-primary text-primary hover:bg-primary/10 cursor-pointer rounded-md border px-2 py-1 text-[12px] font-medium transition-colors"
+                }
+              >
+                Curate →
+              </button>
+              <button
+                type="button"
+                onClick={() => onExpandedChange(false)}
+                aria-expanded={isExpanded}
+                aria-label="Collapse library"
+                className="hover:text-foreground shrink-0 cursor-pointer rounded-md p-1 text-[var(--text-tertiary)]"
+              >
+                <ChevronRightIcon />
+              </button>
+            </div>
           </div>
 
           {/* Content area */}
@@ -260,22 +267,11 @@ export function LibraryDrawer({
             </div>
           )}
 
-          {/* Footer */}
-          {hasActiveGames && (
-            <div className="border-border border-t px-4 py-3">
-              <div className="mb-2.5 flex items-center justify-between text-xs text-[var(--text-tertiary)]">
-                <span className="tabular-nums">
-                  {games.length} game{games.length !== 1 ? "s" : ""}
-                </span>
-                <span className="tabular-nums">{targetTrackCount} tracks</span>
-              </div>
-              <Button
-                onClick={onGenerate}
-                disabled={generating}
-                className="bg-primary text-primary-foreground w-full cursor-pointer text-sm font-medium hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {generating ? "Curating\u2026" : `Curate ${targetTrackCount} Tracks`}
-              </Button>
+          {/* End-of-list footer — sized to match the global player bar so it sits
+              underneath when the player is up, only visible when no track is playing. */}
+          {games.length > 0 && (
+            <div className="border-border flex h-[65px] shrink-0 items-center justify-center border-t text-[7px] text-[var(--text-tertiary)] opacity-25">
+              ◆
             </div>
           )}
         </div>
