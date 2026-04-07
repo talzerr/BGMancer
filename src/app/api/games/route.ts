@@ -24,14 +24,14 @@ export const POST = withRequiredAuth(async (userId, request: Request) => {
     return NextResponse.json({ error: "Game not found or not published" }, { status: 404 });
   }
 
-  if ((await Games.count(userId)) >= LIBRARY_MAX_GAMES) {
+  const ok = await Games.tryLinkToLibrary(userId, gameId, curation);
+  if (!ok) {
     return NextResponse.json(
       { error: `Library limit reached (${LIBRARY_MAX_GAMES} games max)` },
       { status: 400 },
     );
   }
 
-  await Games.linkToLibrary(userId, gameId, curation);
   const linked = await Games.getByIdForUser(userId, gameId);
   return NextResponse.json(linked ?? game, { status: 201 });
 }, "POST /api/games");

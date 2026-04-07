@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { CheckIcon, Spinner } from "@/components/Icons";
+import { LIBRARY_MAX_GAMES } from "@/lib/constants";
 import { CurationMode } from "@/types";
 import type { Game } from "@/types";
 
@@ -33,6 +34,7 @@ export function CatalogBrowser({
   const [loading, setLoading] = useState(true);
   const [addingId, setAddingId] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const libraryFull = libraryGameIds.size >= LIBRARY_MAX_GAMES;
   const gridRef = useRef<HTMLDivElement>(null);
   // While the drawer transitions, lock the grid to a fixed column count so the
   // smoothly-animating container width interpolates each card's width via 1fr,
@@ -125,6 +127,7 @@ export function CatalogBrowser({
                   game={game}
                   inLibrary={inLibrary}
                   isAdding={isAdding}
+                  libraryFull={libraryFull}
                   onAdd={(curation) => handleAdd(game, curation)}
                 />
               );
@@ -157,13 +160,22 @@ function CatalogCard({
   game,
   inLibrary,
   isAdding,
+  libraryFull,
   onAdd,
 }: {
   game: Game;
   inLibrary: boolean;
   isAdding: boolean;
+  libraryFull: boolean;
   onAdd: (curation: CurationMode) => void;
 }) {
+  // Brief background pulse when the user clicks the disabled "Library full" button.
+  const [pulse, setPulse] = useState(false);
+  function handleFullClick() {
+    setPulse(true);
+    window.setTimeout(() => setPulse(false), 200);
+  }
+
   return (
     <div
       className={`group relative flex flex-col overflow-hidden rounded-xl border transition-colors ${
@@ -209,6 +221,16 @@ function CatalogCard({
               <Spinner className="h-3 w-3" />
               Adding…
             </div>
+          ) : libraryFull ? (
+            <button
+              type="button"
+              onClick={handleFullClick}
+              className={`w-full cursor-pointer rounded-lg border border-[var(--border-emphasis)] px-2 py-1 text-[11px] font-medium text-[var(--text-tertiary)] transition-colors duration-200 ${
+                pulse ? "bg-secondary border-[var(--border-emphasis)]" : "bg-transparent"
+              }`}
+            >
+              Library full
+            </button>
           ) : (
             <button
               onClick={() => onAdd(CurationMode.Include)}

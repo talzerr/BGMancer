@@ -2,7 +2,7 @@
 
 import { CurationMode } from "@/types";
 import type { Game } from "@/types";
-import { steamHeaderUrl } from "@/lib/constants";
+import { LIBRARY_MAX_GAMES, steamHeaderUrl } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon } from "@/components/Icons";
@@ -180,14 +180,16 @@ export function LibraryDrawer({
           }`}
         >
           <ChevronLeftIcon />
-          <span className="text-foreground rotate-180 text-sm font-medium [writing-mode:vertical-rl]">
-            Library
-          </span>
-          {games.length > 0 && (
-            <span className="rotate-180 text-xs text-[var(--text-tertiary)] tabular-nums [writing-mode:vertical-rl]">
-              {games.length}
+          <span className="flex flex-col items-center gap-1.5">
+            <span className="text-foreground text-sm font-medium [writing-mode:vertical-rl]">
+              Library
             </span>
-          )}
+            {games.length > 0 && (
+              <span className="text-xs text-[var(--text-tertiary)] tabular-nums [writing-mode:vertical-rl]">
+                {games.length}
+              </span>
+            )}
+          </span>
         </button>
 
         {/* Expanded drawer */}
@@ -200,11 +202,15 @@ export function LibraryDrawer({
           <div
             className={`flex items-center justify-between px-4 py-3 ${games.length > 0 ? "border-border border-b" : ""}`}
           >
-            <div className="flex min-w-0 items-center gap-2">
+            <div className="flex min-w-0 items-baseline gap-1.5">
               <span className="text-foreground text-sm font-medium">Library</span>
-              <span className="text-xs text-[var(--text-tertiary)] tabular-nums">
-                {games.length}
-              </span>
+              {games.length === LIBRARY_MAX_GAMES ? (
+                <span className="text-xs text-[var(--text-secondary)]">full</span>
+              ) : games.length > 0 ? (
+                <span className="text-xs text-[var(--text-tertiary)] tabular-nums">
+                  {games.length}/{LIBRARY_MAX_GAMES}
+                </span>
+              ) : null}
             </div>
             <button
               type="button"

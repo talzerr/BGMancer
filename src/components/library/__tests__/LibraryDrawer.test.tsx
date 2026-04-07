@@ -113,6 +113,7 @@ vi.mock("@/components/ui/popover", () => {
 vi.mock("@/lib/constants", () => ({
   steamHeaderUrl: (appid: number) =>
     `https://cdn.akamai.steamstatic.com/steam/apps/${appid}/header.jpg`,
+  LIBRARY_MAX_GAMES: 25,
 }));
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
