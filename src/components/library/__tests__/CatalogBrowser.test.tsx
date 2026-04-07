@@ -176,21 +176,6 @@ describe("CatalogBrowser", () => {
       expect(await screen.findByText("Hollow Knight")).toBeInTheDocument();
       expect(screen.getByText("Celeste")).toBeInTheDocument();
     });
-
-    it("should show filtered count in footer when filtering", async () => {
-      const CatalogBrowser = await importComponent();
-      render(
-        <CatalogBrowser
-          libraryGameIds={new Set()}
-          onAdd={vi.fn()}
-          searchFilter="hollow"
-          drawerExpanded={true}
-        />,
-      );
-
-      await screen.findByText("Hollow Knight");
-      expect(screen.getByText("1 of 2 games")).toBeInTheDocument();
-    });
   });
 
   describe("when add button is clicked", () => {

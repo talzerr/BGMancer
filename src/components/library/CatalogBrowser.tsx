@@ -146,12 +146,6 @@ export function CatalogBrowser({
           )}
         </>
       )}
-
-      <p className="text-[10px] text-[var(--text-disabled)]">
-        {searchFilter?.trim()
-          ? `${filtered.length} of ${catalog.length} game${catalog.length === 1 ? "" : "s"}`
-          : `${catalog.length} game${catalog.length === 1 ? "" : "s"} in catalog`}
-      </p>
     </div>
   );
 }
