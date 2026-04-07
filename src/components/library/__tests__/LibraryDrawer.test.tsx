@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
+import * as React from "react";
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, within, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CurationMode } from "@/types";
 import type { Game } from "@/types";
@@ -52,6 +53,14 @@ const GAME_NO_STEAM: Game = {
   steam_appid: null,
 };
 
+const GAME_NO_THUMBNAIL: Game = {
+  ...BASE_GAME,
+  id: "game-no-thumbnail",
+  title: "Xenoblade",
+  steam_appid: null,
+  thumbnail_url: null,
+};
+
 // ─── Mocks ─────────────────────────────────────────────────────────────────
 
 vi.mock("@/components/ui/button", () => ({
@@ -60,16 +69,59 @@ vi.mock("@/components/ui/button", () => ({
   ),
 }));
 
-vi.mock("@/components/ui/tooltip", () => ({
-  TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  TooltipTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  TooltipContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-}));
+// Mock the Popover primitive as a controlled wrapper that conditionally renders
+// its content. This lets us assert against popover contents without booting
+// base-ui's portal/positioning layer in jsdom.
+const PopoverCtx = React.createContext<{
+  open: boolean;
+  setOpen: (v: boolean) => void;
+}>({ open: false, setOpen: () => {} });
+
+vi.mock("@/components/ui/popover", () => {
+  return {
+    Popover: ({
+      children,
+      open,
+      onOpenChange,
+    }: {
+      children: React.ReactNode;
+      open?: boolean;
+      onOpenChange?: (v: boolean) => void;
+    }) => {
+      const [internalOpen, setInternalOpen] = React.useState(false);
+      const isControlled = open !== undefined;
+      const isOpen = isControlled ? !!open : internalOpen;
+      const setOpen = (v: boolean) => {
+        if (!isControlled) setInternalOpen(v);
+        onOpenChange?.(v);
+      };
+      return (
+        <PopoverCtx.Provider value={{ open: isOpen, setOpen }}>{children}</PopoverCtx.Provider>
+      );
+    },
+    PopoverTrigger: ({
+      children,
+      className,
+      ...props
+    }: React.ButtonHTMLAttributes<HTMLButtonElement>) => {
+      const { setOpen } = React.useContext(PopoverCtx);
+      return (
+        <button type="button" className={className} onClick={() => setOpen(true)} {...props}>
+          {children}
+        </button>
+      );
+    },
+    PopoverContent: ({ children }: { children: React.ReactNode }) => {
+      const { open } = React.useContext(PopoverCtx);
+      return open ? <div data-testid="popover-content">{children}</div> : null;
+    },
+  };
+});
 
 vi.mock("@/lib/constants", () => ({
   steamHeaderUrl: (appid: number) =>
     `https://cdn.akamai.steamstatic.com/steam/apps/${appid}/header.jpg`,
+  LIBRARY_MAX_GAMES: 25,
 }));
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -93,11 +145,11 @@ describe("LibraryDrawer", () => {
       render(
         <LibraryDrawer
           games={[]}
-          targetTrackCount={50}
-          generating={false}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
-          onGenerate={vi.fn()}
+          onCurate={vi.fn()}
         />,
       );
 
@@ -105,22 +157,6 @@ describe("LibraryDrawer", () => {
       expect(
         screen.getByText("Add a few soundtracks from the catalog to start your first session."),
       ).toBeInTheDocument();
-    });
-
-    it("should not show the generate footer", async () => {
-      const LibraryDrawer = await importComponent();
-      render(
-        <LibraryDrawer
-          games={[]}
-          targetTrackCount={50}
-          generating={false}
-          onCurationChange={vi.fn()}
-          onRemove={vi.fn()}
-          onGenerate={vi.fn()}
-        />,
-      );
-
-      expect(screen.queryByText("Curate 50 Tracks")).not.toBeInTheDocument();
     });
   });
 
@@ -130,11 +166,11 @@ describe("LibraryDrawer", () => {
       render(
         <LibraryDrawer
           games={[BASE_GAME, GAME_CELESTE]}
-          targetTrackCount={50}
-          generating={false}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
-          onGenerate={vi.fn()}
+          onCurate={vi.fn()}
         />,
       );
 
@@ -147,16 +183,18 @@ describe("LibraryDrawer", () => {
       render(
         <LibraryDrawer
           games={[BASE_GAME, GAME_CELESTE]}
-          targetTrackCount={50}
-          generating={false}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
-          onGenerate={vi.fn()}
+          onCurate={vi.fn()}
         />,
       );
 
-      // Header shows total game count
-      expect(screen.getByText("2")).toBeInTheDocument();
+      // Game count "2" renders in both the collapsed strip (vertical text) and the
+      // expanded header — both are in the DOM (the strip is just opacity-faded when
+      // expanded). Assert at least one is present.
+      expect(screen.getAllByText("2").length).toBeGreaterThanOrEqual(1);
     });
 
     it("should show steam thumbnail for games with steam_appid", async () => {
@@ -164,11 +202,11 @@ describe("LibraryDrawer", () => {
       render(
         <LibraryDrawer
           games={[BASE_GAME]}
-          targetTrackCount={50}
-          generating={false}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
-          onGenerate={vi.fn()}
+          onCurate={vi.fn()}
         />,
       );
 
@@ -179,16 +217,33 @@ describe("LibraryDrawer", () => {
       );
     });
 
-    it("should show initial letter fallback for games without steam_appid", async () => {
+    it("should fall back to thumbnail_url for games without steam_appid", async () => {
       const LibraryDrawer = await importComponent();
       render(
         <LibraryDrawer
           games={[GAME_NO_STEAM]}
-          targetTrackCount={50}
-          generating={false}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
-          onGenerate={vi.fn()}
+          onCurate={vi.fn()}
+        />,
+      );
+
+      const img = screen.getByAltText("Xenoblade");
+      expect(img).toHaveAttribute("src", "https://example.com/hk.jpg");
+    });
+
+    it("should show initial letter fallback when both steam_appid and thumbnail_url are missing", async () => {
+      const LibraryDrawer = await importComponent();
+      render(
+        <LibraryDrawer
+          games={[GAME_NO_THUMBNAIL]}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
+          onCurationChange={vi.fn()}
+          onRemove={vi.fn()}
+          onCurate={vi.fn()}
         />,
       );
 
@@ -196,198 +251,184 @@ describe("LibraryDrawer", () => {
     });
   });
 
-  describe("curation badge cycling", () => {
-    // The tooltip content also renders "Focus", "Include", "Lite" text,
-    // so we target the curation badge <button> elements specifically.
-    function getCurationBadgeButton(label: string): HTMLElement {
-      const allMatches = screen.getAllByText(label);
-      const badge = allMatches.find((el) => el.tagName === "BUTTON");
-      if (!badge) throw new Error(`No <button> found with text "${label}"`);
-      return badge;
-    }
-
-    it("should cycle Focus -> Include on click", async () => {
-      const onCurationChange = vi.fn();
-      const user = userEvent.setup();
+  describe("row label", () => {
+    it("should render lowercase 'focus' label for Focus mode", async () => {
       const LibraryDrawer = await importComponent();
-
       render(
         <LibraryDrawer
           games={[GAME_FOCUS]}
-          targetTrackCount={50}
-          generating={false}
-          onCurationChange={onCurationChange}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
+          onCurationChange={vi.fn()}
           onRemove={vi.fn()}
-          onGenerate={vi.fn()}
+          onCurate={vi.fn()}
         />,
       );
-
-      await user.click(getCurationBadgeButton("Focus"));
-      expect(onCurationChange).toHaveBeenCalledWith("game-focus", CurationMode.Include);
+      expect(screen.getByText("focus")).toBeInTheDocument();
     });
 
-    it("should cycle Include -> Lite on click", async () => {
-      const onCurationChange = vi.fn();
-      const user = userEvent.setup();
+    it("should render lowercase 'lite' label for Lite mode", async () => {
       const LibraryDrawer = await importComponent();
-
-      render(
-        <LibraryDrawer
-          games={[BASE_GAME]}
-          targetTrackCount={50}
-          generating={false}
-          onCurationChange={onCurationChange}
-          onRemove={vi.fn()}
-          onGenerate={vi.fn()}
-        />,
-      );
-
-      await user.click(getCurationBadgeButton("Include"));
-      expect(onCurationChange).toHaveBeenCalledWith("game-hk", CurationMode.Lite);
-    });
-
-    it("should cycle Lite -> Focus on click", async () => {
-      const onCurationChange = vi.fn();
-      const user = userEvent.setup();
-      const LibraryDrawer = await importComponent();
-
       render(
         <LibraryDrawer
           games={[GAME_LITE]}
-          targetTrackCount={50}
-          generating={false}
-          onCurationChange={onCurationChange}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
+          onCurationChange={vi.fn()}
           onRemove={vi.fn()}
-          onGenerate={vi.fn()}
+          onCurate={vi.fn()}
         />,
       );
+      expect(screen.getByText("lite")).toBeInTheDocument();
+    });
 
-      await user.click(getCurationBadgeButton("Lite"));
-      expect(onCurationChange).toHaveBeenCalledWith("game-lite", CurationMode.Focus);
+    it("should render no curation label for Include mode", async () => {
+      const LibraryDrawer = await importComponent();
+      render(
+        <LibraryDrawer
+          games={[BASE_GAME]}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
+          onCurationChange={vi.fn()}
+          onRemove={vi.fn()}
+          onCurate={vi.fn()}
+        />,
+      );
+      expect(screen.queryByText("focus")).not.toBeInTheDocument();
+      expect(screen.queryByText("lite")).not.toBeInTheDocument();
     });
   });
 
-  describe("remove button", () => {
-    it("should call onRemove with game id when clicked", async () => {
+  describe("row popover", () => {
+    function renderWith(game: Game) {
+      const onCurationChange = vi.fn();
       const onRemove = vi.fn();
-      const user = userEvent.setup();
-      const LibraryDrawer = await importComponent();
+      return {
+        onCurationChange,
+        onRemove,
+        async open() {
+          const LibraryDrawer = await importComponent();
+          render(
+            <LibraryDrawer
+              games={[game]}
+              isExpanded={true}
+              onExpandedChange={vi.fn()}
+              onCurationChange={onCurationChange}
+              onRemove={onRemove}
+              onCurate={vi.fn()}
+            />,
+          );
+          const user = userEvent.setup();
+          // Open the popover by clicking the row trigger.
+          await user.click(screen.getByRole("button", { name: `Configure ${game.title}` }));
+          return user;
+        },
+      };
+    }
 
-      render(
-        <LibraryDrawer
-          games={[BASE_GAME]}
-          targetTrackCount={50}
-          generating={false}
-          onCurationChange={vi.fn()}
-          onRemove={onRemove}
-          onGenerate={vi.fn()}
-        />,
-      );
+    it("should open popover with all three mode options when row is clicked", async () => {
+      const ctx = renderWith(BASE_GAME);
+      await ctx.open();
 
-      // The remove button contains an SVG x icon; find it by its svg path
-      const svgs = document.querySelectorAll("svg");
-      expect(svgs.length).toBe(1);
-      await user.click(svgs[0].parentElement!);
+      const popover = screen.getByTestId("popover-content");
+      expect(popover).toBeInTheDocument();
+      expect(within(popover).getByText("Focus")).toBeInTheDocument();
+      expect(within(popover).getByText("Include")).toBeInTheDocument();
+      expect(within(popover).getByText("Lite")).toBeInTheDocument();
+      expect(within(popover).getByText("Featured in the playlist")).toBeInTheDocument();
+      expect(within(popover).getByText("Mixed in naturally (default)")).toBeInTheDocument();
+      expect(within(popover).getByText("Light presence")).toBeInTheDocument();
+      expect(within(popover).getByText("Remove")).toBeInTheDocument();
+    });
 
-      expect(onRemove).toHaveBeenCalledWith("game-hk");
+    it("should call onCurationChange and close popover when a non-selected mode is picked", async () => {
+      const ctx = renderWith(BASE_GAME);
+      const user = await ctx.open();
+
+      const popover = screen.getByTestId("popover-content");
+      await user.click(within(popover).getByText("Focus"));
+
+      expect(ctx.onCurationChange).toHaveBeenCalledWith("game-hk", CurationMode.Focus);
+      expect(screen.queryByTestId("popover-content")).not.toBeInTheDocument();
+    });
+
+    it("should not call onCurationChange when current mode is re-selected", async () => {
+      const ctx = renderWith(BASE_GAME); // Include
+      const user = await ctx.open();
+
+      const popover = screen.getByTestId("popover-content");
+      await user.click(within(popover).getByText("Include"));
+
+      expect(ctx.onCurationChange).not.toHaveBeenCalled();
+      // Popover still closes.
+      expect(screen.queryByTestId("popover-content")).not.toBeInTheDocument();
+    });
+
+    it("should call onRemove and close popover when Remove is clicked", async () => {
+      const ctx = renderWith(BASE_GAME);
+      const user = await ctx.open();
+
+      const popover = screen.getByTestId("popover-content");
+      await user.click(within(popover).getByText("Remove"));
+
+      expect(ctx.onRemove).toHaveBeenCalledWith("game-hk");
+      expect(screen.queryByTestId("popover-content")).not.toBeInTheDocument();
     });
   });
 
-  describe("footer", () => {
-    it("should show active game count and track count", async () => {
+  describe("header Curate button", () => {
+    it("should be disabled when the library is empty", async () => {
       const LibraryDrawer = await importComponent();
       render(
         <LibraryDrawer
-          games={[BASE_GAME, GAME_CELESTE]}
-          targetTrackCount={50}
-          generating={false}
+          games={[]}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
-          onGenerate={vi.fn()}
+          onCurate={vi.fn()}
         />,
       );
 
-      expect(screen.getByText("2 games")).toBeInTheDocument();
-      expect(screen.getByText("50 tracks")).toBeInTheDocument();
-    });
-
-    it("should use singular 'game' when only one active game", async () => {
-      const LibraryDrawer = await importComponent();
-      render(
-        <LibraryDrawer
-          games={[BASE_GAME]}
-          targetTrackCount={30}
-          generating={false}
-          onCurationChange={vi.fn()}
-          onRemove={vi.fn()}
-          onGenerate={vi.fn()}
-        />,
-      );
-
-      expect(screen.getByText("1 game")).toBeInTheDocument();
-      expect(screen.getByText("30 tracks")).toBeInTheDocument();
-    });
-  });
-
-  describe("generate button", () => {
-    it("should show track count in button text", async () => {
-      const LibraryDrawer = await importComponent();
-      render(
-        <LibraryDrawer
-          games={[BASE_GAME]}
-          targetTrackCount={50}
-          generating={false}
-          onCurationChange={vi.fn()}
-          onRemove={vi.fn()}
-          onGenerate={vi.fn()}
-        />,
-      );
-
-      expect(screen.getByText("Curate 50 Tracks")).toBeInTheDocument();
-    });
-
-    it("should call onGenerate when clicked", async () => {
-      const onGenerate = vi.fn();
-      const user = userEvent.setup();
-      const LibraryDrawer = await importComponent();
-
-      render(
-        <LibraryDrawer
-          games={[BASE_GAME]}
-          targetTrackCount={50}
-          generating={false}
-          onCurationChange={vi.fn()}
-          onRemove={vi.fn()}
-          onGenerate={onGenerate}
-        />,
-      );
-
-      await user.click(screen.getByText("Curate 50 Tracks"));
-      expect(onGenerate).toHaveBeenCalledOnce();
-    });
-
-    it("should be disabled and show loading text when generating", async () => {
-      const onGenerate = vi.fn();
-      const user = userEvent.setup();
-      const LibraryDrawer = await importComponent();
-
-      render(
-        <LibraryDrawer
-          games={[BASE_GAME]}
-          targetTrackCount={50}
-          generating={true}
-          onCurationChange={vi.fn()}
-          onRemove={vi.fn()}
-          onGenerate={onGenerate}
-        />,
-      );
-
-      const button = screen.getByText("Curating\u2026");
-      expect(button).toBeInTheDocument();
+      const button = screen.getByRole("button", { name: /curate/i });
       expect(button).toBeDisabled();
+    });
 
-      await user.click(button);
-      expect(onGenerate).not.toHaveBeenCalled();
+    it("should be enabled when the library has games", async () => {
+      const LibraryDrawer = await importComponent();
+      render(
+        <LibraryDrawer
+          games={[BASE_GAME]}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
+          onCurationChange={vi.fn()}
+          onRemove={vi.fn()}
+          onCurate={vi.fn()}
+        />,
+      );
+
+      const button = screen.getByRole("button", { name: /curate/i });
+      expect(button).not.toBeDisabled();
+    });
+
+    it("should call onCurate when clicked", async () => {
+      const onCurate = vi.fn();
+      const user = userEvent.setup();
+      const LibraryDrawer = await importComponent();
+
+      render(
+        <LibraryDrawer
+          games={[BASE_GAME]}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
+          onCurationChange={vi.fn()}
+          onRemove={vi.fn()}
+          onCurate={onCurate}
+        />,
+      );
+
+      await user.click(screen.getByRole("button", { name: /curate/i }));
+      expect(onCurate).toHaveBeenCalledOnce();
     });
   });
 });

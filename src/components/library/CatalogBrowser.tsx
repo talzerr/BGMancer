@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { CheckIcon, ChevronDownIcon, Spinner } from "@/components/Icons";
+import { CheckIcon, Spinner } from "@/components/Icons";
+import { LIBRARY_MAX_GAMES } from "@/lib/constants";
 import { CurationMode } from "@/types";
 import type { Game } from "@/types";
 
@@ -10,25 +11,52 @@ interface CatalogBrowserProps {
   libraryGameIds: Set<string>;
   onAdd: (game: Game, curation: CurationMode) => Promise<void>;
   searchFilter?: string;
+  drawerExpanded: boolean;
 }
 
 const PAGE_SIZE = 20;
+// Grid sizing constants — kept in sync with the inline grid style below.
+const GRID_MIN_COL = 220;
+const GRID_GAP = 12;
+// Width delta the catalog grid gains/loses when the drawer collapses/expands
+// (LibraryDrawer: 300px expanded vs 40px collapsed strip).
+const DRAWER_WIDTH_DELTA = 260;
+// Drawer width transition duration (DESIGN_SYSTEM.md §2 — 300ms panel open/close).
+const DRAWER_TRANSITION_MS = 300;
 
-const CURATION_ADD_OPTIONS: {
-  mode: CurationMode;
-  label: string;
-  colorClass: string;
-}[] = [
-  { mode: CurationMode.Focus, label: "Focus", colorClass: "text-primary" },
-  { mode: CurationMode.Include, label: "Include", colorClass: "text-primary" },
-  { mode: CurationMode.Lite, label: "Lite", colorClass: "text-primary" },
-];
-
-export function CatalogBrowser({ libraryGameIds, onAdd, searchFilter }: CatalogBrowserProps) {
+export function CatalogBrowser({
+  libraryGameIds,
+  onAdd,
+  searchFilter,
+  drawerExpanded,
+}: CatalogBrowserProps) {
   const [catalog, setCatalog] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [addingId, setAddingId] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const libraryFull = libraryGameIds.size >= LIBRARY_MAX_GAMES;
+  const gridRef = useRef<HTMLDivElement>(null);
+  // While the drawer transitions, lock the grid to a fixed column count so the
+  // smoothly-animating container width interpolates each card's width via 1fr,
+  // instead of letting `auto-fill` snap the column count mid-animation.
+  const [lockedCols, setLockedCols] = useState<number | null>(null);
+  const isFirstDrawerRender = useRef(true);
+
+  useEffect(() => {
+    if (isFirstDrawerRender.current) {
+      isFirstDrawerRender.current = false;
+      return;
+    }
+    const grid = gridRef.current;
+    if (!grid) return;
+    // Predict end-state column count from the post-transition container width.
+    const currentWidth = grid.clientWidth;
+    const targetWidth = currentWidth + (drawerExpanded ? -DRAWER_WIDTH_DELTA : DRAWER_WIDTH_DELTA);
+    const cols = Math.max(1, Math.floor((targetWidth + GRID_GAP) / (GRID_MIN_COL + GRID_GAP)));
+    setLockedCols(cols);
+    const t = window.setTimeout(() => setLockedCols(null), DRAWER_TRANSITION_MS + 20);
+    return () => window.clearTimeout(t);
+  }, [drawerExpanded]);
 
   const fetchCatalog = useCallback(async () => {
     try {
@@ -81,8 +109,14 @@ export function CatalogBrowser({ libraryGameIds, onAdd, searchFilter }: CatalogB
       ) : (
         <>
           <div
+            ref={gridRef}
             className="grid gap-3"
-            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}
+            style={{
+              gridTemplateColumns:
+                lockedCols !== null
+                  ? `repeat(${lockedCols}, minmax(0, 1fr))`
+                  : "repeat(auto-fill, minmax(220px, 1fr))",
+            }}
           >
             {visible.map((game) => {
               const inLibrary = libraryGameIds.has(game.id);
@@ -93,6 +127,7 @@ export function CatalogBrowser({ libraryGameIds, onAdd, searchFilter }: CatalogB
                   game={game}
                   inLibrary={inLibrary}
                   isAdding={isAdding}
+                  libraryFull={libraryFull}
                   onAdd={(curation) => handleAdd(game, curation)}
                 />
               );
@@ -111,12 +146,6 @@ export function CatalogBrowser({ libraryGameIds, onAdd, searchFilter }: CatalogB
           )}
         </>
       )}
-
-      <p className="text-[10px] text-[var(--text-disabled)]">
-        {searchFilter?.trim()
-          ? `${filtered.length} of ${catalog.length} game${catalog.length === 1 ? "" : "s"}`
-          : `${catalog.length} game${catalog.length === 1 ? "" : "s"} in catalog`}
-      </p>
     </div>
   );
 }
@@ -125,33 +154,21 @@ function CatalogCard({
   game,
   inLibrary,
   isAdding,
+  libraryFull,
   onAdd,
 }: {
   game: Game;
   inLibrary: boolean;
   isAdding: boolean;
+  libraryFull: boolean;
   onAdd: (curation: CurationMode) => void;
 }) {
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!dropdownOpen) return;
-    function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
-    }
-    function handleEscape(e: KeyboardEvent) {
-      if (e.key === "Escape") setDropdownOpen(false);
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [dropdownOpen]);
+  // Brief background pulse when the user clicks the disabled "Library full" button.
+  const [pulse, setPulse] = useState(false);
+  function handleFullClick() {
+    setPulse(true);
+    window.setTimeout(() => setPulse(false), 200);
+  }
 
   return (
     <div
@@ -198,43 +215,23 @@ function CatalogCard({
               <Spinner className="h-3 w-3" />
               Adding…
             </div>
+          ) : libraryFull ? (
+            <button
+              type="button"
+              onClick={handleFullClick}
+              className={`w-full cursor-pointer rounded-lg border border-[var(--border-emphasis)] px-2 py-1 text-[11px] font-medium text-[var(--text-tertiary)] transition-colors duration-200 ${
+                pulse ? "bg-secondary border-[var(--border-emphasis)]" : "bg-transparent"
+              }`}
+            >
+              Library full
+            </button>
           ) : (
-            <div ref={dropdownRef} className="relative">
-              <div className="flex overflow-hidden rounded-lg">
-                <button
-                  onClick={() => onAdd(CurationMode.Include)}
-                  className="bg-primary/80 text-primary-foreground flex-1 cursor-pointer px-2 py-1 text-[11px] font-medium transition-colors hover:bg-[var(--primary-hover)]"
-                >
-                  + Add
-                </button>
-                <button
-                  onClick={() => setDropdownOpen((v) => !v)}
-                  className="bg-primary/80 text-primary-foreground cursor-pointer border-l border-[var(--primary-muted)]/60 px-1.5 py-1 transition-colors hover:bg-[var(--primary-hover)]"
-                >
-                  <ChevronDownIcon className="h-3 w-3" />
-                </button>
-              </div>
-
-              {dropdownOpen && (
-                <div className="bg-secondary absolute right-0 bottom-full z-30 mb-1 w-full min-w-[120px] overflow-hidden rounded-lg border border-[var(--border-emphasis)]">
-                  <p className="px-2.5 py-1.5 text-[10px] font-medium tracking-wider text-[var(--text-tertiary)] uppercase">
-                    Add as…
-                  </p>
-                  {CURATION_ADD_OPTIONS.map(({ mode, label, colorClass }) => (
-                    <button
-                      key={mode}
-                      onClick={() => {
-                        setDropdownOpen(false);
-                        onAdd(mode);
-                      }}
-                      className={`hover:bg-accent flex w-full cursor-pointer items-center px-2.5 py-1.5 text-left text-xs font-medium transition-colors ${colorClass}`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <button
+              onClick={() => onAdd(CurationMode.Include)}
+              className="bg-primary/80 text-primary-foreground w-full cursor-pointer rounded-lg px-2 py-1 text-[11px] font-medium transition-colors hover:bg-[var(--primary-hover)]"
+            >
+              + Add
+            </button>
           )}
         </div>
       </div>

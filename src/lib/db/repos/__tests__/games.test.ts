@@ -300,6 +300,73 @@ describe("Games", () => {
     });
   });
 
+  describe("tryLinkToLibrary", () => {
+    // The cap is set high in tests via the constant; we fill the library to
+    // exactly LIBRARY_MAX_GAMES games to exercise the boundary.
+    async function fillLibraryToCap() {
+      const { LIBRARY_MAX_GAMES } = await import("@/lib/constants");
+      for (let i = 0; i < LIBRARY_MAX_GAMES; i++) {
+        seedTestGame(rawDb, TEST_USER_ID, { id: `cap-${i}`, title: `Game ${i}` });
+      }
+      return LIBRARY_MAX_GAMES;
+    }
+
+    describe("when below the cap and the game is new", () => {
+      it("should insert the link and return true", async () => {
+        rawDb.prepare("INSERT INTO games (id, title) VALUES (?, ?)").run("g-new", "New Game");
+        const result = await Games.tryLinkToLibrary(TEST_USER_ID, "g-new");
+        expect(result).toBe(true);
+        const linked = await Games.getByIdForUser(TEST_USER_ID, "g-new");
+        expect(linked).not.toBeNull();
+      });
+    });
+
+    describe("when below the cap and the game is already linked", () => {
+      it("should return true (idempotent)", async () => {
+        seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: "A Game" });
+        const result = await Games.tryLinkToLibrary(TEST_USER_ID, TEST_GAME_ID);
+        expect(result).toBe(true);
+        expect(await Games.count(TEST_USER_ID)).toBe(1);
+      });
+    });
+
+    describe("when at the cap and the game is new", () => {
+      it("should reject the insert and return false", async () => {
+        await fillLibraryToCap();
+        rawDb.prepare("INSERT INTO games (id, title) VALUES (?, ?)").run("g-overflow", "Overflow");
+        const result = await Games.tryLinkToLibrary(TEST_USER_ID, "g-overflow");
+        expect(result).toBe(false);
+        const linked = await Games.getByIdForUser(TEST_USER_ID, "g-overflow");
+        expect(linked).toBeNull();
+      });
+
+      it("should not increase the library count past the cap", async () => {
+        const cap = await fillLibraryToCap();
+        rawDb.prepare("INSERT INTO games (id, title) VALUES (?, ?)").run("g-overflow", "Overflow");
+        await Games.tryLinkToLibrary(TEST_USER_ID, "g-overflow");
+        expect(await Games.count(TEST_USER_ID)).toBe(cap);
+      });
+    });
+
+    describe("when at the cap and the game is already linked", () => {
+      it("should return true (idempotent re-add at cap)", async () => {
+        await fillLibraryToCap();
+        // The game `cap-0` is already in the library from fillLibraryToCap.
+        const result = await Games.tryLinkToLibrary(TEST_USER_ID, "cap-0");
+        expect(result).toBe(true);
+      });
+    });
+
+    describe("when called with a non-default curation", () => {
+      it("should persist the requested curation", async () => {
+        rawDb.prepare("INSERT INTO games (id, title) VALUES (?, ?)").run("g-focus", "Focus Game");
+        await Games.tryLinkToLibrary(TEST_USER_ID, "g-focus", CurationMode.Focus);
+        const linked = await Games.getByIdForUser(TEST_USER_ID, "g-focus");
+        expect(linked!.curation).toBe(CurationMode.Focus);
+      });
+    });
+  });
+
   describe("ensureExists", () => {
     describe("when the game does not exist", () => {
       it("should create the game with Include curation", async () => {
