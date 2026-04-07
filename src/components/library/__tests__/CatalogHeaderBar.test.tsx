@@ -11,6 +11,16 @@ function renderHeaderBar(overrides: Partial<Parameters<typeof CatalogHeaderBar>[
   const props = {
     search: "",
     onSearchChange: vi.fn(),
+    isSignedIn: false,
+    steamLinked: false,
+    steamFilterOn: false,
+    onSteamFilterToggle: vi.fn(),
+    onConnectSteamClick: vi.fn(),
+    steamSyncedAt: null,
+    onSteamSync: vi.fn().mockResolvedValue(true),
+    onSteamDisconnect: vi.fn().mockResolvedValue(true),
+    steamIsSyncing: false,
+    steamCooldownMinutes: null,
     ...overrides,
   };
   render(<CatalogHeaderBar {...props} />);

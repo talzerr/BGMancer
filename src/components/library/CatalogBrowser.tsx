@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { CheckIcon, Spinner } from "@/components/Icons";
 import { LIBRARY_MAX_GAMES } from "@/lib/constants";
@@ -12,6 +12,8 @@ interface CatalogBrowserProps {
   onAdd: (game: Game, curation: CurationMode) => Promise<void>;
   searchFilter?: string;
   drawerExpanded: boolean;
+  steamFilterOn: boolean;
+  steamMatchedGameIds: string[];
 }
 
 const PAGE_SIZE = 20;
@@ -29,6 +31,8 @@ export function CatalogBrowser({
   onAdd,
   searchFilter,
   drawerExpanded,
+  steamFilterOn,
+  steamMatchedGameIds,
 }: CatalogBrowserProps) {
   const [catalog, setCatalog] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,9 +80,13 @@ export function CatalogBrowser({
   // Reset visible count when filter changes
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [searchFilter]);
+  }, [searchFilter, steamFilterOn]);
 
-  const filtered = catalog.filter(
+  const steamMatchedSet = useMemo(() => new Set(steamMatchedGameIds), [steamMatchedGameIds]);
+
+  const steamFiltered = steamFilterOn ? catalog.filter((g) => steamMatchedSet.has(g.id)) : catalog;
+
+  const filtered = steamFiltered.filter(
     (g) => !searchFilter?.trim() || g.title.toLowerCase().includes(searchFilter.toLowerCase()),
   );
 
@@ -103,9 +111,19 @@ export function CatalogBrowser({
           <Spinner className="h-5 w-5 text-[var(--text-tertiary)]" />
         </div>
       ) : filtered.length === 0 ? (
-        <p className="py-6 text-center text-xs text-[var(--text-disabled)]">
-          {searchFilter?.trim() ? "No games match your search." : "No published games yet."}
-        </p>
+        searchFilter?.trim() ? (
+          <p className="py-6 text-center text-xs text-[var(--text-disabled)]">
+            No games match your search.
+          </p>
+        ) : steamFilterOn ? (
+          <p className="py-6 text-center text-[13px] text-[var(--text-secondary)]">
+            None of your Steam games are in the catalog yet
+          </p>
+        ) : (
+          <p className="py-6 text-center text-xs text-[var(--text-disabled)]">
+            No published games yet.
+          </p>
+        )
       ) : (
         <>
           <div
