@@ -95,6 +95,8 @@ describe("LibraryDrawer", () => {
           games={[]}
           targetTrackCount={50}
           generating={false}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
           onGenerate={vi.fn()}
@@ -114,6 +116,8 @@ describe("LibraryDrawer", () => {
           games={[]}
           targetTrackCount={50}
           generating={false}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
           onGenerate={vi.fn()}
@@ -132,6 +136,8 @@ describe("LibraryDrawer", () => {
           games={[BASE_GAME, GAME_CELESTE]}
           targetTrackCount={50}
           generating={false}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
           onGenerate={vi.fn()}
@@ -149,14 +155,18 @@ describe("LibraryDrawer", () => {
           games={[BASE_GAME, GAME_CELESTE]}
           targetTrackCount={50}
           generating={false}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
           onGenerate={vi.fn()}
         />,
       );
 
-      // Header shows total game count
-      expect(screen.getByText("2")).toBeInTheDocument();
+      // Game count "2" renders in both the collapsed strip (vertical text) and the
+      // expanded header — both are in the DOM (the strip is just opacity-faded when
+      // expanded). Assert at least one is present.
+      expect(screen.getAllByText("2").length).toBeGreaterThanOrEqual(1);
     });
 
     it("should show steam thumbnail for games with steam_appid", async () => {
@@ -166,6 +176,8 @@ describe("LibraryDrawer", () => {
           games={[BASE_GAME]}
           targetTrackCount={50}
           generating={false}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
           onGenerate={vi.fn()}
@@ -186,6 +198,8 @@ describe("LibraryDrawer", () => {
           games={[GAME_NO_STEAM]}
           targetTrackCount={50}
           generating={false}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
           onGenerate={vi.fn()}
@@ -216,6 +230,8 @@ describe("LibraryDrawer", () => {
           games={[GAME_FOCUS]}
           targetTrackCount={50}
           generating={false}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
           onCurationChange={onCurationChange}
           onRemove={vi.fn()}
           onGenerate={vi.fn()}
@@ -236,6 +252,8 @@ describe("LibraryDrawer", () => {
           games={[BASE_GAME]}
           targetTrackCount={50}
           generating={false}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
           onCurationChange={onCurationChange}
           onRemove={vi.fn()}
           onGenerate={vi.fn()}
@@ -256,6 +274,8 @@ describe("LibraryDrawer", () => {
           games={[GAME_LITE]}
           targetTrackCount={50}
           generating={false}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
           onCurationChange={onCurationChange}
           onRemove={vi.fn()}
           onGenerate={vi.fn()}
@@ -278,16 +298,20 @@ describe("LibraryDrawer", () => {
           games={[BASE_GAME]}
           targetTrackCount={50}
           generating={false}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={onRemove}
           onGenerate={vi.fn()}
         />,
       );
 
-      // The remove button contains an SVG x icon; find it by its svg path
-      const svgs = document.querySelectorAll("svg");
-      expect(svgs.length).toBe(1);
-      await user.click(svgs[0].parentElement!);
+      // The remove button is the only one matching its X-icon path data.
+      const removePath = document.querySelector('path[d^="M6.28 5.22"]');
+      expect(removePath).not.toBeNull();
+      const removeButton = removePath!.closest("button");
+      expect(removeButton).not.toBeNull();
+      await user.click(removeButton!);
 
       expect(onRemove).toHaveBeenCalledWith("game-hk");
     });
@@ -301,6 +325,8 @@ describe("LibraryDrawer", () => {
           games={[BASE_GAME, GAME_CELESTE]}
           targetTrackCount={50}
           generating={false}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
           onGenerate={vi.fn()}
@@ -318,6 +344,8 @@ describe("LibraryDrawer", () => {
           games={[BASE_GAME]}
           targetTrackCount={30}
           generating={false}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
           onGenerate={vi.fn()}
@@ -337,6 +365,8 @@ describe("LibraryDrawer", () => {
           games={[BASE_GAME]}
           targetTrackCount={50}
           generating={false}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
           onGenerate={vi.fn()}
@@ -356,6 +386,8 @@ describe("LibraryDrawer", () => {
           games={[BASE_GAME]}
           targetTrackCount={50}
           generating={false}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
           onGenerate={onGenerate}
@@ -376,6 +408,8 @@ describe("LibraryDrawer", () => {
           games={[BASE_GAME]}
           targetTrackCount={50}
           generating={true}
+          isExpanded={true}
+          onExpandedChange={vi.fn()}
           onCurationChange={vi.fn()}
           onRemove={vi.fn()}
           onGenerate={onGenerate}

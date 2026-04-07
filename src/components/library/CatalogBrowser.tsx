@@ -10,9 +10,18 @@ interface CatalogBrowserProps {
   libraryGameIds: Set<string>;
   onAdd: (game: Game, curation: CurationMode) => Promise<void>;
   searchFilter?: string;
+  drawerExpanded: boolean;
 }
 
 const PAGE_SIZE = 20;
+// Grid sizing constants — kept in sync with the inline grid style below.
+const GRID_MIN_COL = 220;
+const GRID_GAP = 12;
+// Width delta the catalog grid gains/loses when the drawer collapses/expands
+// (LibraryDrawer: 300px expanded vs 40px collapsed strip).
+const DRAWER_WIDTH_DELTA = 260;
+// Drawer width transition duration (DESIGN_SYSTEM.md §2 — 300ms panel open/close).
+const DRAWER_TRANSITION_MS = 300;
 
 const CURATION_ADD_OPTIONS: {
   mode: CurationMode;
@@ -24,11 +33,38 @@ const CURATION_ADD_OPTIONS: {
   { mode: CurationMode.Lite, label: "Lite", colorClass: "text-primary" },
 ];
 
-export function CatalogBrowser({ libraryGameIds, onAdd, searchFilter }: CatalogBrowserProps) {
+export function CatalogBrowser({
+  libraryGameIds,
+  onAdd,
+  searchFilter,
+  drawerExpanded,
+}: CatalogBrowserProps) {
   const [catalog, setCatalog] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [addingId, setAddingId] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const gridRef = useRef<HTMLDivElement>(null);
+  // While the drawer transitions, lock the grid to a fixed column count so the
+  // smoothly-animating container width interpolates each card's width via 1fr,
+  // instead of letting `auto-fill` snap the column count mid-animation.
+  const [lockedCols, setLockedCols] = useState<number | null>(null);
+  const isFirstDrawerRender = useRef(true);
+
+  useEffect(() => {
+    if (isFirstDrawerRender.current) {
+      isFirstDrawerRender.current = false;
+      return;
+    }
+    const grid = gridRef.current;
+    if (!grid) return;
+    // Predict end-state column count from the post-transition container width.
+    const currentWidth = grid.clientWidth;
+    const targetWidth = currentWidth + (drawerExpanded ? -DRAWER_WIDTH_DELTA : DRAWER_WIDTH_DELTA);
+    const cols = Math.max(1, Math.floor((targetWidth + GRID_GAP) / (GRID_MIN_COL + GRID_GAP)));
+    setLockedCols(cols);
+    const t = window.setTimeout(() => setLockedCols(null), DRAWER_TRANSITION_MS + 20);
+    return () => window.clearTimeout(t);
+  }, [drawerExpanded]);
 
   const fetchCatalog = useCallback(async () => {
     try {
@@ -81,8 +117,14 @@ export function CatalogBrowser({ libraryGameIds, onAdd, searchFilter }: CatalogB
       ) : (
         <>
           <div
+            ref={gridRef}
             className="grid gap-3"
-            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}
+            style={{
+              gridTemplateColumns:
+                lockedCols !== null
+                  ? `repeat(${lockedCols}, minmax(0, 1fr))`
+                  : "repeat(auto-fill, minmax(220px, 1fr))",
+            }}
           >
             {visible.map((game) => {
               const inLibrary = libraryGameIds.has(game.id);

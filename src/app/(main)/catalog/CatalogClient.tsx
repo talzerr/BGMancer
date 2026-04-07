@@ -12,9 +12,14 @@ export function CatalogClient() {
   const router = useRouter();
   const { gameLibrary, config, playlist } = usePlayerContext();
   const [search, setSearch] = useState("");
+  // null = not yet manually overridden; derive from library state below.
+  const [drawerOverride, setDrawerOverride] = useState<boolean | null>(null);
+  const drawerExpanded = drawerOverride ?? (!gameLibrary.isLoading && gameLibrary.games.length > 0);
 
   async function handleAdd(game: Game, curation: CurationMode) {
+    const wasEmpty = gameLibrary.games.length === 0;
     await gameLibrary.addGame(game, curation);
+    if (wasEmpty) setDrawerOverride(true);
   }
 
   async function handleCurationChange(gameId: string, curation: CurationMode) {
@@ -40,7 +45,12 @@ export function CatalogClient() {
       {/* Left: catalog area */}
       <div className="flex min-w-0 flex-1 flex-col gap-3 p-4">
         <CatalogHeaderBar search={search} onSearchChange={setSearch} />
-        <CatalogBrowser libraryGameIds={libraryGameIds} onAdd={handleAdd} searchFilter={search} />
+        <CatalogBrowser
+          libraryGameIds={libraryGameIds}
+          onAdd={handleAdd}
+          searchFilter={search}
+          drawerExpanded={drawerExpanded}
+        />
       </div>
 
       {/* Right: library drawer */}
@@ -48,6 +58,8 @@ export function CatalogClient() {
         games={gameLibrary.games}
         targetTrackCount={config.targetTrackCount}
         generating={playlist.generating}
+        isExpanded={drawerExpanded}
+        onExpandedChange={setDrawerOverride}
         onCurationChange={handleCurationChange}
         onRemove={handleRemove}
         onGenerate={handleGenerate}
