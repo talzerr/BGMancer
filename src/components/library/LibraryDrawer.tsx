@@ -121,9 +121,7 @@ export function LibraryDrawer({
             <div className="bg-primary/20 h-2 w-[3px] rounded-full" />
           </div>
 
-          <p className="font-display text-foreground relative text-[15px] font-medium">
-            Your library is empty
-          </p>
+          <p className="text-foreground relative text-[15px] font-medium">Your library is empty</p>
           <p className="relative mt-2 max-w-[200px] text-xs leading-relaxed text-[var(--text-tertiary)]">
             Add a few soundtracks from the catalog to start your first session.
           </p>

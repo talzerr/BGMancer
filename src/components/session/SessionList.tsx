@@ -41,7 +41,7 @@ export function SessionList({ sessions, selectedId, onSelect, onDelete }: Sessio
   return (
     <div className="flex flex-col gap-1.5 border-t border-white/[0.06] pt-4">
       <div className="flex items-center gap-1.5 px-1">
-        <span className="font-display text-muted-foreground text-[11px] font-medium tracking-widest uppercase">
+        <span className="text-muted-foreground text-[11px] font-medium tracking-widest uppercase">
           Playlist History
         </span>
         {sessions.length > 0 && (

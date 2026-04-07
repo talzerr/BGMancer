@@ -24,7 +24,7 @@ export function LibraryWidget() {
           >
             <path d="M7 3.5A1.5 1.5 0 0 1 8.5 2h3A1.5 1.5 0 0 1 13 3.5V5h1.5A2.5 2.5 0 0 1 17 7.5v5a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 3 12.5v-5A2.5 2.5 0 0 1 5.5 5H7V3.5ZM8.5 3.5v2h3v-2h-3ZM7 6.5H5.5A1 1 0 0 0 4.5 7.5v5a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-5a1 1 0 0 0-1-1H7ZM7 9a.75.75 0 0 1 .75.75v.5h.5a.75.75 0 0 1 0 1.5h-.5v.5a.75.75 0 0 1-1.5 0v-.5H5.75a.75.75 0 0 1 0-1.5h.5v-.5A.75.75 0 0 1 7 9Zm5.25.75a.75.75 0 0 0-1.5 0v2.5a.75.75 0 0 0 1.5 0v-2.5Z" />
           </svg>
-          <span className="font-display text-foreground text-sm font-medium">Game Library</span>
+          <span className="text-foreground text-sm font-medium">Game Library</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-[var(--text-tertiary)] tabular-nums">

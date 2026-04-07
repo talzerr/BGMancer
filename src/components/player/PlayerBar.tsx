@@ -106,7 +106,7 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
   if (!currentTrack) return null;
 
   return (
-    <div className="border-border bg-background/97 fixed right-0 bottom-0 left-0 z-50 border-t backdrop-blur-xl">
+    <div className="border-border bg-background fixed right-0 bottom-0 left-0 z-50 border-t">
       {/* Seek bar — full width, positioned at the very top of the player */}
       <input
         type="range"
