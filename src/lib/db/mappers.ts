@@ -17,6 +17,8 @@ export function toUser(row: Record<string, unknown>): User {
     id: String(row.id),
     email: String(row.email),
     username: row.username != null ? String(row.username) : null,
+    steam_id: row.steam_id != null ? String(row.steam_id) : null,
+    steam_synced_at: row.steam_synced_at != null ? String(row.steam_synced_at) : null,
     created_at: String(row.created_at ?? ""),
   };
 }

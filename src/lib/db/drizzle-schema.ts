@@ -19,10 +19,27 @@ export const users = sqliteTable("users", {
   id: text("id").notNull().primaryKey(),
   email: text("email").notNull().unique(),
   username: text("username"),
+  steam_id: text("steam_id"),
+  steam_synced_at: text("steam_synced_at"),
   is_generating: integer("is_generating", { mode: "boolean" }).notNull().default(false),
   last_generated_at: text("last_generated_at"),
   created_at: text("created_at").notNull().default(timestampDefault),
 });
+
+// ─── User ↔ Steam games ──────────────────────────────────────────────────────
+
+export const userSteamGames = sqliteTable(
+  "user_steam_games",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    steam_app_id: integer("steam_app_id").notNull(),
+    playtime_minutes: integer("playtime_minutes").notNull().default(0),
+  },
+  (table) => [uniqueIndex("idx_user_steam_games_user_app").on(table.user_id, table.steam_app_id)],
+);
 
 // ─── Games ───────────────────────────────────────────────────────────────────
 
