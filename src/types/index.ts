@@ -235,7 +235,6 @@ export interface TrackDecision {
   /** Count of tracks already used from this game *before* this slot was filled. */
   gameBudgetUsed: number;
   selectionPass: SelectionPass;
-  rubricUsed: boolean;
   /** True when view bias scoring was active for this session (raw vibes toggle was off). */
   viewBiasActive: boolean;
 }

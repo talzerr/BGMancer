@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "404e7d71-9c88-4dae-8eaf-7dcd23cdc75c",
-  "prevId": "cb91088a-7748-4755-983a-231fda50c29d",
+  "id": "2b51cc6c-011f-4780-a15f-650ef3a67196",
+  "prevId": "404e7d71-9c88-4dae-8eaf-7dcd23cdc75c",
   "tables": {
     "game_review_flags": {
       "name": "game_review_flags",
@@ -425,14 +425,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'scored'"
-        },
-        "rubric_used": {
-          "name": "rubric_used",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
         },
         "view_bias_active": {
           "name": "view_bias_active",

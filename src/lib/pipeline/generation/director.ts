@@ -348,7 +348,6 @@ export function assemblePlaylist(
   const gameUsed = new Map<string, number>();
   const result: TaggedTrack[] = [];
   const decisions: TrackDecision[] = [];
-  const hasRubric = rubric != null;
   let lastGameId: string | null = null;
 
   function recordDecision(
@@ -373,7 +372,6 @@ export function assemblePlaylist(
       gameBudget: budgets.get(track.gameId) ?? 0,
       gameBudgetUsed: gameUsed.get(track.gameId) ?? 0,
       selectionPass,
-      rubricUsed: hasRubric,
       viewBiasActive: viewBiasScores != null,
     });
   }
