@@ -164,8 +164,9 @@ describe("POST /api/steam/sync", () => {
       );
       expect(res.status).toBe(429);
 
-      const body = await parseJson<{ error: string }>(res);
+      const body = await parseJson<{ error: string; cooldownMinutes: number }>(res);
       expect(body.error).toBe("Steam library was synced recently. Try again in 42 minutes.");
+      expect(body.cooldownMinutes).toBe(42);
     });
   });
 

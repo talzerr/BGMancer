@@ -15,6 +15,7 @@ export function useSteamLibrary(isSignedIn: boolean) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cooldownMinutes, setCooldownMinutes] = useState<number | null>(null);
 
   const fetchLibrary = useCallback(async (): Promise<boolean> => {
     try {
@@ -73,15 +74,19 @@ export function useSteamLibrary(isSignedIn: boolean) {
       });
       if (!res.ok) {
         let message = "Steam sync failed.";
+        let cooldown: number | null = null;
         try {
-          const body = (await res.json()) as { error?: string };
+          const body = (await res.json()) as { error?: string; cooldownMinutes?: number };
           if (body && typeof body.error === "string") message = body.error;
+          if (body && typeof body.cooldownMinutes === "number") cooldown = body.cooldownMinutes;
         } catch {
-          /* ignore parse errors */
+          // body wasn't JSON — fall back to the default message.
         }
         setError(message);
+        setCooldownMinutes(cooldown);
         return false;
       }
+      setCooldownMinutes(null);
       await fetchLibrary();
       return true;
     } catch (err) {
@@ -104,6 +109,7 @@ export function useSteamLibrary(isSignedIn: boolean) {
       setLinked(false);
       setSteamSyncedAt(null);
       setMatchedGameIds([]);
+      setCooldownMinutes(null);
       return true;
     } catch (err) {
       console.error("Failed to disconnect Steam:", err);
@@ -119,6 +125,7 @@ export function useSteamLibrary(isSignedIn: boolean) {
     isLoading,
     error,
     isSyncing,
+    cooldownMinutes,
     sync,
     disconnect,
   };

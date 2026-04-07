@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePlayerContext } from "@/context/player-context";
 import { useSteamLibrary } from "@/hooks/library/useSteamLibrary";
@@ -22,28 +22,9 @@ export function CatalogClient() {
   const [steamFilterOn, setSteamFilterOn] = useState(false);
   const [connectDialogOpen, setConnectDialogOpen] = useState(false);
 
-  // Cooldown minutes are derived from the current steam error message — when the
-  // server rejects a sync attempt with a 429, the error string contains
-  // "Try again in N minutes". When the error clears, the cooldown clears.
-  const steamCooldownMinutes = useMemo<number | null>(() => {
-    if (!steamLib.error) return null;
-    const match = steamLib.error.match(/Try again in (\d+) minutes?/);
-    return match ? parseInt(match[1], 10) : null;
-  }, [steamLib.error]);
-
-  async function handleSteamSync(steamUrl?: string): Promise<boolean> {
-    return await steamLib.sync(steamUrl);
-  }
-
-  async function handleSteamSyncFromPopover(): Promise<boolean> {
-    return await handleSteamSync();
-  }
-
   async function handleSteamDisconnect(): Promise<boolean> {
     const ok = await steamLib.disconnect();
-    if (ok) {
-      setSteamFilterOn(false);
-    }
+    if (ok) setSteamFilterOn(false);
     return ok;
   }
 
@@ -84,10 +65,10 @@ export function CatalogClient() {
           onSteamFilterToggle={() => setSteamFilterOn((s) => !s)}
           onConnectSteamClick={() => setConnectDialogOpen(true)}
           steamSyncedAt={steamLib.steamSyncedAt}
-          onSteamSync={handleSteamSyncFromPopover}
+          onSteamSync={steamLib.sync}
           onSteamDisconnect={handleSteamDisconnect}
           steamIsSyncing={steamLib.isSyncing}
-          steamCooldownMinutes={steamCooldownMinutes}
+          steamCooldownMinutes={steamLib.cooldownMinutes}
         />
         <CatalogBrowser
           libraryGameIds={libraryGameIds}
@@ -112,7 +93,7 @@ export function CatalogClient() {
       <SteamConnectDialog
         open={connectDialogOpen}
         onOpenChange={setConnectDialogOpen}
-        onSync={handleSteamSync}
+        onSync={steamLib.sync}
         isSyncing={steamLib.isSyncing}
         error={steamLib.error}
       />

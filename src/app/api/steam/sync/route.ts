@@ -61,6 +61,7 @@ export const POST = withRequiredAuth(async (userId, req: Request) => {
       return NextResponse.json(
         {
           error: `Steam library was synced recently. Try again in ${err.minutesRemaining} minutes.`,
+          cooldownMinutes: err.minutesRemaining,
         },
         { status: 429 },
       );

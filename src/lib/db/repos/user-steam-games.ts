@@ -4,10 +4,7 @@ import { sql, eq } from "drizzle-orm";
 import { userSteamGames } from "@/lib/db/drizzle-schema";
 
 export const UserSteamGames = {
-  /**
-   * Returns the IDs of published catalog games that the user owns on Steam.
-   * Join is performed via `games.steam_appid` ↔ `user_steam_games.steam_app_id`.
-   */
+  /** Returns the IDs of published catalog games that the user owns on Steam. */
   async getMatchedGameIds(userId: string): Promise<string[]> {
     const rows = await getDB().all<{ id: string }>(sql`
       SELECT g.id FROM games g
@@ -17,7 +14,6 @@ export const UserSteamGames = {
     return rows.map((r) => r.id);
   },
 
-  /** Counts the user's Steam games that are present in the published catalog. */
   async countMatches(userId: string): Promise<number> {
     const row = (await getDB().get<{ cnt: number }>(sql`
       SELECT COUNT(*) AS cnt FROM games g
@@ -28,10 +24,9 @@ export const UserSteamGames = {
   },
 
   /**
-   * Builds the Drizzle query statements that atomically replace the user's
-   * Steam game set: a delete of all existing rows followed by an insert per
-   * game. The caller composes these into a single `batch()` call so the whole
-   * replacement is one atomic unit.
+   * Returns the delete + insert statements that replace the user's Steam
+   * library. The caller is responsible for passing them to `batch()` so the
+   * whole replacement happens atomically.
    */
   buildReplaceStatements(
     userId: string,

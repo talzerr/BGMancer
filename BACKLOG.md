@@ -25,14 +25,6 @@ Items that must be done before removing Zero Trust and going public.
   users and could hammer YouTube API quota. Needs PM session.
 - **[infra] App/backstage shared code boundary** — currently clean but informal. Needs
   explicit documentation or enforcement before the codebase grows further.
-- **[catalog] Catalog page design** — in progress. The catalog is mid-overhaul and needs
-  to be finished to design system standards.
-- **[catalog] Collapsible library drawer (desktop)** — part of the catalog page work.
-  The drawer behavior needs to be finalized per the design system.
-- **[catalog] Steam import** — let users provide their Steam profile URL/ID, fetch their
-  public library, match against the BGMancer catalog, and show owned games with a filter
-  or indicator. Manual re-sync on button press. PM-approved concept (DEC-003), needs UX
-  session for specifics before implementation.
 - **[catalog] "Can't find your game?" path** — minimal solution so users don't hit a dead
   end when a game isn't in the catalog. Could be as simple as a link to a request form.
   Needs PM session for scoping.
@@ -59,9 +51,6 @@ to a Claude Code session directly.
 - **[player] Revisit playlist manipulation features** — shuffle, reorder, remove, reroll.
   The arc changes what makes sense here. Some of these may conflict with the Director's
   sequencing. Needs a principled decision on which controls exist.
-- **[infra] Service extraction audit** — review route handlers for inlined business logic
-  that should live in a service. Per ARCHITECTURE.md: handlers orchestrate, services
-  implement. PM reviews proposed extractions before refactoring.
 - **[product] Library and catalog model review** — the current model has relics from
   earlier iterations. Needs a focused PM session to align on: library size limit (drop
   from 500 to ~20–25, exact number TBD), UX for communicating and enforcing the limit,

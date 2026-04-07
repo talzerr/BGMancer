@@ -1,10 +1,7 @@
 /**
- * Steam library sync service.
- *
- * Owns all Steam Web API calls (vanity resolution + GetOwnedGames), the
- * per-user sync cooldown, the top-N cap, and atomic batch persistence.
- * Route handlers are thin wrappers that call `syncUserLibrary()` and map
- * the typed error classes exported here to HTTP responses.
+ * Owns all Steam Web API calls, the per-user sync cooldown, the top-N cap,
+ * and the atomic batch persistence. Route handlers map the typed errors
+ * exported here to HTTP responses.
  */
 import { eq } from "drizzle-orm";
 import { getDB, batch } from "@/lib/db";
@@ -12,13 +9,9 @@ import { users } from "@/lib/db/drizzle-schema";
 import { Users, UserSteamGames } from "@/lib/db/repo";
 import { env } from "@/lib/env";
 import { createLogger } from "@/lib/logger";
+import { STEAM_SYNC_COOLDOWN_MS, STEAM_SYNC_MAX_GAMES } from "@/lib/constants";
 
 const log = createLogger("steam-sync");
-
-// ─── Constants ───────────────────────────────────────────────────────────────
-
-const STEAM_SYNC_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
-const MAX_SYNCED_GAMES = 500;
 
 // ─── Typed errors ────────────────────────────────────────────────────────────
 
@@ -81,18 +74,15 @@ export function parseSteamInput(input: string): ParsedSteamInput {
   const trimmed = input.trim().replace(/\/+$/, "");
   if (!trimmed) throw new InvalidSteamUrlError();
 
-  // Bare 17-digit numeric → SteamID64
   if (/^\d{17}$/.test(trimmed)) {
     return { kind: "id", value: trimmed };
   }
 
-  // steamcommunity.com/profiles/<numericId>
   const profileMatch = trimmed.match(/steamcommunity\.com\/profiles\/(\d{17})(?:[/?#].*)?$/);
   if (profileMatch) {
     return { kind: "profile", value: profileMatch[1] };
   }
 
-  // steamcommunity.com/id/<vanity>
   const vanityMatch = trimmed.match(/steamcommunity\.com\/id\/([^/?#]+)/);
   if (vanityMatch) {
     return { kind: "vanity", value: vanityMatch[1] };
@@ -178,13 +168,11 @@ export async function syncUserLibrary(
 
   const user = await Users.getById(userId);
   if (!user) {
-    // Should never happen — caller enforced auth — but fail loudly rather than silently.
     throw new SteamApiError(`User ${userId} not found`);
   }
 
   const now = opts.now ?? new Date();
 
-  // 1. Resolve / re-use steam_id and handle cooldown
   let steamId: string;
   let storingFreshSteamId = false;
 
@@ -207,16 +195,13 @@ export async function syncUserLibrary(
     storingFreshSteamId = true;
   }
 
-  // 2. Fetch owned games from Steam
   const owned = await fetchOwnedGames(steamId, apiKey);
 
-  // 3. Cap to top-500 by playtime
   const topGames = [...owned]
     .sort((a, b) => b.playtime_forever - a.playtime_forever)
-    .slice(0, MAX_SYNCED_GAMES)
+    .slice(0, STEAM_SYNC_MAX_GAMES)
     .map((g) => ({ steamAppId: g.appid, playtimeMinutes: g.playtime_forever }));
 
-  // 4. Atomic batch: replace user_steam_games + update users timestamp (+ steam_id on first sync)
   const steamSyncedAt = now.toISOString();
   const replaceStmts = UserSteamGames.buildReplaceStatements(userId, topGames);
   const db = getDB();
@@ -229,7 +214,7 @@ export async function syncUserLibrary(
 
   await batch([...replaceStmts, userUpdate]);
 
-  // 5. Count catalog matches (after the write so the read sees the new set)
+  // countMatches runs after the batch so the JOIN sees the freshly-inserted rows.
   const catalogMatches = await UserSteamGames.countMatches(userId);
 
   return {

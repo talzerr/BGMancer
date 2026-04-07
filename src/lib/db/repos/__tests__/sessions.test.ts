@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type Database from "better-sqlite3";
 import { createTestDrizzleDB, seedTestUser, seedTestSession } from "../../test-helpers";
 import { TEST_USER_ID } from "@/test/constants";
-import { TrackInstrumentation, TrackMood, TrackRole } from "@/types";
+import { ArcPhase, TrackInstrumentation, TrackMood, TrackRole } from "@/types";
 import type { DrizzleDB } from "@/lib/db";
 
 let db: DrizzleDB;
@@ -198,13 +198,15 @@ describe("Sessions", () => {
       it("should roundtrip JSON data correctly", async () => {
         const session = await Sessions.create(TEST_USER_ID, "Telemetry");
         const rubric = {
-          targetEnergy: [2, 3] as Array<1 | 2 | 3>,
-          preferredMoods: [TrackMood.Peaceful],
+          phases: {
+            [ArcPhase.Rising]: {
+              preferredMoods: [TrackMood.Peaceful],
+              preferredInstrumentation: [TrackInstrumentation.Piano],
+              preferredRoles: [TrackRole.Ambient],
+            },
+          },
           penalizedMoods: [] as TrackMood[],
-          preferredInstrumentation: [TrackInstrumentation.Piano],
-          penalizedInstrumentation: [] as TrackInstrumentation[],
           allowVocals: false,
-          preferredRoles: [TrackRole.Ambient],
         };
         const budgets = { "game-a": 10, "game-b": 5 };
 
