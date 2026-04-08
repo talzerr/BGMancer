@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { CheckIcon, Spinner } from "@/components/Icons";
+import { GameRequestPrompt } from "@/components/library/GameRequestPrompt";
 import { LIBRARY_MAX_GAMES } from "@/lib/constants";
 import { CurationMode } from "@/types";
 import type { Game } from "@/types";
@@ -14,6 +15,8 @@ interface CatalogBrowserProps {
   drawerExpanded: boolean;
   steamFilterOn: boolean;
   steamMatchedGameIds: string[];
+  requestFormEnabled: boolean;
+  turnstileSiteKey: string | undefined;
 }
 
 const PAGE_SIZE = 20;
@@ -33,6 +36,8 @@ export function CatalogBrowser({
   drawerExpanded,
   steamFilterOn,
   steamMatchedGameIds,
+  requestFormEnabled,
+  turnstileSiteKey,
 }: CatalogBrowserProps) {
   const [catalog, setCatalog] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,7 +116,11 @@ export function CatalogBrowser({
           <Spinner className="h-5 w-5 text-[var(--text-tertiary)]" />
         </div>
       ) : filtered.length === 0 ? (
-        <p className="py-6 text-center text-xs text-[var(--text-disabled)]">No games found.</p>
+        <GameRequestPrompt
+          catalogSearch={searchFilter ?? ""}
+          requestFormEnabled={requestFormEnabled}
+          turnstileSiteKey={turnstileSiteKey}
+        />
       ) : (
         <>
           <div

@@ -36,6 +36,8 @@ Requires a `.env.local` (copy from `.env.local.example`) with:
 - `ANTHROPIC_TAGGING_MODEL` — optional; override Anthropic model for Phase 2 tagging (defaults to `ANTHROPIC_MODEL`)
 - `ANTHROPIC_VIBE_MODEL` — optional; override Anthropic model for Vibe Profiler (defaults to `ANTHROPIC_MODEL`)
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — required in production for Google OAuth sign-in. In local dev, a Credentials provider is used instead
+- `IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` — optional; powers the catalog "Request a game" empty state. Twitch dev console credentials. When unset (or `TURNSTILE_SITE_KEY` is unset), the request form is hidden server-side and the empty state shows only "No games found"
+- `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` — Cloudflare Turnstile credentials. Used for guest playlist generation and game requests. In dev (`env.isDev`) or when the secret is unset, server-side verification is short-circuited
 - Backstage (`/backstage/*`) is open in local dev. In production, it's gated by Cloudflare Access on `bgmancer.com/backstage*`
 
 Schema is managed by Drizzle ORM with migrations stored in `drizzle/migrations/`. Locally, apply with `pnpm db:migrate`. In production, apply with `wrangler d1 migrations apply bgmancer-prod --remote`.
@@ -74,6 +76,7 @@ This section describes the current codebase. For prescriptive rules and patterns
 | Game library             | localStorage-backed            | DB-backed                                           |
 | Session history          | No                             | DB-backed                                           |
 | Reroll / Sync to YouTube | No                             | Yes                                                 |
+| Request a game (catalog) | Yes (Turnstile-gated)          | Yes (Turnstile-gated)                               |
 
 When adding a new API route:
 
@@ -88,10 +91,11 @@ Next.js App Router with three main page areas:
 
 - `/` — main feed (`src/app/(main)/page.tsx` + `src/app/(main)/FeedClient.tsx`) — playlist view, generation controls, session history
 - `/catalog` — catalog browser + library drawer (`src/app/(main)/catalog/page.tsx` + `src/app/(main)/catalog/CatalogClient.tsx`) — browse published games, add to library with curation modes
-- `/backstage` — admin control plane (`src/app/(backstage)/backstage/`) — inspect/correct track metadata, review flags, and Director telemetry. Three views:
+- `/backstage` — admin control plane (`src/app/(backstage)/backstage/`) — inspect/correct track metadata, review flags, Director telemetry, and the game request queue. Four views:
   - `/backstage/games` — game list with needs-review badges, re-ingest / retag actions
   - `/backstage/tracks` — track lab: full tag table with inline editing via `TrackEditSheet`, bulk actions, re-tag trigger
   - `/backstage/theatre` — Director telemetry: per-session score breakdown and arc-phase audit trail
+  - `/backstage/requests` — IGDB-backed game request queue. Defaults to unacknowledged rows ordered by `request_count` desc; toggle "Show all" to include acknowledged. Acknowledge button is per-row
 
 All non-backstage pages are wrapped by `PlayerProvider` (in `src/app/layout.tsx`), which manages global state via `src/context/player-context.tsx`. Backstage has its own layout (`BackstageLayout`) and does not use `PlayerProvider`.
 
@@ -118,7 +122,7 @@ Uses **Drizzle ORM** with **Cloudflare D1** as the database driver everywhere (d
 - `index.ts` — `getDB()` returns a D1-backed Drizzle instance via `getCloudflareContext().env.DB`
 - `drizzle-schema.ts` — Drizzle schema definition for all tables, indexes, and foreign keys
 - `repo.ts` — barrel re-export for all repos in `repos/`
-- `repos/` — one file per domain: `games`, `backstage-games`, `users`, `sessions`, `playlist`, `tracks`, `video-tracks`, `review-flags`, `decisions`, `user-steam-games`
+- `repos/` — one file per domain: `games`, `backstage-games`, `users`, `sessions`, `playlist`, `tracks`, `video-tracks`, `review-flags`, `decisions`, `user-steam-games`, `game-requests`
 - `mappers.ts` — row → typed object converters (used by repos that query via `sql` tagged template)
 - `queries.ts` — shared Drizzle subquery helpers
 - `test-helpers.ts` — `createTestDrizzleDB()` for in-memory test databases with D1-compat wrapper
@@ -212,6 +216,25 @@ Authenticated-only discovery feature: users link a Steam profile, the backend fe
 
 **Backstage Steam routes** (`/api/backstage/steam/*`) are a separate, admin-only surface used during game onboarding to look up Steam game metadata (store search, owned-games lookup for testing). They share `parseSteamInput`/`resolveVanityUrl`/`fetchOwnedGames` helpers via the same service module.
 
+### Game requests (`src/lib/services/external/igdb.ts`)
+
+The catalog empty state lets any user (guest or logged-in) request a game that isn't in the catalog yet. The flow is:
+
+1. User searches the catalog → zero results → `GameRequestPrompt` is rendered (`src/components/library/GameRequestPrompt.tsx`). All client-side state, the debounced IGDB fetch, and the submit POST live in `useGameRequest` (`src/hooks/library/useGameRequest.ts`).
+2. The current catalog search term is shown as preview text inside an inactive input. On first focus the input activates, copies the term into the hook's editable `query`, and the 300ms-debounced effect calls `GET /api/games/search-igdb`.
+3. The user clicks a result. The component awaits a Turnstile token via `useTurnstileToken` (`src/hooks/shared/useTurnstileToken.ts`), then calls the hook's `submitRequest`. The shared Turnstile hook is also used by `FeedClient` for guest playlist generation — single source of truth for the script-load race + render dance.
+4. The server rate-limits per IP (5/hr), verifies Turnstile, then calls `GameRequests.upsertRequest` — new rows insert with `request_count = 1`, existing unacknowledged rows increment, acknowledged rows are no-ops. Always returns `{ success: true }`.
+
+**Data model:** single `game_requests` table keyed on `igdb_id` (the natural identity from IGDB; no synthetic PK). Columns: `name`, `cover_url`, `request_count`, `acknowledged`, `created_at`, `updated_at`.
+
+**IGDB service** (`src/lib/services/external/igdb.ts`) handles Twitch OAuth client-credentials with a module-level token cache (per Worker isolate; tokens last ~60 days). `searchGames(query)` POSTs to `/v4/games` and filters client-side because IGDB doesn't reliably combine `search` with `where` clauses. Filter pipeline (in order): `version_parent` (excludes platform re-releases), `parent_game` (excludes DLC/expansions/content packs), then a `category` blacklist as a backstop. Finally a name dedupe (lowercased, first wins) and slice to 10. All errors return `[]` — this is a soft feature.
+
+**Server-side feature flag:** `requestFormEnabled` is computed in `src/app/(main)/catalog/page.tsx` as `Boolean(env.igdbClientId && env.igdbClientSecret && env.turnstileSiteKey)` and passed down. When false, the empty state renders only the icon and "No games found" — no input. The client also reacts to a 404 from `/api/games/search-igdb` by switching into the same degraded state at runtime.
+
+**Backstage queue** (`/backstage/requests`): admin view of unacknowledged requests sorted by `request_count` desc. The "Show all" toggle adds acknowledged rows. The query param contract is strict: `?all=1` includes acknowledged, anything else returns the unacknowledged-only view.
+
+**CSP requirements:** `next.config.ts` allows `https://challenges.cloudflare.com` in `script-src`, `connect-src`, and `frame-src` for Turnstile, plus `https://images.igdb.com` in `img-src` for cover thumbnails. Both `FeedClient` (guest playlist generation) and `GameRequestPrompt` rely on this.
+
 ### API routes
 
 All under `src/app/api/`. Auth levels are defined in `src/lib/route-config.ts`. Key routes:
@@ -220,6 +243,8 @@ All under `src/app/api/`. Auth levels are defined in `src/lib/route-config.ts`. 
 - `GET /api/games` — user's game library (Optional — guests get `[]`)
 - `POST/PATCH/DELETE /api/games` — game library mutations (Required)
 - `GET /api/games/catalog` — published game catalog (Public)
+- `GET /api/games/search-igdb?q=...` — proxy search against IGDB for the catalog "Request a game" empty state (Public). Returns 404 when IGDB credentials aren't configured (the client uses this to hide the request form). IP-rate-limited 30/min via `igdb-search:${ip}`
+- `POST /api/games/request` — register a game request (Public). Body: `{ igdbId, name, coverUrl, turnstileToken }`. Verified server-side via Turnstile (rejects with 403 on failure), then IP-rate-limited 5/hr via `game-request:${ip}`. Always returns `{ success: true }` regardless of internal state (new row, increment, or no-op on already-acknowledged) — the client never learns whether the request was new
 - `POST /api/playlist/import` — import tracks from a YouTube playlist (Optional — guests get no persistence)
 - `GET /api/playlist` — fetch tracks (Optional — guests get `[]`)
 - `DELETE /api/playlist` — clear playlist (Required)
@@ -254,6 +279,8 @@ Backstage API routes (all under `src/app/api/backstage/`, auth level: Admin). Ev
 - `GET /api/backstage/steam/search` — search the Steam store by name (admin game onboarding)
 - `GET /api/backstage/theatre/sessions` — session list for Theatre view
 - `GET /api/backstage/theatre/[playlistId]` — full telemetry for one playlist (tracks + decisions + budgets + rubric)
+- `GET /api/backstage/requests` — game request queue. Defaults to unacknowledged-only ordered by `request_count` desc. Pass `?all=1` to also include acknowledged rows; any other value (or absent) returns the unacknowledged view
+- `POST /api/backstage/requests/acknowledge` — mark a request as acknowledged. Body: `{ igdbId }`. Idempotent — acknowledging an already-acknowledged or nonexistent row is a no-op
 
 ## Code style
 

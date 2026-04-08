@@ -33,16 +33,16 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               // Next.js requires 'unsafe-inline' for styled-jsx and inline styles
               "style-src 'self' 'unsafe-inline'",
-              // Next.js injects inline scripts for hydration; YouTube iframe API loaded dynamically
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.youtube.com",
-              // Images: YouTube thumbnails + Steam cover art + SteamGridDB art
-              "img-src 'self' data: https://i.ytimg.com https://img.youtube.com https://*.steamstatic.com https://cdn2.steamgriddb.com",
-              // API calls + YouTube iframe communication
-              "connect-src 'self' https://api.anthropic.com https://www.youtube.com",
+              // Next.js injects inline scripts for hydration; YouTube iframe API loaded dynamically; Turnstile bot check
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.youtube.com https://challenges.cloudflare.com",
+              // Images: YouTube thumbnails + Steam cover art + SteamGridDB art + IGDB covers (game request)
+              "img-src 'self' data: https://i.ytimg.com https://img.youtube.com https://*.steamstatic.com https://cdn2.steamgriddb.com https://images.igdb.com",
+              // API calls + YouTube iframe communication + Turnstile siteverify
+              "connect-src 'self' https://api.anthropic.com https://www.youtube.com https://challenges.cloudflare.com",
               // Fonts loaded from same origin
               "font-src 'self'",
-              // YouTube embedded player
-              "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
+              // YouTube embedded player + Turnstile challenge iframe
+              "frame-src https://www.youtube.com https://www.youtube-nocookie.com https://challenges.cloudflare.com",
               // No form submissions to external origins
               "form-action 'self'",
               // Only allow this origin as base URI

@@ -7,6 +7,9 @@ export const metadata = { title: "Catalog — BGMancer" };
 
 export default async function CatalogPage() {
   const session = await auth();
+  const requestFormEnabled = Boolean(
+    env.igdbClientId && env.igdbClientSecret && env.turnstileSiteKey,
+  );
 
   return (
     <div className="bg-background relative min-h-screen">
@@ -14,7 +17,10 @@ export default async function CatalogPage() {
 
       {/* Main content */}
       <div className="mx-auto max-w-7xl">
-        <CatalogClient />
+        <CatalogClient
+          requestFormEnabled={requestFormEnabled}
+          turnstileSiteKey={env.turnstileSiteKey}
+        />
       </div>
     </div>
   );

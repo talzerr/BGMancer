@@ -4,7 +4,7 @@ import { auth } from "@/lib/services/auth/auth";
 import { PlayerProvider } from "@/context/player-context";
 
 export const metadata: Metadata = {
-  title: "BGMancer — AI Video Game OST Curator",
+  title: "BGMancer — Video game OST curator",
   description:
     "Add games you've played. BGMancer uses AI to find the best official soundtracks on YouTube and syncs them into your personal playlist.",
   icons: {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useCallback } from "react";
+import { useEffect, useMemo } from "react";
 import Script from "next/script";
 import type { SyntheticEvent } from "react";
 import {
@@ -21,6 +21,7 @@ import {
 import { usePlayerContext } from "@/context/player-context";
 import { useSessionManager } from "@/hooks/library/useSessionManager";
 import { useTrackDeleteUndo } from "@/hooks/player/useTrackDeleteUndo";
+import { useTurnstileToken } from "@/hooks/shared/useTurnstileToken";
 import { GenerateSection } from "@/components/GenerateSection";
 import { SessionList } from "@/components/session/SessionList";
 import { LibraryWidget } from "@/components/library/LibraryWidget";
@@ -42,24 +43,11 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
 
   // ── Turnstile (guest bot protection) ──────────────────────────────────────
 
-  const turnstileRef = useRef<HTMLDivElement>(null);
-
-  const getTurnstileToken = useCallback((): Promise<string> => {
-    const turnstile = (window as unknown as { turnstile?: TurnstileApi }).turnstile;
-    if (!turnstile || !turnstileSiteKey) return Promise.resolve("");
-
-    const container = turnstileRef.current;
-    if (!container) return Promise.resolve("");
-
-    return new Promise<string>((resolve) => {
-      turnstile.render(container, {
-        sitekey: turnstileSiteKey,
-        callback: resolve,
-        "error-callback": () => resolve(""),
-        "expired-callback": () => resolve(""),
-      });
-    });
-  }, [turnstileSiteKey]);
+  const {
+    containerRef: turnstileContainerRef,
+    scriptOnReady: turnstileScriptOnReady,
+    getToken: getTurnstileToken,
+  } = useTurnstileToken(turnstileSiteKey);
 
   // ── Cross-hook action coordinators ────────────────────────────────────────
 
@@ -121,9 +109,10 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
         <>
           <Script
             src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
-            strategy="lazyOnload"
+            strategy="afterInteractive"
+            onReady={turnstileScriptOnReady}
           />
-          <div ref={turnstileRef} className="hidden" />
+          <div ref={turnstileContainerRef} className="hidden" />
         </>
       )}
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[320px_1fr] lg:gap-8">

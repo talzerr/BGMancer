@@ -45,6 +45,10 @@ interface Env {
   /** Cloudflare Turnstile secret key (server-side verification). */
   turnstileSecretKey: string | undefined;
 
+  /** IGDB / Twitch client credentials (optional — game request feature). */
+  igdbClientId: string | undefined;
+  igdbClientSecret: string | undefined;
+
   /** Current NODE_ENV. */
   nodeEnv: string;
 
@@ -99,6 +103,9 @@ function loadEnv(): Env {
 
     turnstileSiteKey: process.env.TURNSTILE_SITE_KEY || undefined,
     turnstileSecretKey: process.env.TURNSTILE_SECRET_KEY || undefined,
+
+    igdbClientId: process.env.IGDB_CLIENT_ID || undefined,
+    igdbClientSecret: process.env.IGDB_CLIENT_SECRET || undefined,
 
     nodeEnv,
 
