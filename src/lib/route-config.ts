@@ -59,14 +59,51 @@ export const routeConfig: Record<string, RouteEntry> = {
   "PATCH /api/sessions/[id]": { auth: AuthLevel.Required },
   "DELETE /api/sessions/[id]": { auth: AuthLevel.Required },
 
-  // ── API: Steam (admin — used by Backstage for game onboarding) ──
-  "GET /api/steam/games": { auth: AuthLevel.Admin },
-  "GET /api/steam/search": { auth: AuthLevel.Admin },
-  "POST /api/steam/import": { auth: AuthLevel.Admin },
+  // ── API: Steam (user-facing — library sync) ────────────────
+  "POST /api/steam/sync": { auth: AuthLevel.Required },
+  "GET /api/steam/library": { auth: AuthLevel.Required },
+  "DELETE /api/steam/link": { auth: AuthLevel.Required },
 
   // ── API: Sync ──────────────────────────────────────────────
   "POST /api/sync": { auth: AuthLevel.Required },
 
-  // ── API: Backstage ─────────────────────────────────────────
-  "/api/backstage/*": { auth: AuthLevel.Admin },
+  // ── API: Backstage — Dashboard ─────────────────────────────
+  "GET /api/backstage/dashboard": { auth: AuthLevel.Admin },
+
+  // ── API: Backstage — Games ─────────────────────────────────
+  "GET /api/backstage/games": { auth: AuthLevel.Admin },
+  "POST /api/backstage/games": { auth: AuthLevel.Admin },
+  "PATCH /api/backstage/games/[gameId]": { auth: AuthLevel.Admin },
+  "DELETE /api/backstage/games/[gameId]": { auth: AuthLevel.Admin },
+  "GET /api/backstage/games/[gameId]/tracks": { auth: AuthLevel.Admin },
+
+  // ── API: Backstage — Tracks ────────────────────────────────
+  "GET /api/backstage/tracks": { auth: AuthLevel.Admin },
+  "POST /api/backstage/tracks": { auth: AuthLevel.Admin },
+  "PATCH /api/backstage/tracks": { auth: AuthLevel.Admin },
+  "DELETE /api/backstage/tracks": { auth: AuthLevel.Admin },
+  "POST /api/backstage/tracks/review": { auth: AuthLevel.Admin },
+
+  // ── API: Backstage — Onboarding pipeline ───────────────────
+  "POST /api/backstage/load-tracks": { auth: AuthLevel.Admin },
+  "POST /api/backstage/import-tracks": { auth: AuthLevel.Admin },
+  "POST /api/backstage/resolve": { auth: AuthLevel.Admin },
+  "POST /api/backstage/resolve-selected": { auth: AuthLevel.Admin },
+  "POST /api/backstage/retag": { auth: AuthLevel.Admin },
+  "POST /api/backstage/tag-selected": { auth: AuthLevel.Admin },
+  "POST /api/backstage/reingest": { auth: AuthLevel.Admin },
+  "POST /api/backstage/quick-onboard": { auth: AuthLevel.Admin },
+  "POST /api/backstage/publish": { auth: AuthLevel.Admin },
+  "POST /api/backstage/bulk-publish": { auth: AuthLevel.Admin },
+
+  // ── API: Backstage — Review flags ──────────────────────────
+  "DELETE /api/backstage/review-flags": { auth: AuthLevel.Admin },
+
+  // ── API: Backstage — Steam (admin game onboarding) ─────────
+  "GET /api/backstage/steam/games": { auth: AuthLevel.Admin },
+  "GET /api/backstage/steam/search": { auth: AuthLevel.Admin },
+
+  // ── API: Backstage — Theatre (Director telemetry) ──────────
+  "GET /api/backstage/theatre/sessions": { auth: AuthLevel.Admin },
+  "GET /api/backstage/theatre/[playlistId]": { auth: AuthLevel.Admin },
 };

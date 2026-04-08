@@ -59,6 +59,14 @@ export function steamHeaderUrl(appid: number): string {
   return `https://cdn.akamai.steamstatic.com/steam/apps/${appid}/header.jpg`;
 }
 
+// ─── Steam sync ───────────────────────────────────────────────────────────────
+
+/** Minimum milliseconds between per-user Steam library re-syncs. */
+export const STEAM_SYNC_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+
+/** Maximum games persisted per user per sync (top-N by playtime). */
+export const STEAM_SYNC_MAX_GAMES = 500;
+
 // ─── Abuse limits ─────────────────────────────────────────────────────────────
 
 /** Maximum number of games allowed in a user's library. */

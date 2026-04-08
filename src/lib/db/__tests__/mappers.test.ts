@@ -35,8 +35,23 @@ describe("toUser", () => {
         id: "u1",
         email: "test@example.com",
         username: "alice",
+        steam_id: null,
+        steam_synced_at: null,
         created_at: "2025-01-01",
       });
+    });
+
+    it("should map steam fields when present", () => {
+      const user = toUser({
+        id: "u1",
+        email: "test@example.com",
+        username: "alice",
+        steam_id: "76561198000000000",
+        steam_synced_at: "2026-04-07T12:00:00.000Z",
+        created_at: "2025-01-01",
+      });
+      expect(user.steam_id).toBe("76561198000000000");
+      expect(user.steam_synced_at).toBe("2026-04-07T12:00:00.000Z");
     });
   });
 

@@ -45,7 +45,9 @@ export function AddGameDialog({ open, onOpenChange, onCreated }: AddGameDialogPr
     steamDebounceRef.current = setTimeout(async () => {
       setSteamSearching(true);
       try {
-        const res = await fetch(`/api/steam/search?q=${encodeURIComponent(query.trim())}`);
+        const res = await fetch(
+          `/api/backstage/steam/search?q=${encodeURIComponent(query.trim())}`,
+        );
         if (res.ok) {
           const data = (await res.json()) as {
             results?: { appid: number; name: string; tiny_image: string }[];

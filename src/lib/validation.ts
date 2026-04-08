@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { CurationMode } from "@/types";
 import { MAX_TRACK_COUNT, SESSION_NAME_MAX_LENGTH, GAME_TITLE_MAX_LENGTH } from "@/lib/constants";
 import { sanitizeGameTitle } from "@/lib/utils";
+import { parseSteamInput } from "@/lib/services/external/steam-input";
 
 // ─── Shared helpers ──────────────────────────────────────────────────────────
 
@@ -42,6 +43,25 @@ export const reorderSchema = z.object({
 
 export const importPlaylistSchema = z.object({
   url: z.string().min(1),
+});
+
+// Delegates URL-shape validation to parseSteamInput so schema and service agree.
+export const steamSyncSchema = z.object({
+  steamUrl: z
+    .string()
+    .optional()
+    .refine(
+      (v) => {
+        if (!v) return true;
+        try {
+          parseSteamInput(v);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { message: "Couldn't find a Steam profile. Check the URL and try again." },
+    ),
 });
 
 const gameSelectionSchema = z.object({

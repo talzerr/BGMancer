@@ -4,6 +4,8 @@ export interface User {
   id: string;
   email: string;
   username: string | null;
+  steam_id: string | null;
+  steam_synced_at: string | null;
   created_at: string;
 }
 

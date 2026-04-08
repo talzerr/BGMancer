@@ -78,7 +78,15 @@ describe("CatalogBrowser", () => {
   describe("when component mounts", () => {
     it("should fetch catalog from /api/games/catalog", async () => {
       const CatalogBrowser = await importComponent();
-      render(<CatalogBrowser libraryGameIds={new Set()} onAdd={vi.fn()} drawerExpanded={true} />);
+      render(
+        <CatalogBrowser
+          libraryGameIds={new Set()}
+          onAdd={vi.fn()}
+          drawerExpanded={true}
+          steamFilterOn={false}
+          steamMatchedGameIds={[]}
+        />,
+      );
 
       await waitFor(() => {
         expect(globalThis.fetch).toHaveBeenCalledWith("/api/games/catalog");
@@ -89,7 +97,15 @@ describe("CatalogBrowser", () => {
   describe("when catalog has games", () => {
     it("should render game titles", async () => {
       const CatalogBrowser = await importComponent();
-      render(<CatalogBrowser libraryGameIds={new Set()} onAdd={vi.fn()} drawerExpanded={true} />);
+      render(
+        <CatalogBrowser
+          libraryGameIds={new Set()}
+          onAdd={vi.fn()}
+          drawerExpanded={true}
+          steamFilterOn={false}
+          steamMatchedGameIds={[]}
+        />,
+      );
 
       expect(await screen.findByText("Hollow Knight")).toBeInTheDocument();
       expect(screen.getByText("Celeste")).toBeInTheDocument();
@@ -97,11 +113,18 @@ describe("CatalogBrowser", () => {
 
     it("should not show loading spinner after games load", async () => {
       const CatalogBrowser = await importComponent();
-      render(<CatalogBrowser libraryGameIds={new Set()} onAdd={vi.fn()} drawerExpanded={true} />);
+      render(
+        <CatalogBrowser
+          libraryGameIds={new Set()}
+          onAdd={vi.fn()}
+          drawerExpanded={true}
+          steamFilterOn={false}
+          steamMatchedGameIds={[]}
+        />,
+      );
 
       await screen.findByText("Hollow Knight");
-      // The spinner uses role="status" or we check for the loading state text
-      expect(screen.queryByText("No published games yet.")).not.toBeInTheDocument();
+      expect(screen.queryByText("No games found.")).not.toBeInTheDocument();
     });
   });
 
@@ -113,6 +136,8 @@ describe("CatalogBrowser", () => {
           libraryGameIds={new Set(["game-hk"])}
           onAdd={vi.fn()}
           drawerExpanded={true}
+          steamFilterOn={false}
+          steamMatchedGameIds={[]}
         />,
       );
 
@@ -127,6 +152,8 @@ describe("CatalogBrowser", () => {
           libraryGameIds={new Set(["game-hk", "game-celeste"])}
           onAdd={vi.fn()}
           drawerExpanded={true}
+          steamFilterOn={false}
+          steamMatchedGameIds={[]}
         />,
       );
 
@@ -138,7 +165,15 @@ describe("CatalogBrowser", () => {
   describe("when a game is not in library", () => {
     it("should show add button", async () => {
       const CatalogBrowser = await importComponent();
-      render(<CatalogBrowser libraryGameIds={new Set()} onAdd={vi.fn()} drawerExpanded={true} />);
+      render(
+        <CatalogBrowser
+          libraryGameIds={new Set()}
+          onAdd={vi.fn()}
+          drawerExpanded={true}
+          steamFilterOn={false}
+          steamMatchedGameIds={[]}
+        />,
+      );
 
       await screen.findByText("Hollow Knight");
       const addButtons = screen.getAllByText("+ Add");
@@ -155,6 +190,8 @@ describe("CatalogBrowser", () => {
           onAdd={vi.fn()}
           searchFilter="hollow"
           drawerExpanded={true}
+          steamFilterOn={false}
+          steamMatchedGameIds={[]}
         />,
       );
 
@@ -170,6 +207,8 @@ describe("CatalogBrowser", () => {
           onAdd={vi.fn()}
           searchFilter=""
           drawerExpanded={true}
+          steamFilterOn={false}
+          steamMatchedGameIds={[]}
         />,
       );
 
@@ -184,7 +223,15 @@ describe("CatalogBrowser", () => {
       const user = userEvent.setup();
 
       const CatalogBrowser = await importComponent();
-      render(<CatalogBrowser libraryGameIds={new Set()} onAdd={onAdd} drawerExpanded={true} />);
+      render(
+        <CatalogBrowser
+          libraryGameIds={new Set()}
+          onAdd={onAdd}
+          drawerExpanded={true}
+          steamFilterOn={false}
+          steamMatchedGameIds={[]}
+        />,
+      );
 
       await screen.findByText("Hollow Knight");
 
@@ -202,7 +249,15 @@ describe("CatalogBrowser", () => {
       const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
       const CatalogBrowser = await importComponent();
-      render(<CatalogBrowser libraryGameIds={new Set()} onAdd={onAdd} drawerExpanded={true} />);
+      render(
+        <CatalogBrowser
+          libraryGameIds={new Set()}
+          onAdd={onAdd}
+          drawerExpanded={true}
+          steamFilterOn={false}
+          steamMatchedGameIds={[]}
+        />,
+      );
 
       await screen.findByText("Hollow Knight");
 

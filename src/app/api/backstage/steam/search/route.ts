@@ -10,7 +10,7 @@ export interface SteamSearchResult {
   tiny_image: string;
 }
 
-/** GET /api/steam/search?q=<query> — Search the Steam store for games by name. Returns up to 8 results. */
+/** GET /api/backstage/steam/search?q=<query> — Search the Steam store for games by name. Returns up to 8 results. */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q")?.trim();

@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "2b51cc6c-011f-4780-a15f-650ef3a67196",
-  "prevId": "404e7d71-9c88-4dae-8eaf-7dcd23cdc75c",
+  "id": "94f25273-3db5-4c41-b881-8b996b70d735",
+  "prevId": "2b51cc6c-011f-4780-a15f-650ef3a67196",
   "tables": {
     "game_review_flags": {
       "name": "game_review_flags",
@@ -795,6 +795,61 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "user_steam_games": {
+      "name": "user_steam_games",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "steam_app_id": {
+          "name": "steam_app_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "playtime_minutes": {
+          "name": "playtime_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "idx_user_steam_games_user_app": {
+          "name": "idx_user_steam_games_user_app",
+          "columns": ["user_id", "steam_app_id"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "user_steam_games_user_id_users_id_fk": {
+          "name": "user_steam_games_user_id_users_id_fk",
+          "tableFrom": "user_steam_games",
+          "tableTo": "users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "users": {
       "name": "users",
       "columns": {
@@ -814,6 +869,20 @@
         },
         "username": {
           "name": "username",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "steam_id": {
+          "name": "steam_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "steam_synced_at": {
+          "name": "steam_synced_at",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

@@ -9,6 +9,8 @@ function rowToUser(row: typeof users.$inferSelect): User {
     id: row.id,
     email: row.email,
     username: row.username,
+    steam_id: row.steam_id,
+    steam_synced_at: row.steam_synced_at,
     created_at: row.created_at,
   };
 }

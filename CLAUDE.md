@@ -77,7 +77,7 @@ This section describes the current codebase. For prescriptive rules and patterns
 
 When adding a new API route:
 
-1. Add it to `src/lib/route-config.ts` with the correct `AuthLevel`
+1. Add it to `src/lib/route-config.ts` with the correct `AuthLevel`. Register routes **explicitly** — one entry per `METHOD /path`. Do not introduce new wildcards; they obscure what's exposed and make the allowlist less useful as a security review surface. Dynamic segments like `[gameId]` are fine (and required).
 2. Use `withRequiredAuth` or `withOptionalAuth` wrapper
 3. Add a Zod schema in `src/lib/validation.ts` if it accepts a body
 4. Add ownership checks if it operates on user-specific resources
@@ -103,6 +103,7 @@ All non-backstage pages are wrapped by `PlayerProvider` (in `src/app/layout.tsx`
 - `usePlayerState` — playback state (current track, shuffle, play/pause, revealed tracks for anti-spoiler)
 - `useConfig` — app config (track count, anti-spoiler, etc.) stored in localStorage
 - `useGameLibrary(isSignedIn)` — game library; authenticated users fetch from `/api/games`, guests use localStorage (key `bgm_guest_library`) hydrated against `/api/games/catalog`
+- `useSteamLibrary(isSignedIn)` — authenticated-only Steam library state (used by the catalog page, not composed into `PlayerProvider`). Owns `linked`, `steamSyncedAt`, `matchedGameIds`, `cooldownMinutes`, and the `sync`/`disconnect` mutations. Guest users never call it.
 - `isSignedIn` — boolean, available on the context for auth-gating UI
 - `toggleAntiSpoiler` — single callback that flips the anti-spoiler config and clears revealed tracks (preserving the currently playing one) when the toggle goes from off→on. This logic lives on the context because both `usePlayerState` (revealed tracks) and `useConfig` (the toggle) are involved.
 
@@ -117,7 +118,7 @@ Uses **Drizzle ORM** with **Cloudflare D1** as the database driver everywhere (d
 - `index.ts` — `getDB()` returns a D1-backed Drizzle instance via `getCloudflareContext().env.DB`
 - `drizzle-schema.ts` — Drizzle schema definition for all tables, indexes, and foreign keys
 - `repo.ts` — barrel re-export for all repos in `repos/`
-- `repos/` — one file per domain: `games`, `backstage-games`, `users`, `sessions`, `playlist`, `tracks`, `video-tracks`, `review-flags`, `decisions`
+- `repos/` — one file per domain: `games`, `backstage-games`, `users`, `sessions`, `playlist`, `tracks`, `video-tracks`, `review-flags`, `decisions`, `user-steam-games`
 - `mappers.ts` — row → typed object converters (used by repos that query via `sql` tagged template)
 - `queries.ts` — shared Drizzle subquery helpers
 - `test-helpers.ts` — `createTestDrizzleDB()` for in-memory test databases with D1-compat wrapper
@@ -193,6 +194,24 @@ Guests get a localStorage-backed game library that mirrors the authenticated DB-
 
 The hook exposes `addGame(game, curation)`, `updateCuration(gameId, curation)`, and `deleteGame(gameId)` which work identically for both paths. Guest generation sends `gameSelections` in the POST body to `/api/playlist/generate`, which the backend already supports via `generatePlaylistForGuest`. Guests never run the Vibe Profiler (Director uses the default arc template).
 
+### Steam library sync (`src/lib/services/external/steam-sync.ts`)
+
+Authenticated-only discovery feature: users link a Steam profile, the backend fetches their public library via Steam Web API, and matched catalog games become a client-side filter on the catalog page. This is a **discovery aid, not auto-import** — games still need to be added to the user's BGMancer library manually.
+
+**Data model:**
+
+- `users.steam_id` (text, nullable) — 64-bit Steam ID, stored as text
+- `users.steam_synced_at` (text, nullable) — ISO timestamp of last successful sync. Used both to enforce the 1-hour cooldown AND to power the "Last synced X ago" display; single source of truth for both.
+- `user_steam_games` join table — `(user_id, steam_app_id, playtime_minutes)`, unique per `(user_id, steam_app_id)`. No `game_id` column; catalog matching is a JOIN at read time on `games.steam_appid`.
+
+**Service** (`src/lib/services/external/steam-sync.ts`) owns all Steam Web API calls (`ISteamUser/ResolveVanityURL`, `IPlayerService/GetOwnedGames`), the cooldown check, the top-N cap, and the atomic batch persistence. Route handlers are thin wrappers that map typed errors (`SteamApiError`, `PrivateProfileError`, `InvalidSteamUrlError`, `VanityNotFoundError`, `CooldownError`, `MissingSteamUrlError`) to masked HTTP responses. Constants in `src/lib/constants.ts`: `STEAM_SYNC_COOLDOWN_MS` (1 hour), `STEAM_SYNC_MAX_GAMES` (500, sorted by playtime).
+
+**Cooldown**: enforced in SQL, not KV — because `steam_synced_at` is load-bearing UI state (popover display), not an ephemeral rate limit. The KV rate limiter (`src/lib/rate-limit.ts`) is reserved for IP-keyed, count-in-window throttling (guest generation); Steam sync is a user-keyed, once-per-hour action whose "when" is a user-facing fact.
+
+**Error masking**: the sync route's 429 response includes structured `cooldownMinutes: number` alongside the human-readable `error` string. The client hook consumes the structured field directly — **never parse server error strings on the client** for data. See `useSteamLibrary` as the reference pattern for how hooks own domain logic and expose structured state to UI components.
+
+**Backstage Steam routes** (`/api/backstage/steam/*`) are a separate, admin-only surface used during game onboarding to look up Steam game metadata (store search, owned-games lookup for testing). They share `parseSteamInput`/`resolveVanityUrl`/`fetchOwnedGames` helpers via the same service module.
+
 ### API routes
 
 All under `src/app/api/`. Auth levels are defined in `src/lib/route-config.ts`. Key routes:
@@ -210,18 +229,29 @@ All under `src/app/api/`. Auth levels are defined in `src/lib/route-config.ts`. 
 - `GET /api/sessions` — session list (Optional — guests get `[]`)
 - `PATCH/DELETE /api/sessions/[id]` — session management (Required + ownership)
 - `POST /api/sync` — sync playlist to YouTube account (Required + OAuth access token)
-- `GET /api/steam/games` / `GET /api/steam/search` / `POST /api/steam/import` — Steam lookups for game onboarding (Admin)
+- `POST /api/steam/sync` — link and/or re-sync the user's Steam library (Required). Body: `{ steamUrl? }`. Returns `{ totalSynced, catalogMatches, steamSyncedAt }`. On 429 cooldown the body also carries `cooldownMinutes: number`.
+- `GET /api/steam/library` — returns `{ linked: false }` or `{ linked: true, steamSyncedAt, matchedGameIds: string[] }` (Required)
+- `DELETE /api/steam/link` — unlink Steam account; atomically nulls `users.steam_id`/`steam_synced_at` and drops all `user_steam_games` rows for the user (Required)
 
-Backstage API routes (all under `src/app/api/backstage/`, auth level: Admin via wildcard):
+Backstage API routes (all under `src/app/api/backstage/`, auth level: Admin). Every route is explicitly registered in `src/lib/route-config.ts` — no wildcards (NextAuth's `/api/auth/*` is the only remaining wildcard, for its catch-all):
 
+- `GET /api/backstage/dashboard` — admin dashboard data
 - `GET /api/backstage/games` — paginated game list with needs-review flag
+- `POST /api/backstage/games` — create a new game
+- `PATCH/DELETE /api/backstage/games/[gameId]` — update or delete a game
 - `GET /api/backstage/games/[gameId]/tracks` — tracks for a single game
-- `POST /api/backstage/reingest` — clear tracks and re-ingest from Discogs + retag; streams SSE progress
-- `POST /api/backstage/retag` — clear tags and re-run the LLM tagger for a game; streams SSE progress
-- `POST /api/backstage/resolve-selected` — resolve only selected tracks to YouTube videos; streams SSE progress
-- `POST /api/backstage/tag-selected` — tag only selected tracks; advances phase to Tagged when all taggable tracks are done; streams SSE progress
-- `GET/POST/DELETE /api/backstage/review-flags` — manage per-game review flags
-- `GET /api/backstage/tracks` — full track table with tag metadata
+- `GET/POST/PATCH/DELETE /api/backstage/tracks` — full track table with tag metadata and bulk mutations
+- `POST /api/backstage/tracks/review` — mark tracks as reviewed
+- `POST /api/backstage/load-tracks` — fetch tracklist from the configured source (Discogs / VGMdb / manual); streams SSE progress
+- `POST /api/backstage/import-tracks` — import tracks into the tracks table
+- `POST /api/backstage/resolve` / `POST /api/backstage/resolve-selected` — align track names to YouTube video IDs; selected variant operates on a user-chosen subset; streams SSE progress
+- `POST /api/backstage/retag` / `POST /api/backstage/tag-selected` — LLM re-tagging; selected variant advances phase to Tagged when all taggable tracks are done; streams SSE progress
+- `POST /api/backstage/reingest` — clear tracks and re-run all onboarding phases; streams SSE progress
+- `POST /api/backstage/quick-onboard` — end-to-end onboarding convenience
+- `POST /api/backstage/publish` / `POST /api/backstage/bulk-publish` — mark games published
+- `DELETE /api/backstage/review-flags` — clear per-game review flags
+- `GET /api/backstage/steam/games` — fetch a Steam user's owned games (admin testing / game onboarding)
+- `GET /api/backstage/steam/search` — search the Steam store by name (admin game onboarding)
 - `GET /api/backstage/theatre/sessions` — session list for Theatre view
 - `GET /api/backstage/theatre/[playlistId]` — full telemetry for one playlist (tracks + decisions + budgets + rubric)
 
