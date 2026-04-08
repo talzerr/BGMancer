@@ -10,7 +10,12 @@ import { CatalogSteamControls } from "@/components/library/CatalogSteamControls"
 import { LibraryDrawer } from "@/components/library/LibraryDrawer";
 import type { CurationMode, Game } from "@/types";
 
-export function CatalogClient() {
+interface CatalogClientProps {
+  requestFormEnabled: boolean;
+  turnstileSiteKey: string | undefined;
+}
+
+export function CatalogClient({ requestFormEnabled, turnstileSiteKey }: CatalogClientProps) {
   const router = useRouter();
   const { gameLibrary, isSignedIn } = usePlayerContext();
   const steamLib = useSteamLibrary(isSignedIn);
@@ -66,6 +71,8 @@ export function CatalogClient() {
           drawerExpanded={drawerExpanded}
           steamFilterOn={steamFilterOn}
           steamMatchedGameIds={steamLib.matchedGameIds}
+          requestFormEnabled={requestFormEnabled}
+          turnstileSiteKey={turnstileSiteKey}
         />
       </div>
 
