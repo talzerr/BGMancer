@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import type { PlaylistSessionWithCount } from "@/types";
 import { MAX_PLAYLIST_SESSIONS } from "@/lib/constants";
 
@@ -28,15 +28,6 @@ export function formatSessionName(name: string): string {
 
 export function SessionList({ sessions, selectedId, onSelect, onDelete }: SessionListProps) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  const handleCopy = useCallback((e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    navigator.clipboard.writeText(id).then(() => {
-      setCopiedId(id);
-      setTimeout(() => setCopiedId(null), 1500);
-    });
-  }, []);
 
   return (
     <div className="flex flex-col gap-1.5 border-t border-white/[0.06] pt-4">
@@ -64,11 +55,9 @@ export function SessionList({ sessions, selectedId, onSelect, onDelete }: Sessio
             />
           </svg>
           <div className="bg-secondary pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-52 rounded-lg border border-[var(--border-emphasis)] px-3 py-2 opacity-0 transition-opacity group-hover:opacity-100">
-            <p className="text-foreground text-xs font-medium">Playlist History</p>
             <p className="text-muted-foreground mt-0.5 text-[11px] leading-snug">
-              Each time you curate or import, a new playlist is saved here so you can switch between
-              past runs. Up to {MAX_PLAYLIST_SESSIONS} are kept — the oldest is automatically
-              removed when a new one is created.
+              Up to {MAX_PLAYLIST_SESSIONS} playlists are kept. The oldest is replaced when a new
+              one is curated.
             </p>
           </div>
         </div>
@@ -96,7 +85,7 @@ export function SessionList({ sessions, selectedId, onSelect, onDelete }: Sessio
               }}
               className={`session-row-enter group relative flex cursor-pointer items-center gap-2.5 rounded-xl px-2.5 py-2 transition-colors ${
                 isSelected
-                  ? "bg-secondary/80 ring-1 ring-[var(--border-emphasis)]"
+                  ? "bg-secondary/80 ring-1 ring-[var(--border-default)]"
                   : "hover:bg-secondary/50"
               }`}
             >
@@ -147,39 +136,6 @@ export function SessionList({ sessions, selectedId, onSelect, onDelete }: Sessio
                 </div>
               ) : (
                 <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                  <button
-                    onClick={(e) => handleCopy(e, session.id)}
-                    className="hover:text-muted-foreground cursor-pointer rounded p-0.5 text-[var(--text-disabled)]"
-                    title="Copy session ID"
-                  >
-                    {copiedId === session.id ? (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 16 16"
-                        fill="currentColor"
-                        className="text-primary h-3 w-3"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    ) : (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 16 16"
-                        fill="currentColor"
-                        className="h-3 w-3"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10.986 3H12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h1.014A2.25 2.25 0 0 1 7.25 1h1.5a2.25 2.25 0 0 1 2.236 2ZM9.25 3a.75.75 0 0 0-.75-.75h-1a.75.75 0 0 0-.75.75v.25h2.5V3Z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    )}
-                  </button>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

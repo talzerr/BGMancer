@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Headphones } from "lucide-react";
 import { usePlayerContext } from "@/context/player-context";
 import { useCooldownTimer } from "@/hooks/shared/useCooldownTimer";
-import { steamHeaderUrl, MAX_TRACK_COUNT } from "@/lib/constants";
+import { MAX_TRACK_COUNT } from "@/lib/constants";
 import { outlineAmberCtaClass } from "@/components/ui/button";
 import { GenerateProgressLine } from "@/components/GenerateProgressLine";
 import type { Game } from "@/types";
@@ -308,17 +308,7 @@ function CoverRow({ games }: { games: Game[] }) {
     <div className="flex items-center gap-2">
       {visible.map((game) => (
         <div key={game.id} className={`bg-secondary ${COVER_BOX}`}>
-          {game.steam_appid ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={steamHeaderUrl(game.steam_appid)}
-              alt={game.title}
-              width={48}
-              height={48}
-              loading="lazy"
-              className="h-full w-full object-cover"
-            />
-          ) : game.thumbnail_url ? (
+          {game.thumbnail_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={game.thumbnail_url}

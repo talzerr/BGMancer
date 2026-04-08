@@ -2,7 +2,6 @@ import { useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Gamepad2 } from "lucide-react";
 import { usePlayerContext } from "@/context/player-context";
-import { steamHeaderUrl } from "@/lib/constants";
 
 // Outer box is 40px (h-10/w-10) so the 2px background border can flank a
 // visible 36px cover image — 36px is the readability floor.
@@ -85,10 +84,10 @@ export function LibraryWidget() {
               : { marginLeft: i === 0 ? 0 : -OVERLAP_PX, zIndex: 100 - i };
             return (
               <div key={game.id} className={`bg-secondary ${COVER_BOX}`} style={style}>
-                {game.steam_appid ? (
+                {game.thumbnail_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={steamHeaderUrl(game.steam_appid as number)}
+                    src={game.thumbnail_url}
                     alt={game.title}
                     width={40}
                     height={40}
