@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Script from "next/script";
 import {
   DndContext,
@@ -26,7 +26,7 @@ import { SessionList } from "@/components/session/SessionList";
 import { LibraryWidget } from "@/components/library/LibraryWidget";
 import { PlaylistHeader } from "@/components/session/PlaylistHeader";
 import { SortableTrackItem } from "@/components/player/SortableTrackItem";
-import { PlaylistEmptyState } from "@/components/session/PlaylistEmptyState";
+import { Launchpad } from "@/components/launchpad/Launchpad";
 import { UndoToast } from "@/components/player/UndoToast";
 
 interface FeedClientProps {
@@ -39,6 +39,32 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
   const { playlist, player, config, gameLibrary, gameThumbnailByGameId } = usePlayerContext();
   const { sessions, fetchSessions, handleRenameSession, handleDeleteSession } = useSessionManager();
   const { pendingDelete, initiateRemove, undoRemove } = useTrackDeleteUndo();
+
+  // ── Launchpad ↔ playlist mode switch ──────────────────────────────────────
+  // Launchpad is the pre-generation onboarding screen. Playlist mode is the
+  // existing two-column layout. The user transitions out of the launchpad
+  // the moment they press Curate (not when tracks arrive) so they watch the
+  // real interface assemble while their playlist is being built.
+
+  const [pressedCurate, setPressedCurate] = useState(false);
+  const [mode, setMode] = useState<"launchpad" | "playlist">(() =>
+    playlist.tracks.length > 0 || playlist.generating ? "playlist" : "launchpad",
+  );
+  const [fadeOpacity, setFadeOpacity] = useState(1);
+
+  const targetMode: "launchpad" | "playlist" =
+    playlist.tracks.length > 0 || playlist.generating || pressedCurate ? "playlist" : "launchpad";
+
+  useEffect(() => {
+    if (targetMode === mode) return;
+    // Eyes-closing feel: 700ms fade-out → ~100ms held at zero → 700ms fade-in.
+    setFadeOpacity(0);
+    const swapTimer = setTimeout(() => {
+      setMode(targetMode);
+      requestAnimationFrame(() => setFadeOpacity(1));
+    }, 800);
+    return () => clearTimeout(swapTimer);
+  }, [targetMode, mode]);
 
   // ── Turnstile (guest bot protection) ──────────────────────────────────────
 
@@ -65,6 +91,21 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
         : undefined,
     });
     await fetchSessions();
+  }
+
+  // Launchpad Curate handler — adds a ~700ms acknowledgment beat so the user
+  // sees "Curating…" on the launchpad button before the layout swaps. After
+  // the beat we kick off the real generation, which sets `playlist.generating`
+  // and keeps `targetMode === "playlist"` even after `pressedCurate` clears.
+  async function handleLaunchpadCurate() {
+    setPressedCurate(true);
+    // ~1.2s "thinking" beat — gives the action weight before the layout swaps.
+    await new Promise((r) => setTimeout(r, 1200));
+    try {
+      await handleGenerate();
+    } finally {
+      setPressedCurate(false);
+    }
   }
 
   // Re-fetch sessions after generate settles (playlist hook updates async).
@@ -107,120 +148,128 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
           <div ref={turnstileContainerRef} className="hidden" />
         </>
       )}
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[320px_1fr] lg:gap-8">
-        {/* Left panel */}
-        <aside className="flex flex-col gap-4 p-4 lg:sticky lg:top-[57px] lg:pl-0">
-          <LibraryWidget />
+      <div className="transition-opacity duration-700 ease-in-out" style={{ opacity: fadeOpacity }}>
+        {mode === "launchpad" ? (
+          <Launchpad pressedCurate={pressedCurate} onCurateClick={handleLaunchpadCurate} />
+        ) : (
+          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[320px_1fr] lg:gap-8">
+            {/* Left panel */}
+            <aside className="flex flex-col gap-4 p-4 lg:sticky lg:top-[57px] lg:pl-0">
+              <LibraryWidget />
 
-          <GenerateSection
-            generating={playlist.generating}
-            genProgress={playlist.genProgress}
-            genError={playlist.genError}
-            cooldownUntil={playlist.cooldownUntil}
-            targetTrackCount={config.targetTrackCount}
-            onTargetChange={config.setTargetTrackCount}
-            onTargetSave={config.saveTrackCount}
-            gamesCount={gameLibrary.games.length}
-            onGenerate={handleGenerate}
-            allowLongTracks={config.allowLongTracks}
-            onToggleLongTracks={config.saveAllowLongTracks}
-            allowShortTracks={config.allowShortTracks}
-            onToggleShortTracks={config.saveAllowShortTracks}
-            rawVibes={config.rawVibes}
-            onToggleRawVibes={config.saveRawVibes}
-            isSignedIn={isSignedIn}
-          />
+              <GenerateSection
+                generating={playlist.generating}
+                genProgress={playlist.genProgress}
+                genError={playlist.genError}
+                cooldownUntil={playlist.cooldownUntil}
+                targetTrackCount={config.targetTrackCount}
+                onTargetChange={config.setTargetTrackCount}
+                onTargetSave={config.saveTrackCount}
+                gamesCount={gameLibrary.games.length}
+                onGenerate={handleGenerate}
+                allowLongTracks={config.allowLongTracks}
+                onToggleLongTracks={config.saveAllowLongTracks}
+                allowShortTracks={config.allowShortTracks}
+                onToggleShortTracks={config.saveAllowShortTracks}
+                rawVibes={config.rawVibes}
+                onToggleRawVibes={config.saveRawVibes}
+                isSignedIn={isSignedIn}
+              />
 
-          {isSignedIn && (
-            <SessionList
-              sessions={sessions.map((s) =>
-                s.id === playlist.currentSessionId
-                  ? { ...s, track_count: playlist.tracks.length }
-                  : s,
-              )}
-              selectedId={playlist.currentSessionId}
-              onSelect={(id) => {
-                playlist.loadForSession(id);
-              }}
-              onDelete={handleDeleteSession}
-            />
-          )}
-        </aside>
-
-        {/* Right panel: Playlist */}
-        <main className="flex flex-col gap-4">
-          <PlaylistHeader
-            sessions={sessions}
-            isSignedIn={isSignedIn}
-            isDev={isDev}
-            onRename={handleRenameSession}
-            onDeleteSession={handleDeleteSession}
-          />
-
-          {playlist.isLoading ? (
-            <div className="space-y-1.5">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="bg-secondary/50 h-[52px] rounded-xl"
-                  style={{ opacity: 1 - i * 0.12 }}
+              {isSignedIn && (
+                <SessionList
+                  sessions={sessions.map((s) =>
+                    s.id === playlist.currentSessionId
+                      ? { ...s, track_count: playlist.tracks.length }
+                      : s,
+                  )}
+                  selectedId={playlist.currentSessionId}
+                  onSelect={(id) => {
+                    playlist.loadForSession(id);
+                  }}
+                  onDelete={handleDeleteSession}
                 />
-              ))}
-            </div>
-          ) : playlist.tracks.length === 0 ? (
-            <PlaylistEmptyState gamesLength={gameLibrary.games.length} />
-          ) : (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext items={trackIds} strategy={verticalListSortingStrategy}>
-                <div className="flex flex-col gap-0 pb-24">
-                  {(() => {
-                    const viewingPlayingSession =
-                      player.playingSessionId === playlist.currentSessionId;
-                    return playlist.tracks.map((track, i) => {
-                      const isCurrentTrack =
-                        viewingPlayingSession && track.id === player.playingTrackId;
-                      const spoilerHidden =
-                        config.antiSpoilerEnabled &&
-                        !player.playedTrackIds.has(track.id) &&
-                        track.id !== player.playingTrackId;
-                      return (
-                        <SortableTrackItem
-                          key={track.id}
-                          track={track}
-                          index={i}
-                          gameThumbnail={gameThumbnailByGameId.get(track.game_id)}
-                          isPlaying={isCurrentTrack}
-                          isActivelyPlaying={isCurrentTrack && player.isPlayerPlaying}
-                          spoilerHidden={spoilerHidden}
-                          isRerolling={playlist.rerollingIds.has(track.id)}
-                          onPlay={() => {
-                            if (isCurrentTrack) {
-                              player.playerBarRef.current?.togglePlayPause();
-                            } else {
-                              player.startPlaying(playlist.tracks, i, playlist.currentSessionId);
-                            }
-                          }}
-                          onRemove={() => initiateRemove(track)}
-                          onReroll={() =>
-                            playlist.rerollTrack(
-                              track.id,
-                              config.allowLongTracks,
-                              config.allowShortTracks,
-                            )
-                          }
-                        />
-                      );
-                    });
-                  })()}
+              )}
+            </aside>
+
+            {/* Right panel: Playlist */}
+            <main className="flex flex-col gap-4">
+              <PlaylistHeader
+                sessions={sessions}
+                isSignedIn={isSignedIn}
+                isDev={isDev}
+                onRename={handleRenameSession}
+                onDeleteSession={handleDeleteSession}
+              />
+
+              {playlist.isLoading || playlist.tracks.length === 0 ? (
+                <div className="space-y-1.5">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="bg-secondary/50 h-[52px] rounded-xl"
+                      style={{ opacity: 1 - i * 0.12 }}
+                    />
+                  ))}
                 </div>
-              </SortableContext>
-            </DndContext>
-          )}
-        </main>
+              ) : (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext items={trackIds} strategy={verticalListSortingStrategy}>
+                    <div className="flex flex-col gap-0 pb-24">
+                      {(() => {
+                        const viewingPlayingSession =
+                          player.playingSessionId === playlist.currentSessionId;
+                        return playlist.tracks.map((track, i) => {
+                          const isCurrentTrack =
+                            viewingPlayingSession && track.id === player.playingTrackId;
+                          const spoilerHidden =
+                            config.antiSpoilerEnabled &&
+                            !player.playedTrackIds.has(track.id) &&
+                            track.id !== player.playingTrackId;
+                          return (
+                            <SortableTrackItem
+                              key={track.id}
+                              track={track}
+                              index={i}
+                              gameThumbnail={gameThumbnailByGameId.get(track.game_id)}
+                              isPlaying={isCurrentTrack}
+                              isActivelyPlaying={isCurrentTrack && player.isPlayerPlaying}
+                              spoilerHidden={spoilerHidden}
+                              isRerolling={playlist.rerollingIds.has(track.id)}
+                              onPlay={() => {
+                                if (isCurrentTrack) {
+                                  player.playerBarRef.current?.togglePlayPause();
+                                } else {
+                                  player.startPlaying(
+                                    playlist.tracks,
+                                    i,
+                                    playlist.currentSessionId,
+                                  );
+                                }
+                              }}
+                              onRemove={() => initiateRemove(track)}
+                              onReroll={() =>
+                                playlist.rerollTrack(
+                                  track.id,
+                                  config.allowLongTracks,
+                                  config.allowShortTracks,
+                                )
+                              }
+                            />
+                          );
+                        });
+                      })()}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              )}
+            </main>
+          </div>
+        )}
       </div>
 
       {pendingDelete && <UndoToast track={pendingDelete.track} onUndo={undoRemove} />}

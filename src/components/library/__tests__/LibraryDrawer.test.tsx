@@ -67,6 +67,7 @@ vi.mock("@/components/ui/button", () => ({
   Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button {...props}>{children}</button>
   ),
+  outlineAmberCtaClass: () => "",
 }));
 
 // Mock the Popover primitive as a controlled wrapper that conditionally renders
