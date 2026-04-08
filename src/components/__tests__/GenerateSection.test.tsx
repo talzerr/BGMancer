@@ -44,7 +44,6 @@ function defaultProps() {
     onToggleShortTracks: vi.fn(),
     rawVibes: false,
     onToggleRawVibes: vi.fn(),
-    isSignedIn: true,
   };
 }
 

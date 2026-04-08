@@ -233,7 +233,6 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
                 onToggleShortTracks={config.saveAllowShortTracks}
                 rawVibes={config.rawVibes}
                 onToggleRawVibes={config.saveRawVibes}
-                isSignedIn={isSignedIn}
               />
 
               {isSignedIn && (

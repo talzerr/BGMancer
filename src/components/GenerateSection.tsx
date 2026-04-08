@@ -21,7 +21,6 @@ interface GenerateSectionProps {
   onToggleShortTracks: (enabled: boolean) => void;
   rawVibes: boolean;
   onToggleRawVibes: (enabled: boolean) => void;
-  isSignedIn: boolean;
 }
 
 export function GenerateSection({
@@ -40,7 +39,6 @@ export function GenerateSection({
   onToggleShortTracks,
   rawVibes,
   onToggleRawVibes,
-  isSignedIn,
 }: GenerateSectionProps) {
   const { secsLeft, quip } = useCooldownTimer(cooldownUntil);
 
@@ -58,7 +56,6 @@ export function GenerateSection({
         onToggleShortTracks={onToggleShortTracks}
         rawVibes={rawVibes}
         onToggleRawVibes={onToggleRawVibes}
-        isSignedIn={isSignedIn}
         generating={generating}
         secsLeft={secsLeft}
         quip={quip}
