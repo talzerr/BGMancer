@@ -109,4 +109,8 @@ export const routeConfig: Record<string, RouteEntry> = {
   // ── API: Backstage — Theatre (Director telemetry) ──────────
   "GET /api/backstage/theatre/sessions": { auth: AuthLevel.Admin },
   "GET /api/backstage/theatre/[playlistId]": { auth: AuthLevel.Admin },
+
+  // ── API: Backstage — Game requests ─────────────────────────
+  "GET /api/backstage/requests": { auth: AuthLevel.Admin },
+  "POST /api/backstage/requests/acknowledge": { auth: AuthLevel.Admin },
 };
