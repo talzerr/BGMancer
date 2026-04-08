@@ -10,12 +10,7 @@ const log = createLogger("game-request");
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
-/**
- * POST /api/games/request — register a game request. Gated by Turnstile so
- * bots can't spam the queue. Always returns `{ success: true }` regardless of
- * whether the request was new, incremented, or no-op'd on an acknowledged
- * row — the client never learns the internal state.
- */
+/** POST /api/games/request — Turnstile-gated. Always returns `{ success: true }`. */
 export async function POST(request: Request) {
   let body: unknown;
   try {

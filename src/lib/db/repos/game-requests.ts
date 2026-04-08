@@ -25,12 +25,7 @@ function rowToRequest(row: typeof gameRequests.$inferSelect): GameRequest {
 }
 
 export const GameRequests = {
-  /**
-   * Idempotent request registration.
-   * - New igdb_id → insert with count=1
-   * - Existing, not acknowledged → increment count + touch updated_at
-   * - Existing, acknowledged → no-op (the admin has already seen it)
-   */
+  /** New → insert; existing & unacknowledged → increment; acknowledged → no-op. */
   async upsertRequest(igdbId: number, name: string, coverUrl: string | null): Promise<GameRequest> {
     const db = getDB();
     const now = new Date().toISOString();
@@ -96,6 +91,7 @@ export const GameRequests = {
     return rows.map(rowToRequest);
   },
 
+  /** Idempotent — already-acknowledged or nonexistent rows are no-ops. */
   async acknowledge(igdbId: number): Promise<void> {
     await getDB()
       .update(gameRequests)

@@ -1,31 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type FocusEvent } from "react";
+import { useCallback, useRef, type FocusEvent } from "react";
 import Image from "next/image";
 import Script from "next/script";
 import { SearchIcon, Spinner } from "@/components/Icons";
-
-interface IgdbSearchResult {
-  igdbId: number;
-  name: string;
-  coverUrl: string | null;
-}
+import { useGameRequest, type IgdbSearchResult } from "@/hooks/library/useGameRequest";
 
 interface GameRequestPromptProps {
-  /** The current catalog search string — used to reset the submitted state. */
   catalogSearch: string;
-  /** Whether the server has both IGDB credentials and a Turnstile site key. */
   requestFormEnabled: boolean;
-  /** Cloudflare Turnstile site key, passed through from the server component. */
   turnstileSiteKey: string | undefined;
 }
 
-const DEBOUNCE_MS = 300;
-
-/**
- * Shared empty-state shell — every render branch uses the same icon +
- * "No games found" header centered in the catalog grid area.
- */
 function EmptyStateShell({ children }: { children?: React.ReactNode }) {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3">
@@ -41,88 +27,44 @@ export function GameRequestPrompt({
   requestFormEnabled,
   turnstileSiteKey,
 }: GameRequestPromptProps) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<IgdbSearchResult[] | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [submittedName, setSubmittedName] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  /**
-   * The input starts inactive — the catalog search term is shown as preview
-   * text in disabled color. The first focus/click flips this to true, copies
-   * the catalog term into `query`, and lets the debounced effect fire IGDB.
-   */
-  const [activated, setActivated] = useState(false);
-  /** Set to true if the search-igdb endpoint returns 404 at runtime. */
-  const [degraded, setDegraded] = useState(false);
+  const {
+    query,
+    setQuery,
+    results,
+    isLoading,
+    error,
+    submittedName,
+    submitting,
+    activated,
+    activate,
+    degraded,
+    submitRequest,
+  } = useGameRequest({ catalogSearch, enabled: requestFormEnabled });
 
   const turnstileRef = useRef<HTMLDivElement>(null);
-  const turnstileReadyRef = useRef(false);
+  const turnstileReadyRef = useRef<{
+    promise: Promise<void>;
+    resolve: () => void;
+  } | null>(null);
 
-  // ── Reset everything whenever the catalog search input changes ──
-  useEffect(() => {
-    setSubmittedName(null);
-    setQuery("");
-    setResults(null);
-    setError(null);
-    setActivated(false);
-  }, [catalogSearch]);
-
-  // ── Debounced IGDB search ─────────────────────────────────────────────
-  useEffect(() => {
-    if (!requestFormEnabled || degraded) return;
-    const trimmed = query.trim();
-    if (!trimmed) {
-      setResults(null);
-      setError(null);
-      return;
+  function getTurnstileReady() {
+    if (!turnstileReadyRef.current) {
+      let resolve!: () => void;
+      const promise = new Promise<void>((r) => {
+        resolve = r;
+      });
+      turnstileReadyRef.current = { promise, resolve };
     }
-
-    let cancelled = false;
-    setIsLoading(true);
-    setError(null);
-
-    const timer = window.setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/games/search-igdb?q=${encodeURIComponent(trimmed)}`);
-        if (res.status === 404) {
-          if (!cancelled) setDegraded(true);
-          return;
-        }
-        if (!res.ok) {
-          if (!cancelled) setError("Couldn't search. Try again.");
-          return;
-        }
-        const data = (await res.json()) as { results: IgdbSearchResult[] };
-        if (!cancelled) setResults(data.results);
-      } catch {
-        if (!cancelled) setError("Couldn't reach server.");
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    }, DEBOUNCE_MS);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [query, requestFormEnabled, degraded]);
+    return turnstileReadyRef.current;
+  }
 
   const getTurnstileToken = useCallback(async (): Promise<string> => {
     if (!turnstileSiteKey) return "";
-    // Wait for the Turnstile script (afterInteractive) to load — the user may
-    // click a result before the script has finished downloading. Give up after
-    // ~5s so the POST still fires (the server will reject it cleanly).
-    if (!turnstileReadyRef.current) {
-      const deadline = Date.now() + 5000;
-      while (Date.now() < deadline && !turnstileReadyRef.current) {
-        if ((window as unknown as { turnstile?: TurnstileApi }).turnstile) {
-          turnstileReadyRef.current = true;
-          break;
-        }
-        await new Promise((r) => setTimeout(r, 100));
-      }
-    }
+    // Wait for Turnstile (afterInteractive) up to 5s; fall through on timeout.
+    const ready = getTurnstileReady();
+    const timeout = new Promise<void>((resolve) => setTimeout(resolve, 5000));
+    await Promise.race([ready.promise, timeout]);
+
     const turnstile = (window as unknown as { turnstile?: TurnstileApi }).turnstile;
     if (!turnstile) return "";
     const container = turnstileRef.current;
@@ -138,44 +80,15 @@ export function GameRequestPrompt({
   }, [turnstileSiteKey]);
 
   async function handleSelect(result: IgdbSearchResult) {
-    if (submitting) return;
-    setSubmitting(true);
-    setError(null);
-    try {
-      const turnstileToken = await getTurnstileToken();
-      const res = await fetch("/api/games/request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          igdbId: result.igdbId,
-          name: result.name,
-          coverUrl: result.coverUrl,
-          turnstileToken,
-        }),
-      });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        setError(data.error ?? "Couldn't submit request. Try again.");
-        return;
-      }
-      setSubmittedName(result.name);
-      setResults(null);
-      setQuery("");
-    } catch {
-      setError("Couldn't reach server.");
-    } finally {
-      setSubmitting(false);
-    }
+    const turnstileToken = await getTurnstileToken();
+    await submitRequest(result, turnstileToken);
   }
 
-  // ── Render ────────────────────────────────────────────────────────────
-
-  // Degraded: IGDB or Turnstile not configured → just the empty label.
+  // Degraded: IGDB or Turnstile not configured.
   if (!requestFormEnabled || degraded) {
     return <EmptyStateShell />;
   }
 
-  // Submitted: input and dropdown replaced with confirmation.
   if (submittedName) {
     return (
       <EmptyStateShell>
@@ -187,12 +100,11 @@ export function GameRequestPrompt({
   const trimmed = query.trim();
   const showDropdown = activated && trimmed.length > 0;
   const previewMode = !activated && catalogSearch.trim().length > 0;
+  const inputValue = activated ? query : previewMode ? catalogSearch : "";
 
   function handleFocus(e: FocusEvent<HTMLInputElement>) {
     if (activated) return;
-    setActivated(true);
-    setQuery(catalogSearch);
-    // Place the cursor at the end of the now-editable text.
+    activate();
     const len = catalogSearch.length;
     requestAnimationFrame(() => {
       e.target.setSelectionRange(len, len);
@@ -207,7 +119,7 @@ export function GameRequestPrompt({
             src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
             strategy="afterInteractive"
             onReady={() => {
-              turnstileReadyRef.current = true;
+              getTurnstileReady().resolve();
             }}
           />
           <div ref={turnstileRef} className="hidden" />
@@ -219,7 +131,7 @@ export function GameRequestPrompt({
         <div className="relative w-full max-w-[260px]">
           <input
             type="text"
-            value={activated ? query : previewMode ? catalogSearch : ""}
+            value={inputValue}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={handleFocus}
             placeholder={previewMode ? undefined : "Search for a game..."}
@@ -259,7 +171,6 @@ export function GameRequestPrompt({
                               width={28}
                               height={28}
                               className="h-full w-full object-cover"
-                              unoptimized
                             />
                           ) : null}
                         </div>

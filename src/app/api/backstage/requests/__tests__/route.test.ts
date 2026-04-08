@@ -31,8 +31,8 @@ beforeEach(() => {
 });
 
 describe("GET /api/backstage/requests", () => {
-  describe("when acknowledged param is not set", () => {
-    it("calls getUnacknowledged", async () => {
+  describe("when no query param is set", () => {
+    it("defaults to unacknowledged-only", async () => {
       vi.mocked(GameRequests.getUnacknowledged).mockResolvedValue([sample]);
 
       const res = await GET(makeGetRequest("/api/backstage/requests"));
@@ -45,15 +45,27 @@ describe("GET /api/backstage/requests", () => {
     });
   });
 
-  describe("when acknowledged=1 is set", () => {
+  describe("when all=1 is set", () => {
     it("calls getAll", async () => {
       vi.mocked(GameRequests.getAll).mockResolvedValue([sample]);
 
-      const res = await GET(makeGetRequest("/api/backstage/requests", { acknowledged: "1" }));
+      const res = await GET(makeGetRequest("/api/backstage/requests", { all: "1" }));
 
       expect(res.status).toBe(200);
       expect(GameRequests.getAll).toHaveBeenCalledOnce();
       expect(GameRequests.getUnacknowledged).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("when all has any other value", () => {
+    it("falls back to unacknowledged-only", async () => {
+      vi.mocked(GameRequests.getUnacknowledged).mockResolvedValue([sample]);
+
+      const res = await GET(makeGetRequest("/api/backstage/requests", { all: "true" }));
+
+      expect(res.status).toBe(200);
+      expect(GameRequests.getUnacknowledged).toHaveBeenCalledOnce();
+      expect(GameRequests.getAll).not.toHaveBeenCalled();
     });
   });
 

@@ -6,7 +6,7 @@ import type { GameRequest } from "@/lib/db/repo";
 
 export function RequestsClient() {
   const [requests, setRequests] = useState<GameRequest[]>([]);
-  const [showAcknowledged, setShowAcknowledged] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingAck, setPendingAck] = useState<number | null>(null);
@@ -15,7 +15,7 @@ export function RequestsClient() {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/backstage/requests?acknowledged=${showAcknowledged ? 1 : 0}`);
+      const res = await fetch(`/api/backstage/requests${showAll ? "?all=1" : ""}`);
       if (!res.ok) {
         setError("Failed to load requests.");
         return;
@@ -27,7 +27,7 @@ export function RequestsClient() {
     } finally {
       setIsLoading(false);
     }
-  }, [showAcknowledged]);
+  }, [showAll]);
 
   useEffect(() => {
     void fetchRequests();
@@ -58,12 +58,8 @@ export function RequestsClient() {
       <div className="flex items-center justify-between">
         <h1 className="text-base font-medium text-[var(--text-primary)]">Game requests</h1>
         <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-          <input
-            type="checkbox"
-            checked={showAcknowledged}
-            onChange={(e) => setShowAcknowledged(e.target.checked)}
-          />
-          Show acknowledged
+          <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
+          Show all
         </label>
       </div>
 
@@ -98,7 +94,6 @@ export function RequestsClient() {
                         width={32}
                         height={32}
                         className="h-full w-full object-cover"
-                        unoptimized
                       />
                     ) : null}
                   </div>

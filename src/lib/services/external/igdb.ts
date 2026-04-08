@@ -1,13 +1,6 @@
-/**
- * IGDB search service. Used by the catalog "Request a game" empty state.
- *
- * Auth: Twitch OAuth client-credentials flow. Token is cached in module scope
- * per Worker isolate — tokens last ~60 days, so cold-start refresh is cheap.
- *
- * All errors are swallowed — the caller gets an empty result set. This is a
- * soft feature: if IGDB is down, the user should see "no results" rather than
- * a broken page.
- */
+// IGDB search service for the catalog "Request a game" empty state.
+// Auth: Twitch OAuth client-credentials with a per-isolate token cache.
+// All errors return [] — this is a soft feature.
 
 import { env } from "@/lib/env";
 import { createLogger } from "@/lib/logger";
@@ -18,11 +11,7 @@ const TOKEN_URL = "https://id.twitch.tv/oauth2/token";
 const SEARCH_URL = "https://api.igdb.com/v4/games";
 const COVER_URL_PREFIX = "https://images.igdb.com/igdb/image/upload/t_thumb/";
 
-// IGDB category enum. We exclude anything that clearly isn't a standalone
-// game: DLC/addon (1), bundle (3), mod (5), episode (6), season (7),
-// pack (13), update (14), fork (12). Everything else — main game (0),
-// expansion (2), standalone expansion (4), remake (8), remaster (9),
-// expanded game (10), port (11) — is a valid thing to request.
+// IGDB category exclusions: dlc(1), bundle(3), mod(5), episode(6), season(7), fork(12), pack(13), update(14)
 const EXCLUDED_CATEGORIES = new Set([1, 3, 5, 6, 7, 12, 13, 14]);
 
 interface CachedToken {
@@ -76,9 +65,7 @@ interface RawGame {
   name: string;
   category?: number;
   cover?: { image_id: string };
-  /** Set on DLC, expansions, content packs — they descend from a parent. */
   parent_game?: number;
-  /** Set on platform-specific re-releases — variants of an existing canonical entry. */
   version_parent?: number;
 }
 
@@ -110,13 +97,9 @@ export async function searchGames(query: string): Promise<IgdbSearchResult[]> {
     }
     const data = (await res.json()) as RawGame[];
 
-    // IGDB doesn't reliably combine `search` with `where` clauses — filter client-side.
-    // Three filters in order of authority:
-    //   1. version_parent: row is a port/regional re-release of an existing entry
-    //   2. parent_game: row is DLC, an expansion, or a content pack
-    //   3. category: backstop for the few junk types parent_game doesn't catch
-    // Then dedupe by lowercased name (IGDB still returns multiple "canonical"
-    // rows for some games — keep the first, which is the highest-ranked match).
+    // IGDB doesn't reliably combine `search` with `where` — filter + dedupe here.
+    // version_parent excludes platform re-releases; parent_game excludes DLC/packs;
+    // category is a backstop. Then dedupe by lowercased name, first wins.
     const filtered = data.filter(
       (g) =>
         g.version_parent === undefined &&

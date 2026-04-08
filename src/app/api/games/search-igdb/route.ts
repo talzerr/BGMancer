@@ -10,11 +10,7 @@ const log = createLogger("search-igdb");
 const RATE_LIMIT_MAX = 30;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 
-/**
- * GET /api/games/search-igdb?q=... — proxy search against IGDB for the catalog
- * "Request a game" empty state. Returns 404 when IGDB credentials aren't
- * configured; that signals the client to hide the request form.
- */
+/** GET /api/games/search-igdb?q=... — IGDB proxy. 404 when creds unset. */
 export async function GET(request: Request) {
   if (!env.igdbClientId || !env.igdbClientSecret) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
