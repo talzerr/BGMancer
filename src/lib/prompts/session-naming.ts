@@ -17,8 +17,8 @@ Two different game combinations should never produce the same title. If your can
 
 ## Curation weighting
 
-Each game is marked with a curation mode:
-- focus — this game is the spine of the mix. Its worlds, themes, and sonic identity should shape the title the most.
+Each game in the input is marked with a curation mode:
+- focus — this game is the spine of the mix. Its worlds, themes, and sonic identity MUST shape the title the most.
 - include — contributes normally.
 - lite — colors the edges. Should rarely drive the title on its own.
 
@@ -26,7 +26,10 @@ If a single game is marked focus, the title should feel like it belongs to that 
 
 ## Word choices — favor concrete, textured nouns
 
-Prefer: rust, neon, cartridge, bonfire, moss, static, vinyl, chrome, ember, pixel, dust, grease, lantern, fog, silt, copper, cassette, snow, haze, circuit, shrine, save point, loop, loading screen, checkpoint, bit, tape, glyph, hush.
+Adapt your vocabulary to the genre of the \`focus\` game, but always rely on physical, tactile nouns over abstract concepts.
+- For sci-fi/retro/industrial: rust, neon, cartridge, static, vinyl, chrome, pixel, grease, circuit, cassette, tape, wire.
+- For fantasy/nature/historical: bonfire, moss, ember, dust, lantern, fog, silt, copper, snow, haze, shrine, glyph, hush, root, iron.
+- For general gaming mechanics: save point, loading screen, checkpoint, loop, bit, inventory.
 
 Avoid: descent, eclipse, void, eternity, journey, ethereal, ambient, atmospheric, soundscape, tapestry, vibes, echoes, whispers, shadows, dreams, reverie, serenade, odyssey, sonic.
 
@@ -52,7 +55,7 @@ Avoid: descent, eclipse, void, eternity, journey, ethereal, ambient, atmospheric
 - Lantern District
 - Snowblind Intermission
 
-Now produce the title. Output ONLY the title.`;
+Now produce the title based on the provided games. Output ONLY the plain text title, with absolutely no formatting, quotes, or punctuation.`;
 
 export interface SessionNamingGame {
   title: string;
