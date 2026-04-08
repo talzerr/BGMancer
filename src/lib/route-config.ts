@@ -34,6 +34,7 @@ export const routeConfig: Record<string, RouteEntry> = {
   "/backstage/games/[slug]": { auth: AuthLevel.Admin },
   "/backstage/tracks": { auth: AuthLevel.Admin },
   "/backstage/theatre": { auth: AuthLevel.Admin },
+  "/backstage/requests": { auth: AuthLevel.Admin },
 
   // ── API: Auth ──────────────────────────────────────────────
   "/api/auth/*": { auth: AuthLevel.Public },
@@ -44,6 +45,8 @@ export const routeConfig: Record<string, RouteEntry> = {
   "PATCH /api/games": { auth: AuthLevel.Required },
   "DELETE /api/games": { auth: AuthLevel.Required },
   "GET /api/games/catalog": { auth: AuthLevel.Public },
+  "GET /api/games/search-igdb": { auth: AuthLevel.Public },
+  "POST /api/games/request": { auth: AuthLevel.Public },
 
   // ── API: Playlist ──────────────────────────────────────────
   "GET /api/playlist": { auth: AuthLevel.Optional },

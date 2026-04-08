@@ -83,3 +83,20 @@ export const rerollSchema = z.object({
   allowLongTracks: z.boolean().optional(),
   allowShortTracks: z.boolean().optional(),
 });
+
+// ─── Game requests (catalog "can't find your game?") ────────────────────────
+
+export const igdbSearchQuerySchema = z.object({
+  q: z.string().trim().min(1).max(100),
+});
+
+export const gameRequestSchema = z.object({
+  igdbId: z.number().int().positive(),
+  name: z.string().trim().min(1).max(200),
+  coverUrl: z.string().url().nullable(),
+  turnstileToken: z.string(),
+});
+
+export const acknowledgeGameRequestSchema = z.object({
+  igdbId: z.number().int().positive(),
+});
