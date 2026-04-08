@@ -4,12 +4,12 @@ import { steamSyncSchema, zodErrorResponse } from "@/lib/validation";
 import {
   syncUserLibrary,
   MissingSteamUrlError,
-  InvalidSteamUrlError,
   VanityNotFoundError,
   PrivateProfileError,
   CooldownError,
   SteamApiError,
 } from "@/lib/services/external/steam-sync";
+import { InvalidSteamUrlError } from "@/lib/services/external/steam-input";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("api.steam.sync");

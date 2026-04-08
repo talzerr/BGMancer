@@ -5,52 +5,40 @@ import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CatalogHeaderBar } from "../CatalogHeaderBar";
 
-// ─── Helpers ───────────────────────────────────────────────────────────────
-
-function renderHeaderBar(overrides: Partial<Parameters<typeof CatalogHeaderBar>[0]> = {}) {
-  const props = {
-    search: "",
-    onSearchChange: vi.fn(),
-    isSignedIn: false,
-    steamLinked: false,
-    steamFilterOn: false,
-    onSteamFilterToggle: vi.fn(),
-    onConnectSteamClick: vi.fn(),
-    steamSyncedAt: null,
-    onSteamSync: vi.fn().mockResolvedValue(true),
-    onSteamDisconnect: vi.fn().mockResolvedValue(true),
-    steamIsSyncing: false,
-    steamCooldownMinutes: null,
-    ...overrides,
-  };
-  render(<CatalogHeaderBar {...props} />);
-  return props;
-}
-
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
 
-// ─── Tests ─────────────────────────────────────────────────────────────────
-
 describe("CatalogHeaderBar", () => {
   describe("search input", () => {
     it("should render with the provided search value", () => {
-      renderHeaderBar({ search: "hollow" });
+      render(<CatalogHeaderBar search="hollow" onSearchChange={vi.fn()} />);
       expect(screen.getByPlaceholderText("Filter games...")).toHaveValue("hollow");
     });
 
     it("should call onSearchChange when the user types", async () => {
       const user = userEvent.setup();
-      const props = renderHeaderBar();
+      const onSearchChange = vi.fn();
+      render(<CatalogHeaderBar search="" onSearchChange={onSearchChange} />);
 
       await user.type(screen.getByPlaceholderText("Filter games..."), "cel");
 
-      expect(props.onSearchChange).toHaveBeenCalledTimes(3);
-      expect(props.onSearchChange).toHaveBeenNthCalledWith(1, "c");
-      expect(props.onSearchChange).toHaveBeenNthCalledWith(2, "e");
-      expect(props.onSearchChange).toHaveBeenNthCalledWith(3, "l");
+      expect(onSearchChange).toHaveBeenCalledTimes(3);
+      expect(onSearchChange).toHaveBeenNthCalledWith(1, "c");
+      expect(onSearchChange).toHaveBeenNthCalledWith(2, "e");
+      expect(onSearchChange).toHaveBeenNthCalledWith(3, "l");
+    });
+  });
+
+  describe("children slot", () => {
+    it("renders children to the right of the search input", () => {
+      render(
+        <CatalogHeaderBar search="" onSearchChange={vi.fn()}>
+          <button>right-side</button>
+        </CatalogHeaderBar>,
+      );
+      expect(screen.getByRole("button", { name: "right-side" })).toBeInTheDocument();
     });
   });
 });

@@ -10,9 +10,7 @@ import { Users, UserSteamGames } from "@/lib/db/repo";
 import { env } from "@/lib/env";
 import { createLogger } from "@/lib/logger";
 import { STEAM_SYNC_COOLDOWN_MS, STEAM_SYNC_MAX_GAMES } from "@/lib/constants";
-import { InvalidSteamUrlError, parseSteamInput, type ParsedSteamInput } from "./steam-input";
-
-export { InvalidSteamUrlError, parseSteamInput, type ParsedSteamInput };
+import { parseSteamInput } from "./steam-input";
 
 const log = createLogger("steam-sync");
 

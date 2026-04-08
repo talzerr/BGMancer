@@ -36,8 +36,4 @@ export const UserSteamGames = {
     }
     return stmts;
   },
-
-  async deleteByUserId(userId: string): Promise<void> {
-    await getDB().delete(userSteamGames).where(eq(userSteamGames.user_id, userId)).run();
-  },
 };
