@@ -51,7 +51,7 @@ export function CatalogHeaderBar({
           Connect Steam
         </button>
       )}
-      {isSignedIn && steamLinked && steamSyncedAt && (
+      {isSignedIn && steamLinked && (
         <SteamFilterToggle
           active={steamFilterOn}
           onToggle={onSteamFilterToggle}

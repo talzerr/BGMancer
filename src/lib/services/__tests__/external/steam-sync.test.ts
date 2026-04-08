@@ -235,6 +235,29 @@ describe("syncUserLibrary", () => {
     });
   });
 
+  describe("when the Steam profile is public but has no games", () => {
+    beforeEach(() => {
+      rawDb
+        .prepare("UPDATE users SET steam_id = ? WHERE id = ?")
+        .run("76561198000000000", TEST_USER_ID);
+
+      mockFetch(async (url) => {
+        if (url.includes("GetOwnedGames")) {
+          return jsonResponse({ response: { game_count: 0, games: [] } });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      });
+    });
+
+    it("does not throw and syncs zero games", async () => {
+      const result = await syncUserLibrary(TEST_USER_ID, {
+        now: new Date("2026-04-07T12:00:00Z"),
+      });
+      expect(result.totalSynced).toBe(0);
+      expect(result.catalogMatches).toBe(0);
+    });
+  });
+
   describe("when the owned games exceed the 500-game cap", () => {
     beforeEach(() => {
       rawDb

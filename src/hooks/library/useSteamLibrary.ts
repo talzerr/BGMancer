@@ -1,11 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { STEAM_SYNC_COOLDOWN_MS } from "@/lib/constants";
 
 interface SteamLibraryResponse {
   linked: boolean;
   steamSyncedAt?: string;
   matchedGameIds?: string[];
+}
+
+/** Derived (not cached) so it auto-clears once the cooldown window elapses. */
+function computeCooldownMinutes(steamSyncedAt: string | null, now: number): number | null {
+  if (!steamSyncedAt) return null;
+  const last = new Date(steamSyncedAt).getTime();
+  if (Number.isNaN(last)) return null;
+  const remainingMs = STEAM_SYNC_COOLDOWN_MS - (now - last);
+  if (remainingMs <= 0) return null;
+  return Math.ceil(remainingMs / 60_000);
 }
 
 export function useSteamLibrary(isSignedIn: boolean) {
@@ -15,7 +26,16 @@ export function useSteamLibrary(isSignedIn: boolean) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [cooldownMinutes, setCooldownMinutes] = useState<number | null>(null);
+
+  // Ticks so the derived cooldownMinutes re-evaluates without a page reload.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    if (!steamSyncedAt) return;
+    const interval = setInterval(() => setNowTick(Date.now()), 30_000);
+    return () => clearInterval(interval);
+  }, [steamSyncedAt]);
+
+  const cooldownMinutes = computeCooldownMinutes(steamSyncedAt, nowTick);
 
   const fetchLibrary = useCallback(async (): Promise<boolean> => {
     try {
@@ -63,6 +83,11 @@ export function useSteamLibrary(isSignedIn: boolean) {
     };
   }, [isSignedIn, fetchLibrary]);
 
+  /**
+   * First link: caller passes `steamUrl`. Resync: omit it (server reuses the
+   * stored `steam_id`). Both `SteamConnectDialog` and `SteamFilterToggle` bind
+   * to this same function.
+   */
   async function sync(steamUrl?: string): Promise<boolean> {
     setError(null);
     setIsSyncing(true);
@@ -74,19 +99,17 @@ export function useSteamLibrary(isSignedIn: boolean) {
       });
       if (!res.ok) {
         let message = "Steam sync failed.";
-        let cooldown: number | null = null;
         try {
-          const body = (await res.json()) as { error?: string; cooldownMinutes?: number };
+          const body = (await res.json()) as { error?: string };
           if (body && typeof body.error === "string") message = body.error;
-          if (body && typeof body.cooldownMinutes === "number") cooldown = body.cooldownMinutes;
         } catch {
-          // body wasn't JSON — fall back to the default message.
+          /* non-JSON body */
         }
         setError(message);
-        setCooldownMinutes(cooldown);
+        // On 429, refetch so the derived cooldownMinutes tracks the server's window.
+        if (res.status === 429) await fetchLibrary();
         return false;
       }
-      setCooldownMinutes(null);
       await fetchLibrary();
       return true;
     } catch (err) {
@@ -109,7 +132,6 @@ export function useSteamLibrary(isSignedIn: boolean) {
       setLinked(false);
       setSteamSyncedAt(null);
       setMatchedGameIds([]);
-      setCooldownMinutes(null);
       return true;
     } catch (err) {
       console.error("Failed to disconnect Steam:", err);

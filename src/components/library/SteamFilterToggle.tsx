@@ -8,7 +8,8 @@ import { SteamIcon } from "./SteamIcon";
 interface SteamFilterToggleProps {
   active: boolean;
   onToggle: () => void;
-  steamSyncedAt: string;
+  /** May be null if the user is linked but we don't yet have a sync timestamp. */
+  steamSyncedAt: string | null;
   onSync: () => Promise<boolean>;
   onDisconnect: () => Promise<boolean>;
   isSyncing: boolean;
@@ -67,7 +68,9 @@ export function SteamFilterToggle({
         <PopoverContent align="end">
           <div className="flex min-w-[200px] flex-col gap-2 p-3">
             <p className="text-[13px] text-[var(--text-tertiary)]">
-              Last synced {formatRelativeTime(steamSyncedAt)}
+              {steamSyncedAt
+                ? `Last synced ${formatRelativeTime(steamSyncedAt)}`
+                : "Not yet synced"}
             </p>
             <hr className="border-[var(--border-default)]" />
             <button

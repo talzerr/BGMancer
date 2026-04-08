@@ -14,15 +14,6 @@ export const UserSteamGames = {
     return rows.map((r) => r.id);
   },
 
-  async countMatches(userId: string): Promise<number> {
-    const row = (await getDB().get<{ cnt: number }>(sql`
-      SELECT COUNT(*) AS cnt FROM games g
-      INNER JOIN user_steam_games usg ON g.steam_appid = usg.steam_app_id
-      WHERE usg.user_id = ${userId} AND g.published = 1
-    `))!;
-    return row.cnt;
-  },
-
   /**
    * Returns the delete + insert statements that replace the user's Steam
    * library. The caller is responsible for passing them to `batch()` so the

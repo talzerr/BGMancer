@@ -10,6 +10,9 @@ import { Users, UserSteamGames } from "@/lib/db/repo";
 import { env } from "@/lib/env";
 import { createLogger } from "@/lib/logger";
 import { STEAM_SYNC_COOLDOWN_MS, STEAM_SYNC_MAX_GAMES } from "@/lib/constants";
+import { InvalidSteamUrlError, parseSteamInput, type ParsedSteamInput } from "./steam-input";
+
+export { InvalidSteamUrlError, parseSteamInput, type ParsedSteamInput };
 
 const log = createLogger("steam-sync");
 
@@ -23,16 +26,11 @@ export class SteamApiError extends Error {
 }
 
 export class PrivateProfileError extends Error {
-  constructor(message = "Steam profile is private or has no games.") {
+  constructor(
+    message = "Steam profile game details are private. Set them to public and try again.",
+  ) {
     super(message);
     this.name = "PrivateProfileError";
-  }
-}
-
-export class InvalidSteamUrlError extends Error {
-  constructor(message = "Couldn't find a Steam profile. Check the URL and try again.") {
-    super(message);
-    this.name = "InvalidSteamUrlError";
   }
 }
 
@@ -61,37 +59,6 @@ export class MissingSteamUrlError extends Error {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-export type ParsedSteamInput =
-  | { kind: "vanity"; value: string }
-  | { kind: "profile"; value: string }
-  | { kind: "id"; value: string };
-
-/**
- * Parses a user-supplied Steam profile URL or bare SteamID64.
- * Throws `InvalidSteamUrlError` for anything that doesn't clearly match.
- */
-export function parseSteamInput(input: string): ParsedSteamInput {
-  const trimmed = input.trim().replace(/\/+$/, "");
-  if (!trimmed) throw new InvalidSteamUrlError();
-
-  if (/^\d{17}$/.test(trimmed)) {
-    return { kind: "id", value: trimmed };
-  }
-
-  const profileMatch = trimmed.match(/steamcommunity\.com\/profiles\/(\d{17})(?:[/?#].*)?$/);
-  if (profileMatch) {
-    return { kind: "profile", value: profileMatch[1] };
-  }
-
-  const vanityMatch = trimmed.match(/steamcommunity\.com\/id\/([^/?#]+)/);
-  if (vanityMatch) {
-    return { kind: "vanity", value: vanityMatch[1] };
-  }
-
-  throw new InvalidSteamUrlError();
-}
-
-/** Calls Steam's ResolveVanityURL endpoint. */
 export async function resolveVanityUrl(vanity: string, apiKey: string): Promise<string> {
   const url = `https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/?key=${apiKey}&vanityurl=${encodeURIComponent(vanity)}`;
   let res: Response;
@@ -112,7 +79,6 @@ export async function resolveVanityUrl(vanity: string, apiKey: string): Promise<
   throw new VanityNotFoundError();
 }
 
-/** Calls Steam's GetOwnedGames endpoint. */
 export async function fetchOwnedGames(
   steamId: string,
   apiKey: string,
@@ -133,12 +99,18 @@ export async function fetchOwnedGames(
     throw new SteamApiError(`Steam API returned ${res.status}`);
   }
   const data = (await res.json()) as {
-    response?: { games?: Array<{ appid: number; playtime_forever: number }> };
+    response?: {
+      games?: Array<{ appid: number; playtime_forever: number }>;
+      game_count?: number;
+    };
   };
-  const games = data.response?.games;
-  if (!games || games.length === 0) {
+  // Steam returns `{response: {}}` for private profiles, `{response: {game_count: 0}}`
+  // for public profiles with no games — only the former should error.
+  const response = data.response;
+  if (!response || (response.games === undefined && response.game_count === undefined)) {
     throw new PrivateProfileError();
   }
+  const games = response.games ?? [];
   return games.map((g) => ({ appid: g.appid, playtime_forever: g.playtime_forever }));
 }
 
@@ -151,11 +123,9 @@ export interface SyncResult {
 }
 
 /**
- * Syncs a user's Steam library.
- *
  * On first sync the caller must pass `opts.steamUrl`. Subsequent syncs reuse
- * the stored `steam_id` and enforce a 1-hour cooldown. The user's full Steam
- * game set is replaced atomically with the top-500 games by playtime.
+ * the stored `steam_id` and enforce the 1-hour cooldown. The user's Steam game
+ * set is replaced atomically with the top-N by playtime.
  */
 export async function syncUserLibrary(
   userId: string,
@@ -182,8 +152,7 @@ export async function syncUserLibrary(
       const lastSynced = new Date(user.steam_synced_at).getTime();
       const elapsedMs = now.getTime() - lastSynced;
       if (elapsedMs < STEAM_SYNC_COOLDOWN_MS) {
-        const elapsedSeconds = Math.floor(elapsedMs / 1000);
-        const minutesRemaining = Math.ceil((3600 - elapsedSeconds) / 60);
+        const minutesRemaining = Math.ceil((STEAM_SYNC_COOLDOWN_MS - elapsedMs) / 60_000);
         throw new CooldownError(minutesRemaining);
       }
     }
@@ -214,12 +183,11 @@ export async function syncUserLibrary(
 
   await batch([...replaceStmts, userUpdate]);
 
-  // countMatches runs after the batch so the JOIN sees the freshly-inserted rows.
-  const catalogMatches = await UserSteamGames.countMatches(userId);
+  const matchedGameIds = await UserSteamGames.getMatchedGameIds(userId);
 
   return {
     totalSynced: topGames.length,
-    catalogMatches,
+    catalogMatches: matchedGameIds.length,
     steamSyncedAt,
   };
 }
