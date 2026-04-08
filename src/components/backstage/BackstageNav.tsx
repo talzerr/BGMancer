@@ -9,6 +9,7 @@ const TABS = [
   { label: "Games", href: "/backstage/games" },
   { label: "Tracks", href: "/backstage/tracks" },
   { label: "Theatre", href: "/backstage/theatre" },
+  { label: "Requests", href: "/backstage/requests" },
 ] as const;
 
 export function BackstageNav() {
