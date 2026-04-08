@@ -21,12 +21,29 @@ Items that must be done before removing Zero Trust and going public.
   after the Cloudflare Access policy is narrowed to backstage only.
 - **[infra] Rate limiting baseline** — no unified rate limiting strategy exists. Need at
   minimum a clear alignment on approach before opening to the public. Known gap:
-  `POST /api/sync` and `POST /api/playlist/import` have no rate limit for authenticated
-  users and could hammer YouTube API quota. Needs PM session.
+  `POST /api/sync` has no rate limit for authenticated users and could hammer YouTube
+  API quota. Needs PM session.
 - **[infra] App/backstage shared code boundary** — currently clean but informal. Needs
   explicit documentation or enforcement before the codebase grows further.
+- **[infra] Data retention policy** — needs PM session. What happens to inactive user
+  data? No automatic cleanup exists. Decision needed before finalizing legal pages.
+  Sequence: this decision first, then legal page review.
 - **[backstage] Users page** — baseline view at `/backstage/users` to see who's using the
   app (activity, library stats). Expand later.
+- **[docs] README overhaul** — hero section, features, architecture overview, setup
+  guide, env var reference. Must be done before the repo is public-facing.
+- **[legal] YouTube API ToS compliance audit** — full review from zero: logo display,
+  ToS links, privacy policy links to Google, caching durations, player branding,
+  revocation mechanism for Sync-to-YouTube OAuth. Google enforces these.
+- **[legal] Review privacy policy and ToS pages** — pages exist but need review against
+  current app behavior (Google OAuth data, YouTube embeds, Anthropic usage, cookie
+  policy). Sequence after the data retention decision.
+- **[polish] Graceful degradation audit** — YouTube player resilience when a video is
+  unavailable (skip gracefully, don't hang), React error boundaries, empty states when
+  the Director can't fill enough tracks. Audit current state, fix gaps.
+- **[polish] Production seed data verification** — one-time check before launch: all
+  published games have tagged tracks and resolved videos, no orphaned or half-onboarded
+  games in the catalog.
 
 ---
 
@@ -55,18 +72,37 @@ to a Claude Code session directly.
 
 Future work. No urgency, no commitment.
 
+- **[infra] Observability baseline** — structured logging with correlation IDs, error
+  tracking (Sentry or equivalent), application metrics, API quota monitoring with
+  Anthropic billing alerts. Currently relying on Cloudflare built-in analytics and
+  Anthropic dashboard without alerts.
+- **[infra] Backup & DR documentation** — document D1 restore procedures, periodic
+  exports to R2, rollback runbook.
+- **[infra] Performance optimization** — bundle audit, static generation, caching for
+  public API responses. No known issues currently.
+- **[infra] Admin operations tooling** — admin scripts wrapping `wrangler d1 execute`
+  for common operations, production runbook. Currently using raw wrangler commands.
+- **[infra] Health check endpoint** — `GET /api/health` with D1 connectivity check,
+  version info.
+- **[docs] Contributing & community docs** — CONTRIBUTING.md, GitHub issue templates,
+  PR template, CODE_OF_CONDUCT.md.
+- **[docs] Deployment documentation** — step-by-step Cloudflare setup, env var
+  reference, operations runbook.
 - **[player] Repeat modes** — off / repeat all / repeat one. Straightforward, doesn't
   conflict with the arc.
 - **[player] Keyboard shortcuts** — space (play/pause), ←/→ (prev/next), m (mute),
   ? (help).
+- **[ux] Guest-to-logged-in state migration** — needs PM session. When a guest signs
+  in, should localStorage state (game library, config) transfer to their account?
 - **[ux] Shareable playlist seeds** — encode playlists as compact strings, `/share/[seed]`
   read-only view. Merges the old "playlist export" and "playlist seed share" ideas.
 - **[engine] Vibe input UI** — structured selectors for energy (calm/balanced/intense) and
   activity (study, gaming, commute, exercise, relaxing). Depends on the profiler being
   perceptibly useful first.
-- **[catalog] Full "request a game" flow** — VGMdb integration, backstage request queue,
-  status tracking (pending → in progress → ready → rejected). Expands the pre-launch
-  "can't find your game?" path into a proper system.
+- **[catalog] Full "request a game" flow** — expand the pre-launch IGDB-based request
+  system into a proper pipeline: status tracking (pending → in progress → ready →
+  rejected), user notifications, automatic onboarding from IGDB data. The lean version
+  is already live.
 - **[ux] Dynamic game art background** — hero image wash as ambient layer. Heavily blurred
   and desaturated, 3–6% opacity, crossfade on game transitions. Approved in principle,
   implementation deferred.

@@ -94,20 +94,6 @@ describe("Games", () => {
       });
     });
 
-    describe("when excludeId is provided", () => {
-      beforeEach(() => {
-        seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: "Game One" });
-        seedTestGame(rawDb, TEST_USER_ID, { id: "g2", title: "Game Two" });
-      });
-
-      it("should omit the excluded game", async () => {
-        const games = await Games.listAll(TEST_USER_ID, TEST_GAME_ID);
-        const ids = games.map((g) => g.id);
-        expect(ids).not.toContain(TEST_GAME_ID);
-        expect(ids).toContain("g2");
-      });
-    });
-
     describe("when library is empty", () => {
       it("should return an empty array", async () => {
         expect(await Games.listAll(TEST_USER_ID)).toEqual([]);
@@ -223,14 +209,13 @@ describe("Games", () => {
   });
 
   describe("count", () => {
-    describe("when library has real games and the yt-import entry", () => {
+    describe("when the library has games", () => {
       beforeEach(() => {
         seedTestGame(rawDb, TEST_USER_ID, { id: "game-a", title: "Game A" });
         seedTestGame(rawDb, TEST_USER_ID, { id: "game-b", title: "Game B" });
-        seedTestGame(rawDb, TEST_USER_ID, { id: "yt-import", title: "YT Import" });
       });
 
-      it("should count only real games, excluding yt-import", async () => {
+      it("should return the number of linked games", async () => {
         expect(await Games.count(TEST_USER_ID)).toBe(2);
       });
     });

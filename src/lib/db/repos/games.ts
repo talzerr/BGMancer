@@ -4,25 +4,12 @@ import { games as gamesTable } from "@/lib/db/drizzle-schema";
 import { toGame, toGames } from "@/lib/db/mappers";
 import { CurationMode } from "@/types";
 import type { Game } from "@/types";
-import { LIBRARY_MAX_GAMES, YT_IMPORT_GAME_ID, steamHeaderUrl } from "@/lib/constants";
+import { LIBRARY_MAX_GAMES, steamHeaderUrl } from "@/lib/constants";
 
 export const Games = {
-  async listAll(userId: string, excludeId?: string): Promise<Game[]> {
-    const db = getDB();
-    if (excludeId) {
-      return toGames(
-        await db.all(sql`
-          SELECT g.*, lg.curation FROM games g
-          JOIN library_games lg ON lg.game_id = g.id
-          WHERE lg.library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
-            AND g.published = 1
-            AND g.id != ${excludeId}
-          ORDER BY lg.added_at ASC
-        `),
-      );
-    }
+  async listAll(userId: string): Promise<Game[]> {
     return toGames(
-      await db.all(sql`
+      await getDB().all(sql`
         SELECT g.*, lg.curation FROM games g
         JOIN library_games lg ON lg.game_id = g.id
         WHERE lg.library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
@@ -49,7 +36,6 @@ export const Games = {
       SELECT COUNT(*) AS cnt FROM games g
       JOIN library_games lg ON lg.game_id = g.id
       WHERE lg.library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
-        AND g.id != ${YT_IMPORT_GAME_ID}
     `))!;
     return row.cnt;
   },
@@ -133,8 +119,7 @@ export const Games = {
       WHERE lib.user_id = ${userId}
         AND (
           SELECT COUNT(*) FROM library_games lg
-          JOIN games g ON g.id = lg.game_id
-          WHERE lg.library_id = lib.id AND g.id != ${YT_IMPORT_GAME_ID}
+          WHERE lg.library_id = lib.id
         ) < ${LIBRARY_MAX_GAMES}
     `);
     const exists = await getDB().get(sql`

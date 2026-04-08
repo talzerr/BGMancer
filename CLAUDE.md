@@ -68,15 +68,14 @@ This section describes the current codebase. For prescriptive rules and patterns
 
 **Guest vs Logged-in behavior:**
 
-| Feature                  | Guest                          | Logged-in                                           |
-| ------------------------ | ------------------------------ | --------------------------------------------------- |
-| Browse catalog           | Yes                            | Yes                                                 |
-| Generate playlist        | Director-only, no persistence  | Full pipeline (Vibe Profiler + Director), persisted |
-| Import YouTube playlist  | Returns tracks, no persistence | Persisted as session                                |
-| Game library             | localStorage-backed            | DB-backed                                           |
-| Session history          | No                             | DB-backed                                           |
-| Reroll / Sync to YouTube | No                             | Yes                                                 |
-| Request a game (catalog) | Yes (Turnstile-gated)          | Yes (Turnstile-gated)                               |
+| Feature                  | Guest                         | Logged-in                                           |
+| ------------------------ | ----------------------------- | --------------------------------------------------- |
+| Browse catalog           | Yes                           | Yes                                                 |
+| Generate playlist        | Director-only, no persistence | Full pipeline (Vibe Profiler + Director), persisted |
+| Game library             | localStorage-backed           | DB-backed                                           |
+| Session history          | No                            | DB-backed                                           |
+| Reroll / Sync to YouTube | No                            | Yes                                                 |
+| Request a game (catalog) | Yes (Turnstile-gated)         | Yes (Turnstile-gated)                               |
 
 When adding a new API route:
 
@@ -245,7 +244,6 @@ All under `src/app/api/`. Auth levels are defined in `src/lib/route-config.ts`. 
 - `GET /api/games/catalog` — published game catalog (Public)
 - `GET /api/games/search-igdb?q=...` — proxy search against IGDB for the catalog "Request a game" empty state (Public). Returns 404 when IGDB credentials aren't configured (the client uses this to hide the request form). IP-rate-limited 30/min via `igdb-search:${ip}`
 - `POST /api/games/request` — register a game request (Public). Body: `{ igdbId, name, coverUrl, turnstileToken }`. Verified server-side via Turnstile (rejects with 403 on failure), then IP-rate-limited 5/hr via `game-request:${ip}`. Always returns `{ success: true }` regardless of internal state (new row, increment, or no-op on already-acknowledged) — the client never learns whether the request was new
-- `POST /api/playlist/import` — import tracks from a YouTube playlist (Optional — guests get no persistence)
 - `GET /api/playlist` — fetch tracks (Optional — guests get `[]`)
 - `DELETE /api/playlist` — clear playlist (Required)
 - `PATCH /api/playlist` — reorder tracks (Optional — guests get silent 200)

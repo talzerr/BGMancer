@@ -1,8 +1,3 @@
-// ─── Special game IDs ─────────────────────────────────────────────────────────
-
-/** Synthetic game ID used for tracks imported directly from a YouTube playlist. */
-export const YT_IMPORT_GAME_ID = "yt-import";
-
 // ─── Session history ──────────────────────────────────────────────────────────
 
 /** Maximum number of playlist history sessions kept per user. Oldest is evicted when exceeded. */
@@ -19,7 +14,7 @@ export const SESSION_NAME_MAX_GAMES = 3;
 /** Default number of tracks to generate. */
 export const DEFAULT_TRACK_COUNT = 50;
 
-/** Maximum number of tracks that can be requested in a single generation or import. */
+/** Maximum number of tracks that can be requested in a single generation. */
 export const MAX_TRACK_COUNT = 150;
 
 // ─── Track duration filtering ─────────────────────────────────────────────────
@@ -77,9 +72,6 @@ export const GAME_MAX_TRACKS = 300;
 
 /** Maximum characters allowed for a game title. */
 export const GAME_TITLE_MAX_LENGTH = 100;
-
-/** Maximum tracks allowed from a single YouTube playlist import. Matches MAX_TRACK_COUNT. */
-export const YT_IMPORT_MAX_TRACKS = MAX_TRACK_COUNT;
 
 /** Minimum milliseconds between playlist generations. */
 export const GENERATION_COOLDOWN_MS = 30_000;

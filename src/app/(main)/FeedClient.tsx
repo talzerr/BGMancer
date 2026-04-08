@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo } from "react";
 import Script from "next/script";
-import type { SyntheticEvent } from "react";
 import {
   DndContext,
   closestCenter,
@@ -68,21 +67,14 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
     await fetchSessions();
   }
 
-  async function handleImport(e: SyntheticEvent<HTMLFormElement>) {
-    const success = await playlist.handleImport(e);
-    if (success) {
-      await fetchSessions();
-    }
-  }
-
-  // Re-fetch sessions after generate/import settle (playlist hook updates async).
+  // Re-fetch sessions after generate settles (playlist hook updates async).
   useEffect(() => {
-    if (!playlist.generating && !playlist.importing) {
+    if (!playlist.generating) {
       void (async () => {
         await fetchSessions();
       })();
     }
-  }, [playlist.generating, playlist.importing, fetchSessions]);
+  }, [playlist.generating, fetchSessions]);
 
   // ── DnD ──────────────────────────────────────────────────────────────────
 
@@ -137,11 +129,6 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
             rawVibes={config.rawVibes}
             onToggleRawVibes={config.saveRawVibes}
             isSignedIn={isSignedIn}
-            importUrl={playlist.importUrl}
-            onImportUrlChange={playlist.setImportUrl}
-            importing={playlist.importing}
-            importError={playlist.importError}
-            onImport={handleImport}
           />
 
           {isSignedIn && (
@@ -181,14 +168,7 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
               ))}
             </div>
           ) : playlist.tracks.length === 0 ? (
-            <PlaylistEmptyState
-              gamesLength={gameLibrary.games.length}
-              importUrl={playlist.importUrl}
-              onImportUrlChange={(url) => playlist.setImportUrl(url)}
-              importing={playlist.importing}
-              importError={playlist.importError}
-              onImport={handleImport}
-            />
+            <PlaylistEmptyState gamesLength={gameLibrary.games.length} />
           ) : (
             <DndContext
               sensors={sensors}

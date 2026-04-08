@@ -21,7 +21,6 @@ interface GenerateControlsProps {
   isSignedIn: boolean;
   secsLeft: number;
   quip: string;
-  onSwitchToImport: () => void;
 }
 
 export function GenerateControls({
@@ -39,7 +38,6 @@ export function GenerateControls({
   isSignedIn,
   secsLeft,
   quip,
-  onSwitchToImport,
 }: GenerateControlsProps) {
   const isPresetValue = (PRESETS as readonly number[]).includes(targetTrackCount);
   const [customActive, setCustomActive] = useState(!isPresetValue);
@@ -203,17 +201,7 @@ export function GenerateControls({
             `Curate ${targetTrackCount} Tracks`
           )}
         </button>
-        <div
-          className={`flex px-1 ${gamesCount === 0 ? "flex-col gap-1" : "items-center justify-between"}`}
-        >
-          <p className="text-[11px] leading-snug text-[var(--text-disabled)]">{summaryText}</p>
-          <button
-            onClick={onSwitchToImport}
-            className={`hover:text-muted-foreground shrink-0 text-[11px] text-[var(--text-disabled)] transition-colors ${gamesCount === 0 ? "self-end" : ""}`}
-          >
-            Import from YouTube →
-          </button>
-        </div>
+        <p className="px-1 text-[11px] leading-snug text-[var(--text-disabled)]">{summaryText}</p>
       </div>
     </div>
   );

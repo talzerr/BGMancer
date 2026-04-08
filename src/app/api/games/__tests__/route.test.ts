@@ -60,21 +60,6 @@ describe("GET /api/games", () => {
       expect(games).toHaveLength(0);
     });
   });
-
-  describe("when YT_IMPORT_GAME_ID game exists", () => {
-    it("should NOT include it", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: "yt-import", title: "YT Import" });
-      seedTestGame(rawDb, TEST_USER_ID, { id: "real-game", title: "Real Game" });
-
-      const res = await GET(makeGetRequest("/api/games"));
-      expect(res.status).toBe(200);
-
-      const games = await parseJson<Array<{ id: string }>>(res);
-      const ids = games.map((g) => g.id);
-      expect(ids).not.toContain("yt-import");
-      expect(ids).toContain("real-game");
-    });
-  });
 });
 
 describe("POST /api/games", () => {

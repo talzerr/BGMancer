@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import type { SyntheticEvent } from "react";
 import { GameProgressStatus } from "@/types";
 import type { Game, PlaylistTrack } from "@/types";
 import { GENERATION_COOLDOWN_MS } from "@/lib/constants";
@@ -33,9 +32,6 @@ export function usePlaylist() {
   // Unix ms timestamp after which a new generation is allowed (0 = no cooldown active).
   const [cooldownUntil, setCooldownUntil] = useState(0);
   const [confirmClear, setConfirmClear] = useState(false);
-  const [importUrl, setImportUrl] = useState("");
-  const [importing, setImporting] = useState(false);
-  const [importError, setImportError] = useState<string | null>(null);
   const [rerollingIds, setRerollingIds] = useState<Set<string>>(new Set());
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -251,44 +247,7 @@ export function usePlaylist() {
     }
   }
 
-  async function handleImport(e: SyntheticEvent<HTMLFormElement>): Promise<boolean> {
-    e.preventDefault();
-    if (!importUrl.trim()) return false;
-    setImporting(true);
-    setImportError(null);
-    try {
-      const res = await fetch("/api/playlist/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: importUrl.trim() }),
-      });
-      const data = (await res.json()) as {
-        error?: string;
-        sessionId?: string;
-        tracks?: PlaylistTrack[];
-      };
-      if (!res.ok) {
-        setImportError(data.error ?? "Import failed");
-        return false;
-      }
-      // Switch to the newly created session
-      const sessionId = data.sessionId;
-      if (sessionId) {
-        await loadForSession(sessionId);
-      } else {
-        setTracks(data.tracks ?? []);
-      }
-      setImportUrl("");
-      return true;
-    } catch (err) {
-      setImportError(err instanceof Error ? err.message : "Network error");
-      return false;
-    } finally {
-      setImporting(false);
-    }
-  }
-
-  const error = genError ?? fetchError ?? importError;
+  const error = genError ?? fetchError;
 
   return {
     tracks,
@@ -300,10 +259,6 @@ export function usePlaylist() {
     cooldownUntil,
     confirmClear,
     setConfirmClear,
-    importUrl,
-    setImportUrl,
-    importing,
-    importError,
     rerollingIds,
     fetchError,
     error,
@@ -319,6 +274,5 @@ export function usePlaylist() {
     reorderTracks,
     handleGenerate,
     handleClearPlaylist,
-    handleImport,
   };
 }

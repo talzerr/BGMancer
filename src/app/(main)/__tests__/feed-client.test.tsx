@@ -22,17 +22,12 @@ const mockPlayerContext = {
     tracks: [] as PlaylistTrack[],
     isLoading: false,
     generating: false,
-    importing: false,
     genProgress: null,
     genError: null,
-    importUrl: "",
-    importError: null,
     cooldownUntil: null,
     currentSessionId: null,
     rerollingIds: new Set<string>(),
-    setImportUrl: vi.fn(),
     handleGenerate: vi.fn(),
-    handleImport: vi.fn(),
     loadForSession: vi.fn(),
     fetchTracks: vi.fn(),
     removeTrackLocal: vi.fn(),
@@ -157,7 +152,6 @@ afterEach(() => {
   mockPlayerContext.playlist.tracks = [];
   mockPlayerContext.playlist.isLoading = false;
   mockPlayerContext.playlist.generating = false;
-  mockPlayerContext.playlist.importing = false;
   mockPlayerContext.gameLibrary.games = [];
   mockTrackDeleteUndo.pendingDelete = null;
 });

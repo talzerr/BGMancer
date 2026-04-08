@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { Games } from "@/lib/db/repo";
-import { YT_IMPORT_GAME_ID, LIBRARY_MAX_GAMES } from "@/lib/constants";
+import { LIBRARY_MAX_GAMES } from "@/lib/constants";
 import { CurationMode } from "@/types";
 import { withOptionalAuth, withRequiredAuth } from "@/lib/services/auth/route-wrappers";
 import { addGameSchema, updateCurationSchema, zodErrorResponse } from "@/lib/validation";
@@ -9,7 +9,7 @@ import { addGameSchema, updateCurationSchema, zodErrorResponse } from "@/lib/val
 export const GET = withOptionalAuth(async (userId) => {
   if (!userId) return NextResponse.json([]);
 
-  const games = await Games.listAll(userId, YT_IMPORT_GAME_ID);
+  const games = await Games.listAll(userId);
   return NextResponse.json(games);
 }, "GET /api/games");
 
