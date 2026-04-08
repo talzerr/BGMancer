@@ -192,4 +192,34 @@ describe("searchGames", () => {
       expect(result).toEqual([]);
     });
   });
+
+  describe("when the token request itself throws", () => {
+    it("returns an empty array (caught by getAccessToken)", async () => {
+      fetchSpy.mockRejectedValueOnce(new Error("dns failure"));
+      const result = await searchGames("celeste");
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe("when the token cache is warm", () => {
+    it("reuses the cached token without re-fetching", async () => {
+      // First call: token fetch + search
+      mockTokenResponse();
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ id: 1, name: "Celeste", category: 0 }],
+      });
+      await searchGames("celeste");
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+
+      // Second call: only the search fetch — token comes from cache.
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ id: 2, name: "Celeste 2", category: 0 }],
+      });
+      const result = await searchGames("celeste 2");
+      expect(fetchSpy).toHaveBeenCalledTimes(3);
+      expect(result[0].name).toBe("Celeste 2");
+    });
+  });
 });
