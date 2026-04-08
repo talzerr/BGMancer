@@ -23,7 +23,6 @@ const DEFAULT_GAMES_COUNT = 3;
 const PROGRESS_TITLE_A = "Dark Souls";
 const PROGRESS_TITLE_B = "Hollow Knight";
 const GEN_ERROR_MSG = "Failed to generate playlist.";
-const IMPORT_ERROR_MSG = "Invalid YouTube URL.";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -45,11 +44,6 @@ function defaultProps() {
     rawVibes: false,
     onToggleRawVibes: vi.fn(),
     isSignedIn: true,
-    importUrl: "",
-    onImportUrlChange: vi.fn(),
-    importing: false,
-    importError: null as string | null,
-    onImport: vi.fn(),
   };
 }
 
@@ -105,8 +99,8 @@ describe("GenerateSection", () => {
     it("should hide the Generate control card", () => {
       render(<GenerateSection {...defaultProps()} generating={true} />);
       // The generate card wrapper gets overflow-hidden + opacity-0 when
-      // generating is true (showGenerate = false). The button is still in
-      // the DOM but the panel is visually collapsed.
+      // generating is true. The button is still in the DOM but the panel
+      // is visually collapsed.
       const button = screen.getByRole("button", { name: /curate.*tracks/i });
       const hiddenWrapper = button.closest("[class*='overflow-hidden']");
       expect(hiddenWrapper).toBeInTheDocument();
@@ -208,63 +202,6 @@ describe("GenerateSection", () => {
       const generateBtn = actionButtons.find((btn) => btn.className.includes("bg-primary"));
       expect(generateBtn).toBeDefined();
       expect(generateBtn).toBeDisabled();
-    });
-  });
-
-  describe("when in import mode", () => {
-    async function switchToImportMode(user: ReturnType<typeof userEvent.setup>) {
-      // The link reads "Import from YouTube →" (with arrow)
-      await user.click(screen.getByText("Import from YouTube →"));
-    }
-
-    it("should show the import form with URL input and submit button", async () => {
-      const user = userEvent.setup();
-      render(<GenerateSection {...defaultProps()} />);
-
-      await switchToImportMode(user);
-
-      expect(screen.getByPlaceholderText(/youtube playlist url/i)).toBeInTheDocument();
-      // The submit button inside the form (type="submit")
-      const submitBtn = screen.getByRole("button", { name: /import from youtube$/i });
-      expect(submitBtn).toBeInTheDocument();
-      expect(submitBtn).toHaveAttribute("type", "submit");
-    });
-
-    it("should show the back button to return to generate mode", async () => {
-      const user = userEvent.setup();
-      render(<GenerateSection {...defaultProps()} />);
-
-      await switchToImportMode(user);
-      expect(screen.getByText(/back to curate/i)).toBeInTheDocument();
-    });
-
-    it("should collapse the Generate control card", async () => {
-      const user = userEvent.setup();
-      render(<GenerateSection {...defaultProps()} />);
-
-      await switchToImportMode(user);
-      // The generate card wrapper gets overflow-hidden + opacity-0
-      const button = screen.getByRole("button", { name: /curate.*tracks/i });
-      const hiddenWrapper = button.closest("[class*='overflow-hidden']");
-      expect(hiddenWrapper).toBeInTheDocument();
-      expect(hiddenWrapper).toHaveClass("opacity-0");
-    });
-  });
-
-  describe("when importError is set", () => {
-    it("should display the import error message in import mode", async () => {
-      const user = userEvent.setup();
-      render(<GenerateSection {...defaultProps()} importError={IMPORT_ERROR_MSG} />);
-
-      // Switch to import mode to see the import error
-      await user.click(screen.getByText("Import from YouTube →"));
-      expect(screen.getByText(IMPORT_ERROR_MSG)).toBeInTheDocument();
-    });
-
-    it("should NOT show import error in generate mode", () => {
-      render(<GenerateSection {...defaultProps()} importError={IMPORT_ERROR_MSG} />);
-      // In generate mode, import errors are not rendered
-      expect(screen.queryByText(IMPORT_ERROR_MSG)).not.toBeInTheDocument();
     });
   });
 });

@@ -41,10 +41,6 @@ export const reorderSchema = z.object({
   orderedIds: z.array(z.string().min(1)),
 });
 
-export const importPlaylistSchema = z.object({
-  url: z.string().min(1),
-});
-
 // Delegates URL-shape validation to parseSteamInput so schema and service agree.
 export const steamSyncSchema = z.object({
   steamUrl: z
