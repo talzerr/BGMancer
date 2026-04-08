@@ -80,7 +80,7 @@ describe("POST /api/games/request", () => {
   });
 
   describe("when the rate limit is exceeded", () => {
-    it("returns 429 and does not touch the repo", async () => {
+    it("returns 429 before paying for turnstile or DB", async () => {
       vi.mocked(checkRateLimit).mockResolvedValue({
         allowed: false,
         retryAfterMs: 60_000,
@@ -89,6 +89,7 @@ describe("POST /api/games/request", () => {
       const res = await POST(makeJsonRequest("/api/games/request", "POST", validBody));
 
       expect(res.status).toBe(429);
+      expect(verifyTurnstileToken).not.toHaveBeenCalled();
       expect(GameRequests.upsertRequest).not.toHaveBeenCalled();
     });
   });

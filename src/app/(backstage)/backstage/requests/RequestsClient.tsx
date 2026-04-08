@@ -2,6 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { GameRequest } from "@/lib/db/repo";
 
 export function RequestsClient() {
@@ -56,37 +66,49 @@ export function RequestsClient() {
   return (
     <div className="space-y-4 p-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-base font-medium text-[var(--text-primary)]">Game requests</h1>
-        <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-          <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
+        <h1 className="text-foreground text-base font-medium">Game requests</h1>
+        <label className="text-muted-foreground flex items-center gap-2 text-xs">
+          <Checkbox checked={showAll} onCheckedChange={(v) => setShowAll(v === true)} />
           Show all
         </label>
       </div>
 
-      {error && <p className="text-xs text-[var(--destructive)]">{error}</p>}
+      {error && <p className="text-destructive text-xs">{error}</p>}
 
       {isLoading ? (
         <p className="text-xs text-[var(--text-disabled)]">Loading...</p>
       ) : requests.length === 0 ? (
         <p className="text-xs text-[var(--text-disabled)]">No requests.</p>
       ) : (
-        <table className="w-full border-collapse text-xs">
-          <thead>
-            <tr className="border-border border-b text-left text-[var(--text-tertiary)]">
-              <th className="px-2 py-2 font-medium">Cover</th>
-              <th className="px-2 py-2 font-medium">Name</th>
-              <th className="px-2 py-2 font-medium">Count</th>
-              <th className="px-2 py-2 font-medium">First requested</th>
-              <th className="px-2 py-2 font-medium">Last requested</th>
-              <th className="px-2 py-2 font-medium">Status</th>
-              <th className="px-2 py-2" />
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow className="border-border hover:bg-transparent">
+              <TableHead className="w-12 px-2 text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
+                Cover
+              </TableHead>
+              <TableHead className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
+                Name
+              </TableHead>
+              <TableHead className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
+                Count
+              </TableHead>
+              <TableHead className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
+                First requested
+              </TableHead>
+              <TableHead className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
+                Last requested
+              </TableHead>
+              <TableHead className="text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
+                Status
+              </TableHead>
+              <TableHead className="w-32 px-2" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {requests.map((r) => (
-              <tr key={r.igdbId} className="border-border border-b">
-                <td className="px-2 py-2">
-                  <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded bg-[var(--surface-hover)]">
+              <TableRow key={r.igdbId} className="border-border">
+                <TableCell className="px-2 py-2">
+                  <div className="bg-accent flex h-8 w-8 items-center justify-center overflow-hidden rounded">
                     {r.coverUrl ? (
                       <Image
                         src={r.coverUrl}
@@ -97,34 +119,34 @@ export function RequestsClient() {
                       />
                     ) : null}
                   </div>
-                </td>
-                <td className="px-2 py-2 text-[var(--text-primary)]">{r.name}</td>
-                <td className="px-2 py-2 text-[var(--text-secondary)]">{r.requestCount}</td>
-                <td className="px-2 py-2 text-[var(--text-tertiary)]">
+                </TableCell>
+                <TableCell className="text-foreground">{r.name}</TableCell>
+                <TableCell className="text-muted-foreground">{r.requestCount}</TableCell>
+                <TableCell className="text-[var(--text-tertiary)]">
                   {r.createdAt.slice(0, 10)}
-                </td>
-                <td className="px-2 py-2 text-[var(--text-tertiary)]">
+                </TableCell>
+                <TableCell className="text-[var(--text-tertiary)]">
                   {r.updatedAt.slice(0, 10)}
-                </td>
-                <td className="px-2 py-2 text-[var(--text-tertiary)]">
+                </TableCell>
+                <TableCell className="text-[var(--text-tertiary)]">
                   {r.acknowledged ? "Acknowledged" : "Pending"}
-                </td>
-                <td className="px-2 py-2 text-right">
+                </TableCell>
+                <TableCell className="px-2 text-right">
                   {!r.acknowledged && (
-                    <button
-                      type="button"
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => handleAcknowledge(r.igdbId)}
                       disabled={pendingAck === r.igdbId}
-                      className="rounded border border-[var(--border-emphasis)] px-2 py-1 text-xs text-[var(--text-secondary)] transition-colors duration-100 hover:bg-[var(--surface-hover)] disabled:opacity-50"
                     >
                       {pendingAck === r.igdbId ? "..." : "Acknowledge"}
-                    </button>
+                    </Button>
                   )}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
     </div>
   );

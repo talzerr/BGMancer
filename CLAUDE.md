@@ -220,10 +220,10 @@ Authenticated-only discovery feature: users link a Steam profile, the backend fe
 
 The catalog empty state lets any user (guest or logged-in) request a game that isn't in the catalog yet. The flow is:
 
-1. User searches the catalog → zero results → `GameRequestPrompt` is rendered (`src/components/library/GameRequestPrompt.tsx`).
-2. The current catalog search term is shown as preview text inside an inactive input. On first focus the input activates, copies the term into its editable value, and a 300ms-debounced effect calls `GET /api/games/search-igdb`.
-3. The user clicks a result. The component awaits a Turnstile token (the `<Script>` is loaded `afterInteractive` and resolves a ref-held promise on `onReady`; the token call races it against a 5s timeout). It then `POST`s to `/api/games/request`.
-4. The server verifies Turnstile, rate-limits per IP (5/hr), and calls `GameRequests.upsertRequest` — new rows insert with `request_count = 1`, existing unacknowledged rows increment, acknowledged rows are no-ops. Always returns `{ success: true }`.
+1. User searches the catalog → zero results → `GameRequestPrompt` is rendered (`src/components/library/GameRequestPrompt.tsx`). All client-side state, the debounced IGDB fetch, and the submit POST live in `useGameRequest` (`src/hooks/library/useGameRequest.ts`).
+2. The current catalog search term is shown as preview text inside an inactive input. On first focus the input activates, copies the term into the hook's editable `query`, and the 300ms-debounced effect calls `GET /api/games/search-igdb`.
+3. The user clicks a result. The component awaits a Turnstile token via `useTurnstileToken` (`src/hooks/shared/useTurnstileToken.ts`), then calls the hook's `submitRequest`. The shared Turnstile hook is also used by `FeedClient` for guest playlist generation — single source of truth for the script-load race + render dance.
+4. The server rate-limits per IP (5/hr), verifies Turnstile, then calls `GameRequests.upsertRequest` — new rows insert with `request_count = 1`, existing unacknowledged rows increment, acknowledged rows are no-ops. Always returns `{ success: true }`.
 
 **Data model:** single `game_requests` table keyed on `igdb_id` (the natural identity from IGDB; no synthetic PK). Columns: `name`, `cover_url`, `request_count`, `acknowledged`, `created_at`, `updated_at`.
 

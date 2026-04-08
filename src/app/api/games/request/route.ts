@@ -24,17 +24,18 @@ export async function POST(request: Request) {
 
   const ip = getClientIp(request);
 
+  // Rate-limit first (cheap KV lookup) so floods don't pay for upstream siteverify.
+  const limit = await checkRateLimit(`game-request:${ip}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
+  if (!limit.allowed) {
+    return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
+  }
+
   const verified = await verifyTurnstileToken(parsed.data.turnstileToken, ip);
   if (!verified.success) {
     return NextResponse.json(
       { error: verified.error ?? "Bot verification failed. Please try again." },
       { status: 403 },
     );
-  }
-
-  const limit = await checkRateLimit(`game-request:${ip}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
-  if (!limit.allowed) {
-    return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
   }
 
   try {

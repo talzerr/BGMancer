@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useRef, type FocusEvent } from "react";
+import { type FocusEvent } from "react";
 import Image from "next/image";
 import Script from "next/script";
 import { SearchIcon, Spinner } from "@/components/Icons";
 import { useGameRequest, type IgdbSearchResult } from "@/hooks/library/useGameRequest";
+import { useTurnstileToken } from "@/hooks/shared/useTurnstileToken";
 
 interface GameRequestPromptProps {
   catalogSearch: string;
@@ -41,47 +42,15 @@ export function GameRequestPrompt({
     submitRequest,
   } = useGameRequest({ catalogSearch, enabled: requestFormEnabled });
 
-  const turnstileRef = useRef<HTMLDivElement>(null);
-  const turnstileReadyRef = useRef<{
-    promise: Promise<void>;
-    resolve: () => void;
-  } | null>(null);
-
-  function getTurnstileReady() {
-    if (!turnstileReadyRef.current) {
-      let resolve!: () => void;
-      const promise = new Promise<void>((r) => {
-        resolve = r;
-      });
-      turnstileReadyRef.current = { promise, resolve };
-    }
-    return turnstileReadyRef.current;
-  }
-
-  const getTurnstileToken = useCallback(async (): Promise<string> => {
-    if (!turnstileSiteKey) return "";
-    // Wait for Turnstile (afterInteractive) up to 5s; fall through on timeout.
-    const ready = getTurnstileReady();
-    const timeout = new Promise<void>((resolve) => setTimeout(resolve, 5000));
-    await Promise.race([ready.promise, timeout]);
-
-    const turnstile = (window as unknown as { turnstile?: TurnstileApi }).turnstile;
-    if (!turnstile) return "";
-    const container = turnstileRef.current;
-    if (!container) return "";
-    return new Promise<string>((resolve) => {
-      turnstile.render(container, {
-        sitekey: turnstileSiteKey,
-        callback: resolve,
-        "error-callback": () => resolve(""),
-        "expired-callback": () => resolve(""),
-      });
-    });
-  }, [turnstileSiteKey]);
+  const {
+    containerRef: turnstileContainerRef,
+    scriptOnReady: turnstileScriptOnReady,
+    getToken: getTurnstileToken,
+  } = useTurnstileToken(turnstileSiteKey);
 
   async function handleSelect(result: IgdbSearchResult) {
-    const turnstileToken = await getTurnstileToken();
-    await submitRequest(result, turnstileToken);
+    const token = await getTurnstileToken();
+    await submitRequest(result, token);
   }
 
   // Degraded: IGDB or Turnstile not configured.
@@ -92,7 +61,7 @@ export function GameRequestPrompt({
   if (submittedName) {
     return (
       <EmptyStateShell>
-        <p className="text-xs text-[var(--text-secondary)]">Request received for {submittedName}</p>
+        <p className="text-muted-foreground text-xs">Request received for {submittedName}</p>
       </EmptyStateShell>
     );
   }
@@ -118,15 +87,13 @@ export function GameRequestPrompt({
           <Script
             src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
             strategy="afterInteractive"
-            onReady={() => {
-              getTurnstileReady().resolve();
-            }}
+            onReady={turnstileScriptOnReady}
           />
-          <div ref={turnstileRef} className="hidden" />
+          <div ref={turnstileContainerRef} className="hidden" />
         </>
       )}
       <EmptyStateShell>
-        <p className="text-xs text-[var(--text-secondary)]">Request a game</p>
+        <p className="text-muted-foreground text-xs">Request a game</p>
 
         <div className="relative w-full max-w-[260px]">
           <input
@@ -137,20 +104,20 @@ export function GameRequestPrompt({
             placeholder={previewMode ? undefined : "Search for a game..."}
             readOnly={!activated}
             disabled={submitting}
-            className={`w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-elevated)] px-3 py-2 text-[13px] focus:border-[var(--primary)] focus:outline-none disabled:opacity-50 ${
-              activated ? "text-[var(--text-primary)]" : "text-[var(--text-disabled)]"
+            className={`border-border bg-secondary focus:border-primary w-full rounded-md border px-3 py-2 text-[13px] focus:outline-none disabled:opacity-50 ${
+              activated ? "text-foreground" : "text-[var(--text-disabled)]"
             } placeholder:text-[var(--text-disabled)]`}
           />
 
           {showDropdown && (
-            <div className="absolute top-full left-0 z-10 mt-1 w-full overflow-hidden rounded-md border border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-lg">
+            <div className="border-border bg-secondary absolute top-full left-0 z-10 mt-1 w-full overflow-hidden rounded-md border shadow-lg">
               {isLoading ? (
                 <div className="flex items-center gap-2 px-3 py-2">
                   <Spinner className="h-3 w-3 text-[var(--text-disabled)]" />
                   <span className="text-xs text-[var(--text-disabled)]">Searching...</span>
                 </div>
               ) : error ? (
-                <p className="px-3 py-2 text-xs text-[var(--destructive)]">{error}</p>
+                <p className="text-destructive px-3 py-2 text-xs">{error}</p>
               ) : results && results.length === 0 ? (
                 <p className="px-3 py-2 text-xs text-[var(--text-tertiary)]">No matches</p>
               ) : results && results.length > 0 ? (
@@ -161,9 +128,9 @@ export function GameRequestPrompt({
                         type="button"
                         onClick={() => handleSelect(r)}
                         disabled={submitting}
-                        className="flex w-full items-center gap-2 px-2 py-1.5 text-left transition-colors duration-100 hover:bg-[var(--surface-hover)] disabled:opacity-50"
+                        className="hover:bg-accent flex w-full items-center gap-2 px-2 py-1.5 text-left transition-colors duration-100 disabled:opacity-50"
                       >
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded bg-[var(--surface-hover)]">
+                        <div className="bg-accent flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded">
                           {r.coverUrl ? (
                             <Image
                               src={r.coverUrl}
@@ -174,9 +141,7 @@ export function GameRequestPrompt({
                             />
                           ) : null}
                         </div>
-                        <span className="truncate text-[13px] text-[var(--text-primary)]">
-                          {r.name}
-                        </span>
+                        <span className="text-foreground truncate text-[13px]">{r.name}</span>
                       </button>
                     </li>
                   ))}
