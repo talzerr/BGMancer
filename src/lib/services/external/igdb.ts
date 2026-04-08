@@ -18,8 +18,12 @@ const TOKEN_URL = "https://id.twitch.tv/oauth2/token";
 const SEARCH_URL = "https://api.igdb.com/v4/games";
 const COVER_URL_PREFIX = "https://images.igdb.com/igdb/image/upload/t_thumb/";
 
-// IGDB category enum: 0 = main_game, 8 = remake, 9 = remaster
-const ALLOWED_CATEGORIES = new Set([0, 8, 9]);
+// IGDB category enum. We exclude anything that clearly isn't a standalone
+// game: DLC/addon (1), bundle (3), mod (5), episode (6), season (7),
+// pack (13), update (14), fork (12). Everything else — main game (0),
+// expansion (2), standalone expansion (4), remake (8), remaster (9),
+// expanded game (10), port (11) — is a valid thing to request.
+const EXCLUDED_CATEGORIES = new Set([1, 3, 5, 6, 7, 12, 13, 14]);
 
 interface CachedToken {
   value: string;
@@ -72,6 +76,10 @@ interface RawGame {
   name: string;
   category?: number;
   cover?: { image_id: string };
+  /** Set on DLC, expansions, content packs — they descend from a parent. */
+  parent_game?: number;
+  /** Set on platform-specific re-releases — variants of an existing canonical entry. */
+  version_parent?: number;
 }
 
 export async function searchGames(query: string): Promise<IgdbSearchResult[]> {
@@ -80,7 +88,10 @@ export async function searchGames(query: string): Promise<IgdbSearchResult[]> {
 
   // Apicalypse syntax. Escape quotes in the user query.
   const safeQuery = query.replace(/"/g, "");
-  const body = `search "${safeQuery}"; ` + `fields name, category, cover.image_id; ` + `limit 25;`;
+  const body =
+    `search "${safeQuery}"; ` +
+    `fields name, category, cover.image_id, parent_game, version_parent; ` +
+    `limit 50;`;
 
   try {
     const res = await fetch(SEARCH_URL, {
@@ -98,15 +109,35 @@ export async function searchGames(query: string): Promise<IgdbSearchResult[]> {
       return [];
     }
     const data = (await res.json()) as RawGame[];
+
     // IGDB doesn't reliably combine `search` with `where` clauses — filter client-side.
-    return data
-      .filter((g) => g.category === undefined || ALLOWED_CATEGORIES.has(g.category))
-      .slice(0, 10)
-      .map((g) => ({
-        igdbId: g.id,
-        name: g.name,
-        coverUrl: g.cover ? `${COVER_URL_PREFIX}${g.cover.image_id}.jpg` : null,
-      }));
+    // Three filters in order of authority:
+    //   1. version_parent: row is a port/regional re-release of an existing entry
+    //   2. parent_game: row is DLC, an expansion, or a content pack
+    //   3. category: backstop for the few junk types parent_game doesn't catch
+    // Then dedupe by lowercased name (IGDB still returns multiple "canonical"
+    // rows for some games — keep the first, which is the highest-ranked match).
+    const filtered = data.filter(
+      (g) =>
+        g.version_parent === undefined &&
+        g.parent_game === undefined &&
+        (g.category === undefined || !EXCLUDED_CATEGORIES.has(g.category)),
+    );
+
+    const seen = new Set<string>();
+    const deduped: RawGame[] = [];
+    for (const g of filtered) {
+      const key = g.name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(g);
+    }
+
+    return deduped.slice(0, 10).map((g) => ({
+      igdbId: g.id,
+      name: g.name,
+      coverUrl: g.cover ? `${COVER_URL_PREFIX}${g.cover.image_id}.jpg` : null,
+    }));
   } catch (err) {
     log.error("search threw", {}, err);
     return [];

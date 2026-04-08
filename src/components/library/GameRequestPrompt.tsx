@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type FocusEvent } from "react";
 import Image from "next/image";
 import Script from "next/script";
 import { SearchIcon, Spinner } from "@/components/Icons";
@@ -33,17 +33,25 @@ export function GameRequestPrompt({
   const [error, setError] = useState<string | null>(null);
   const [submittedName, setSubmittedName] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  /**
+   * The input starts inactive — the catalog search term is shown as preview
+   * text in disabled color. The first focus/click flips this to true, copies
+   * the catalog term into `query`, and lets the debounced effect fire IGDB.
+   */
+  const [activated, setActivated] = useState(false);
   /** Set to true if the search-igdb endpoint returns 404 at runtime. */
   const [degraded, setDegraded] = useState(false);
 
   const turnstileRef = useRef<HTMLDivElement>(null);
+  const turnstileReadyRef = useRef(false);
 
-  // ── Reset "submitted" state whenever the catalog search input changes ──
+  // ── Reset everything whenever the catalog search input changes ──
   useEffect(() => {
     setSubmittedName(null);
     setQuery("");
     setResults(null);
     setError(null);
+    setActivated(false);
   }, [catalogSearch]);
 
   // ── Debounced IGDB search ─────────────────────────────────────────────
@@ -86,11 +94,25 @@ export function GameRequestPrompt({
     };
   }, [query, requestFormEnabled, degraded]);
 
-  const getTurnstileToken = useCallback((): Promise<string> => {
+  const getTurnstileToken = useCallback(async (): Promise<string> => {
+    if (!turnstileSiteKey) return "";
+    // Wait for the Turnstile script (afterInteractive) to load — the user may
+    // click a result before the script has finished downloading. Give up after
+    // ~5s so the POST still fires (the server will reject it cleanly).
+    if (!turnstileReadyRef.current) {
+      const deadline = Date.now() + 5000;
+      while (Date.now() < deadline && !turnstileReadyRef.current) {
+        if ((window as unknown as { turnstile?: TurnstileApi }).turnstile) {
+          turnstileReadyRef.current = true;
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 100));
+      }
+    }
     const turnstile = (window as unknown as { turnstile?: TurnstileApi }).turnstile;
-    if (!turnstile || !turnstileSiteKey) return Promise.resolve("");
+    if (!turnstile) return "";
     const container = turnstileRef.current;
-    if (!container) return Promise.resolve("");
+    if (!container) return "";
     return new Promise<string>((resolve) => {
       turnstile.render(container, {
         sitekey: turnstileSiteKey,
@@ -156,7 +178,19 @@ export function GameRequestPrompt({
   }
 
   const trimmed = query.trim();
-  const showDropdown = trimmed.length > 0;
+  const showDropdown = activated && trimmed.length > 0;
+  const previewMode = !activated && catalogSearch.trim().length > 0;
+
+  function handleFocus(e: FocusEvent<HTMLInputElement>) {
+    if (activated) return;
+    setActivated(true);
+    setQuery(catalogSearch);
+    // Place the cursor at the end of the now-editable text.
+    const len = catalogSearch.length;
+    requestAnimationFrame(() => {
+      e.target.setSelectionRange(len, len);
+    });
+  }
 
   return (
     <>
@@ -164,7 +198,10 @@ export function GameRequestPrompt({
         <>
           <Script
             src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
-            strategy="lazyOnload"
+            strategy="afterInteractive"
+            onReady={() => {
+              turnstileReadyRef.current = true;
+            }}
           />
           <div ref={turnstileRef} className="hidden" />
         </>
@@ -177,11 +214,15 @@ export function GameRequestPrompt({
         <div className="relative w-full max-w-xs">
           <input
             type="text"
-            value={query}
+            value={activated ? query : previewMode ? catalogSearch : ""}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search for a game..."
+            onFocus={handleFocus}
+            placeholder={previewMode ? undefined : "Search for a game..."}
+            readOnly={!activated}
             disabled={submitting}
-            className="w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-elevated)] px-3 py-2 text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-disabled)] focus:border-[var(--primary)] focus:outline-none disabled:opacity-50"
+            className={`w-full rounded-md border border-[var(--border-default)] bg-[var(--surface-elevated)] px-3 py-2 text-[13px] focus:border-[var(--primary)] focus:outline-none disabled:opacity-50 ${
+              activated ? "text-[var(--text-primary)]" : "text-[var(--text-disabled)]"
+            } placeholder:text-[var(--text-disabled)]`}
           />
 
           {showDropdown && (

@@ -91,7 +91,7 @@ describe("searchGames", () => {
       expect(result[0].coverUrl).toBeNull();
     });
 
-    it("filters out DLC and expansions (non-main categories)", async () => {
+    it("filters out junk categories but keeps main/expansion/remake/remaster", async () => {
       mockTokenResponse();
       fetchSpy.mockResolvedValueOnce({
         ok: true,
@@ -99,14 +99,63 @@ describe("searchGames", () => {
           { id: 1, name: "Main Game", category: 0 },
           { id: 2, name: "DLC", category: 1 },
           { id: 3, name: "Expansion", category: 2 },
-          { id: 4, name: "Remake", category: 8 },
-          { id: 5, name: "Remaster", category: 9 },
+          { id: 4, name: "Bundle", category: 3 },
+          { id: 5, name: "Standalone Expansion", category: 4 },
+          { id: 6, name: "Mod", category: 5 },
+          { id: 7, name: "Remake", category: 8 },
+          { id: 8, name: "Remaster", category: 9 },
+          { id: 10, name: "Pack", category: 13 },
         ],
       });
 
       const result = await searchGames("test");
       const ids = result.map((r) => r.igdbId);
-      expect(ids).toEqual([1, 4, 5]);
+      expect(ids).toEqual([1, 3, 5, 7, 8]);
+    });
+
+    it("filters out rows with parent_game (DLC/content packs)", async () => {
+      mockTokenResponse();
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: 1, name: "Call of Duty 2", category: 0 },
+          { id: 2, name: "Call of Duty 2: Bonus Map Pack", category: 0, parent_game: 1 },
+          { id: 3, name: "Call of Duty 2: Skirmish Map Pack", category: 0, parent_game: 1 },
+        ],
+      });
+
+      const result = await searchGames("call of duty 2");
+      expect(result.map((r) => r.igdbId)).toEqual([1]);
+    });
+
+    it("filters out rows with version_parent (platform re-releases)", async () => {
+      mockTokenResponse();
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: 1, name: "Celeste", category: 0 },
+          { id: 2, name: "Celeste", category: 0, version_parent: 1 },
+          { id: 3, name: "Celeste", category: 0, version_parent: 1 },
+        ],
+      });
+
+      const result = await searchGames("celeste");
+      expect(result.map((r) => r.igdbId)).toEqual([1]);
+    });
+
+    it("dedupes results by lowercased name keeping the first occurrence", async () => {
+      mockTokenResponse();
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: 1, name: "Call of Duty 2", category: 0 },
+          { id: 2, name: "CALL OF DUTY 2", category: 0 },
+          { id: 3, name: "Call of Duty 2: Big Red One", category: 0 },
+        ],
+      });
+
+      const result = await searchGames("call of duty 2");
+      expect(result.map((r) => r.igdbId)).toEqual([1, 3]);
     });
 
     it("caps results at 10", async () => {
