@@ -222,7 +222,6 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
                 genError={playlist.genError}
                 cooldownUntil={playlist.cooldownUntil}
                 targetTrackCount={config.targetTrackCount}
-                onTargetChange={config.setTargetTrackCount}
                 onTargetSave={config.saveTrackCount}
                 gamesCount={gameLibrary.games.length}
                 games={gameLibrary.games}
@@ -272,6 +271,7 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
                     onDeleteSession={handleDeleteSession}
                   />
                   <DndContext
+                    id="playlist-dnd"
                     sensors={sensors}
                     collisionDetection={closestCenter}
                     onDragEnd={handleDragEnd}

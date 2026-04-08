@@ -30,7 +30,6 @@ function defaultProps() {
     genError: null as string | null,
     cooldownUntil: 0,
     targetTrackCount: DEFAULT_TRACK_COUNT,
-    onTargetChange: vi.fn(),
     onTargetSave: vi.fn(),
     gamesCount: DEFAULT_GAMES_COUNT,
     games: [
@@ -74,24 +73,12 @@ describe("GenerateSection", () => {
       render(<GenerateSection {...defaultProps()} />);
       expect(screen.getByRole("button", { name: /curate.*tracks/i })).toBeEnabled();
     });
-
-    it("should show the game count and track count summary", () => {
-      render(<GenerateSection {...defaultProps()} />);
-      expect(
-        screen.getByText(`${DEFAULT_GAMES_COUNT} games`, { exact: false }),
-      ).toBeInTheDocument();
-    });
   });
 
   describe("when gamesCount is 0", () => {
     it("should disable the Generate button", () => {
       render(<GenerateSection {...defaultProps()} gamesCount={0} />);
       expect(screen.getByRole("button", { name: /curate.*tracks/i })).toBeDisabled();
-    });
-
-    it("should show the empty library message", () => {
-      render(<GenerateSection {...defaultProps()} gamesCount={0} />);
-      expect(screen.getByText(/add games to your library/i)).toBeInTheDocument();
     });
   });
 

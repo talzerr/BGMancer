@@ -1,208 +1,182 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { MusicNote } from "@/components/Icons";
+import { useState } from "react";
 import { MAX_TRACK_COUNT } from "@/lib/constants";
 
 const PRESETS = [25, 50, 100] as const;
 
 interface GenerateControlsProps {
   targetTrackCount: number;
-  onTargetChange: (n: number) => void;
   onTargetSave: (n: number) => void;
-  gamesCount: number;
-  onGenerate: () => void;
   allowLongTracks: boolean;
   onToggleLongTracks: (enabled: boolean) => void;
   allowShortTracks: boolean;
   onToggleShortTracks: (enabled: boolean) => void;
   rawVibes: boolean;
   onToggleRawVibes: (enabled: boolean) => void;
-  generating: boolean;
-  secsLeft: number;
-  quip: string;
 }
 
 export function GenerateControls({
   targetTrackCount,
-  onTargetChange,
   onTargetSave,
-  gamesCount,
-  onGenerate,
   allowLongTracks,
   onToggleLongTracks,
   allowShortTracks,
   onToggleShortTracks,
   rawVibes,
   onToggleRawVibes,
-  generating,
-  secsLeft,
-  quip,
 }: GenerateControlsProps) {
   const isPresetValue = (PRESETS as readonly number[]).includes(targetTrackCount);
-  const [customActive, setCustomActive] = useState(!isPresetValue);
-  const customInputRef = useRef<HTMLInputElement>(null);
+  // Custom is active when the user has explicitly opened it OR when the
+  // current value isn't one of the presets.
+  const [customClicked, setCustomClicked] = useState(false);
+  const customActive = customClicked || !isPresetValue;
 
   function handlePresetClick(n: number) {
-    setCustomActive(false);
+    setCustomClicked(false);
     onTargetSave(n);
   }
 
   function handleCustomClick() {
-    setCustomActive(true);
-    setTimeout(() => customInputRef.current?.select(), 0);
+    setCustomClicked(true);
   }
 
-  const activePreset = customActive ? null : isPresetValue ? targetTrackCount : null;
-
-  const summaryText =
-    gamesCount === 0
-      ? "Add games to your library to get started."
-      : `${gamesCount} game${gamesCount !== 1 ? "s" : ""} · ${targetTrackCount} tracks`;
+  const sizeOptionClass = (active: boolean) =>
+    `cursor-pointer transition-colors ${
+      active
+        ? "text-primary font-medium underline decoration-primary/40 underline-offset-4"
+        : "text-[var(--text-disabled)] hover:text-[var(--text-tertiary)]"
+    }`;
 
   return (
-    <div className="flex flex-col gap-5 px-1">
-      {/* Playlist Size */}
-      <div className="flex flex-col gap-1">
-        <span className="text-muted-foreground text-[11px] font-medium tracking-widest uppercase">
-          Playlist Size
-        </span>
-        <div className="border-border bg-background/60 flex overflow-hidden rounded-lg border">
+    <div className="flex flex-col gap-2 px-1">
+      <span className="text-muted-foreground text-[11px] font-medium tracking-widest uppercase">
+        Settings
+      </span>
+
+      {/* Playlist size row */}
+      <div className="flex items-center justify-between">
+        <span className="text-[13px] text-[var(--text-secondary)]">Playlist size</span>
+        <div className="flex items-center gap-3 text-[12px]">
           {PRESETS.map((n) => (
             <button
               key={n}
+              type="button"
               onClick={() => handlePresetClick(n)}
-              className={`border-border flex-1 cursor-pointer border-r py-1.5 text-xs font-medium transition-colors ${
-                activePreset === n
-                  ? "text-foreground bg-[var(--surface-hover)]"
-                  : "hover:text-foreground text-[var(--text-tertiary)] hover:bg-white/[0.04]"
-              }`}
+              className={`tabular-nums ${sizeOptionClass(!customActive && targetTrackCount === n)}`}
             >
               {n}
             </button>
           ))}
-          {customActive ? (
-            <input
-              ref={customInputRef}
-              type="number"
-              min={1}
-              max={MAX_TRACK_COUNT}
-              value={targetTrackCount}
-              autoFocus
-              onChange={(e) => {
-                const v = parseInt(e.target.value, 10);
-                if (!isNaN(v) && v >= 1 && v <= 200) onTargetChange(v);
-              }}
-              onBlur={(e) => {
-                const v = parseInt(e.target.value, 10);
-                if (!isNaN(v) && v >= 1 && v <= 200) onTargetSave(v);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                if (e.key === "Escape") {
-                  handlePresetClick(PRESETS[0]);
-                }
-              }}
-              className="text-foreground focus:ring-ring/50 flex-1 [appearance:textfield] bg-[var(--surface-hover)] py-1.5 text-center text-xs font-medium tabular-nums focus:ring-1 focus:outline-none focus:ring-inset [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-            />
-          ) : (
-            <button
-              onClick={handleCustomClick}
-              className="hover:text-foreground flex-1 cursor-pointer py-1.5 text-xs font-medium text-[var(--text-tertiary)] transition-colors hover:bg-white/[0.04]"
-            >
-              Custom
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleCustomClick}
+            className={sizeOptionClass(customActive)}
+          >
+            Custom
+          </button>
+          {customActive && <CustomSizeInput value={targetTrackCount} onCommit={onTargetSave} />}
         </div>
       </div>
 
-      {/* Options */}
-      <div className="flex flex-col gap-1">
-        <span className="text-muted-foreground text-[11px] font-medium tracking-widest uppercase">
-          Options
-        </span>
-        <div className="flex flex-wrap gap-1.5">
-          {/* Allow long tracks toggle */}
-          <div className="group relative">
-            <button
-              onClick={() => onToggleLongTracks(!allowLongTracks)}
-              className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
-                allowLongTracks
-                  ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/15"
-                  : "border-border bg-background/60 hover:text-foreground text-[var(--text-tertiary)] hover:border-[var(--border-emphasis)]"
-              }`}
-            >
-              <span>{allowLongTracks ? "Long tracks: on" : "Long tracks: off"}</span>
-            </button>
-            <div className="bg-secondary pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-56 rounded-lg border border-white/[0.08] px-3 py-2 opacity-0 transition-opacity group-hover:opacity-100">
-              <p className="text-foreground text-xs font-medium">Allow long tracks</p>
-              <p className="text-muted-foreground mt-0.5 text-[11px] leading-snug">
-                When off (default), tracks longer than 10 minutes are excluded. Useful for keeping a
-                playlist focused — OST medleys and extended suites are skipped.
-              </p>
-            </div>
-          </div>
-          {/* Allow short tracks toggle */}
-          <div className="group relative">
-            <button
-              onClick={() => onToggleShortTracks(!allowShortTracks)}
-              className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
-                allowShortTracks
-                  ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/15"
-                  : "border-border bg-background/60 hover:text-foreground text-[var(--text-tertiary)] hover:border-[var(--border-emphasis)]"
-              }`}
-            >
-              <span>{allowShortTracks ? "Short tracks: on" : "Short tracks: off"}</span>
-            </button>
-            <div className="bg-secondary pointer-events-none absolute right-0 bottom-full z-10 mb-2 w-56 rounded-lg border border-white/[0.08] px-3 py-2 opacity-0 transition-opacity group-hover:opacity-100">
-              <p className="text-foreground text-xs font-medium">Allow short tracks</p>
-              <p className="text-muted-foreground mt-0.5 text-[11px] leading-snug">
-                When off (default), tracks under 90 seconds are excluded. Useful for keeping things
-                flowing — intros, stingers, and short jingles are skipped.
-              </p>
-            </div>
-          </div>
-          {/* Raw vibes toggle */}
-          <div className="group relative">
-            <button
-              onClick={() => onToggleRawVibes(!rawVibes)}
-              className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
-                rawVibes
-                  ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/15"
-                  : "border-border bg-background/60 hover:text-foreground text-[var(--text-tertiary)] hover:border-[var(--border-emphasis)]"
-              }`}
-            >
-              <span>{rawVibes ? "Raw vibes: on" : "Raw vibes: off"}</span>
-            </button>
-            <div className="bg-secondary pointer-events-none absolute right-0 bottom-full z-10 mb-2 w-56 rounded-lg border border-white/[0.08] px-3 py-2 opacity-0 transition-opacity group-hover:opacity-100">
-              <p className="text-foreground text-xs font-medium">Raw vibes</p>
-              <p className="text-muted-foreground mt-0.5 text-[11px] leading-snug">
-                When on, ignores YouTube view counts — all tracks scored purely on musical tags. May
-                surface more obscure tracks.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <div className="border-t border-white/[0.04]" />
 
-      {/* Action */}
+      {/* Option toggle rows */}
       <div className="flex flex-col gap-2">
-        <button
-          onClick={onGenerate}
-          disabled={gamesCount === 0 || secsLeft > 0 || generating}
-          className="bg-primary text-foreground disabled:bg-secondary/80 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-medium transition-all duration-200 hover:bg-[var(--primary-hover)] active:scale-[0.98] active:bg-[var(--primary-muted)] disabled:cursor-not-allowed disabled:border disabled:border-white/[0.05] disabled:text-[var(--text-disabled)] disabled:hover:scale-100"
-        >
-          <MusicNote className="h-3.5 w-3.5" />
-          {secsLeft > 0 ? (
-            <span className="text-xs font-normal opacity-60">{quip}</span>
-          ) : generating ? (
-            "Curating…"
-          ) : (
-            `Curate ${targetTrackCount} Tracks`
-          )}
-        </button>
-        <p className="px-1 text-[11px] leading-snug text-[var(--text-disabled)]">{summaryText}</p>
+        <ToggleRow
+          label="Long tracks"
+          description="Allow tracks over 9 min"
+          on={allowLongTracks}
+          onToggle={() => onToggleLongTracks(!allowLongTracks)}
+        />
+        <ToggleRow
+          label="Short tracks"
+          description="Allow tracks under 90s"
+          on={allowShortTracks}
+          onToggle={() => onToggleShortTracks(!allowShortTracks)}
+        />
+        <ToggleRow
+          label="Raw vibes"
+          description="Ignore popularity, score on tags only"
+          on={rawVibes}
+          onToggle={() => onToggleRawVibes(!rawVibes)}
+        />
       </div>
     </div>
+  );
+}
+
+// Local to this file: the launchpad has its own ToggleRow with a dimmer
+// "on/off" treatment. Sharing them would force one to compromise.
+function ToggleRow({
+  label,
+  description,
+  on,
+  onToggle,
+}: {
+  label: string;
+  description: string;
+  on: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="flex w-full cursor-pointer flex-col gap-0.5 text-left"
+    >
+      <div className="flex w-full items-center justify-between gap-3">
+        <span
+          className={`text-[13px] ${
+            on ? "text-[var(--text-secondary)]" : "text-[var(--text-disabled)]"
+          }`}
+        >
+          {label}
+        </span>
+        <span className={`text-[11px] ${on ? "text-primary" : "text-[var(--text-disabled)]"}`}>
+          {on ? "on" : "off"}
+        </span>
+      </div>
+      <span className="text-[11px] text-white/[0.15]">{description}</span>
+    </button>
+  );
+}
+
+function CustomSizeInput({ value, onCommit }: { value: number; onCommit: (n: number) => void }) {
+  const [draft, setDraft] = useState(String(value));
+  const [syncedValue, setSyncedValue] = useState(value);
+  if (syncedValue !== value) {
+    setSyncedValue(value);
+    setDraft(String(value));
+  }
+
+  function commit() {
+    const v = parseInt(draft, 10);
+    if (!isNaN(v) && v >= 1 && v <= MAX_TRACK_COUNT && v !== value) {
+      onCommit(v);
+    } else {
+      setDraft(String(value));
+    }
+  }
+
+  return (
+    <input
+      type="number"
+      min={1}
+      max={MAX_TRACK_COUNT}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        if (e.key === "Escape") {
+          setDraft(String(value));
+          (e.target as HTMLInputElement).blur();
+        }
+      }}
+      autoFocus
+      aria-label="Custom playlist size"
+      className="text-foreground w-10 [appearance:textfield] rounded-[4px] border border-white/[0.12] bg-transparent px-1 py-0.5 text-center text-[12px] tabular-nums focus:border-white/20 focus:outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+    />
   );
 }

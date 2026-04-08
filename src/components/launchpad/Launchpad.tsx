@@ -105,7 +105,7 @@ function LaunchpadReady({
   const optionClass = (active: boolean) =>
     `cursor-pointer transition-colors ${
       active
-        ? "text-[var(--text-secondary)] underline decoration-[var(--text-disabled)] underline-offset-4"
+        ? "text-primary font-medium underline decoration-primary/40 underline-offset-4"
         : "text-[var(--text-disabled)] hover:text-[var(--text-tertiary)]"
     }`;
 
