@@ -9,8 +9,8 @@ import {
   generateRubric,
   buildGameProfiles,
   findCachedRubric,
-  type ProfilerResult,
 } from "@/lib/pipeline/generation/vibe-profiler";
+import { generateSessionName } from "@/lib/pipeline/generation/session-naming";
 import { getVibeProfilerProvider } from "@/lib/llm";
 import { acquireLlmGeneration } from "@/lib/rate-limit";
 import type { GenerateEvent, PendingTrack } from "@/lib/pipeline/generation/types";
@@ -76,7 +76,7 @@ function filterByDuration(
 async function profileVibe(
   activeGames: Game[],
   taggedPools: Map<string, TaggedTrack[]>,
-): Promise<ProfilerResult | undefined> {
+): Promise<VibeRubric | undefined> {
   try {
     const gameProfiles = buildGameProfiles(activeGames, taggedPools);
     const result = await generateRubric({ gameProfiles }, getVibeProfilerProvider());
@@ -223,14 +223,6 @@ export async function generatePlaylistForGuest(
 
 // ─── Authenticated pipeline ──────────────────────────────────────────────────
 
-/**
- * Core playlist generation pipeline, decoupled from HTTP/SSE transport.
- *
- * Three phases (all track data is pre-cached during onboarding):
- *   1 — Candidate gathering: load tagged tracks + cached video metadata from DB.
- *   2 — Vibe Profiler: LLM produces a VibeRubric from game titles.
- *   3 — Arc assembly: the Director builds the final ordered playlist.
- */
 export async function generatePlaylist(
   send: Send,
   userId: string,
@@ -254,39 +246,41 @@ export async function generatePlaylist(
   let decisions: TrackDecision[] = [];
   let usedRubric: VibeRubric | undefined;
   let gameBudgets: Record<string, number> = {};
-  let sessionName: string | null | undefined;
+  let sessionName: string | null = null;
 
   if (filteredPools.size > 0 && targetCount > 0) {
     const activeGames = games.filter((g) => filteredPools.has(g.id));
 
-    // 1. Try rubric cache first — no cap consumption, no LLM call
-    let profilerResult: ProfilerResult | undefined =
+    let rubric: VibeRubric | undefined =
       (await findCachedRubric(
         userId,
         activeGames.map((g) => g.id),
       )) ?? undefined;
 
-    // 2. Cache miss — check daily LLM cap. If under, run the profiler.
-    //    If over, the Director silently uses the default arc template.
-    if (!profilerResult) {
+    if (!rubric) {
       const capExceeded = await acquireLlmGeneration(userId);
       if (!capExceeded) {
-        profilerResult = await profileVibe(activeGames, filteredPools);
+        rubric = await profileVibe(activeGames, filteredPools);
       }
     }
+
+    // Naming runs in parallel with the Director; failures fall through to
+    // the deterministic fallback in persistSession().
+    const namingPromise = generateSessionName(activeGames);
 
     const directorResult = runDirector(
       filteredPools,
       activeGames,
       targetCount,
-      profilerResult?.rubric,
+      rubric,
       !config.raw_vibes,
     );
     individualTracks = directorResult.pendingTracks;
     decisions = directorResult.decisions;
     usedRubric = directorResult.usedRubric;
     gameBudgets = directorResult.gameBudgets;
-    sessionName = profilerResult?.sessionName;
+
+    sessionName = await namingPromise;
   }
 
   const allTracks = individualTracks.slice(0, targetCount);

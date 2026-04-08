@@ -4,13 +4,7 @@ import type { LLMProvider } from "@/lib/llm/provider";
 const log = createLogger("vibe-profiler");
 import { ArcPhase, TrackMood, TrackInstrumentation, TrackRole } from "@/types";
 import type { VibeRubric, PhaseOverride } from "@/types";
-import { SESSION_NAME_MAX_LENGTH } from "@/lib/constants";
 import { Sessions } from "@/lib/db/repo";
-
-export interface ProfilerResult {
-  rubric: VibeRubric;
-  sessionName: string | null;
-}
 
 export interface GameProfile {
   title: string;
@@ -92,8 +86,7 @@ Return ONLY a JSON object with this structure:
     "outro": { ... }
   },
   "penalizedMoods": ["mood1", "mood2"],
-  "allowVocals": false,
-  "sessionName": "Short Evocative Title"
+  "allowVocals": false
 }
 
 ## Rules
@@ -106,24 +99,6 @@ Per-phase fields:
 Global fields:
 - penalizedMoods: 2-3 moods that universally clash with these games' aesthetics.
 - allowVocals: true if vocals fit, false if instrumental-only is better, null if no preference.
-- sessionName: a 2-4 word playlist title. Think mixtape label scribbled 
-  by someone who just played these games, not a marketing-approved album 
-  title. The name should feel like it belongs to a video game soundtrack 
-  curator — grounded in gaming culture without being a direct reference 
-  or pun. Read the game list and their sonic profiles: are these dark 
-  action RPGs? cozy indie games? retro platformers? sprawling open 
-  worlds? Let the genre and feel shape your word choices. Use concrete, 
-  textured nouns over abstract dramatic ones (prefer "rust," "neon," 
-  "cartridge," "bonfire" over "descent," "eclipse," "void," "eternity"). 
-  Casual, slightly offbeat, specific enough that two different game 
-  combinations would never produce the same name. No exclamation marks, 
-  no first-person, no marketing language.
-  Examples showing range across different game vibes:
-  "Boss Room Haze" (action RPGs)
-  "Pixel Fog" (retro/indie)  
-  "Overworld Dust" (open world/exploration)
-  "Neon Save Point" (synth-heavy/cyberpunk)
-  "Campfire Loop" (cozy/acoustic)
 
 ## Example
 
@@ -213,7 +188,7 @@ export function buildGameProfiles(
 export async function generateRubric(
   ctx: ProfilerContext,
   provider: LLMProvider,
-): Promise<ProfilerResult | null> {
+): Promise<VibeRubric | null> {
   if (ctx.gameProfiles.length === 0) return null;
 
   const userPrompt = formatUserPrompt(ctx.gameProfiles);
@@ -268,31 +243,13 @@ export async function generateRubric(
     allowVocals = parsed.allowVocals;
   }
 
-  const rawName = parsed.sessionName;
-  const sessionName =
-    typeof rawName === "string" &&
-    rawName.trim().length > 0 &&
-    rawName.length <= SESSION_NAME_MAX_LENGTH
-      ? rawName.trim()
-      : null;
-
-  return {
-    rubric: { phases, penalizedMoods, allowVocals },
-    sessionName,
-  };
+  return { phases, penalizedMoods, allowVocals };
 }
 
-/**
- * Checks the user's existing sessions for one with a matching game set and returns
- * its stored rubric + name. Game sets are compared as unordered sets of game IDs.
- * Returns null if no session matches or if no cached session has valid telemetry.
- *
- * Sessions are FIFO-capped at MAX_PLAYLIST_SESSIONS (3), so this is bounded.
- */
 export async function findCachedRubric(
   userId: string,
   activeGameIds: string[],
-): Promise<ProfilerResult | null> {
+): Promise<VibeRubric | null> {
   const sessions = await Sessions.listAllWithCounts(userId);
   if (sessions.length === 0) return null;
 
@@ -307,7 +264,7 @@ export async function findCachedRubric(
     if (cachedIds.length !== targetSize) continue;
     if (!cachedIds.every((id) => targetSet.has(id))) continue;
 
-    return { rubric: telemetry.rubric, sessionName: telemetry.name };
+    return telemetry.rubric;
   }
 
   return null;

@@ -75,7 +75,6 @@ function makeValidResponse(overrides: Record<string, unknown> = {}): string {
     },
     penalizedMoods: [TrackMood.Playful, TrackMood.Whimsical],
     allowVocals: false,
-    sessionName: "Soulsborne Descent",
     ...overrides,
   });
 }
@@ -96,7 +95,7 @@ describe("generateRubric", () => {
       const result = await generateRubric({ gameProfiles: [makeProfile()] }, provider);
 
       expect(result).not.toBeNull();
-      const rubric = result!.rubric;
+      const rubric = result!;
 
       expect(Object.keys(rubric.phases)).toHaveLength(6);
       expect(rubric.phases.intro!.preferredMoods).toEqual([
@@ -115,10 +114,9 @@ describe("generateRubric", () => {
       const provider = mockProvider(makeValidResponse());
       const result = await generateRubric({ gameProfiles: [makeProfile()] }, provider);
 
-      const rubric = result!.rubric;
+      const rubric = result!;
       expect(rubric.penalizedMoods).toEqual([TrackMood.Playful, TrackMood.Whimsical]);
       expect(rubric.allowVocals).toBe(false);
-      expect(result!.sessionName).toBe("Soulsborne Descent");
     });
 
     it("should pass cacheSystem: true to the provider", async () => {
@@ -142,7 +140,7 @@ describe("generateRubric", () => {
         provider,
       );
       expect(result).not.toBeNull();
-      expect(result!.rubric.phases.intro!.preferredMoods).toContain(TrackMood.Peaceful);
+      expect(result!.phases.intro!.preferredMoods).toContain(TrackMood.Peaceful);
     });
   });
 
@@ -193,8 +191,8 @@ describe("generateRubric", () => {
       );
       const result = await generateRubric({ gameProfiles: [makeProfile("Test")] }, provider);
       expect(result).not.toBeNull();
-      expect(result!.rubric.phases.intro).toBeUndefined();
-      expect(result!.rubric.phases.peak).toBeDefined();
+      expect(result!.phases.intro).toBeUndefined();
+      expect(result!.phases.peak).toBeDefined();
     });
 
     it("should drop phases with invalid instrumentation", async () => {
@@ -219,8 +217,8 @@ describe("generateRubric", () => {
       );
       const result = await generateRubric({ gameProfiles: [makeProfile("Test")] }, provider);
       expect(result).not.toBeNull();
-      expect(result!.rubric.phases.intro).toBeUndefined();
-      expect(result!.rubric.phases.peak).toBeDefined();
+      expect(result!.phases.intro).toBeUndefined();
+      expect(result!.phases.peak).toBeDefined();
     });
 
     it("should return null when all phases are invalid", async () => {
@@ -272,9 +270,9 @@ describe("generateRubric", () => {
       );
       const result = await generateRubric({ gameProfiles: [makeProfile("Test")] }, provider);
       expect(result).not.toBeNull();
-      expect(Object.keys(result!.rubric.phases)).toHaveLength(2);
-      expect(result!.rubric.phases.intro).toBeDefined();
-      expect(result!.rubric.phases.climax).toBeDefined();
+      expect(Object.keys(result!.phases)).toHaveLength(2);
+      expect(result!.phases.intro).toBeDefined();
+      expect(result!.phases.climax).toBeDefined();
     });
 
     it("should truncate moods to 2 per phase", async () => {
@@ -290,7 +288,7 @@ describe("generateRubric", () => {
         }),
       );
       const result = await generateRubric({ gameProfiles: [makeProfile("Test")] }, provider);
-      expect(result!.rubric.phases.intro!.preferredMoods).toHaveLength(2);
+      expect(result!.phases.intro!.preferredMoods).toHaveLength(2);
     });
 
     it("should truncate instrumentation to 2 per phase", async () => {
@@ -310,7 +308,7 @@ describe("generateRubric", () => {
         }),
       );
       const result = await generateRubric({ gameProfiles: [makeProfile("Test")] }, provider);
-      expect(result!.rubric.phases.intro!.preferredInstrumentation).toHaveLength(2);
+      expect(result!.phases.intro!.preferredInstrumentation).toHaveLength(2);
     });
 
     it("should truncate roles to 2 per phase", async () => {
@@ -326,7 +324,7 @@ describe("generateRubric", () => {
         }),
       );
       const result = await generateRubric({ gameProfiles: [makeProfile("Test")] }, provider);
-      expect(result!.rubric.phases.intro!.preferredRoles).toHaveLength(2);
+      expect(result!.phases.intro!.preferredRoles).toHaveLength(2);
     });
 
     it("should ignore unknown phase names", async () => {
@@ -347,8 +345,8 @@ describe("generateRubric", () => {
         }),
       );
       const result = await generateRubric({ gameProfiles: [makeProfile("Test")] }, provider);
-      expect(Object.keys(result!.rubric.phases)).toHaveLength(1);
-      expect(result!.rubric.phases[ArcPhase.Intro]).toBeDefined();
+      expect(Object.keys(result!.phases)).toHaveLength(1);
+      expect(result!.phases[ArcPhase.Intro]).toBeDefined();
     });
   });
 
@@ -356,7 +354,7 @@ describe("generateRubric", () => {
     it("should default allowVocals to null for non-boolean values", async () => {
       const provider = mockProvider(makeValidResponse({ allowVocals: "maybe" }));
       const result = await generateRubric({ gameProfiles: [makeProfile("Test")] }, provider);
-      expect(result!.rubric.allowVocals).toBeNull();
+      expect(result!.allowVocals).toBeNull();
     });
 
     it("should truncate penalizedMoods to 3", async () => {
@@ -371,45 +369,13 @@ describe("generateRubric", () => {
         }),
       );
       const result = await generateRubric({ gameProfiles: [makeProfile("Test")] }, provider);
-      expect(result!.rubric.penalizedMoods).toHaveLength(3);
+      expect(result!.penalizedMoods).toHaveLength(3);
     });
 
     it("should handle missing penalizedMoods gracefully", async () => {
       const provider = mockProvider(makeValidResponse({ penalizedMoods: undefined }));
       const result = await generateRubric({ gameProfiles: [makeProfile("Test")] }, provider);
-      expect(result!.rubric.penalizedMoods).toEqual([]);
-    });
-  });
-
-  describe("sessionName", () => {
-    it("should return null when sessionName is missing", async () => {
-      const provider = mockProvider(makeValidResponse({ sessionName: undefined }));
-      const result = await generateRubric({ gameProfiles: [makeProfile("Test")] }, provider);
-      expect(result!.sessionName).toBeNull();
-    });
-
-    it("should return null when sessionName is not a string", async () => {
-      const provider = mockProvider(makeValidResponse({ sessionName: 42 }));
-      const result = await generateRubric({ gameProfiles: [makeProfile("Test")] }, provider);
-      expect(result!.sessionName).toBeNull();
-    });
-
-    it("should return null when sessionName is empty", async () => {
-      const provider = mockProvider(makeValidResponse({ sessionName: "   " }));
-      const result = await generateRubric({ gameProfiles: [makeProfile("Test")] }, provider);
-      expect(result!.sessionName).toBeNull();
-    });
-
-    it("should return null when sessionName exceeds max length", async () => {
-      const provider = mockProvider(makeValidResponse({ sessionName: "A".repeat(101) }));
-      const result = await generateRubric({ gameProfiles: [makeProfile("Test")] }, provider);
-      expect(result!.sessionName).toBeNull();
-    });
-
-    it("should trim whitespace from valid sessionName", async () => {
-      const provider = mockProvider(makeValidResponse({ sessionName: "  Moonlit Kingdoms  " }));
-      const result = await generateRubric({ gameProfiles: [makeProfile("Test")] }, provider);
-      expect(result!.sessionName).toBe("Moonlit Kingdoms");
+      expect(result!.penalizedMoods).toEqual([]);
     });
   });
 });
@@ -562,7 +528,7 @@ describe("findCachedRubric", () => {
     expect(result).toBeNull();
   });
 
-  it("should return rubric and sessionName on exact match", async () => {
+  it("should return rubric on exact match", async () => {
     const rubric = makeRubric();
     vi.spyOn(Sessions, "listAllWithCounts").mockResolvedValue([
       makeSession("s1", "Moonlit Descent"),
@@ -572,18 +538,18 @@ describe("findCachedRubric", () => {
     );
     const result = await findCachedRubric(TEST_USER_ID, ["g1", "g2"]);
     expect(result).not.toBeNull();
-    expect(result!.rubric).toBe(rubric);
-    expect(result!.sessionName).toBe("Moonlit Descent");
+    expect(result!).toBe(rubric);
   });
 
   it("should match regardless of game ID order", async () => {
+    const rubric = makeRubric();
     vi.spyOn(Sessions, "listAllWithCounts").mockResolvedValue([makeSession("s1", "Cached")]);
     vi.spyOn(Sessions, "getByIdWithTelemetry").mockResolvedValue(
-      makeTelemetry("s1", "Cached", makeRubric(), { g2: 5, g1: 5 }),
+      makeTelemetry("s1", "Cached", rubric, { g2: 5, g1: 5 }),
     );
     const result = await findCachedRubric(TEST_USER_ID, ["g1", "g2"]);
     expect(result).not.toBeNull();
-    expect(result!.sessionName).toBe("Cached");
+    expect(result!).toBe(rubric);
   });
 
   it("should return the first matching session (newest-first)", async () => {
@@ -598,22 +564,22 @@ describe("findCachedRubric", () => {
       .mockResolvedValueOnce(makeTelemetry("s1", "Newest", rubric1, { g1: 5, g2: 5 }))
       .mockResolvedValueOnce(makeTelemetry("s2", "Older", rubric2, { g1: 5, g2: 5 }));
     const result = await findCachedRubric(TEST_USER_ID, ["g1", "g2"]);
-    expect(result!.sessionName).toBe("Newest");
-    expect(result!.rubric).toBe(rubric1);
+    expect(result!).toBe(rubric1);
     // Should short-circuit after finding the first match
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
   it("should fall through to later sessions when the first doesn't match", async () => {
+    const matchRubric = makeRubric();
     vi.spyOn(Sessions, "listAllWithCounts").mockResolvedValue([
       makeSession("s1", "Different"),
       makeSession("s2", "Match"),
     ]);
     vi.spyOn(Sessions, "getByIdWithTelemetry")
       .mockResolvedValueOnce(makeTelemetry("s1", "Different", makeRubric(), { g3: 5, g4: 5 }))
-      .mockResolvedValueOnce(makeTelemetry("s2", "Match", makeRubric(), { g1: 5, g2: 5 }));
+      .mockResolvedValueOnce(makeTelemetry("s2", "Match", matchRubric, { g1: 5, g2: 5 }));
     const result = await findCachedRubric(TEST_USER_ID, ["g1", "g2"]);
     expect(result).not.toBeNull();
-    expect(result!.sessionName).toBe("Match");
+    expect(result!).toBe(matchRubric);
   });
 });
