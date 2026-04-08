@@ -1,10 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Headphones } from "lucide-react";
 import { usePlayerContext } from "@/context/player-context";
 import { useCooldownTimer } from "@/hooks/shared/useCooldownTimer";
-import { steamHeaderUrl } from "@/lib/constants";
+import { steamHeaderUrl, MAX_TRACK_COUNT } from "@/lib/constants";
 import { outlineAmberCtaClass } from "@/components/ui/button";
 import type { Game } from "@/types";
 
@@ -28,9 +29,11 @@ export function Launchpad({ pressedCurate, onCurateClick }: LaunchpadProps) {
           targetTrackCount={config.targetTrackCount}
           allowLongTracks={config.allowLongTracks}
           allowShortTracks={config.allowShortTracks}
+          rawVibes={config.rawVibes}
           onSaveTrackCount={config.saveTrackCount}
           onToggleLongTracks={config.saveAllowLongTracks}
           onToggleShortTracks={config.saveAllowShortTracks}
+          onToggleRawVibes={config.saveRawVibes}
           pressedCurate={pressedCurate}
           onCurateClick={onCurateClick}
           secsLeft={secsLeft}
@@ -66,9 +69,11 @@ interface LaunchpadReadyProps {
   targetTrackCount: number;
   allowLongTracks: boolean;
   allowShortTracks: boolean;
+  rawVibes: boolean;
   onSaveTrackCount: (n: number) => void;
   onToggleLongTracks: (enabled: boolean) => void;
   onToggleShortTracks: (enabled: boolean) => void;
+  onToggleRawVibes: (enabled: boolean) => void;
   pressedCurate: boolean;
   onCurateClick: () => void;
   secsLeft: number;
@@ -84,9 +89,11 @@ function LaunchpadReady({
   targetTrackCount,
   allowLongTracks,
   allowShortTracks,
+  rawVibes,
   onSaveTrackCount,
   onToggleLongTracks,
   onToggleShortTracks,
+  onToggleRawVibes,
   pressedCurate,
   onCurateClick,
   secsLeft,
@@ -94,6 +101,7 @@ function LaunchpadReady({
   generating,
   genError,
 }: LaunchpadReadyProps) {
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const showCuratingLabel = pressedCurate || generating;
   const buttonDisabled = pressedCurate || generating || secsLeft > 0;
 
@@ -107,7 +115,7 @@ function LaunchpadReady({
     }`;
 
   return (
-    <div className="flex max-w-[480px] flex-col items-center text-center">
+    <div className="relative flex max-w-[480px] flex-col items-center text-center">
       <CoverRow games={games} />
 
       <p className="mt-6 text-[13px] text-[var(--text-tertiary)]">
@@ -156,24 +164,115 @@ function LaunchpadReady({
 
         <button
           type="button"
-          onClick={() => onToggleLongTracks(!allowLongTracks)}
-          className={optionClass(allowLongTracks)}
+          onClick={() => setAdvancedOpen((open) => !open)}
+          className={optionClass(advancedOpen)}
         >
-          Long tracks
+          Advanced
         </button>
-        <button
-          type="button"
-          onClick={() => onToggleShortTracks(!allowShortTracks)}
-          className={optionClass(allowShortTracks)}
-        >
-          Short tracks
-        </button>
+      </div>
+
+      {/* Advanced reveal — absolutely positioned so opening it does NOT shift
+          the centered cluster above. Anchored to the cluster's bottom edge. */}
+      <div
+        aria-hidden={!advancedOpen}
+        className={`absolute top-full left-1/2 mt-5 w-[300px] -translate-x-1/2 transition-opacity duration-[180ms] ease-out ${
+          advancedOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        } ${pressedCurate ? "pointer-events-none opacity-30" : ""}`}
+      >
+        <div className="flex flex-col gap-3 border-t border-white/[0.06] pt-4">
+          <CustomSizeRow
+            value={targetTrackCount}
+            onChange={onSaveTrackCount}
+            isCustom={!(PRESETS as readonly number[]).includes(targetTrackCount)}
+          />
+          <ToggleRow
+            label="Long tracks"
+            description="Allow tracks over 9 min"
+            on={allowLongTracks}
+            onToggle={() => onToggleLongTracks(!allowLongTracks)}
+          />
+          <ToggleRow
+            label="Short tracks"
+            description="Allow tracks under 90s"
+            on={allowShortTracks}
+            onToggle={() => onToggleShortTracks(!allowShortTracks)}
+          />
+          <ToggleRow
+            label="Raw vibes"
+            description="Ignore popularity, score on tags only"
+            on={rawVibes}
+            onToggle={() => onToggleRawVibes(!rawVibes)}
+          />
+        </div>
       </div>
 
       {genError && secsLeft === 0 && (
         <p className="text-destructive mt-3 text-[12px]">{genError}</p>
       )}
     </div>
+  );
+}
+
+// ─── Advanced settings rows ───────────────────────────────────────────────
+
+function CustomSizeRow({
+  value,
+  isCustom,
+  onChange,
+}: {
+  value: number;
+  isCustom: boolean;
+  onChange: (n: number) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <span
+        className={`text-[12px] transition-colors ${
+          isCustom ? "text-[var(--text-secondary)]" : "text-[var(--text-disabled)]"
+        }`}
+      >
+        Custom size
+      </span>
+      <input
+        type="number"
+        min={1}
+        max={MAX_TRACK_COUNT}
+        value={value}
+        onChange={(e) => {
+          const v = parseInt(e.target.value, 10);
+          if (!isNaN(v) && v >= 1 && v <= MAX_TRACK_COUNT) onChange(v);
+        }}
+        aria-label="Custom playlist size"
+        className="focus:border-primary/60 w-14 [appearance:textfield] rounded-md border border-white/[0.06] bg-transparent px-2 py-1 text-center text-[11px] text-[var(--text-secondary)] tabular-nums focus:outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+      />
+    </div>
+  );
+}
+
+function ToggleRow({
+  label,
+  description,
+  on,
+  onToggle,
+}: {
+  label: string;
+  description: string;
+  on: boolean;
+  onToggle: () => void;
+}) {
+  const stateClass = on ? "text-[var(--text-secondary)]" : "text-[var(--text-disabled)]";
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="group/row flex cursor-pointer items-center justify-between text-left transition-colors"
+    >
+      <div className="flex flex-col">
+        <span className={`text-[12px] transition-colors ${stateClass}`}>{label}</span>
+        <span className="text-[11px] text-white/15">{description}</span>
+      </div>
+      <span className={`text-[11px] transition-colors ${stateClass}`}>{on ? "on" : "off"}</span>
+    </button>
   );
 }
 

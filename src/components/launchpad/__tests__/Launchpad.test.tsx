@@ -13,9 +13,11 @@ const mockPlayerContext = {
     targetTrackCount: 50,
     allowLongTracks: false,
     allowShortTracks: false,
+    rawVibes: false,
     saveTrackCount: vi.fn(),
     saveAllowLongTracks: vi.fn(),
     saveAllowShortTracks: vi.fn(),
+    saveRawVibes: vi.fn(),
   },
   playlist: {
     cooldownUntil: 0,
@@ -41,6 +43,7 @@ afterEach(() => {
   mockPlayerContext.config.targetTrackCount = 50;
   mockPlayerContext.config.allowLongTracks = false;
   mockPlayerContext.config.allowShortTracks = false;
+  mockPlayerContext.config.rawVibes = false;
   mockPlayerContext.playlist.cooldownUntil = 0;
   mockPlayerContext.playlist.generating = false;
   mockPlayerContext.playlist.genError = null;
@@ -132,24 +135,62 @@ describe("Launchpad", () => {
       expect(mockPlayerContext.config.saveTrackCount).toHaveBeenCalledWith(100);
     });
 
-    it("should call saveAllowLongTracks when Long tracks is toggled", () => {
+    it("should render the Advanced toggle in place of long/short labels", () => {
       mockPlayerContext.gameLibrary.games = [makeGame()];
       render(<Launchpad pressedCurate={false} onCurateClick={vi.fn()} />);
+      expect(screen.getByRole("button", { name: /advanced/i })).toBeInTheDocument();
+    });
+
+    it("should hide the Advanced area until the Advanced toggle is opened", () => {
+      mockPlayerContext.gameLibrary.games = [makeGame()];
+      render(<Launchpad pressedCurate={false} onCurateClick={vi.fn()} />);
+      // Advanced area is mounted but aria-hidden when closed
+      const customInput = screen.queryByLabelText(/custom playlist size/i);
+      expect(customInput?.closest("[aria-hidden]")).toHaveAttribute("aria-hidden", "true");
+    });
+
+    it("should reveal Custom + Long/Short/Raw rows when Advanced is clicked", () => {
+      mockPlayerContext.gameLibrary.games = [makeGame()];
+      render(<Launchpad pressedCurate={false} onCurateClick={vi.fn()} />);
+      fireEvent.click(screen.getByRole("button", { name: /advanced/i }));
+      const region = screen.getByLabelText(/custom playlist size/i).closest("[aria-hidden]");
+      expect(region).toHaveAttribute("aria-hidden", "false");
+      expect(screen.getByRole("button", { name: /long tracks/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /short tracks/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /raw vibes/i })).toBeInTheDocument();
+    });
+
+    it("should call saveAllowLongTracks when Long tracks row is clicked", () => {
+      mockPlayerContext.gameLibrary.games = [makeGame()];
+      render(<Launchpad pressedCurate={false} onCurateClick={vi.fn()} />);
+      fireEvent.click(screen.getByRole("button", { name: /advanced/i }));
       fireEvent.click(screen.getByRole("button", { name: /long tracks/i }));
       expect(mockPlayerContext.config.saveAllowLongTracks).toHaveBeenCalledWith(true);
     });
 
-    it("should call saveAllowShortTracks when Short tracks is toggled", () => {
+    it("should call saveAllowShortTracks when Short tracks row is clicked", () => {
       mockPlayerContext.gameLibrary.games = [makeGame()];
       render(<Launchpad pressedCurate={false} onCurateClick={vi.fn()} />);
+      fireEvent.click(screen.getByRole("button", { name: /advanced/i }));
       fireEvent.click(screen.getByRole("button", { name: /short tracks/i }));
       expect(mockPlayerContext.config.saveAllowShortTracks).toHaveBeenCalledWith(true);
     });
 
-    it("should not render the Raw vibes toggle", () => {
+    it("should call saveRawVibes when Raw vibes row is clicked", () => {
       mockPlayerContext.gameLibrary.games = [makeGame()];
       render(<Launchpad pressedCurate={false} onCurateClick={vi.fn()} />);
-      expect(screen.queryByRole("button", { name: /raw vibes/i })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: /advanced/i }));
+      fireEvent.click(screen.getByRole("button", { name: /raw vibes/i }));
+      expect(mockPlayerContext.config.saveRawVibes).toHaveBeenCalledWith(true);
+    });
+
+    it("should call saveTrackCount when the Custom size input changes", () => {
+      mockPlayerContext.gameLibrary.games = [makeGame()];
+      render(<Launchpad pressedCurate={false} onCurateClick={vi.fn()} />);
+      fireEvent.click(screen.getByRole("button", { name: /advanced/i }));
+      const input = screen.getByLabelText(/custom playlist size/i);
+      fireEvent.change(input, { target: { value: "75" } });
+      expect(mockPlayerContext.config.saveTrackCount).toHaveBeenCalledWith(75);
     });
 
     it("should cap the cover row at 6 covers and show a +N indicator", () => {
