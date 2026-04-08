@@ -225,6 +225,22 @@ export const gameReviewFlags = sqliteTable(
   (table) => [index("idx_review_flags_game").on(table.game_id)],
 );
 
+// ─── Game requests (IGDB-backed "can't find your game?") ────────────────────
+
+export const gameRequests = sqliteTable(
+  "game_requests",
+  {
+    igdb_id: integer("igdb_id").notNull().primaryKey(),
+    name: text("name").notNull(),
+    cover_url: text("cover_url"),
+    request_count: integer("request_count").notNull().default(1),
+    acknowledged: integer("acknowledged", { mode: "boolean" }).notNull().default(false),
+    created_at: text("created_at").notNull().default(timestampDefault),
+    updated_at: text("updated_at").notNull().default(timestampDefault),
+  },
+  (table) => [index("idx_game_requests_ack_count").on(table.acknowledged, table.request_count)],
+);
+
 // ─── Video tracks (YouTube alignment) ────────────────────────────────────────
 
 export const videoTracks = sqliteTable(
