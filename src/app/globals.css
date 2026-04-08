@@ -114,6 +114,7 @@ a {
   --text-secondary: rgba(255, 255, 255, 0.55);
   --text-tertiary: rgba(255, 255, 255, 0.35);
   --text-disabled: rgba(255, 255, 255, 0.25);
+  --text-quaternary: rgba(255, 255, 255, 0.15);
   --primary-hover: #b8882e;
   --primary-muted: #8c6820;
 
@@ -171,6 +172,7 @@ a {
   --color-text-secondary: var(--text-secondary);
   --color-text-tertiary: var(--text-tertiary);
   --color-text-disabled: var(--text-disabled);
+  --color-text-quaternary: var(--text-quaternary);
   --color-primary-hover: var(--primary-hover);
   --color-primary-muted: var(--primary-muted);
 

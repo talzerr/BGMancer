@@ -88,7 +88,10 @@ When adding a new API route:
 
 Next.js App Router with three main page areas:
 
-- `/` — main feed (`src/app/(main)/page.tsx` + `src/app/(main)/FeedClient.tsx`) — playlist view, generation controls, session history
+- `/` — main feed (`src/app/(main)/page.tsx` + `src/app/(main)/FeedClient.tsx`). Renders one of two layouts based on derived `mode` state in `FeedClient`:
+  - **Launchpad mode** (`src/components/launchpad/Launchpad.tsx`) — full-width centered onboarding screen shown when there are no tracks, no in-flight generation, and the user has not pressed Curate. Two states: empty library (CTA → catalog) and ready library (cover row + Curate + size presets + `Advanced` reveal with custom size, Long/Short tracks, Raw vibes).
+  - **Playlist mode** — the two-column layout (controls aside + playlist main). Active when tracks exist, generation is in flight, or `pressedCurate` is set.
+  - The transition between modes is a single opacity cross-fade owned by `FeedClient` (timing constants `LAUNCHPAD_HOLD_MS`, `LAUNCHPAD_FADE_MS`, `LAUNCHPAD_SWAP_DELAY_MS` at the top of the file). The launchpad Curate handler holds for `LAUNCHPAD_HOLD_MS` so the user sees "Curating…" before the layout swaps; generation runs in the background after the swap.
 - `/catalog` — catalog browser + library drawer (`src/app/(main)/catalog/page.tsx` + `src/app/(main)/catalog/CatalogClient.tsx`) — browse published games, add to library with curation modes
 - `/backstage` — admin control plane (`src/app/(backstage)/backstage/`) — inspect/correct track metadata, review flags, Director telemetry, and the game request queue. Four views:
   - `/backstage/games` — game list with needs-review badges, re-ingest / retag actions

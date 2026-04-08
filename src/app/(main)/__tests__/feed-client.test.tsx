@@ -113,8 +113,8 @@ vi.mock("@/components/library/LibraryWidget", () => ({
   LibraryWidget: () => <div data-testid="library-widget" />,
 }));
 
-vi.mock("@/components/session/PlaylistEmptyState", () => ({
-  PlaylistEmptyState: () => <div data-testid="playlist-empty-state" />,
+vi.mock("@/components/launchpad/Launchpad", () => ({
+  Launchpad: () => <div data-testid="launchpad" />,
 }));
 
 vi.mock("@/components/player/SortableTrackItem", () => ({
@@ -184,10 +184,17 @@ function renderFeedClient(props: Partial<{ isSignedIn: boolean; isDev: boolean }
 // ─── Tests ─────────────────────────────────────────────────────────────────
 
 describe("FeedClient", () => {
-  describe("when no tracks and no session", () => {
-    it("should show the empty state", () => {
+  describe("when no tracks and not generating", () => {
+    it("should render the launchpad", () => {
       renderFeedClient();
-      expect(screen.getByTestId("playlist-empty-state")).toBeInTheDocument();
+      expect(screen.getByTestId("launchpad")).toBeInTheDocument();
+    });
+
+    it("should not render the playlist controls column", () => {
+      renderFeedClient();
+      expect(screen.queryByTestId("library-widget")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("generate-section")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("playlist-header")).not.toBeInTheDocument();
     });
 
     it("should not show track items", () => {
@@ -208,45 +215,49 @@ describe("FeedClient", () => {
       expect(screen.getByTestId("track-pt-2")).toBeInTheDocument();
     });
 
-    it("should not show the empty state", () => {
+    it("should not render the launchpad", () => {
       mockPlayerContext.playlist.tracks = [makeTrack({ id: "pt-1", position: 0 })];
       renderFeedClient();
-      expect(screen.queryByTestId("playlist-empty-state")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("launchpad")).not.toBeInTheDocument();
     });
   });
 
-  describe("when tracks are loading", () => {
-    it("should show skeleton loaders instead of tracks or empty state", () => {
-      mockPlayerContext.playlist.isLoading = true;
-      const { container } = renderFeedClient();
-      const skeletons = container.querySelectorAll("[class*='bg-secondary']");
-      expect(skeletons.length).toBeGreaterThan(0);
-      expect(screen.queryByTestId("playlist-empty-state")).not.toBeInTheDocument();
+  describe("when generation is in flight without tracks", () => {
+    it("should render the playlist mode (not the launchpad)", () => {
+      mockPlayerContext.playlist.generating = true;
+      renderFeedClient();
+      expect(screen.queryByTestId("launchpad")).not.toBeInTheDocument();
+      expect(screen.getByTestId("library-widget")).toBeInTheDocument();
     });
   });
 
-  describe("composition", () => {
+  describe("composition (playlist mode)", () => {
     it("should render GenerateSection", () => {
+      mockPlayerContext.playlist.tracks = [makeTrack({ id: "pt-1", position: 0 })];
       renderFeedClient();
       expect(screen.getByTestId("generate-section")).toBeInTheDocument();
     });
 
     it("should render SessionList when signed in", () => {
+      mockPlayerContext.playlist.tracks = [makeTrack({ id: "pt-1", position: 0 })];
       renderFeedClient({ isSignedIn: true });
       expect(screen.getByTestId("session-list")).toBeInTheDocument();
     });
 
     it("should not render SessionList for guests", () => {
+      mockPlayerContext.playlist.tracks = [makeTrack({ id: "pt-1", position: 0 })];
       renderFeedClient({ isSignedIn: false });
       expect(screen.queryByTestId("session-list")).not.toBeInTheDocument();
     });
 
     it("should render PlaylistHeader", () => {
+      mockPlayerContext.playlist.tracks = [makeTrack({ id: "pt-1", position: 0 })];
       renderFeedClient();
       expect(screen.getByTestId("playlist-header")).toBeInTheDocument();
     });
 
     it("should render LibraryWidget", () => {
+      mockPlayerContext.playlist.tracks = [makeTrack({ id: "pt-1", position: 0 })];
       renderFeedClient();
       expect(screen.getByTestId("library-widget")).toBeInTheDocument();
     });

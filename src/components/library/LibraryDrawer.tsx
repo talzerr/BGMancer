@@ -4,6 +4,7 @@ import { CurationMode } from "@/types";
 import type { Game } from "@/types";
 import { LIBRARY_MAX_GAMES, steamHeaderUrl } from "@/lib/constants";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { outlineAmberCtaClass } from "@/components/ui/button";
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon } from "@/components/Icons";
 import { useState } from "react";
 
@@ -214,7 +215,7 @@ export function LibraryDrawer({
                 className={
                   games.length === 0
                     ? "cursor-not-allowed rounded-md border border-[var(--border-default)] px-2 py-1 text-[12px] font-medium text-[var(--text-disabled)]"
-                    : "border-primary text-primary hover:bg-primary/10 cursor-pointer rounded-md border px-2 py-1 text-[12px] font-medium transition-colors"
+                    : outlineAmberCtaClass("sm")
                 }
               >
                 Curate →

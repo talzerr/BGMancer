@@ -57,4 +57,19 @@ function Button({
   );
 }
 
-export { Button, buttonVariants };
+// Onboarding outline CTA — used by the playlist empty state and the catalog
+// drawer header. 1px amber border, amber text, transparent fill, amber-tinted
+// hover. Per DESIGN_SYSTEM.md §4.
+const outlineAmberCtaBase =
+  "border-primary text-primary hover:bg-primary/10 focus-visible:ring-ring focus-visible:ring-offset-background inline-flex cursor-pointer items-center justify-center rounded-md border bg-transparent font-medium transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98]";
+
+const outlineAmberCtaSizes = {
+  sm: "px-2 py-1 text-[12px]",
+  md: "px-6 py-2.5 text-[13px]",
+} as const;
+
+function outlineAmberCtaClass(size: keyof typeof outlineAmberCtaSizes = "md") {
+  return `${outlineAmberCtaBase} ${outlineAmberCtaSizes[size]}`;
+}
+
+export { Button, buttonVariants, outlineAmberCtaClass };
