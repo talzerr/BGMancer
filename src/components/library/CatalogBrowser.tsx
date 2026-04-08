@@ -111,19 +111,7 @@ export function CatalogBrowser({
           <Spinner className="h-5 w-5 text-[var(--text-tertiary)]" />
         </div>
       ) : filtered.length === 0 ? (
-        searchFilter?.trim() ? (
-          <p className="py-6 text-center text-xs text-[var(--text-disabled)]">
-            No games match your search.
-          </p>
-        ) : steamFilterOn ? (
-          <p className="py-6 text-center text-[13px] text-[var(--text-secondary)]">
-            None of your Steam games are in the catalog yet
-          </p>
-        ) : (
-          <p className="py-6 text-center text-xs text-[var(--text-disabled)]">
-            No published games yet.
-          </p>
-        )
+        <p className="py-6 text-center text-xs text-[var(--text-disabled)]">No games found.</p>
       ) : (
         <>
           <div

@@ -124,8 +124,7 @@ describe("CatalogBrowser", () => {
       );
 
       await screen.findByText("Hollow Knight");
-      // The spinner uses role="status" or we check for the loading state text
-      expect(screen.queryByText("No published games yet.")).not.toBeInTheDocument();
+      expect(screen.queryByText("No games found.")).not.toBeInTheDocument();
     });
   });
 

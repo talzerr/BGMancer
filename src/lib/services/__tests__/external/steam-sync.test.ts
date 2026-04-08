@@ -20,8 +20,14 @@ vi.mock("@/lib/db", async () => {
   };
 });
 
-const { syncUserLibrary, MissingSteamUrlError, PrivateProfileError, CooldownError } =
-  await import("../../external/steam-sync");
+const {
+  syncUserLibrary,
+  MissingSteamUrlError,
+  PrivateProfileError,
+  CooldownError,
+  SteamApiError,
+  VanityNotFoundError,
+} = await import("../../external/steam-sync");
 
 // ─── Fetch mock plumbing ────────────────────────────────────────────────────
 
@@ -288,6 +294,120 @@ describe("syncUserLibrary", () => {
         now: new Date("2026-04-07T12:00:00Z"),
       });
       expect(result.catalogMatches).toBe(2);
+    });
+  });
+
+  describe("when STEAM_API_KEY is missing", () => {
+    beforeEach(() => {
+      process.env.STEAM_API_KEY = "";
+      _reloadEnvForTest();
+    });
+
+    afterEach(() => {
+      process.env.STEAM_API_KEY = "test-key";
+      _reloadEnvForTest();
+    });
+
+    it("throws SteamApiError", async () => {
+      await expect(
+        syncUserLibrary(TEST_USER_ID, { steamUrl: "https://steamcommunity.com/id/foo" }),
+      ).rejects.toThrow(SteamApiError);
+    });
+  });
+
+  describe("when the user row does not exist", () => {
+    it("throws SteamApiError", async () => {
+      await expect(
+        syncUserLibrary("does-not-exist", { steamUrl: "https://steamcommunity.com/id/foo" }),
+      ).rejects.toThrow(SteamApiError);
+    });
+  });
+
+  describe("when ResolveVanityURL fetch throws", () => {
+    it("throws SteamApiError", async () => {
+      mockFetch(async (url) => {
+        if (url.includes("ResolveVanityURL")) throw new Error("network down");
+        throw new Error(`Unexpected fetch: ${url}`);
+      });
+
+      await expect(
+        syncUserLibrary(TEST_USER_ID, {
+          steamUrl: "https://steamcommunity.com/id/foo",
+          now: new Date("2026-04-07T12:00:00Z"),
+        }),
+      ).rejects.toThrow(SteamApiError);
+    });
+  });
+
+  describe("when ResolveVanityURL returns non-OK", () => {
+    it("throws SteamApiError", async () => {
+      mockFetch(async (url) => {
+        if (url.includes("ResolveVanityURL")) return jsonResponse({}, false, 500);
+        throw new Error(`Unexpected fetch: ${url}`);
+      });
+
+      await expect(
+        syncUserLibrary(TEST_USER_ID, {
+          steamUrl: "https://steamcommunity.com/id/foo",
+          now: new Date("2026-04-07T12:00:00Z"),
+        }),
+      ).rejects.toThrow(SteamApiError);
+    });
+  });
+
+  describe("when ResolveVanityURL reports success !== 1", () => {
+    it("throws VanityNotFoundError", async () => {
+      mockFetch(async (url) => {
+        if (url.includes("ResolveVanityURL")) {
+          return jsonResponse({ response: { success: 42 } });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      });
+
+      await expect(
+        syncUserLibrary(TEST_USER_ID, {
+          steamUrl: "https://steamcommunity.com/id/nonexistent",
+          now: new Date("2026-04-07T12:00:00Z"),
+        }),
+      ).rejects.toThrow(VanityNotFoundError);
+    });
+  });
+
+  describe("when GetOwnedGames fetch throws", () => {
+    beforeEach(() => {
+      rawDb
+        .prepare("UPDATE users SET steam_id = ? WHERE id = ?")
+        .run("76561198000000000", TEST_USER_ID);
+
+      mockFetch(async (url) => {
+        if (url.includes("GetOwnedGames")) throw new Error("network down");
+        throw new Error(`Unexpected fetch: ${url}`);
+      });
+    });
+
+    it("throws SteamApiError", async () => {
+      await expect(
+        syncUserLibrary(TEST_USER_ID, { now: new Date("2026-04-07T12:00:00Z") }),
+      ).rejects.toThrow(SteamApiError);
+    });
+  });
+
+  describe("when GetOwnedGames returns non-OK", () => {
+    beforeEach(() => {
+      rawDb
+        .prepare("UPDATE users SET steam_id = ? WHERE id = ?")
+        .run("76561198000000000", TEST_USER_ID);
+
+      mockFetch(async (url) => {
+        if (url.includes("GetOwnedGames")) return jsonResponse({}, false, 503);
+        throw new Error(`Unexpected fetch: ${url}`);
+      });
+    });
+
+    it("throws SteamApiError", async () => {
+      await expect(
+        syncUserLibrary(TEST_USER_ID, { now: new Date("2026-04-07T12:00:00Z") }),
+      ).rejects.toThrow(SteamApiError);
     });
   });
 });
