@@ -22,6 +22,20 @@ interface GameRequestPromptProps {
 
 const DEBOUNCE_MS = 300;
 
+/**
+ * Shared empty-state shell — every render branch uses the same icon +
+ * "No games found" header centered in the catalog grid area.
+ */
+function EmptyStateShell({ children }: { children?: React.ReactNode }) {
+  return (
+    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3">
+      <SearchIcon className="h-9 w-9 text-[var(--text-disabled)]" />
+      <p className="text-xs text-[var(--text-tertiary)]">No games found</p>
+      {children}
+    </div>
+  );
+}
+
 export function GameRequestPrompt({
   catalogSearch,
   requestFormEnabled,
@@ -158,22 +172,15 @@ export function GameRequestPrompt({
 
   // Degraded: IGDB or Turnstile not configured → just the empty label.
   if (!requestFormEnabled || degraded) {
-    return (
-      <div className="flex flex-col items-center gap-3 py-16">
-        <SearchIcon className="h-9 w-9 text-[var(--text-disabled)]" />
-        <p className="text-xs text-[var(--text-tertiary)]">No games found.</p>
-      </div>
-    );
+    return <EmptyStateShell />;
   }
 
   // Submitted: input and dropdown replaced with confirmation.
   if (submittedName) {
     return (
-      <div className="flex flex-col items-center gap-3 py-16">
-        <SearchIcon className="h-9 w-9 text-[var(--text-disabled)]" />
-        <p className="text-xs text-[var(--text-tertiary)]">No games found.</p>
+      <EmptyStateShell>
         <p className="text-xs text-[var(--text-secondary)]">Request received for {submittedName}</p>
-      </div>
+      </EmptyStateShell>
     );
   }
 
@@ -206,12 +213,10 @@ export function GameRequestPrompt({
           <div ref={turnstileRef} className="hidden" />
         </>
       )}
-      <div className="flex flex-col items-center gap-3 py-16">
-        <SearchIcon className="h-9 w-9 text-[var(--text-disabled)]" />
-        <p className="text-xs text-[var(--text-tertiary)]">No games found.</p>
+      <EmptyStateShell>
         <p className="text-xs text-[var(--text-secondary)]">Request a game</p>
 
-        <div className="relative w-full max-w-xs">
+        <div className="relative w-full max-w-[260px]">
           <input
             type="text"
             value={activated ? query : previewMode ? catalogSearch : ""}
@@ -235,7 +240,7 @@ export function GameRequestPrompt({
               ) : error ? (
                 <p className="px-3 py-2 text-xs text-[var(--destructive)]">{error}</p>
               ) : results && results.length === 0 ? (
-                <p className="px-3 py-2 text-xs text-[var(--text-tertiary)]">No games found.</p>
+                <p className="px-3 py-2 text-xs text-[var(--text-tertiary)]">No matches</p>
               ) : results && results.length > 0 ? (
                 <ul className="max-h-80 overflow-y-auto">
                   {results.map((r) => (
@@ -269,7 +274,7 @@ export function GameRequestPrompt({
             </div>
           )}
         </div>
-      </div>
+      </EmptyStateShell>
     </>
   );
 }
