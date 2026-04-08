@@ -22,10 +22,17 @@ export type GameProgressEntry = {
   status: GameProgressStatus;
 };
 
-export function usePlaylist() {
-  const [tracks, setTracks] = useState<PlaylistTrack[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+export interface UsePlaylistInit {
+  initialTracks?: PlaylistTrack[];
+  initialSessionId?: string | null;
+}
+
+export function usePlaylist(init: UsePlaylistInit = {}) {
+  const [tracks, setTracks] = useState<PlaylistTrack[]>(init.initialTracks ?? []);
+  const [isLoading, setIsLoading] = useState((init.initialTracks?.length ?? 0) === 0);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(
+    init.initialSessionId ?? null,
+  );
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [genProgress, setGenProgress] = useState<GameProgressEntry[]>([]);

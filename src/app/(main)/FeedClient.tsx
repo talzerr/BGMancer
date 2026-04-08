@@ -55,13 +55,20 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
 
   useEffect(() => {
     if (targetMode === mode) return;
+    if (!pressedCurate) {
+      // Data-driven change (e.g. async cache restore landing after first paint).
+      // Snap to the new mode without replaying the launchpad → playlist fade.
+      setMode(targetMode);
+      setFadeOpacity(1);
+      return;
+    }
     setFadeOpacity(0);
     const swapTimer = setTimeout(() => {
       setMode(targetMode);
       requestAnimationFrame(() => setFadeOpacity(1));
     }, LAUNCHPAD_SWAP_DELAY_MS);
     return () => clearTimeout(swapTimer);
-  }, [targetMode, mode]);
+  }, [targetMode, mode, pressedCurate]);
 
   const {
     containerRef: turnstileContainerRef,
@@ -145,13 +152,13 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
 
               <GenerateSection
                 generating={playlist.generating}
-                genProgress={playlist.genProgress}
                 genError={playlist.genError}
                 cooldownUntil={playlist.cooldownUntil}
                 targetTrackCount={config.targetTrackCount}
                 onTargetChange={config.setTargetTrackCount}
                 onTargetSave={config.saveTrackCount}
                 gamesCount={gameLibrary.games.length}
+                games={gameLibrary.games}
                 onGenerate={handleGenerate}
                 allowLongTracks={config.allowLongTracks}
                 onToggleLongTracks={config.saveAllowLongTracks}
@@ -188,70 +195,65 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
                 onDeleteSession={handleDeleteSession}
               />
 
-              {playlist.isLoading || playlist.tracks.length === 0 ? (
-                <div className="space-y-1.5">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="bg-secondary/50 h-[52px] rounded-xl"
-                      style={{ opacity: 1 - i * 0.12 }}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
+              {playlist.isLoading || playlist.tracks.length === 0 ? null : (
+                <div
+                  key={playlist.currentSessionId ?? "no-session"}
+                  className="animate-in fade-in duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
                 >
-                  <SortableContext items={trackIds} strategy={verticalListSortingStrategy}>
-                    <div className="flex flex-col gap-0 pb-24">
-                      {(() => {
-                        const viewingPlayingSession =
-                          player.playingSessionId === playlist.currentSessionId;
-                        return playlist.tracks.map((track, i) => {
-                          const isCurrentTrack =
-                            viewingPlayingSession && track.id === player.playingTrackId;
-                          const spoilerHidden =
-                            config.antiSpoilerEnabled &&
-                            !player.playedTrackIds.has(track.id) &&
-                            track.id !== player.playingTrackId;
-                          return (
-                            <SortableTrackItem
-                              key={track.id}
-                              track={track}
-                              index={i}
-                              gameThumbnail={gameThumbnailByGameId.get(track.game_id)}
-                              isPlaying={isCurrentTrack}
-                              isActivelyPlaying={isCurrentTrack && player.isPlayerPlaying}
-                              spoilerHidden={spoilerHidden}
-                              isRerolling={playlist.rerollingIds.has(track.id)}
-                              onPlay={() => {
-                                if (isCurrentTrack) {
-                                  player.playerBarRef.current?.togglePlayPause();
-                                } else {
-                                  player.startPlaying(
-                                    playlist.tracks,
-                                    i,
-                                    playlist.currentSessionId,
-                                  );
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <SortableContext items={trackIds} strategy={verticalListSortingStrategy}>
+                      <div className="flex flex-col gap-0 pb-24">
+                        {(() => {
+                          const viewingPlayingSession =
+                            player.playingSessionId === playlist.currentSessionId;
+                          return playlist.tracks.map((track, i) => {
+                            const isCurrentTrack =
+                              viewingPlayingSession && track.id === player.playingTrackId;
+                            const spoilerHidden =
+                              config.antiSpoilerEnabled &&
+                              !player.playedTrackIds.has(track.id) &&
+                              track.id !== player.playingTrackId;
+                            return (
+                              <SortableTrackItem
+                                key={track.id}
+                                track={track}
+                                index={i}
+                                gameThumbnail={gameThumbnailByGameId.get(track.game_id)}
+                                isPlaying={isCurrentTrack}
+                                isActivelyPlaying={isCurrentTrack && player.isPlayerPlaying}
+                                spoilerHidden={spoilerHidden}
+                                isRerolling={playlist.rerollingIds.has(track.id)}
+                                onPlay={() => {
+                                  if (isCurrentTrack) {
+                                    player.playerBarRef.current?.togglePlayPause();
+                                  } else {
+                                    player.startPlaying(
+                                      playlist.tracks,
+                                      i,
+                                      playlist.currentSessionId,
+                                    );
+                                  }
+                                }}
+                                onRemove={() => initiateRemove(track)}
+                                onReroll={() =>
+                                  playlist.rerollTrack(
+                                    track.id,
+                                    config.allowLongTracks,
+                                    config.allowShortTracks,
+                                  )
                                 }
-                              }}
-                              onRemove={() => initiateRemove(track)}
-                              onReroll={() =>
-                                playlist.rerollTrack(
-                                  track.id,
-                                  config.allowLongTracks,
-                                  config.allowShortTracks,
-                                )
-                              }
-                            />
-                          );
-                        });
-                      })()}
-                    </div>
-                  </SortableContext>
-                </DndContext>
+                              />
+                            );
+                          });
+                        })()}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
+                </div>
               )}
             </main>
           </div>

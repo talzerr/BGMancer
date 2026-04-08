@@ -1,4 +1,4 @@
-import type { CurationMode } from "@/types";
+import type { CurationMode, Game } from "@/types";
 
 export interface GuestLibraryEntry {
   gameId: string;
@@ -6,6 +6,7 @@ export interface GuestLibraryEntry {
 }
 
 const GUEST_LIBRARY_KEY = "bgm_guest_library";
+const GUEST_LIBRARY_HYDRATED_KEY = "bgm_guest_library_hydrated";
 
 function isValidEntry(e: unknown): e is GuestLibraryEntry {
   return (
@@ -30,4 +31,26 @@ export function readGuestLibrary(): GuestLibraryEntry[] {
 
 export function writeGuestLibrary(entries: GuestLibraryEntry[]): void {
   localStorage.setItem(GUEST_LIBRARY_KEY, JSON.stringify(entries));
+}
+
+/**
+ * Read the hydrated guest library (full Game objects) from localStorage.
+ * Used to render the launchpad synchronously on first paint without an
+ * async catalog fetch. Returns [] if missing or malformed.
+ */
+export function readGuestLibraryHydrated(): Game[] {
+  try {
+    const raw = localStorage.getItem(GUEST_LIBRARY_HYDRATED_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed as Game[];
+  } catch {
+    return [];
+  }
+}
+
+export function writeGuestLibraryHydrated(games: Game[]): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(GUEST_LIBRARY_HYDRATED_KEY, JSON.stringify(games));
 }
