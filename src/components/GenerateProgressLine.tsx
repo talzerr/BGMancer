@@ -51,7 +51,7 @@ export function GenerateProgressLine({ games }: GenerateProgressLineProps) {
   const currentTitle = shuffled[displayIndex]?.title ?? "";
 
   return (
-    <p className="mt-3 text-center text-[13px] leading-tight">
+    <p className="text-center text-[13px] leading-tight">
       {showAssembling ? (
         <span className="text-[var(--text-tertiary)]">Assembling playlist…</span>
       ) : (

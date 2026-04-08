@@ -106,7 +106,24 @@ Per-phase fields:
 Global fields:
 - penalizedMoods: 2-3 moods that universally clash with these games' aesthetics.
 - allowVocals: true if vocals fit, false if instrumental-only is better, null if no preference.
-- sessionName: a 2-4 word evocative playlist title capturing the mood of this game combination. Think album title, not description. No exclamation marks, no first-person, no marketing language. Do not reuse words from these examples — they show the style, not a template. Examples: "Moonlit Kingdoms", "Fading Embers", "Crystalline Drift", "Velvet Circuitry".
+- sessionName: a 2-4 word playlist title. Think mixtape label scribbled 
+  by someone who just played these games, not a marketing-approved album 
+  title. The name should feel like it belongs to a video game soundtrack 
+  curator — grounded in gaming culture without being a direct reference 
+  or pun. Read the game list and their sonic profiles: are these dark 
+  action RPGs? cozy indie games? retro platformers? sprawling open 
+  worlds? Let the genre and feel shape your word choices. Use concrete, 
+  textured nouns over abstract dramatic ones (prefer "rust," "neon," 
+  "cartridge," "bonfire" over "descent," "eclipse," "void," "eternity"). 
+  Casual, slightly offbeat, specific enough that two different game 
+  combinations would never produce the same name. No exclamation marks, 
+  no first-person, no marketing language.
+  Examples showing range across different game vibes:
+  "Boss Room Haze" (action RPGs)
+  "Pixel Fog" (retro/indie)  
+  "Overworld Dust" (open world/exploration)
+  "Neon Save Point" (synth-heavy/cyberpunk)
+  "Campfire Loop" (cozy/acoustic)
 
 ## Example
 

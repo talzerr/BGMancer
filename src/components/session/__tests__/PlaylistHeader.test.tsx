@@ -76,6 +76,8 @@ async function importComponent() {
 
 const defaultProps = {
   sessions: [makeSession()],
+  currentSessionId: SESSION_ID as string | null,
+  tracks: [] as PlaylistTrack[],
   isSignedIn: false,
   isDev: true,
   onRename: vi.fn().mockResolvedValue(undefined),
@@ -92,8 +94,6 @@ describe("PlaylistHeader", () => {
   beforeEach(() => {
     mockContext = {
       playlist: {
-        tracks: [],
-        currentSessionId: SESSION_ID,
         confirmClear: false,
         setConfirmClear: vi.fn(),
       },
@@ -112,29 +112,13 @@ describe("PlaylistHeader", () => {
   describe("when currentSessionId is null", () => {
     it("should render nothing", async () => {
       const PlaylistHeader = await importComponent();
-      mockContext = {
-        ...mockContext,
-        playlist: {
-          ...(mockContext.playlist as Record<string, unknown>),
-          currentSessionId: null,
-        },
-      };
-
-      const { container } = render(<PlaylistHeader {...defaultProps} />);
+      const { container } = render(<PlaylistHeader {...defaultProps} currentSessionId={null} />);
       expect(container.innerHTML).toBe("");
     });
 
     it("should not show any track stats", async () => {
       const PlaylistHeader = await importComponent();
-      mockContext = {
-        ...mockContext,
-        playlist: {
-          ...(mockContext.playlist as Record<string, unknown>),
-          currentSessionId: null,
-        },
-      };
-
-      render(<PlaylistHeader {...defaultProps} />);
+      render(<PlaylistHeader {...defaultProps} currentSessionId={null} />);
       expect(screen.queryByText(/track/)).not.toBeInTheDocument();
     });
   });
@@ -143,15 +127,7 @@ describe("PlaylistHeader", () => {
     it("should show track count", async () => {
       const PlaylistHeader = await importComponent();
       const tracks = [makeTrack(), makeTrack(), makeTrack()];
-      mockContext = {
-        ...mockContext,
-        playlist: {
-          ...(mockContext.playlist as Record<string, unknown>),
-          tracks,
-        },
-      };
-
-      render(<PlaylistHeader {...defaultProps} />);
+      render(<PlaylistHeader {...defaultProps} tracks={tracks} />);
       expect(screen.getByText("3")).toBeInTheDocument();
       expect(screen.getByText("tracks")).toBeInTheDocument();
     });
@@ -159,15 +135,7 @@ describe("PlaylistHeader", () => {
     it("should show session name", async () => {
       const PlaylistHeader = await importComponent();
       const tracks = [makeTrack()];
-      mockContext = {
-        ...mockContext,
-        playlist: {
-          ...(mockContext.playlist as Record<string, unknown>),
-          tracks,
-        },
-      };
-
-      render(<PlaylistHeader {...defaultProps} />);
+      render(<PlaylistHeader {...defaultProps} tracks={tracks} />);
       expect(
         screen.getByRole("button", { name: new RegExp(TEST_SESSION_NAME) }),
       ).toBeInTheDocument();
@@ -179,30 +147,14 @@ describe("PlaylistHeader", () => {
       const PlaylistHeader = await importComponent();
       // Two tracks: 240s + 360s = 600s = 10m
       const tracks = [makeTrack({ duration_seconds: 240 }), makeTrack({ duration_seconds: 360 })];
-      mockContext = {
-        ...mockContext,
-        playlist: {
-          ...(mockContext.playlist as Record<string, unknown>),
-          tracks,
-        },
-      };
-
-      render(<PlaylistHeader {...defaultProps} />);
+      render(<PlaylistHeader {...defaultProps} tracks={tracks} />);
       expect(screen.getByText("10m")).toBeInTheDocument();
     });
 
     it("should show track count with tracks label", async () => {
       const PlaylistHeader = await importComponent();
       const tracks = [makeTrack(), makeTrack(), makeTrack()];
-      mockContext = {
-        ...mockContext,
-        playlist: {
-          ...(mockContext.playlist as Record<string, unknown>),
-          tracks,
-        },
-      };
-
-      render(<PlaylistHeader {...defaultProps} />);
+      render(<PlaylistHeader {...defaultProps} tracks={tracks} />);
       expect(screen.getByText("3")).toBeInTheDocument();
       expect(screen.getByText("tracks")).toBeInTheDocument();
     });
@@ -213,15 +165,8 @@ describe("PlaylistHeader", () => {
       const PlaylistHeader = await importComponent();
       const user = userEvent.setup();
       const tracks = [makeTrack()];
-      mockContext = {
-        ...mockContext,
-        playlist: {
-          ...(mockContext.playlist as Record<string, unknown>),
-          tracks,
-        },
-      };
 
-      render(<PlaylistHeader {...defaultProps} />);
+      render(<PlaylistHeader {...defaultProps} tracks={tracks} />);
 
       // Click the title button to enter edit mode
       const titleButton = screen.getByRole("button", { name: new RegExp(TEST_SESSION_NAME) });
@@ -237,15 +182,8 @@ describe("PlaylistHeader", () => {
       const PlaylistHeader = await importComponent();
       const user = userEvent.setup();
       const tracks = [makeTrack()];
-      mockContext = {
-        ...mockContext,
-        playlist: {
-          ...(mockContext.playlist as Record<string, unknown>),
-          tracks,
-        },
-      };
 
-      render(<PlaylistHeader {...defaultProps} />);
+      render(<PlaylistHeader {...defaultProps} tracks={tracks} />);
 
       await user.click(screen.getByRole("button", { name: new RegExp(TEST_SESSION_NAME) }));
 
@@ -260,16 +198,7 @@ describe("PlaylistHeader", () => {
     it("should show track count and tracks label", async () => {
       const PlaylistHeader = await importComponent();
       const tracks = [makeTrack(), makeTrack(), makeTrack()];
-      mockContext = {
-        ...mockContext,
-        playlist: {
-          ...(mockContext.playlist as Record<string, unknown>),
-          tracks,
-        },
-      };
-
-      render(<PlaylistHeader {...defaultProps} />);
-
+      render(<PlaylistHeader {...defaultProps} tracks={tracks} />);
       expect(screen.getByText("tracks")).toBeInTheDocument();
       expect(screen.getByText("3")).toBeInTheDocument();
     });
@@ -279,29 +208,13 @@ describe("PlaylistHeader", () => {
     it("should show Play All when there are tracks", async () => {
       const PlaylistHeader = await importComponent();
       const tracks = [makeTrack()];
-      mockContext = {
-        ...mockContext,
-        playlist: {
-          ...(mockContext.playlist as Record<string, unknown>),
-          tracks,
-        },
-      };
-
-      render(<PlaylistHeader {...defaultProps} />);
+      render(<PlaylistHeader {...defaultProps} tracks={tracks} />);
       expect(screen.getByText("Play All")).toBeInTheDocument();
     });
 
     it("should not show Play All when there are no tracks", async () => {
       const PlaylistHeader = await importComponent();
-      mockContext = {
-        ...mockContext,
-        playlist: {
-          ...(mockContext.playlist as Record<string, unknown>),
-          tracks: [],
-        },
-      };
-
-      render(<PlaylistHeader {...defaultProps} />);
+      render(<PlaylistHeader {...defaultProps} tracks={[]} />);
       expect(screen.queryByText("Play All")).not.toBeInTheDocument();
     });
 
@@ -313,17 +226,13 @@ describe("PlaylistHeader", () => {
       const startPlayingMock = vi.fn();
       mockContext = {
         ...mockContext,
-        playlist: {
-          ...(mockContext.playlist as Record<string, unknown>),
-          tracks,
-        },
         player: {
           ...(mockContext.player as Record<string, unknown>),
           startPlaying: startPlayingMock,
         },
       };
 
-      render(<PlaylistHeader {...defaultProps} />);
+      render(<PlaylistHeader {...defaultProps} tracks={tracks} />);
       await user.click(screen.getByText("Play All"));
 
       expect(startPlayingMock).toHaveBeenCalledTimes(1);

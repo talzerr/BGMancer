@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { PlaylistTrack } from "@/types";
 import Script from "next/script";
 import {
   DndContext,
@@ -29,9 +30,9 @@ import { SortableTrackItem } from "@/components/player/SortableTrackItem";
 import { Launchpad } from "@/components/launchpad/Launchpad";
 import { UndoToast } from "@/components/player/UndoToast";
 
-const LAUNCHPAD_HOLD_MS = 1200;
 const LAUNCHPAD_FADE_MS = 700;
 const LAUNCHPAD_SWAP_DELAY_MS = 800; // fade-out duration + brief held-at-zero pause
+const PLAYLIST_FADE_MS = 300;
 
 interface FeedClientProps {
   isSignedIn: boolean;
@@ -46,18 +47,83 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
 
   const [pressedCurate, setPressedCurate] = useState(false);
   const [mode, setMode] = useState<"launchpad" | "playlist">(() =>
-    playlist.tracks.length > 0 || playlist.generating ? "playlist" : "launchpad",
+    playlist.tracks.length > 0 ? "playlist" : "launchpad",
   );
   const [fadeOpacity, setFadeOpacity] = useState(1);
+  // True once the user has pressed Curate from the launchpad in this mount.
+  // Distinguishes the curate-driven transition (cross-fade) from data-driven
+  // mode flips like the cache restore (snap, no fade).
+  const hasCuratedRef = useRef(false);
+
+  // Snapshot of the playlist currently rendered. Lags behind playlist.tracks
+  // during a session swap so we can fade out the old data before it changes.
+  const [displayedSnapshot, setDisplayedSnapshot] = useState<{
+    sessionId: string | null;
+    tracks: PlaylistTrack[];
+  }>(() => ({
+    sessionId: playlist.currentSessionId,
+    tracks: playlist.tracks,
+  }));
+  const [playlistOpacity, setPlaylistOpacity] = useState(1);
+  // Marks the next session swap as a generation completion → use the
+  // crossfade. History clicks (`loadForSession`) leave this false → snap.
+  const fadeOnNextSwapRef = useRef(false);
+  const wasGeneratingRef = useRef(playlist.generating);
+
+  // Detect generation completion: generating transitioned true → false.
+  useEffect(() => {
+    if (wasGeneratingRef.current && !playlist.generating) {
+      fadeOnNextSwapRef.current = true;
+    }
+    wasGeneratingRef.current = playlist.generating;
+  }, [playlist.generating]);
+
+  useEffect(() => {
+    const nextSessionId = playlist.currentSessionId;
+    const nextTracks = playlist.tracks;
+
+    // Same session — keep tracks in sync (reorder, reroll, in-place removal).
+    if (nextSessionId === displayedSnapshot.sessionId) {
+      if (nextTracks !== displayedSnapshot.tracks) {
+        setDisplayedSnapshot({ sessionId: nextSessionId, tracks: nextTracks });
+      }
+      return;
+    }
+
+    // No new session yet, or empty incoming — leave the snapshot as-is.
+    if (!nextSessionId || nextTracks.length === 0) return;
+
+    // First mount with data, or no previous snapshot, or this swap was
+    // triggered by a history click (not a generation) → snap.
+    const shouldFade =
+      fadeOnNextSwapRef.current &&
+      !!displayedSnapshot.sessionId &&
+      displayedSnapshot.tracks.length > 0;
+    fadeOnNextSwapRef.current = false;
+
+    if (!shouldFade) {
+      setDisplayedSnapshot({ sessionId: nextSessionId, tracks: nextTracks });
+      setPlaylistOpacity(1);
+      return;
+    }
+
+    // Generation completed → fade out, swap, fade in.
+    setPlaylistOpacity(0);
+    const swapTimer = setTimeout(() => {
+      setDisplayedSnapshot({ sessionId: nextSessionId, tracks: nextTracks });
+      requestAnimationFrame(() => setPlaylistOpacity(1));
+    }, PLAYLIST_FADE_MS);
+    return () => clearTimeout(swapTimer);
+  }, [playlist.currentSessionId, playlist.tracks, displayedSnapshot]);
 
   const targetMode: "launchpad" | "playlist" =
-    playlist.tracks.length > 0 || playlist.generating || pressedCurate ? "playlist" : "launchpad";
+    playlist.tracks.length > 0 ? "playlist" : "launchpad";
 
   useEffect(() => {
     if (targetMode === mode) return;
-    if (!pressedCurate) {
-      // Data-driven change (e.g. async cache restore landing after first paint).
-      // Snap to the new mode without replaying the launchpad → playlist fade.
+    if (!hasCuratedRef.current) {
+      // Data-driven change (cache restore landing after first paint).
+      // Snap without replaying the launchpad → playlist fade.
       setMode(targetMode);
       setFadeOpacity(1);
       return;
@@ -68,7 +134,7 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
       requestAnimationFrame(() => setFadeOpacity(1));
     }, LAUNCHPAD_SWAP_DELAY_MS);
     return () => clearTimeout(swapTimer);
-  }, [targetMode, mode, pressedCurate]);
+  }, [targetMode, mode]);
 
   const {
     containerRef: turnstileContainerRef,
@@ -94,8 +160,8 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
   }
 
   async function handleLaunchpadCurate() {
+    hasCuratedRef.current = true;
     setPressedCurate(true);
-    await new Promise((r) => setTimeout(r, LAUNCHPAD_HOLD_MS));
     try {
       await handleGenerate();
     } finally {
@@ -116,14 +182,15 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const trackIds = useMemo(() => playlist.tracks.map((t) => t.id), [playlist.tracks]);
+  const displayedTracks = displayedSnapshot.tracks;
+  const trackIds = useMemo(() => displayedTracks.map((t) => t.id), [displayedTracks]);
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const oldIndex = playlist.tracks.findIndex((t) => t.id === active.id);
-    const newIndex = playlist.tracks.findIndex((t) => t.id === over.id);
-    playlist.reorderTracks(arrayMove(playlist.tracks, oldIndex, newIndex).map((t) => t.id));
+    const oldIndex = displayedTracks.findIndex((t) => t.id === active.id);
+    const newIndex = displayedTracks.findIndex((t) => t.id === over.id);
+    playlist.reorderTracks(arrayMove(displayedTracks, oldIndex, newIndex).map((t) => t.id));
   }
 
   return (
@@ -187,19 +254,24 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
 
             {/* Right panel: Playlist */}
             <main className="flex flex-col gap-4">
-              <PlaylistHeader
-                sessions={sessions}
-                isSignedIn={isSignedIn}
-                isDev={isDev}
-                onRename={handleRenameSession}
-                onDeleteSession={handleDeleteSession}
-              />
-
-              {playlist.isLoading || playlist.tracks.length === 0 ? null : (
+              {playlist.isLoading || displayedTracks.length === 0 ? null : (
                 <div
-                  key={playlist.currentSessionId ?? "no-session"}
-                  className="animate-in fade-in duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
+                  className="flex flex-col gap-4"
+                  style={{
+                    opacity: playlistOpacity,
+                    transition: `opacity ${PLAYLIST_FADE_MS}ms cubic-bezier(0.25, 0.1, 0.25, 1)`,
+                    pointerEvents: playlistOpacity === 0 ? "none" : "auto",
+                  }}
                 >
+                  <PlaylistHeader
+                    sessions={sessions}
+                    currentSessionId={displayedSnapshot.sessionId}
+                    tracks={displayedTracks}
+                    isSignedIn={isSignedIn}
+                    isDev={isDev}
+                    onRename={handleRenameSession}
+                    onDeleteSession={handleDeleteSession}
+                  />
                   <DndContext
                     sensors={sensors}
                     collisionDetection={closestCenter}
@@ -209,8 +281,8 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
                       <div className="flex flex-col gap-0 pb-24">
                         {(() => {
                           const viewingPlayingSession =
-                            player.playingSessionId === playlist.currentSessionId;
-                          return playlist.tracks.map((track, i) => {
+                            player.playingSessionId === displayedSnapshot.sessionId;
+                          return displayedTracks.map((track, i) => {
                             const isCurrentTrack =
                               viewingPlayingSession && track.id === player.playingTrackId;
                             const spoilerHidden =
@@ -232,9 +304,9 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
                                     player.playerBarRef.current?.togglePlayPause();
                                   } else {
                                     player.startPlaying(
-                                      playlist.tracks,
+                                      displayedTracks,
                                       i,
-                                      playlist.currentSessionId,
+                                      displayedSnapshot.sessionId,
                                     );
                                   }
                                 }}
