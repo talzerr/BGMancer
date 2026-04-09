@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { PlaylistTrack } from "@/types";
+import { patchPausedState } from "@/hooks/player/playback-state";
 
 // ─── Minimal YT IFrame API types ─────────────────────────────────────────────
 
@@ -63,7 +64,7 @@ interface UseYouTubePlayerOptions {
   onPlayingChange?: (playing: boolean) => void;
   startPaused?: boolean;
   initialSeekSeconds?: number;
-  onTimeUpdate?: (time: number) => void;
+  onTimeUpdate?: (time: number, paused: boolean) => void;
   /** When false, the hook skips all effects and returns inert state. */
   enabled?: boolean;
 }
@@ -119,13 +120,17 @@ export function useYouTubePlayer({
     setIsPlayingState(value);
     isPlayingRef.current = value;
     onPlayingChange?.(value);
-    // On pause, emit a final time update so the position is persisted immediately
     if (!value && singletonPlayer) {
+      // Persist paused state + position directly to localStorage, bypassing
+      // the onTimeUpdate callback chain which suffers from stale closures.
       const ct = singletonPlayer.getCurrentTime();
       if (isFinite(ct)) {
         setCurrentTime(ct);
-        onTimeUpdateRef.current?.(ct);
+        onTimeUpdateRef.current?.(ct, true);
+        patchPausedState(true, ct);
       }
+    } else if (value) {
+      patchPausedState(false);
     }
   }
 
@@ -166,16 +171,18 @@ export function useYouTubePlayer({
     if (!isPlaying) return;
     tickCountRef.current = 0;
     const id = setInterval(() => {
-      if (singletonPlayer) {
-        const ct = singletonPlayer.getCurrentTime();
-        const dur = singletonPlayer.getDuration();
-        if (isFinite(ct)) setCurrentTime(ct);
-        if (isFinite(dur) && dur > 0) setDuration(dur);
-        tickCountRef.current += 1;
-        if (tickCountRef.current >= TIME_UPDATE_TICK_INTERVAL) {
-          tickCountRef.current = 0;
-          if (isFinite(ct)) onTimeUpdateRef.current?.(ct);
-        }
+      // Guard with ref — setPlaying(false) sets isPlayingRef synchronously,
+      // but the effect cleanup (clearInterval) only runs after re-render.
+      // Without this, a stale tick can overwrite paused: true with paused: false.
+      if (!isPlayingRef.current || !singletonPlayer) return;
+      const ct = singletonPlayer.getCurrentTime();
+      const dur = singletonPlayer.getDuration();
+      if (isFinite(ct)) setCurrentTime(ct);
+      if (isFinite(dur) && dur > 0) setDuration(dur);
+      tickCountRef.current += 1;
+      if (tickCountRef.current >= TIME_UPDATE_TICK_INTERVAL) {
+        tickCountRef.current = 0;
+        if (isFinite(ct)) onTimeUpdateRef.current?.(ct, false);
       }
     }, POLL_INTERVAL_MS);
     return () => clearInterval(id);
@@ -262,6 +269,15 @@ export function useYouTubePlayer({
     setPlaying(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentVideoId]);
+
+  // When playback is deactivated (e.g. generation completes), pause the singleton.
+  useEffect(() => {
+    if (!enabled && singletonPlayer) {
+      singletonPlayer.pauseVideo();
+      setPlaying(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled]);
 
   useEffect(() => {
     return () => destroySingleton();

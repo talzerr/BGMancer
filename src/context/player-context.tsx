@@ -67,26 +67,43 @@ export function PlayerProvider({
   initialTracks?: PlaylistTrack[];
   initialSessionId?: string | null;
 }) {
-  // ── Synchronous guest cache read ──
-  // For guests, read cached tracks before usePlaylist so the first render
-  // already has data (no flash of launchpad). For signed-in users, clear
-  // stale guest caches — all data comes from the backend.
-  const guestCache = useMemo(() => {
+  // ── Unified restore ──
+  // Single synchronous memo that reads both cached tracks and playback state.
+  // For signed-in users: clears guest artifacts, keeps own session cache.
+  // For guests: restores tracks (always) and playback state (if valid).
+  const restoreData = useMemo(() => {
     if (isSignedIn) {
       clearGuestLibrary();
       const saved = readPlaybackState();
-      if (!saved || saved.sessionId === "guest") clearPlaybackState();
-      return null;
+      if (!saved || saved.sessionId === "guest") {
+        clearPlaybackState();
+        return { tracks: null, playback: null };
+      }
+      const cachedTracks = readPlaybackTracks();
+      if (!cachedTracks) return { tracks: null, playback: null };
+      const track = cachedTracks[saved.trackIndex];
+      if (!track || track.video_id !== saved.videoId) return { tracks: null, playback: null };
+      return { tracks: cachedTracks, playback: saved };
     }
-    if (initialTracks.length > 0) return null;
-    const cached = readPlaybackTracks();
-    return cached && cached.length > 0 ? cached : null;
+
+    const cachedTracks = readPlaybackTracks();
+    if (!cachedTracks || cachedTracks.length === 0) return { tracks: null, playback: null };
+    const saved = readPlaybackState();
+    if (saved) {
+      const track = cachedTracks[saved.trackIndex];
+      if (track && track.video_id === saved.videoId) {
+        return { tracks: cachedTracks, playback: saved };
+      }
+    }
+    return { tracks: cachedTracks, playback: null };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const playlist = usePlaylist({
-    initialTracks: guestCache ?? initialTracks,
-    initialSessionId: guestCache ? "guest" : initialSessionId,
+    initialTracks: restoreData.tracks ?? initialTracks,
+    initialSessionId: restoreData.tracks
+      ? (restoreData.playback?.sessionId ?? "guest")
+      : initialSessionId,
   });
   const config = useConfig();
   const gameLibrary = useGameLibrary(isSignedIn, initialGames);
@@ -95,49 +112,32 @@ export function PlayerProvider({
   const { currentTrackIndex, effectiveFoundTracks, setCurrentTrackIndex, setIsPlayerPlaying } =
     player;
 
-  const restoredSessionIdRef = useRef<string | null>(null);
-  const restoredRef = useRef(!!guestCache);
-
-  // Read cached playback state synchronously so startPaused / initialSeekSeconds
-  // are available on the very first render (before any effects run).
-  // Skip guest-session caches for signed-in users (e.g. after login transition).
-  const cachedPlayback = useMemo(() => {
-    if (restoredRef.current) return null;
-    const saved = readPlaybackState();
-    const cachedTracks = readPlaybackTracks();
-    if (!saved || !cachedTracks) return null;
-    if (isSignedIn && saved.sessionId === "guest") return null;
-    const track = cachedTracks[saved.trackIndex];
-    if (!track || track.video_id !== saved.videoId) return null;
-    return { saved, cachedTracks };
-  }, [isSignedIn]);
-
   const [restoredSeekSeconds, setRestoredSeekSeconds] = useState<number | null>(
-    cachedPlayback?.saved.positionSeconds ?? null,
+    restoreData.playback?.positionSeconds ?? null,
   );
-  const startPausedOnRestore = cachedPlayback?.saved.paused ?? true;
+  const startPausedOnRestore = restoreData.playback?.paused ?? true;
 
+  const restoredSessionIdRef = useRef<string | null>(null);
+  const restoredRef = useRef(false);
   const fetchTracks = playlist.fetchTracks;
   const fetchGames = gameLibrary.fetchGames;
   const clearPlayedTracks = player.clearPlayedTracks;
 
+  // Restore playback position if cached state exists.
   useEffect(() => {
-    if (!cachedPlayback || restoredRef.current) return;
+    if (restoredRef.current || !restoreData.playback || !restoreData.tracks) return;
     restoredRef.current = true;
-    const { saved, cachedTracks } = cachedPlayback;
-    restoredSessionIdRef.current = saved.sessionId;
-    playlist.hydrateFromCache(cachedTracks, saved.sessionId);
-    player.restorePlayback(cachedTracks, saved.trackIndex, saved.sessionId);
+    restoredSessionIdRef.current = restoreData.playback.sessionId;
+    if (isSignedIn) {
+      playlist.hydrateFromCache(restoreData.tracks, restoreData.playback.sessionId);
+    }
+    player.restorePlayback(
+      restoreData.tracks,
+      restoreData.playback.trackIndex,
+      restoreData.playback.sessionId,
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cachedPlayback]);
-
-  // Guest without any cache — mark loading as done so the launchpad renders.
-  useEffect(() => {
-    if (isSignedIn || restoredRef.current) return;
-    restoredRef.current = true;
-    playlist.markReady();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSignedIn]);
+  }, []);
 
   useEffect(() => {
     if (!isSignedIn) return;
@@ -165,7 +165,7 @@ export function PlayerProvider({
   }, [restoredSeekSeconds]);
 
   const handleTimeUpdate = useCallback(
-    (time: number) => {
+    (time: number, paused: boolean) => {
       const idx = player.currentTrackIndex;
       const sessionId = player.playingSessionId ?? "guest";
       if (idx === null) return;
@@ -176,15 +176,10 @@ export function PlayerProvider({
         trackIndex: idx,
         positionSeconds: time,
         videoId: track.video_id,
-        paused: !player.isPlayerPlaying,
+        paused,
       });
     },
-    [
-      player.currentTrackIndex,
-      player.playingSessionId,
-      player.effectiveFoundTracks,
-      player.isPlayerPlaying,
-    ],
+    [player.currentTrackIndex, player.playingSessionId, player.effectiveFoundTracks],
   );
 
   useEffect(() => {
@@ -197,15 +192,6 @@ export function PlayerProvider({
     savePlaybackState({ sessionId, trackIndex: idx, positionSeconds: 0, videoId: track.video_id });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [player.currentTrackIndex, player.playingSessionId]);
-
-  // Persist paused/playing state changes immediately so refresh preserves
-  // pause state. The onTimeUpdate callback fires synchronously during pause
-  // with a stale isPlayerPlaying closure, so this effect patches it after render.
-  useEffect(() => {
-    const existing = readPlaybackState();
-    if (!existing) return;
-    savePlaybackState({ ...existing, paused: !player.isPlayerPlaying });
-  }, [player.isPlayerPlaying]);
 
   useEffect(() => {
     if (playlist.tracks.length > 0) {

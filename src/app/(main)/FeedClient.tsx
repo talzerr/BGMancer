@@ -77,6 +77,10 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey, user }: FeedCl
     playlist.tracks.length > 0 ? "playlist" : "launchpad",
   );
   const [fadeOpacity, setFadeOpacity] = useState(1);
+  // Tracks whether the client has hydrated. During SSR the server can't read
+  // localStorage, so guests with cached playlists see a flash of launchpad.
+  // We hide guest content until hydration completes to prevent the flash.
+  const [hydrated, setHydrated] = useState(isSignedIn);
   // True once the user has pressed Curate from the launchpad in this mount.
   // Distinguishes the curate-driven transition (cross-fade) from data-driven
   // mode flips like the cache restore (snap, no fade).
@@ -147,6 +151,10 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey, user }: FeedCl
 
   const targetMode: "launchpad" | "playlist" =
     playlist.tracks.length > 0 ? "playlist" : "launchpad";
+
+  useEffect(() => {
+    if (!hydrated) setHydrated(true);
+  }, [hydrated]);
 
   useEffect(() => {
     if (targetMode === mode) return;
@@ -378,7 +386,10 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey, user }: FeedCl
       )}
       <div
         className="transition-opacity ease-in-out"
-        style={{ opacity: fadeOpacity, transitionDuration: `${LAUNCHPAD_FADE_MS}ms` }}
+        style={{
+          opacity: hydrated ? fadeOpacity : 0,
+          transitionDuration: `${LAUNCHPAD_FADE_MS}ms`,
+        }}
       >
         {mode === "launchpad" ? (
           <>

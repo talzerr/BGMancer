@@ -70,10 +70,6 @@ export function usePlaylist(init: UsePlaylistInit = {}) {
     setIsLoading(false);
   }
 
-  function markReady() {
-    setIsLoading(false);
-  }
-
   function clearTracks() {
     setTracks([]);
     setCurrentSessionId(null);
@@ -257,7 +253,6 @@ export function usePlaylist(init: UsePlaylistInit = {}) {
     fetchTracks,
     loadForSession,
     hydrateFromCache,
-    markReady,
     clearTracks,
     removeTracksForGame,
     removeTrackLocal,
