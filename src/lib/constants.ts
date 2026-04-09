@@ -4,7 +4,7 @@
 export const MAX_PLAYLIST_SESSIONS = 3;
 
 /** Maximum characters allowed when renaming a session. */
-export const SESSION_NAME_MAX_LENGTH = 100;
+export const SESSION_NAME_MAX_LENGTH = 50;
 
 /** Max game names shown in an auto-generated session name before "and more" is appended. */
 export const SESSION_NAME_MAX_GAMES = 3;

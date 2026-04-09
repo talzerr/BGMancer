@@ -90,7 +90,7 @@ export function PlaylistTrackCard({
       )}
 
       {/* Thumbnail */}
-      <div className="bg-secondary relative h-14 w-14 shrink-0 overflow-hidden rounded-[6px] ring-1 ring-white/[0.06]">
+      <div className="bg-secondary relative h-[44px] w-16 shrink-0 overflow-hidden rounded-[6px] ring-1 ring-white/[0.06]">
         {hasVideo && thumbnailSrc ? (
           <>
             <Image
@@ -98,7 +98,7 @@ export function PlaylistTrackCard({
               alt={track.game_title ?? track.video_title ?? ""}
               fill
               className={`object-cover transition-all duration-300 ${spoilerHidden ? "scale-110 blur-md" : ""}`}
-              sizes="56px"
+              sizes="64px"
             />
             {/* Play/pause overlay */}
             <div
@@ -143,7 +143,7 @@ export function PlaylistTrackCard({
           </p>
         )}
         <p
-          className={`mt-1 truncate text-[12px] text-[var(--text-tertiary)] ${spoilerHidden ? "blur-sm select-none" : ""}`}
+          className={`mt-1 truncate text-[13px] text-[var(--text-tertiary)] ${spoilerHidden ? "blur-sm select-none" : ""}`}
         >
           from {track.game_title}
           {durationText && ` · ${durationText}`}

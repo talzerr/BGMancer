@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { signIn } from "next-auth/react";
 import { usePlayerContext } from "@/context/player-context";
+import { EyeIcon, EyeOffIcon } from "@/components/Icons";
 import { SESSION_NAME_MAX_LENGTH } from "@/lib/constants";
 import { formatSessionName } from "@/components/session/SessionList";
 import type { PlaylistSessionWithCount, PlaylistTrack } from "@/types";
@@ -71,112 +72,120 @@ export function PlaylistHeader({
 
   return (
     <div>
-      <div className="flex items-center justify-between pb-[14px]">
-        {/* Left: title + metadata */}
-        <div className="flex min-w-0 items-center gap-3">
-          {editingTitle ? (
-            <input
-              ref={titleInputRef}
-              type="text"
-              value={titleEditValue}
-              onChange={(e) => setTitleEditValue(e.target.value)}
-              onBlur={() => {
-                setEditingTitle(false);
-                const trimmed = titleEditValue.trim();
-                if (trimmed && trimmed !== displayTitle && currentSessionId) {
-                  void onRename(currentSessionId, trimmed);
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  e.currentTarget.blur();
-                }
-                if (e.key === "Escape") setEditingTitle(false);
-              }}
-              maxLength={SESSION_NAME_MAX_LENGTH}
-              className="border-primary caret-primary min-w-0 flex-1 border-b bg-transparent text-[15px] font-medium -tracking-[0.01em] text-[var(--text-secondary)] focus:outline-none"
-            />
-          ) : (
-            <button
-              onClick={() => {
-                if (!currentSession) return;
-                setTitleEditValue(displayTitle);
-                setEditingTitle(true);
-                setTimeout(() => titleInputRef.current?.select(), 0);
-              }}
-              className="min-w-0 cursor-text truncate text-[15px] font-medium -tracking-[0.01em] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
-            >
-              {displayTitle}
-            </button>
-          )}
-          {trackCount > 0 && (
-            <span className="shrink-0 text-[12px] text-[var(--text-disabled)] tabular-nums">
-              {trackCount} tracks · {formatDuration(totalDurationSeconds)}
-            </span>
-          )}
-        </div>
-
-        {/* Right: text link actions */}
-        {trackCount > 0 && (
-          <div className="flex shrink-0 items-center gap-[14px]">
-            <button
-              onClick={() => player.startPlaying(tracks, 0, currentSessionId)}
-              className="text-primary cursor-pointer text-[12px] font-medium transition-colors hover:text-[var(--primary-hover)]"
-            >
-              Play All
-            </button>
-
-            {isSignedIn && !isDev && (
-              <button
-                onClick={() => void handleSync()}
-                disabled={syncing}
-                className="cursor-pointer text-[12px] text-[var(--text-tertiary)] transition-colors hover:text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {syncing ? "Syncing…" : "Sync"}
-              </button>
-            )}
-
-            <button
-              onClick={toggleAntiSpoiler}
-              className={`cursor-pointer text-[12px] transition-colors ${
-                config.antiSpoilerEnabled
-                  ? "text-primary font-medium"
-                  : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
-              }`}
-            >
-              Spoilers
-            </button>
-
-            {playlist.confirmClear ? (
-              <div className="flex items-center gap-2">
-                <span className="text-[12px] text-[var(--text-tertiary)]">Delete?</span>
-                <button
-                  onClick={() => {
-                    playlist.setConfirmClear(false);
-                    if (currentSessionId) {
-                      void onDeleteSession(currentSessionId);
-                    }
-                  }}
-                  className="cursor-pointer text-[12px] text-red-400 transition-colors hover:text-red-300"
-                >
-                  Yes
-                </button>
-                <button
-                  onClick={() => playlist.setConfirmClear(false)}
-                  className="cursor-pointer text-[12px] text-[var(--text-tertiary)]"
-                >
-                  No
-                </button>
-              </div>
+      <div className="flex flex-col gap-1.5 pb-[14px]">
+        {/* First line: title left, actions right */}
+        <div className="flex items-center justify-between">
+          <div className="min-w-0 flex-1">
+            {editingTitle ? (
+              <input
+                ref={titleInputRef}
+                type="text"
+                value={titleEditValue}
+                onChange={(e) => setTitleEditValue(e.target.value)}
+                onBlur={() => {
+                  setEditingTitle(false);
+                  const trimmed = titleEditValue.trim();
+                  if (trimmed && trimmed !== displayTitle && currentSessionId) {
+                    void onRename(currentSessionId, trimmed);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  }
+                  if (e.key === "Escape") setEditingTitle(false);
+                }}
+                maxLength={SESSION_NAME_MAX_LENGTH}
+                className="font-display border-primary caret-primary w-full border-b bg-transparent text-[16px] font-semibold -tracking-[0.03em] text-[var(--text-primary)] focus:outline-none"
+              />
             ) : (
               <button
-                onClick={() => playlist.setConfirmClear(true)}
-                className="cursor-pointer text-[12px] text-[var(--text-disabled)] transition-colors hover:text-[var(--text-tertiary)]"
+                onClick={() => {
+                  if (!currentSession) return;
+                  setTitleEditValue(displayTitle);
+                  setEditingTitle(true);
+                  setTimeout(() => titleInputRef.current?.select(), 0);
+                }}
+                className="font-display hover:text-foreground max-w-full min-w-0 cursor-text truncate text-[16px] font-semibold -tracking-[0.03em] text-[var(--text-primary)] transition-colors"
               >
-                Delete
+                {displayTitle}
               </button>
             )}
+          </div>
+        </div>
+
+        {/* Second line: metadata left, actions right */}
+        {trackCount > 0 && (
+          <div className="flex items-center justify-between">
+            <span className="text-[12px] text-[var(--text-disabled)] tabular-nums">
+              {trackCount} tracks · {formatDuration(totalDurationSeconds)}
+            </span>
+
+            <div className="flex shrink-0 items-center gap-[14px]">
+              <button
+                onClick={() => player.startPlaying(tracks, 0, currentSessionId)}
+                className="text-primary cursor-pointer text-[13px] font-medium transition-colors hover:text-[var(--primary-hover)]"
+              >
+                Play All
+              </button>
+
+              {isSignedIn && !isDev && (
+                <button
+                  onClick={() => void handleSync()}
+                  disabled={syncing}
+                  className="cursor-pointer text-[13px] text-[var(--text-tertiary)] transition-colors hover:text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {syncing ? "Syncing…" : "Sync"}
+                </button>
+              )}
+
+              <button
+                onClick={toggleAntiSpoiler}
+                className={`flex cursor-pointer items-center gap-1 text-[13px] transition-colors ${
+                  config.antiSpoilerEnabled
+                    ? "text-primary font-medium"
+                    : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+                }`}
+              >
+                {config.antiSpoilerEnabled ? (
+                  <EyeOffIcon className="h-3.5 w-3.5" />
+                ) : (
+                  <EyeIcon className="h-3.5 w-3.5" />
+                )}
+                Spoilers
+              </button>
+
+              {playlist.confirmClear ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-[13px] text-[var(--text-tertiary)]">Delete?</span>
+                  <button
+                    onClick={() => {
+                      playlist.setConfirmClear(false);
+                      if (currentSessionId) {
+                        void onDeleteSession(currentSessionId);
+                      }
+                    }}
+                    className="cursor-pointer text-[13px] text-red-400 transition-colors hover:text-red-300"
+                  >
+                    Yes
+                  </button>
+                  <button
+                    onClick={() => playlist.setConfirmClear(false)}
+                    className="cursor-pointer text-[13px] text-[var(--text-tertiary)]"
+                  >
+                    No
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => playlist.setConfirmClear(true)}
+                  className="cursor-pointer text-[13px] text-[var(--text-disabled)] transition-colors hover:text-[var(--text-tertiary)]"
+                >
+                  Delete
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
