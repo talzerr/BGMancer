@@ -106,7 +106,7 @@ describe("SortableTrackItem", () => {
       />,
     );
     expect(screen.getByText(TEST_TRACK_NAME)).toBeInTheDocument();
-    expect(screen.getByText(TEST_GAME_TITLE)).toBeInTheDocument();
+    expect(screen.getByText(/from Dark Souls/)).toBeInTheDocument();
   });
 
   it("should forward onPlay/onRemove/onReroll to PlaylistTrackCard", async () => {

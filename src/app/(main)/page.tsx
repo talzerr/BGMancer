@@ -11,7 +11,7 @@ export default async function HomePage() {
       <Header user={session?.user ?? null} isDev={env.isDev} />
 
       {/* Main content */}
-      <main className="relative mx-auto max-w-6xl px-4 pt-12 pb-6 sm:px-6">
+      <main className="relative mx-auto max-w-6xl px-4 pt-6 pb-6 sm:px-6">
         <FeedClient
           isSignedIn={!!session?.user}
           isDev={env.isDev}

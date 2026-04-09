@@ -1,16 +1,12 @@
-import { useLayoutEffect, useRef, useState, useEffect } from "react";
+import { useRef, useState } from "react";
+import { signIn } from "next-auth/react";
 import { usePlayerContext } from "@/context/player-context";
-import { SyncButton } from "@/components/SyncButton";
-import { EyeIcon, EyeOffIcon, PlayIcon, TrashIcon } from "@/components/Icons";
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { SESSION_NAME_MAX_LENGTH } from "@/lib/constants";
 import { formatSessionName } from "@/components/session/SessionList";
 import type { PlaylistSessionWithCount, PlaylistTrack } from "@/types";
 
 interface PlaylistHeaderProps {
   sessions: PlaylistSessionWithCount[];
-  // Session and tracks rendered by the header. Passed explicitly (not read
-  // from context) so the parent can show a stale snapshot during a crossfade.
   currentSessionId: string | null;
   tracks: PlaylistTrack[];
   isSignedIn: boolean;
@@ -26,6 +22,8 @@ function formatDuration(seconds: number): string {
   return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
 
+const YOUTUBE_SCOPE = "https://www.googleapis.com/auth/youtube";
+
 export function PlaylistHeader({
   sessions,
   currentSessionId,
@@ -38,225 +36,151 @@ export function PlaylistHeader({
   const { playlist, config, player, toggleAntiSpoiler } = usePlayerContext();
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleEditValue, setTitleEditValue] = useState("");
-  const titleInputRef = useRef<HTMLTextAreaElement>(null);
-  const titleWrapperRef = useRef<HTMLDivElement>(null);
-  const titleMeasureRef = useRef<HTMLSpanElement>(null);
-  const [isLongTitle, setIsLongTitle] = useState(false);
-
-  // Auto-resize the textarea to fit its content when it first appears.
-  useEffect(() => {
-    if (editingTitle && titleInputRef.current) {
-      const el = titleInputRef.current;
-      el.style.height = "auto";
-      el.style.height = `${el.scrollHeight}px`;
-    }
-  }, [editingTitle]);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const [syncing, setSyncing] = useState(false);
 
   const currentSession = sessions.find((s) => s.id === currentSessionId);
   const displayTitle = currentSession ? formatSessionName(currentSession.name) : "";
 
-  // Measure on a hidden shadow span at the fixed 26px size — measuring the rendered
-  // element would oscillate when we drop to 22px.
-  useLayoutEffect(() => {
-    const wrapper = titleWrapperRef.current;
-    const measure = titleMeasureRef.current;
-    if (!wrapper || !measure) return;
-    const TWO_LINES_AT_26 = 63; // 26px * 1.2 line-height * 2 lines, +tolerance
-    const recalc = () => {
-      setIsLongTitle(measure.offsetHeight > TWO_LINES_AT_26);
-    };
-    recalc();
-    const ro = new ResizeObserver(recalc);
-    ro.observe(wrapper);
-    return () => ro.disconnect();
-  }, [displayTitle]);
-
   if (!currentSessionId) return null;
 
   const trackCount = tracks.length;
-  const hasFoundTracks = trackCount > 0;
-
   const totalDurationSeconds = tracks.reduce((sum, t) => sum + (t.duration_seconds ?? 0), 0);
 
-  const titleSizeClass = isLongTitle ? "text-[22px]" : "text-[26px]";
+  async function handleSync() {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/sync", { method: "POST" });
+      if (res.status === 401) {
+        signIn(
+          "google",
+          { callbackUrl: window.location.pathname },
+          { scope: `openid email ${YOUTUBE_SCOPE}` },
+        );
+        return;
+      }
+      const data = (await res.json()) as { playlist_url?: string; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Sync failed");
+      if (data.playlist_url) {
+        window.open(data.playlist_url, "_blank", "noopener,noreferrer");
+      }
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div ref={titleWrapperRef} className="relative">
-        <span
-          ref={titleMeasureRef}
-          aria-hidden
-          className="font-display pointer-events-none invisible absolute inset-x-2 top-0 block text-[26px] leading-[1.2] font-semibold -tracking-[0.03em] break-words"
-        >
-          {displayTitle}
-        </span>
-        {editingTitle ? (
-          <textarea
-            ref={titleInputRef}
-            value={titleEditValue}
-            rows={1}
-            onChange={(e) => {
-              setTitleEditValue(e.target.value);
-              e.target.style.height = "auto";
-              e.target.style.height = `${e.target.scrollHeight}px`;
-            }}
-            onBlur={() => {
-              setEditingTitle(false);
-              const trimmed = titleEditValue.trim();
-              if (trimmed && trimmed !== displayTitle && currentSessionId) {
-                void onRename(currentSessionId, trimmed);
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                e.currentTarget.blur();
-              }
-              if (e.key === "Escape") setEditingTitle(false);
-            }}
-            maxLength={SESSION_NAME_MAX_LENGTH}
-            className={`font-display border-primary text-foreground caret-primary -mx-2 -my-1 w-[calc(100%+1rem)] resize-none overflow-hidden border-b bg-transparent px-2 py-1 ${titleSizeClass} leading-[1.2] font-semibold -tracking-[0.03em] break-words focus:outline-none`}
-          />
-        ) : (
-          <button
-            onClick={() => {
-              if (!currentSession) return;
-              setTitleEditValue(displayTitle);
-              setEditingTitle(true);
-              setTimeout(() => titleInputRef.current?.select(), 0);
-            }}
-            className={`group font-display text-foreground hover:bg-secondary/70 -mx-2 -my-1 flex w-full min-w-0 cursor-text items-start gap-1.5 rounded-lg px-2 py-1 ${titleSizeClass} leading-[1.2] font-semibold -tracking-[0.03em] transition-colors`}
-          >
-            <span className="min-w-0 flex-1 break-words">{displayTitle}</span>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 16 16"
-              fill="currentColor"
-              className="mt-0.5 h-3 w-3 shrink-0 text-[var(--text-tertiary)] opacity-0 transition-opacity group-hover:opacity-100"
+    <div>
+      <div className="flex items-center justify-between pb-[14px]">
+        {/* Left: title + metadata */}
+        <div className="flex min-w-0 items-center gap-3">
+          {editingTitle ? (
+            <input
+              ref={titleInputRef}
+              type="text"
+              value={titleEditValue}
+              onChange={(e) => setTitleEditValue(e.target.value)}
+              onBlur={() => {
+                setEditingTitle(false);
+                const trimmed = titleEditValue.trim();
+                if (trimmed && trimmed !== displayTitle && currentSessionId) {
+                  void onRename(currentSessionId, trimmed);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  e.currentTarget.blur();
+                }
+                if (e.key === "Escape") setEditingTitle(false);
+              }}
+              maxLength={SESSION_NAME_MAX_LENGTH}
+              className="border-primary caret-primary min-w-0 flex-1 border-b bg-transparent text-[15px] font-medium -tracking-[0.01em] text-[var(--text-secondary)] focus:outline-none"
+            />
+          ) : (
+            <button
+              onClick={() => {
+                if (!currentSession) return;
+                setTitleEditValue(displayTitle);
+                setEditingTitle(true);
+                setTimeout(() => titleInputRef.current?.select(), 0);
+              }}
+              className="min-w-0 cursor-text truncate text-[15px] font-medium -tracking-[0.01em] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
             >
-              <path d="M13.488 2.513a1.75 1.75 0 0 0-2.475 0L6.75 6.774a2.75 2.75 0 0 0-.596.892l-.848 2.047a.75.75 0 0 0 .98.98l2.047-.848a2.75 2.75 0 0 0 .892-.596l4.261-4.263a1.75 1.75 0 0 0 0-2.474ZM4.75 13.5c-.69 0-1.25-.56-1.25-1.25V4.75A1.25 1.25 0 0 1 4.75 3.5H8a.75.75 0 0 0 0-1.5H4.75A2.75 2.75 0 0 0 2 4.75v7.5A2.75 2.75 0 0 0 4.75 15h7.5A2.75 2.75 0 0 0 15 12.25V9a.75.75 0 0 0-1.5 0v3.25c0 .69-.56 1.25-1.25 1.25h-7.5Z" />
-            </svg>
-          </button>
-        )}
-      </div>
-
-      {/* Sub-row: stats (left) + actions (right) */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        {/* Stats */}
-        {trackCount > 0 && (
-          <div className="flex items-center gap-2">
-            <span className="text-foreground text-sm font-medium tabular-nums">{trackCount}</span>
-            <span className="text-xs text-[var(--text-tertiary)]">
-              track{trackCount !== 1 ? "s" : ""}
+              {displayTitle}
+            </button>
+          )}
+          {trackCount > 0 && (
+            <span className="shrink-0 text-[12px] text-[var(--text-disabled)] tabular-nums">
+              {trackCount} tracks · {formatDuration(totalDurationSeconds)}
             </span>
-            {totalDurationSeconds > 0 && (
-              <>
-                <span className="text-xs text-[var(--text-disabled)]">·</span>
-                <span className="text-primary text-sm font-medium tabular-nums">
-                  {formatDuration(totalDurationSeconds)}
-                </span>
-              </>
-            )}
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* Actions */}
-        <TooltipProvider delay={300}>
-          <div className="ml-auto flex items-center gap-1.5">
-            {/* Primary actions */}
-            {trackCount > 0 && (
+        {/* Right: text link actions */}
+        {trackCount > 0 && (
+          <div className="flex shrink-0 items-center gap-[14px]">
+            <button
+              onClick={() => player.startPlaying(tracks, 0, currentSessionId)}
+              className="text-primary cursor-pointer text-[12px] font-medium transition-colors hover:text-[var(--primary-hover)]"
+            >
+              Play All
+            </button>
+
+            {isSignedIn && !isDev && (
               <button
-                onClick={() => {
-                  player.startPlaying(tracks, 0, currentSessionId);
-                }}
-                className="bg-primary text-foreground flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all hover:bg-[var(--primary-hover)] active:scale-[0.98]"
+                onClick={() => void handleSync()}
+                disabled={syncing}
+                className="cursor-pointer text-[12px] text-[var(--text-tertiary)] transition-colors hover:text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <PlayIcon className="h-3 w-3" />
-                Play All
+                {syncing ? "Syncing…" : "Sync"}
               </button>
             )}
 
-            {/* Separator between primary and secondary actions */}
-            {trackCount > 0 && <div className="bg-border mx-0.5 h-4 w-px" />}
+            <button
+              onClick={toggleAntiSpoiler}
+              className={`cursor-pointer text-[12px] transition-colors ${
+                config.antiSpoilerEnabled
+                  ? "text-primary font-medium"
+                  : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+              }`}
+            >
+              Spoilers
+            </button>
 
-            {/* Secondary actions */}
-            {isSignedIn && !isDev && (
-              <SyncButton
-                isSignedIn={isSignedIn}
-                isDev={isDev}
-                hasFoundTracks={hasFoundTracks}
-                onSyncComplete={() => {}}
-              />
-            )}
-
-            {trackCount > 0 && (
-              <>
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <button
-                        onClick={toggleAntiSpoiler}
-                        className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
-                          config.antiSpoilerEnabled
-                            ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/15"
-                            : "border-border bg-secondary/60 hover:text-foreground text-[var(--text-tertiary)] hover:border-[var(--border-emphasis)]"
-                        }`}
-                      />
+            {playlist.confirmClear ? (
+              <div className="flex items-center gap-2">
+                <span className="text-[12px] text-[var(--text-tertiary)]">Delete?</span>
+                <button
+                  onClick={() => {
+                    playlist.setConfirmClear(false);
+                    if (currentSessionId) {
+                      void onDeleteSession(currentSessionId);
                     }
-                  >
-                    {config.antiSpoilerEnabled ? (
-                      <EyeOffIcon className="h-3 w-3" />
-                    ) : (
-                      <EyeIcon className="h-3 w-3" />
-                    )}
-                    <span className="hidden sm:inline">Spoilers</span>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    {config.antiSpoilerEnabled ? "Show all tracks" : "Blur unplayed tracks"}
-                  </TooltipContent>
-                </Tooltip>
-
-                {playlist.confirmClear ? (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-[var(--text-tertiary)]">Delete?</span>
-                    <button
-                      onClick={() => {
-                        playlist.setConfirmClear(false);
-                        if (currentSessionId) {
-                          void onDeleteSession(currentSessionId);
-                        }
-                      }}
-                      className="text-foreground cursor-pointer rounded-lg bg-red-600/90 px-2 py-1 text-xs font-medium hover:bg-red-500"
-                    >
-                      Yes
-                    </button>
-                    <button
-                      onClick={() => playlist.setConfirmClear(false)}
-                      className="bg-secondary text-muted-foreground cursor-pointer rounded-lg px-2 py-1 text-xs font-medium hover:bg-[var(--surface-hover)]"
-                    >
-                      No
-                    </button>
-                  </div>
-                ) : (
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <button
-                          onClick={() => playlist.setConfirmClear(true)}
-                          className="flex cursor-pointer items-center rounded-lg p-1.5 text-[var(--text-disabled)] transition-colors hover:bg-red-500/10 hover:text-red-400"
-                        />
-                      }
-                    >
-                      <TrashIcon className="h-3 w-3" />
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">Delete session</TooltipContent>
-                  </Tooltip>
-                )}
-              </>
+                  }}
+                  className="cursor-pointer text-[12px] text-red-400 transition-colors hover:text-red-300"
+                >
+                  Yes
+                </button>
+                <button
+                  onClick={() => playlist.setConfirmClear(false)}
+                  className="cursor-pointer text-[12px] text-[var(--text-tertiary)]"
+                >
+                  No
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => playlist.setConfirmClear(true)}
+                className="cursor-pointer text-[12px] text-[var(--text-disabled)] transition-colors hover:text-[var(--text-tertiary)]"
+              >
+                Delete
+              </button>
             )}
           </div>
-        </TooltipProvider>
+        )}
       </div>
+      <div className="mb-5 h-px bg-[rgba(255,255,255,0.06)]" />
     </div>
   );
 }

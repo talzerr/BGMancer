@@ -240,7 +240,7 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
         ) : (
           <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[320px_1fr] lg:gap-8">
             {/* Left panel */}
-            <aside className="flex flex-col gap-4 p-4 lg:sticky lg:top-[57px] lg:pl-0">
+            <aside className="flex flex-col gap-4 p-4 lg:sticky lg:top-4 lg:pl-0">
               <LibraryWidget />
 
               <GenerateSection
@@ -280,7 +280,7 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
             <main className="flex flex-col gap-4">
               {playlist.isLoading || displayedTracks.length === 0 ? null : (
                 <div
-                  className="flex flex-col gap-4"
+                  className="flex flex-col gap-0"
                   style={{
                     opacity: playlistOpacity,
                     transition: `opacity ${PLAYLIST_FADE_MS}ms cubic-bezier(0.25, 0.1, 0.25, 1)`,

@@ -62,8 +62,8 @@ vi.mock("@/context/player-context", () => ({
   usePlayerContext: () => mockContext,
 }));
 
-vi.mock("@/components/SyncButton", () => ({
-  SyncButton: () => <div data-testid="sync-button" />,
+vi.mock("next-auth/react", () => ({
+  signIn: vi.fn(),
 }));
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -128,8 +128,7 @@ describe("PlaylistHeader", () => {
       const PlaylistHeader = await importComponent();
       const tracks = [makeTrack(), makeTrack(), makeTrack()];
       render(<PlaylistHeader {...defaultProps} tracks={tracks} />);
-      expect(screen.getByText("3")).toBeInTheDocument();
-      expect(screen.getByText("tracks")).toBeInTheDocument();
+      expect(screen.getByText(/3 tracks/)).toBeInTheDocument();
     });
 
     it("should show session name", async () => {
@@ -148,15 +147,14 @@ describe("PlaylistHeader", () => {
       // Two tracks: 240s + 360s = 600s = 10m
       const tracks = [makeTrack({ duration_seconds: 240 }), makeTrack({ duration_seconds: 360 })];
       render(<PlaylistHeader {...defaultProps} tracks={tracks} />);
-      expect(screen.getByText("10m")).toBeInTheDocument();
+      expect(screen.getByText(/10m/)).toBeInTheDocument();
     });
 
     it("should show track count with tracks label", async () => {
       const PlaylistHeader = await importComponent();
       const tracks = [makeTrack(), makeTrack(), makeTrack()];
       render(<PlaylistHeader {...defaultProps} tracks={tracks} />);
-      expect(screen.getByText("3")).toBeInTheDocument();
-      expect(screen.getByText("tracks")).toBeInTheDocument();
+      expect(screen.getByText(/3 tracks/)).toBeInTheDocument();
     });
   });
 
@@ -199,8 +197,7 @@ describe("PlaylistHeader", () => {
       const PlaylistHeader = await importComponent();
       const tracks = [makeTrack(), makeTrack(), makeTrack()];
       render(<PlaylistHeader {...defaultProps} tracks={tracks} />);
-      expect(screen.getByText("tracks")).toBeInTheDocument();
-      expect(screen.getByText("3")).toBeInTheDocument();
+      expect(screen.getByText(/3 tracks/)).toBeInTheDocument();
     });
   });
 

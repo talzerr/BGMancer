@@ -160,10 +160,10 @@ export function LibraryDrawer({
 }: LibraryDrawerProps) {
   return (
     <aside
-      className="border-border bg-background/80 sticky top-[57px] hidden max-h-[calc(100vh-57px)] shrink-0 overflow-hidden border-l transition-[width] duration-300 [transition-timing-function:cubic-bezier(0.25,0.1,0.25,1)] lg:block"
+      className="border-border bg-background/80 sticky top-0 hidden max-h-screen shrink-0 overflow-hidden border-l transition-[width] duration-300 [transition-timing-function:cubic-bezier(0.25,0.1,0.25,1)] lg:block"
       style={{ width: isExpanded ? 300 : 40 }}
     >
-      <div className="relative h-[calc(100vh-57px)] w-[300px]">
+      <div className="relative h-screen w-[300px]">
         {/* Collapsed strip */}
         <button
           type="button"

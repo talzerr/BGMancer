@@ -65,26 +65,13 @@ export function AuthButtons({ user, isDev }: AuthButtonsProps) {
 
   if (user) {
     return (
-      <div className="flex items-center gap-3">
-        <svg
-          className="h-5 w-5 text-[var(--text-tertiary)]"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.118a7.5 7.5 0 0 1 15 0"
-          />
-        </svg>
-        <span className="text-muted-foreground hidden text-sm sm:block">
+      <div className="flex items-center gap-2">
+        <span className="hidden text-[12px] text-[var(--text-tertiary)] sm:block">
           {user.email?.split("@")[0] ?? "User"}
         </span>
         <button
           onClick={handleSignOut}
-          className="hover:text-foreground cursor-pointer text-xs text-[var(--text-tertiary)]"
+          className="cursor-pointer text-[12px] text-[var(--text-disabled)] hover:text-[var(--text-tertiary)]"
         >
           Sign out
         </button>

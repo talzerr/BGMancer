@@ -43,7 +43,7 @@ function formatTrackDuration(seconds: number): string {
 
 export function PlaylistTrackCard({
   track,
-  index,
+  index: _index,
   gameThumbnail,
   isPlaying = false,
   isActivelyPlaying = false,
@@ -61,15 +61,23 @@ export function PlaylistTrackCard({
 
   const isPlayable = hasVideo && !!onPlay;
 
+  const durationText =
+    track.duration_seconds != null && track.duration_seconds > 0
+      ? formatTrackDuration(track.duration_seconds)
+      : null;
+
   return (
     <div
       onClick={isPlayable ? onPlay : undefined}
-      className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-150 ${
+      className={`group relative flex items-center gap-4 border-b border-[rgba(255,255,255,0.04)] px-3 py-[10px] transition-all duration-150 ${
         isPlayable ? "cursor-pointer" : ""
-      } ${isDragging ? "opacity-50" : ""} ${
-        isPlaying ? "bg-primary/5" : "bg-white/[0.02] hover:bg-white/[0.04]"
-      }`}
+      } ${isDragging ? "opacity-50" : ""} bg-white/[0.02] hover:bg-white/[0.04]`}
     >
+      {/* Now-playing left bar */}
+      {isPlaying && (
+        <div className="bg-primary absolute top-0 bottom-0 left-0 w-[3px] rounded-r-sm" />
+      )}
+
       {/* Drag handle */}
       {dragHandleProps && (
         <div
@@ -81,23 +89,8 @@ export function PlaylistTrackCard({
         </div>
       )}
 
-      {/* Position number -> waves when actively playing */}
-      <div className="flex w-6 shrink-0 items-center justify-center">
-        {isPlaying ? (
-          <div className="flex h-[16px] items-end gap-[2px]">
-            <span className={`eq-bar${!isActivelyPlaying ? "eq-bar-paused" : ""}`} />
-            <span className={`eq-bar${!isActivelyPlaying ? "eq-bar-paused" : ""}`} />
-            <span className={`eq-bar${!isActivelyPlaying ? "eq-bar-paused" : ""}`} />
-          </div>
-        ) : (
-          <span className="font-mono text-xs text-[var(--text-tertiary)] select-none">
-            {index + 1}
-          </span>
-        )}
-      </div>
-
       {/* Thumbnail */}
-      <div className="bg-secondary relative h-12 w-[72px] shrink-0 overflow-hidden rounded-lg ring-1 ring-white/[0.06]">
+      <div className="bg-secondary relative h-14 w-14 shrink-0 overflow-hidden rounded-[6px] ring-1 ring-white/[0.06]">
         {hasVideo && thumbnailSrc ? (
           <>
             <Image
@@ -105,7 +98,7 @@ export function PlaylistTrackCard({
               alt={track.game_title ?? track.video_title ?? ""}
               fill
               className={`object-cover transition-all duration-300 ${spoilerHidden ? "scale-110 blur-md" : ""}`}
-              sizes="64px"
+              sizes="56px"
             />
             {/* Play/pause overlay */}
             <div
@@ -122,6 +115,14 @@ export function PlaylistTrackCard({
               <YouTubeLogo className="h-2 w-2 shrink-0 fill-current text-[#FF0000]" />
               <span className="text-[8px] leading-none font-medium text-white">YouTube</span>
             </div>
+            {/* Now-playing equalizer on cover art */}
+            {isPlaying && (
+              <div className="absolute bottom-[3px] left-[3px] flex items-end gap-[1.5px] rounded-sm bg-black/40 px-[2px] py-[1px]">
+                <span className={isActivelyPlaying ? "eq-bar-sm" : "eq-bar-sm eq-bar-paused"} />
+                <span className={isActivelyPlaying ? "eq-bar-sm" : "eq-bar-sm eq-bar-paused"} />
+                <span className={isActivelyPlaying ? "eq-bar-sm" : "eq-bar-sm eq-bar-paused"} />
+              </div>
+            )}
           </>
         ) : (
           <div className="flex h-full w-full items-center justify-center">
@@ -132,39 +133,22 @@ export function PlaylistTrackCard({
 
       {/* Track info */}
       <div className="min-w-0 flex-1">
-        <div className="mb-0.5 flex items-center gap-1.5">
-          <span
-            className={`text-muted-foreground truncate text-[11px] leading-none ${spoilerHidden ? "blur-sm select-none" : ""}`}
-          >
-            {track.game_title}
-          </span>
-        </div>
         {spoilerHidden ? (
-          <p className="text-muted-foreground line-clamp-1 text-sm leading-tight font-medium blur-sm select-none">
+          <p className="line-clamp-1 text-[15px] leading-snug font-normal -tracking-[0.01em] text-[var(--text-primary)] blur-sm select-none">
             {track.track_name ?? track.video_title}
           </p>
         ) : (
-          <p
-            className={`line-clamp-1 text-sm leading-tight font-medium ${
-              isPlaying ? "text-primary" : "text-foreground"
-            }`}
-          >
+          <p className="line-clamp-1 text-[15px] leading-snug font-normal -tracking-[0.01em] text-[var(--text-primary)]">
             {track.track_name ?? track.video_title}
           </p>
         )}
-        {hasVideo && track.channel_title && !spoilerHidden && (
-          <p className="text-muted-foreground mt-0.5 truncate text-[11px] leading-none">
-            {track.channel_title}
-          </p>
-        )}
+        <p
+          className={`mt-1 truncate text-[12px] text-[var(--text-tertiary)] ${spoilerHidden ? "blur-sm select-none" : ""}`}
+        >
+          from {track.game_title}
+          {durationText && ` · ${durationText}`}
+        </p>
       </div>
-
-      {/* Duration */}
-      {track.duration_seconds != null && track.duration_seconds > 0 && (
-        <span className="shrink-0 font-mono text-xs text-[var(--text-tertiary)] tabular-nums">
-          {formatTrackDuration(track.duration_seconds)}
-        </span>
-      )}
 
       {/* Right side: action buttons */}
       <div className="flex shrink-0 items-center gap-0.5">

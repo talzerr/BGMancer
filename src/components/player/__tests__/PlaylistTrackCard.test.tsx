@@ -56,19 +56,14 @@ describe("PlaylistTrackCard", () => {
       expect(screen.getByText(TEST_TRACK_NAME)).toBeInTheDocument();
     });
 
-    it("should display the game title", () => {
+    it("should display the game title in the attribution line", () => {
       render(<PlaylistTrackCard track={makeTrack()} index={0} />);
-      expect(screen.getByText(TEST_GAME_TITLE)).toBeInTheDocument();
+      expect(screen.getByText(/from Dark Souls/)).toBeInTheDocument();
     });
 
-    it("should display the channel title", () => {
+    it("should display the duration in the attribution line", () => {
       render(<PlaylistTrackCard track={makeTrack()} index={0} />);
-      expect(screen.getByText(TEST_CHANNEL_TITLE)).toBeInTheDocument();
-    });
-
-    it("should display the 1-indexed position number", () => {
-      render(<PlaylistTrackCard track={makeTrack()} index={2} />);
-      expect(screen.getByText("3")).toBeInTheDocument();
+      expect(screen.getByText(/4:00/)).toBeInTheDocument();
     });
   });
 
@@ -112,10 +107,10 @@ describe("PlaylistTrackCard", () => {
       expect(screen.queryByText(TEST_CHANNEL_TITLE)).not.toBeInTheDocument();
     });
 
-    it("should apply blur to the game title", () => {
+    it("should apply blur to the attribution line", () => {
       render(<PlaylistTrackCard track={makeTrack()} index={0} spoilerHidden />);
-      const gameTitle = screen.getByText(TEST_GAME_TITLE);
-      expect(gameTitle.className).toContain("blur");
+      const attribution = screen.getByText(/from Dark Souls/);
+      expect(attribution.className).toContain("blur");
     });
   });
 

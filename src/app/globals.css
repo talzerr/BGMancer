@@ -78,6 +78,27 @@ a {
   transform: scaleY(0.5);
 }
 
+/* Smaller equalizer for cover-art overlay */
+.eq-bar-sm {
+  display: inline-block;
+  width: 2px;
+  height: 10px;
+  border-radius: 1px;
+  transform-origin: bottom;
+  background-color: #d4a04a;
+  animation: eq-bar 0.75s ease-in-out infinite;
+}
+.eq-bar-sm:nth-child(2) {
+  animation-delay: 0.18s;
+}
+.eq-bar-sm:nth-child(3) {
+  animation-delay: 0.36s;
+}
+.eq-bar-sm.eq-bar-paused {
+  animation-play-state: paused;
+  transform: scaleY(0.5);
+}
+
 /* Session row entrance */
 @keyframes fade-up {
   from {
