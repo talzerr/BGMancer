@@ -1,6 +1,7 @@
 "use client";
 
 import { signIn, signOut } from "next-auth/react";
+import { clearPlaybackState } from "@/hooks/player/playback-state";
 import { useLoginPromptDismissed } from "@/hooks/shared/useLoginPromptDismissed";
 
 interface AuthButtonsProps {
@@ -48,6 +49,7 @@ export function AuthButtons({ user, isDev }: AuthButtonsProps) {
   }
 
   function handleSignOut() {
+    clearPlaybackState();
     signOut({ callbackUrl: "/" }).then(() => window.location.reload());
   }
 
@@ -84,7 +86,7 @@ export function AuthButtons({ user, isDev }: AuthButtonsProps) {
       <div className="relative">
         <button
           onClick={handleGoogleSignIn}
-          className="flex cursor-pointer items-center gap-2 rounded-lg bg-white px-3.5 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-100"
+          className="flex cursor-pointer items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.08)] bg-white/[0.04] px-3.5 py-1.5 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-white/[0.08] hover:text-[var(--text-primary)]"
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24">
             <path

@@ -73,35 +73,45 @@ export function PlayerProvider({
   const { currentTrackIndex, effectiveFoundTracks, setCurrentTrackIndex, setIsPlayerPlaying } =
     player;
 
-  const [restoredSeekSeconds, setRestoredSeekSeconds] = useState<number | null>(null);
-  const cacheRestoredRef = useRef(false);
   const restoredSessionIdRef = useRef<string | null>(null);
+  const restoredRef = useRef(false);
+
+  // Read cached playback state synchronously so startPaused / initialSeekSeconds
+  // are available on the very first render (before any effects run).
+  const cachedPlayback = useMemo(() => {
+    if (restoredRef.current) return null;
+    const saved = readPlaybackState();
+    const cachedTracks = readPlaybackTracks();
+    if (!saved || !cachedTracks) return null;
+    const track = cachedTracks[saved.trackIndex];
+    if (!track || track.video_id !== saved.videoId) return null;
+    return { saved, cachedTracks };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSignedIn]);
+
+  const [restoredSeekSeconds, setRestoredSeekSeconds] = useState<number | null>(
+    cachedPlayback?.saved.positionSeconds ?? null,
+  );
+  const startPausedOnRestore = cachedPlayback?.saved.paused ?? true;
 
   const fetchTracks = playlist.fetchTracks;
   const fetchGames = gameLibrary.fetchGames;
   const clearPlayedTracks = player.clearPlayedTracks;
 
   useEffect(() => {
-    if (!isSignedIn || cacheRestoredRef.current) return;
-    cacheRestoredRef.current = true;
-
-    const saved = readPlaybackState();
-    const cachedTracks = readPlaybackTracks();
-    if (!saved || !cachedTracks) return;
-
-    const track = cachedTracks[saved.trackIndex];
-    if (!track || track.video_id !== saved.videoId) return;
-
+    if (!cachedPlayback || restoredRef.current) return;
+    restoredRef.current = true;
+    const { saved, cachedTracks } = cachedPlayback;
     restoredSessionIdRef.current = saved.sessionId;
     playlist.hydrateFromCache(cachedTracks, saved.sessionId);
     player.restorePlayback(cachedTracks, saved.trackIndex, saved.sessionId);
-    setRestoredSeekSeconds(saved.positionSeconds);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSignedIn]);
+  }, [cachedPlayback]);
 
   useEffect(() => {
+    if (!isSignedIn) return;
     fetchTracks(restoredSessionIdRef.current ?? undefined);
-  }, [fetchTracks]);
+  }, [isSignedIn, fetchTracks]);
 
   useEffect(() => {
     fetchGames();
@@ -114,8 +124,8 @@ export function PlayerProvider({
   const handleTimeUpdate = useCallback(
     (time: number) => {
       const idx = player.currentTrackIndex;
-      const sessionId = player.playingSessionId;
-      if (idx === null || !sessionId) return;
+      const sessionId = player.playingSessionId ?? "guest";
+      if (idx === null) return;
       const track = player.effectiveFoundTracks[idx];
       if (!track?.video_id) return;
       savePlaybackState({
@@ -123,16 +133,22 @@ export function PlayerProvider({
         trackIndex: idx,
         positionSeconds: time,
         videoId: track.video_id,
+        paused: !player.isPlayerPlaying,
       });
     },
-    [player.currentTrackIndex, player.playingSessionId, player.effectiveFoundTracks],
+    [
+      player.currentTrackIndex,
+      player.playingSessionId,
+      player.effectiveFoundTracks,
+      player.isPlayerPlaying,
+    ],
   );
 
   useEffect(() => {
     if (restoredSeekSeconds !== null) return;
     const idx = player.currentTrackIndex;
-    const sessionId = player.playingSessionId;
-    if (idx === null || !sessionId) return;
+    const sessionId = player.playingSessionId ?? "guest";
+    if (idx === null) return;
     const track = player.effectiveFoundTracks[idx];
     if (!track?.video_id) return;
     savePlaybackState({ sessionId, trackIndex: idx, positionSeconds: 0, videoId: track.video_id });
@@ -140,7 +156,7 @@ export function PlayerProvider({
   }, [player.currentTrackIndex, player.playingSessionId]);
 
   useEffect(() => {
-    if (playlist.tracks.length > 0 && playlist.currentSessionId) {
+    if (playlist.tracks.length > 0) {
       savePlaybackTracks(playlist.tracks);
     }
   }, [playlist.tracks, playlist.currentSessionId]);
@@ -170,7 +186,7 @@ export function PlayerProvider({
     currentIndex: hasActiveTrack ? currentTrackIndex! : 0,
     onIndexChange: setCurrentTrackIndex,
     onPlayingChange: setIsPlayerPlaying,
-    startPaused: restoredSeekSeconds !== null,
+    startPaused: restoredSeekSeconds !== null && startPausedOnRestore,
     initialSeekSeconds: restoredSeekSeconds ?? undefined,
     onTimeUpdate: handleTimeUpdate,
     enabled: hasActiveTrack,

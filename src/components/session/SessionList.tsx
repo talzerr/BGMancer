@@ -69,7 +69,7 @@ export function SessionList({ sessions, selectedId, onSelect, onDelete }: Sessio
         </p>
       ) : null}
 
-      <div className="flex flex-col gap-0.5">
+      <div className="flex min-h-[138px] flex-col gap-0.5">
         {sessions.map((session) => {
           const isSelected = session.id === selectedId;
           const isConfirming = confirmDeleteId === session.id;

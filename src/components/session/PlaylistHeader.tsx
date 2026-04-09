@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { signIn } from "next-auth/react";
 import { usePlayerContext } from "@/context/player-context";
 import { EyeIcon, EyeOffIcon } from "@/components/Icons";
-import { SESSION_NAME_MAX_LENGTH } from "@/lib/constants";
+import { SESSION_NAME_MAX_LENGTH, buildSessionName } from "@/lib/constants";
 import { formatSessionName } from "@/components/session/SessionList";
 import type { PlaylistSessionWithCount, PlaylistTrack } from "@/types";
 
@@ -41,9 +41,13 @@ export function PlaylistHeader({
   const [syncing, setSyncing] = useState(false);
 
   const currentSession = sessions.find((s) => s.id === currentSessionId);
-  const displayTitle = currentSession ? formatSessionName(currentSession.name) : "";
 
-  if (!currentSessionId) return null;
+  // For guests (no session), derive a deterministic title from game names
+  const displayTitle = currentSession
+    ? formatSessionName(currentSession.name)
+    : buildSessionName(tracks.map((t) => t.game_title ?? t.game_id));
+
+  if (tracks.length === 0) return null;
 
   const trackCount = tracks.length;
   const totalDurationSeconds = tracks.reduce((sum, t) => sum + (t.duration_seconds ?? 0), 0);
@@ -99,7 +103,7 @@ export function PlaylistHeader({
                 maxLength={SESSION_NAME_MAX_LENGTH}
                 className="font-display border-primary caret-primary w-full border-b bg-transparent text-[16px] font-semibold -tracking-[0.03em] text-[var(--text-primary)] focus:outline-none"
               />
-            ) : (
+            ) : isSignedIn ? (
               <button
                 onClick={() => {
                   if (!currentSession) return;
@@ -111,6 +115,10 @@ export function PlaylistHeader({
               >
                 {displayTitle}
               </button>
+            ) : (
+              <span className="font-display max-w-full min-w-0 truncate text-[16px] font-semibold -tracking-[0.03em] text-[var(--text-primary)]">
+                {displayTitle}
+              </span>
             )}
           </div>
 
@@ -149,35 +157,36 @@ export function PlaylistHeader({
                 Spoilers
               </button>
 
-              {playlist.confirmClear ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-[13px] text-[var(--text-tertiary)]">Delete?</span>
+              {isSignedIn &&
+                (playlist.confirmClear ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px] text-[var(--text-tertiary)]">Delete?</span>
+                    <button
+                      onClick={() => {
+                        playlist.setConfirmClear(false);
+                        if (currentSessionId) {
+                          void onDeleteSession(currentSessionId);
+                        }
+                      }}
+                      className="cursor-pointer text-[13px] text-red-400 transition-colors hover:text-red-300"
+                    >
+                      Yes
+                    </button>
+                    <button
+                      onClick={() => playlist.setConfirmClear(false)}
+                      className="cursor-pointer text-[13px] text-[var(--text-tertiary)]"
+                    >
+                      No
+                    </button>
+                  </div>
+                ) : (
                   <button
-                    onClick={() => {
-                      playlist.setConfirmClear(false);
-                      if (currentSessionId) {
-                        void onDeleteSession(currentSessionId);
-                      }
-                    }}
-                    className="cursor-pointer text-[13px] text-red-400 transition-colors hover:text-red-300"
+                    onClick={() => playlist.setConfirmClear(true)}
+                    className="cursor-pointer text-[13px] text-[var(--text-disabled)] transition-colors hover:text-[var(--text-tertiary)]"
                   >
-                    Yes
+                    Delete
                   </button>
-                  <button
-                    onClick={() => playlist.setConfirmClear(false)}
-                    className="cursor-pointer text-[13px] text-[var(--text-tertiary)]"
-                  >
-                    No
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => playlist.setConfirmClear(true)}
-                  className="cursor-pointer text-[13px] text-[var(--text-disabled)] transition-colors hover:text-[var(--text-tertiary)]"
-                >
-                  Delete
-                </button>
-              )}
+                ))}
             </div>
           )}
         </div>

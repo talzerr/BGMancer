@@ -9,6 +9,17 @@ export const SESSION_NAME_MAX_LENGTH = 50;
 /** Max game names shown in an auto-generated session name before "and more" is appended. */
 export const SESSION_NAME_MAX_GAMES = 3;
 
+/** Build a deterministic session name from a list of game names. */
+export function buildSessionName(gameNames: string[]): string {
+  const unique = [...new Set(gameNames)];
+  const raw =
+    unique.slice(0, SESSION_NAME_MAX_GAMES).join(", ") +
+    (unique.length > SESSION_NAME_MAX_GAMES ? " and more" : "");
+  return raw.length > SESSION_NAME_MAX_LENGTH
+    ? `${raw.slice(0, SESSION_NAME_MAX_LENGTH - 1).trimEnd()}…`
+    : raw;
+}
+
 // ─── Track count ──────────────────────────────────────────────────────────────
 
 /** Default number of tracks to generate. */

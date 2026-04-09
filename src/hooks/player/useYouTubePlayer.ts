@@ -119,6 +119,14 @@ export function useYouTubePlayer({
     setIsPlayingState(value);
     isPlayingRef.current = value;
     onPlayingChange?.(value);
+    // On pause, emit a final time update so the position is persisted immediately
+    if (!value && singletonPlayer) {
+      const ct = singletonPlayer.getCurrentTime();
+      if (isFinite(ct)) {
+        setCurrentTime(ct);
+        onTimeUpdateRef.current?.(ct);
+      }
+    }
   }
 
   function applyVolume(v: number) {

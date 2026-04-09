@@ -5,6 +5,7 @@ export interface SavedPlaybackState {
   trackIndex: number;
   positionSeconds: number;
   videoId: string;
+  paused?: boolean;
 }
 
 const PLAYBACK_STATE_KEY = "bgm_playback_state";

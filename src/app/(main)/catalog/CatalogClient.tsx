@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { signIn, signOut } from "next-auth/react";
+import { clearPlaybackState } from "@/hooks/player/playback-state";
 import { usePlayerContext } from "@/context/player-context";
 import { useSteamLibrary } from "@/hooks/library/useSteamLibrary";
 import { CatalogBrowser } from "@/components/library/CatalogBrowser";
@@ -16,6 +18,7 @@ import type { CurationMode, Game } from "@/types";
 interface CatalogClientProps {
   requestFormEnabled: boolean;
   turnstileSiteKey: string | undefined;
+  userName: string | null;
 }
 
 function LogoLink() {
@@ -36,7 +39,11 @@ function LogoLink() {
   );
 }
 
-export function CatalogClient({ requestFormEnabled, turnstileSiteKey }: CatalogClientProps) {
+export function CatalogClient({
+  requestFormEnabled,
+  turnstileSiteKey,
+  userName,
+}: CatalogClientProps) {
   const router = useRouter();
   const { gameLibrary, isSignedIn, playlist } = usePlayerContext();
   const steamLib = useSteamLibrary(isSignedIn);
@@ -111,6 +118,16 @@ export function CatalogClient({ requestFormEnabled, turnstileSiteKey }: CatalogC
         onCurationChange={handleCurationChange}
         onRemove={handleRemove}
         onCurate={handleCurate}
+        userName={userName}
+        onSignIn={!userName ? () => signIn("google", { callbackUrl: "/catalog" }) : undefined}
+        onSignOut={
+          userName
+            ? () => {
+                clearPlaybackState();
+                signOut({ callbackUrl: "/" });
+              }
+            : undefined
+        }
       />
 
       {/* Player strip */}

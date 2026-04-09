@@ -78,7 +78,7 @@ const defaultProps = {
   sessions: [makeSession()],
   currentSessionId: SESSION_ID as string | null,
   tracks: [] as PlaylistTrack[],
-  isSignedIn: false,
+  isSignedIn: true,
   isDev: true,
   onRename: vi.fn().mockResolvedValue(undefined),
   onDeleteSession: vi.fn().mockResolvedValue(undefined),
