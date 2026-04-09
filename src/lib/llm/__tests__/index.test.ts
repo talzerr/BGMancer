@@ -12,7 +12,8 @@ vi.mock("../anthropic", () => ({
   },
 }));
 
-const { getTaggingProvider, getVibeProfilerProvider } = await import("../index");
+const { getTaggingProvider, getVibeProfilerProvider, getSessionNamingProvider } =
+  await import("../index");
 
 const originalEnv = { ...process.env };
 
@@ -101,6 +102,53 @@ describe("getVibeProfilerProvider", () => {
 
     it("should throw", () => {
       expect(() => getVibeProfilerProvider()).toThrow("ANTHROPIC_API_KEY is required");
+    });
+  });
+});
+
+describe("getSessionNamingProvider", () => {
+  describe("when ANTHROPIC_API_KEY is set", () => {
+    beforeEach(() => {
+      process.env.ANTHROPIC_API_KEY = "test-key";
+      _reloadEnvForTest();
+    });
+
+    it("should return a provider", () => {
+      expect(getSessionNamingProvider()).toBeDefined();
+    });
+
+    it("should use ANTHROPIC_NAMING_MODEL when set", () => {
+      process.env.ANTHROPIC_NAMING_MODEL = "claude-sonnet-4-6";
+      _reloadEnvForTest();
+      getSessionNamingProvider();
+      expect(mockConstructor).toHaveBeenCalledWith("claude-sonnet-4-6");
+    });
+
+    it("should fall back to ANTHROPIC_MODEL when naming model is not set", () => {
+      (process.env as Record<string, string | undefined>).ANTHROPIC_NAMING_MODEL = undefined;
+      process.env.ANTHROPIC_MODEL = "claude-opus-4-6";
+      _reloadEnvForTest();
+      getSessionNamingProvider();
+      expect(mockConstructor).toHaveBeenCalledWith("claude-opus-4-6");
+    });
+
+    it("should use default model when no model env vars are set", () => {
+      (process.env as Record<string, string | undefined>).ANTHROPIC_NAMING_MODEL = undefined;
+      (process.env as Record<string, string | undefined>).ANTHROPIC_MODEL = undefined;
+      _reloadEnvForTest();
+      getSessionNamingProvider();
+      expect(mockConstructor).toHaveBeenCalledWith();
+    });
+  });
+
+  describe("when ANTHROPIC_API_KEY is not set", () => {
+    beforeEach(() => {
+      (process.env as Record<string, string | undefined>).ANTHROPIC_API_KEY = undefined;
+      _reloadEnvForTest();
+    });
+
+    it("should throw", () => {
+      expect(() => getSessionNamingProvider()).toThrow("ANTHROPIC_API_KEY is required");
     });
   });
 });

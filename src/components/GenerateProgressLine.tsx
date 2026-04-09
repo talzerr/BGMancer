@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 interface GenerateProgressLineProps {
   games: { id: string; title: string }[];
@@ -25,6 +25,8 @@ export function GenerateProgressLine({ games }: GenerateProgressLineProps) {
   const [showAssembling, setShowAssembling] = useState(false);
   const [nameOpacity, setNameOpacity] = useState(1);
 
+  const swapTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
   // Steady timer-driven cycle through the shuffled list. After one full pass
   // we lock onto "Assembling playlist…" until the pipeline finishes.
   useEffect(() => {
@@ -34,7 +36,7 @@ export function GenerateProgressLine({ games }: GenerateProgressLineProps) {
 
     const fadeTimer = setTimeout(() => {
       setNameOpacity(0);
-      const swapTimer = setTimeout(() => {
+      swapTimerRef.current = setTimeout(() => {
         if (atEnd) {
           setShowAssembling(true);
         } else {
@@ -42,10 +44,12 @@ export function GenerateProgressLine({ games }: GenerateProgressLineProps) {
         }
         setNameOpacity(1);
       }, FADE_MS);
-      return () => clearTimeout(swapTimer);
     }, HOLD_MS);
 
-    return () => clearTimeout(fadeTimer);
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(swapTimerRef.current);
+    };
   }, [displayIndex, shuffled.length, showAssembling]);
 
   const currentTitle = shuffled[displayIndex]?.title ?? "";

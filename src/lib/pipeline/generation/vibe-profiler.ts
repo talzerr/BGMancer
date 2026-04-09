@@ -246,6 +246,7 @@ export async function generateRubric(
   return { phases, penalizedMoods, allowVocals };
 }
 
+// Bounded by MAX_PLAYLIST_SESSIONS (3 sessions per user).
 export async function findCachedRubric(
   userId: string,
   activeGameIds: string[],

@@ -114,6 +114,8 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
       requestAnimationFrame(() => setPlaylistOpacity(1));
     }, PLAYLIST_FADE_MS);
     return () => clearTimeout(swapTimer);
+    // displayedSnapshot is intentionally in its own deps: we read it to decide
+    // whether to snap or fade, but the early-returns above prevent loops.
   }, [playlist.currentSessionId, playlist.tracks, displayedSnapshot]);
 
   const targetMode: "launchpad" | "playlist" =
