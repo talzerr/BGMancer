@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { signIn, signOut } from "next-auth/react";
 import { clearPlaybackState } from "@/hooks/player/playback-state";
+import { clearGuestLibrary } from "@/lib/guest-library";
 import { usePlayerContext } from "@/context/player-context";
 import { useSteamLibrary } from "@/hooks/library/useSteamLibrary";
 import { CatalogBrowser } from "@/components/library/CatalogBrowser";
@@ -124,6 +125,7 @@ export function CatalogClient({
           userName
             ? () => {
                 clearPlaybackState();
+                clearGuestLibrary();
                 signOut({ callbackUrl: "/" });
               }
             : undefined

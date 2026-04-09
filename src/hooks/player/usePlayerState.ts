@@ -42,6 +42,16 @@ export function usePlayerState() {
     clearPlaybackState();
   }
 
+  /** Stop playback without clearing localStorage cache (used after generation). */
+  function stopPlayback() {
+    setCurrentTrackIndex(null);
+    setShuffleMode(false);
+    setShuffleOrder([]);
+    setPlayedTrackIds(new Set());
+    setPlayingTracks([]);
+    setPlayingSessionId(null);
+  }
+
   function restorePlayback(tracks: PlaylistTrack[], index: number, sessionId: string | null) {
     const revealed = readRevealedTracks();
     setPlayingTracks(tracks);
@@ -126,6 +136,7 @@ export function usePlayerState() {
     shuffleMode,
     handleToggleShuffle,
     reset,
+    stopPlayback,
     startPlaying,
     restorePlayback,
     clearPlayedTracks,

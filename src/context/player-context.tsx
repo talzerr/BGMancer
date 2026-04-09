@@ -18,9 +18,11 @@ import type { Game, PlaylistTrack } from "@/types";
 import {
   readPlaybackState,
   readPlaybackTracks,
+  clearPlaybackState,
   savePlaybackState,
   savePlaybackTracks,
 } from "@/hooks/player/playback-state";
+import { clearGuestLibrary } from "@/lib/guest-library";
 
 type PlaylistState = ReturnType<typeof usePlaylist>;
 type PlayerState = ReturnType<typeof usePlayerState>;
@@ -65,7 +67,27 @@ export function PlayerProvider({
   initialTracks?: PlaylistTrack[];
   initialSessionId?: string | null;
 }) {
-  const playlist = usePlaylist({ initialTracks, initialSessionId });
+  // ── Synchronous guest cache read ──
+  // For guests, read cached tracks before usePlaylist so the first render
+  // already has data (no flash of launchpad). For signed-in users, clear
+  // stale guest caches — all data comes from the backend.
+  const guestCache = useMemo(() => {
+    if (isSignedIn) {
+      clearGuestLibrary();
+      const saved = readPlaybackState();
+      if (!saved || saved.sessionId === "guest") clearPlaybackState();
+      return null;
+    }
+    if (initialTracks.length > 0) return null;
+    const cached = readPlaybackTracks();
+    return cached && cached.length > 0 ? cached : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const playlist = usePlaylist({
+    initialTracks: guestCache ?? initialTracks,
+    initialSessionId: guestCache ? "guest" : initialSessionId,
+  });
   const config = useConfig();
   const gameLibrary = useGameLibrary(isSignedIn, initialGames);
 
@@ -74,19 +96,20 @@ export function PlayerProvider({
     player;
 
   const restoredSessionIdRef = useRef<string | null>(null);
-  const restoredRef = useRef(false);
+  const restoredRef = useRef(!!guestCache);
 
   // Read cached playback state synchronously so startPaused / initialSeekSeconds
   // are available on the very first render (before any effects run).
+  // Skip guest-session caches for signed-in users (e.g. after login transition).
   const cachedPlayback = useMemo(() => {
     if (restoredRef.current) return null;
     const saved = readPlaybackState();
     const cachedTracks = readPlaybackTracks();
     if (!saved || !cachedTracks) return null;
+    if (isSignedIn && saved.sessionId === "guest") return null;
     const track = cachedTracks[saved.trackIndex];
     if (!track || track.video_id !== saved.videoId) return null;
     return { saved, cachedTracks };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSignedIn]);
 
   const [restoredSeekSeconds, setRestoredSeekSeconds] = useState<number | null>(
@@ -108,6 +131,14 @@ export function PlayerProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cachedPlayback]);
 
+  // Guest without any cache — mark loading as done so the launchpad renders.
+  useEffect(() => {
+    if (isSignedIn || restoredRef.current) return;
+    restoredRef.current = true;
+    playlist.markReady();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSignedIn]);
+
   useEffect(() => {
     if (!isSignedIn) return;
     fetchTracks(restoredSessionIdRef.current ?? undefined);
@@ -116,6 +147,18 @@ export function PlayerProvider({
   useEffect(() => {
     fetchGames();
   }, [fetchGames]);
+
+  // When generation completes, stop old playback so the player doesn't keep
+  // playing a track from the previous session. Uses stopPlayback (not reset)
+  // to preserve the localStorage track cache for guest refresh persistence.
+  const generatingRef = useRef(false);
+  useEffect(() => {
+    if (generatingRef.current && !playlist.generating) {
+      player.stopPlayback();
+    }
+    generatingRef.current = playlist.generating;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playlist.generating]);
 
   useEffect(() => {
     if (restoredSeekSeconds !== null) setRestoredSeekSeconds(null);
@@ -154,6 +197,15 @@ export function PlayerProvider({
     savePlaybackState({ sessionId, trackIndex: idx, positionSeconds: 0, videoId: track.video_id });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [player.currentTrackIndex, player.playingSessionId]);
+
+  // Persist paused/playing state changes immediately so refresh preserves
+  // pause state. The onTimeUpdate callback fires synchronously during pause
+  // with a stale isPlayerPlaying closure, so this effect patches it after render.
+  useEffect(() => {
+    const existing = readPlaybackState();
+    if (!existing) return;
+    savePlaybackState({ ...existing, paused: !player.isPlayerPlaying });
+  }, [player.isPlayerPlaying]);
 
   useEffect(() => {
     if (playlist.tracks.length > 0) {

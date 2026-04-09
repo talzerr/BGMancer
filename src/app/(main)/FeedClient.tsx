@@ -25,6 +25,7 @@ import { usePlayerContext } from "@/context/player-context";
 import { useSessionManager } from "@/hooks/library/useSessionManager";
 import { useTrackDeleteUndo } from "@/hooks/player/useTrackDeleteUndo";
 import { clearPlaybackState } from "@/hooks/player/playback-state";
+import { clearGuestLibrary } from "@/lib/guest-library";
 import { useTurnstileToken } from "@/hooks/shared/useTurnstileToken";
 import { GenerateSection } from "@/components/GenerateSection";
 import { SessionList } from "@/components/session/SessionList";
@@ -261,6 +262,7 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey, user }: FeedCl
 
   function handleSignOut() {
     clearPlaybackState();
+    clearGuestLibrary();
     signOut({ callbackUrl: "/" }).then(() => window.location.reload());
   }
 

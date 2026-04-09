@@ -2,6 +2,7 @@
 
 import { signIn, signOut } from "next-auth/react";
 import { clearPlaybackState } from "@/hooks/player/playback-state";
+import { clearGuestLibrary } from "@/lib/guest-library";
 import { useLoginPromptDismissed } from "@/hooks/shared/useLoginPromptDismissed";
 
 interface AuthButtonsProps {
@@ -50,6 +51,7 @@ export function AuthButtons({ user, isDev }: AuthButtonsProps) {
 
   function handleSignOut() {
     clearPlaybackState();
+    clearGuestLibrary();
     signOut({ callbackUrl: "/" }).then(() => window.location.reload());
   }
 

@@ -208,6 +208,7 @@ export async function generatePlaylistForGuest(
 
   send({
     type: "done",
+    sessionId: "guest",
     tracks: finalTracks,
     count: finalTracks.length,
   });

@@ -70,6 +70,10 @@ export function usePlaylist(init: UsePlaylistInit = {}) {
     setIsLoading(false);
   }
 
+  function markReady() {
+    setIsLoading(false);
+  }
+
   function clearTracks() {
     setTracks([]);
     setCurrentSessionId(null);
@@ -204,6 +208,7 @@ export function usePlaylist(init: UsePlaylistInit = {}) {
 
             if (event.type === "done") {
               setTracks(event.tracks ?? []);
+              setIsLoading(false);
               if (event.sessionId) setCurrentSessionId(event.sessionId);
             }
           } catch {
@@ -252,6 +257,7 @@ export function usePlaylist(init: UsePlaylistInit = {}) {
     fetchTracks,
     loadForSession,
     hydrateFromCache,
+    markReady,
     clearTracks,
     removeTracksForGame,
     removeTrackLocal,

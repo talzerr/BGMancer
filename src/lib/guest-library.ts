@@ -63,3 +63,9 @@ export function writeGuestLibraryHydrated(games: Game[]): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(GUEST_LIBRARY_HYDRATED_KEY, JSON.stringify(games));
 }
+
+export function clearGuestLibrary(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(GUEST_LIBRARY_KEY);
+  localStorage.removeItem(GUEST_LIBRARY_HYDRATED_KEY);
+}
