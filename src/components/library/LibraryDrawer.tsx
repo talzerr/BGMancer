@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { CurationMode } from "@/types";
 import type { Game } from "@/types";
 import { LIBRARY_MAX_GAMES } from "@/lib/constants";
@@ -160,10 +161,10 @@ export function LibraryDrawer({
 }: LibraryDrawerProps) {
   return (
     <aside
-      className="border-border bg-background/80 sticky top-0 hidden max-h-screen shrink-0 overflow-hidden border-l transition-[width] duration-300 [transition-timing-function:cubic-bezier(0.25,0.1,0.25,1)] lg:block"
+      className="border-border bg-background/80 hidden h-full shrink-0 overflow-hidden border-l transition-[width] duration-300 [transition-timing-function:cubic-bezier(0.25,0.1,0.25,1)] lg:block"
       style={{ width: isExpanded ? 300 : 40 }}
     >
-      <div className="relative h-screen w-[300px]">
+      <div className="relative h-full w-[300px]">
         {/* Collapsed strip */}
         <button
           type="button"
@@ -269,13 +270,22 @@ export function LibraryDrawer({
             </div>
           )}
 
-          {/* End-of-list footer — sized to match the global player bar so it sits
-              underneath when the player is up, only visible when no track is playing. */}
-          {games.length > 0 && (
-            <div className="border-border flex h-[65px] shrink-0 items-center justify-center border-t text-[7px] text-[var(--text-tertiary)] opacity-25">
-              ◆
-            </div>
-          )}
+          <div className="border-border flex shrink-0 items-center justify-center gap-1 border-t px-4 py-3 text-[11px] text-[var(--text-disabled)]">
+            <a
+              href="https://github.com/talzerr/bgmancer"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="transition-colors hover:text-[var(--text-tertiary)]"
+            >
+              Source
+            </a>
+            <span>·</span>
+            <Link href="/legal" className="transition-colors hover:text-[var(--text-tertiary)]">
+              Legal
+            </Link>
+            <span>·</span>
+            <span>Discord: talzxc</span>
+          </div>
         </div>
       </div>
     </aside>

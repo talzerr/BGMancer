@@ -408,18 +408,39 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey, user }: FeedCl
 
                 {sessionList}
 
-                {/* User info (desktop only) */}
+                {/* User info + footer links (desktop only) */}
                 {user && (
-                  <div className="mt-2 hidden items-center gap-2 border-t border-[rgba(255,255,255,0.04)] pt-3 lg:flex">
-                    <span className="text-[11px] text-[var(--text-disabled)]">
-                      {user.email?.split("@")[0] ?? "User"}
-                    </span>
-                    <button
-                      onClick={handleSignOut}
-                      className="cursor-pointer text-[11px] text-[rgba(255,255,255,0.20)] transition-colors hover:text-[var(--text-tertiary)]"
-                    >
-                      Sign out
-                    </button>
+                  <div className="mt-2 hidden flex-col gap-2 border-t border-[rgba(255,255,255,0.04)] pt-3 lg:flex">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-[var(--text-disabled)]">
+                        {user.email?.split("@")[0] ?? "User"}
+                      </span>
+                      <button
+                        onClick={handleSignOut}
+                        className="cursor-pointer text-[11px] text-[rgba(255,255,255,0.20)] transition-colors hover:text-[var(--text-tertiary)]"
+                      >
+                        Sign out
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-1 text-[11px] text-[var(--text-disabled)]">
+                      <a
+                        href="https://github.com/talzerr/bgmancer"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="transition-colors hover:text-[var(--text-tertiary)]"
+                      >
+                        Source
+                      </a>
+                      <span>·</span>
+                      <Link
+                        href="/legal"
+                        className="transition-colors hover:text-[var(--text-tertiary)]"
+                      >
+                        Legal
+                      </Link>
+                      <span>·</span>
+                      <span>Discord: talzxc</span>
+                    </div>
                   </div>
                 )}
               </aside>
