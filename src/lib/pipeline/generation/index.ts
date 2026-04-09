@@ -18,6 +18,7 @@ import type { AppConfig, Game, PlaylistTrack, TaggedTrack, VibeRubric } from "@/
 import {
   MIN_TRACK_DURATION_SECONDS,
   MAX_TRACK_DURATION_SECONDS,
+  GUEST_SESSION_ID,
   buildSessionName,
 } from "@/lib/constants";
 
@@ -198,7 +199,7 @@ export async function generatePlaylistForGuest(
     const g = gameMap.get(t.game_id);
     return {
       ...t,
-      playlist_id: "guest",
+      playlist_id: GUEST_SESSION_ID,
       position,
       created_at: new Date().toISOString(),
       synced_at: null,
@@ -208,7 +209,7 @@ export async function generatePlaylistForGuest(
 
   send({
     type: "done",
-    sessionId: "guest",
+    sessionId: GUEST_SESSION_ID,
     tracks: finalTracks,
     count: finalTracks.length,
   });

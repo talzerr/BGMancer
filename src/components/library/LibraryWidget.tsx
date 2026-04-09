@@ -92,7 +92,7 @@ export function LibraryWidget() {
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center bg-[var(--surface-hover)]">
-                      <span className="text-muted-foreground text-[10px] font-medium uppercase">
+                      <span className="text-muted-foreground text-[11px] font-medium uppercase">
                         {game.title.charAt(0)}
                       </span>
                     </div>

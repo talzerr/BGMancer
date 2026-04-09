@@ -75,9 +75,8 @@ export function PlaylistHeader({
   }
 
   return (
-    <div className="sticky top-0 z-10 -mx-4 bg-[#13120f] px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-      <div className="flex flex-col gap-1.5 pt-6 pb-[14px]">
-        {/* First line: title left, actions right */}
+    <div className="bg-background sticky top-0 z-10 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+      <div className="flex flex-col gap-1.5 pt-6 pb-3">
         <div className="flex items-center justify-between">
           <div className="min-w-0 flex-1">
             {editingTitle ? (
@@ -101,7 +100,7 @@ export function PlaylistHeader({
                   if (e.key === "Escape") setEditingTitle(false);
                 }}
                 maxLength={SESSION_NAME_MAX_LENGTH}
-                className="font-display border-primary caret-primary w-full border-b bg-transparent text-[16px] font-semibold -tracking-[0.03em] text-[var(--text-primary)] focus:outline-none"
+                className="font-display border-primary caret-primary w-full border-b bg-transparent text-[22px] leading-[1.2] font-semibold -tracking-[0.03em] text-[var(--text-primary)] focus:outline-none"
               />
             ) : isSignedIn ? (
               <button
@@ -111,19 +110,19 @@ export function PlaylistHeader({
                   setEditingTitle(true);
                   setTimeout(() => titleInputRef.current?.select(), 0);
                 }}
-                className="font-display hover:text-foreground max-w-full min-w-0 cursor-text truncate text-[16px] font-semibold -tracking-[0.03em] text-[var(--text-primary)] transition-colors"
+                className="font-display hover:text-foreground max-w-full min-w-0 cursor-text truncate text-[22px] leading-[1.2] font-semibold -tracking-[0.03em] text-[var(--text-primary)] transition-colors"
               >
                 {displayTitle}
               </button>
             ) : (
-              <span className="font-display max-w-full min-w-0 truncate text-[16px] font-semibold -tracking-[0.03em] text-[var(--text-primary)]">
+              <span className="font-display max-w-full min-w-0 truncate text-[22px] leading-[1.2] font-semibold -tracking-[0.03em] text-[var(--text-primary)]">
                 {displayTitle}
               </span>
             )}
           </div>
 
           {trackCount > 0 && (
-            <div className="flex shrink-0 items-center gap-[14px]">
+            <div className="flex shrink-0 items-center gap-3">
               <button
                 onClick={() => player.startPlaying(tracks, 0, currentSessionId)}
                 className="text-primary cursor-pointer text-[13px] font-medium transition-colors hover:text-[var(--primary-hover)]"
@@ -191,7 +190,6 @@ export function PlaylistHeader({
           )}
         </div>
 
-        {/* Second line: metadata */}
         {trackCount > 0 && (
           <span className="text-[12px] text-[var(--text-disabled)] tabular-nums">
             {trackCount} tracks · {formatDuration(totalDurationSeconds)}

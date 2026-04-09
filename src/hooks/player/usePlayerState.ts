@@ -43,7 +43,7 @@ export function usePlayerState() {
   }
 
   /** Stop playback without clearing localStorage cache (used after generation). */
-  function stopPlayback() {
+  function resetPlayback() {
     setCurrentTrackIndex(null);
     setShuffleMode(false);
     setShuffleOrder([]);
@@ -136,7 +136,7 @@ export function usePlayerState() {
     shuffleMode,
     handleToggleShuffle,
     reset,
-    stopPlayback,
+    resetPlayback,
     startPlaying,
     restorePlayback,
     clearPlayedTracks,

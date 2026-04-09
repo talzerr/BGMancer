@@ -2,42 +2,22 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import Image from "next/image";
-import { signIn, signOut } from "next-auth/react";
-import { clearPlaybackState } from "@/hooks/player/playback-state";
-import { clearGuestLibrary } from "@/lib/guest-library";
+import { signIn } from "next-auth/react";
 import { usePlayerContext } from "@/context/player-context";
+import { performSignOut } from "@/components/AuthButtons";
 import { useSteamLibrary } from "@/hooks/library/useSteamLibrary";
 import { CatalogBrowser } from "@/components/library/CatalogBrowser";
 import { CatalogHeaderBar } from "@/components/library/CatalogHeaderBar";
 import { CatalogSteamControls } from "@/components/library/CatalogSteamControls";
 import { LibraryDrawer } from "@/components/library/LibraryDrawer";
 import { PlayerPanel } from "@/components/player/PlayerPanel";
+import { LogoLink } from "@/components/layout/LogoLink";
 import type { CurationMode, Game } from "@/types";
 
 interface CatalogClientProps {
   requestFormEnabled: boolean;
   turnstileSiteKey: string | undefined;
   userName: string | null;
-}
-
-function LogoLink() {
-  return (
-    <Link href="/" className="flex items-center gap-2.5">
-      <Image
-        src="/icon-192.png"
-        alt="BGMancer"
-        width={20}
-        height={20}
-        className="h-5 w-5 shrink-0"
-        priority
-      />
-      <h1 className="font-display text-foreground text-[14px] leading-[1.2] font-semibold -tracking-[0.03em]">
-        BGMancer
-      </h1>
-    </Link>
-  );
 }
 
 export function CatalogClient({
@@ -80,9 +60,8 @@ export function CatalogClient({
 
   return (
     <div className="flex h-screen flex-row overflow-hidden">
-      {/* Center: header + controls + scrollable grid */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex shrink-0 items-center justify-between px-4 pt-[18px] pb-3 sm:px-6">
+        <header className="flex shrink-0 items-center justify-between px-4 pt-4 pb-3 sm:px-6">
           <LogoLink />
           <CatalogHeaderBar search={search} onSearchChange={setSearch}>
             {isSignedIn && (
@@ -111,7 +90,6 @@ export function CatalogClient({
         </main>
       </div>
 
-      {/* Library drawer — fixed panel */}
       <LibraryDrawer
         games={gameLibrary.games}
         isExpanded={drawerExpanded}
@@ -121,18 +99,9 @@ export function CatalogClient({
         onCurate={handleCurate}
         userName={userName}
         onSignIn={!userName ? () => signIn("google", { callbackUrl: "/catalog" }) : undefined}
-        onSignOut={
-          userName
-            ? () => {
-                clearPlaybackState();
-                clearGuestLibrary();
-                signOut({ callbackUrl: "/" });
-              }
-            : undefined
-        }
+        onSignOut={userName ? () => performSignOut() : undefined}
       />
 
-      {/* Player strip */}
       {playlist.tracks.length > 0 && (
         <div className="hidden lg:flex">
           <PlayerPanel />

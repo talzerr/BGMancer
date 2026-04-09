@@ -3,9 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PlaylistTrack } from "@/types";
 import Script from "next/script";
-import Image from "next/image";
-import Link from "next/link";
-import { signIn, signOut } from "next-auth/react";
+import { signIn } from "next-auth/react";
 import {
   DndContext,
   closestCenter,
@@ -24,8 +22,6 @@ import {
 import { usePlayerContext } from "@/context/player-context";
 import { useSessionManager } from "@/hooks/library/useSessionManager";
 import { useTrackDeleteUndo } from "@/hooks/player/useTrackDeleteUndo";
-import { clearPlaybackState } from "@/hooks/player/playback-state";
-import { clearGuestLibrary } from "@/lib/guest-library";
 import { useTurnstileToken } from "@/hooks/shared/useTurnstileToken";
 import { GenerateSection } from "@/components/GenerateSection";
 import { SessionList } from "@/components/session/SessionList";
@@ -35,7 +31,10 @@ import { SortableTrackItem } from "@/components/player/SortableTrackItem";
 import { Launchpad } from "@/components/launchpad/Launchpad";
 import { UndoToast } from "@/components/player/UndoToast";
 import { PlayerPanel } from "@/components/player/PlayerPanel";
-import { AuthButtons } from "@/components/AuthButtons";
+import { AuthButtons, performSignOut } from "@/components/AuthButtons";
+import { LogoLink } from "@/components/layout/LogoLink";
+import { FooterLinks } from "@/components/layout/FooterLinks";
+import { GoogleLogo } from "@/components/Icons";
 
 const LAUNCHPAD_FADE_MS = 700;
 const LAUNCHPAD_SWAP_DELAY_MS = 800; // fade-out duration + brief held-at-zero pause
@@ -46,24 +45,6 @@ interface FeedClientProps {
   isDev: boolean;
   turnstileSiteKey?: string;
   user: { name?: string | null; email?: string | null; image?: string | null } | null;
-}
-
-function LogoLink() {
-  return (
-    <Link href="/" className="flex items-center gap-2.5">
-      <Image
-        src="/icon-192.png"
-        alt="BGMancer"
-        width={20}
-        height={20}
-        className="h-5 w-5 shrink-0"
-        priority
-      />
-      <h1 className="font-display text-foreground text-[14px] leading-[1.2] font-semibold -tracking-[0.03em]">
-        BGMancer
-      </h1>
-    </Link>
-  );
 }
 
 export function FeedClient({ isSignedIn, isDev, turnstileSiteKey, user }: FeedClientProps) {
@@ -153,8 +134,8 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey, user }: FeedCl
     playlist.tracks.length > 0 ? "playlist" : "launchpad";
 
   useEffect(() => {
-    if (!hydrated) setHydrated(true);
-  }, [hydrated]);
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
     if (targetMode === mode) return;
@@ -269,9 +250,7 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey, user }: FeedCl
   }, []);
 
   function handleSignOut() {
-    clearPlaybackState();
-    clearGuestLibrary();
-    signOut({ callbackUrl: "/" }).then(() => window.location.reload());
+    performSignOut();
   }
 
   // ── Sidebar content (shared between mobile stacked + desktop fixed) ──
@@ -393,8 +372,7 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey, user }: FeedCl
       >
         {mode === "launchpad" ? (
           <>
-            {/* Minimal header for launchpad */}
-            <header className="mx-auto flex max-w-7xl items-center justify-between px-4 pt-[18px] sm:px-6">
+            <header className="mx-auto flex max-w-7xl items-center justify-between px-4 pt-4 sm:px-6">
               <LogoLink />
               <AuthButtons user={user} isDev={isDev} />
             </header>
@@ -402,29 +380,24 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey, user }: FeedCl
           </>
         ) : (
           <>
-            {/* Mobile header (hidden on desktop) */}
-            <header className="flex items-center justify-between px-4 pt-[18px] sm:px-6 lg:hidden">
+            <header className="flex items-center justify-between px-4 pt-4 sm:px-6 lg:hidden">
               <LogoLink />
               <AuthButtons user={user} isDev={isDev} />
             </header>
 
             <div className="flex flex-col lg:h-screen lg:flex-row lg:overflow-hidden">
-              {/* Left sidebar — curation */}
-              <aside className="flex flex-col gap-4 p-4 lg:w-[290px] lg:shrink-0 lg:border-r lg:border-[rgba(255,255,255,0.04)] lg:p-5 lg:pb-16">
-                {/* Logo (desktop only) */}
+              <aside className="lg:border-border flex flex-col gap-4 p-4 lg:w-[290px] lg:shrink-0 lg:border-r lg:p-5 lg:pb-16">
                 <div className="mb-3 hidden lg:block">
                   <LogoLink />
                 </div>
 
                 {sidebarControls}
 
-                {/* Spacer — pushes history + user info to bottom on desktop */}
                 <div className="hidden lg:block lg:flex-1" />
 
                 {sessionList}
 
-                {/* User info / sign-in + footer links (desktop only) */}
-                <div className="mt-2 hidden flex-col gap-2 border-t border-[rgba(255,255,255,0.04)] pt-3 lg:flex">
+                <div className="border-border mt-2 hidden flex-col gap-2 border-t pt-3 lg:flex">
                   {user ? (
                     <div className="flex items-center gap-2">
                       <span className="text-[11px] text-[var(--text-disabled)]">
@@ -442,50 +415,14 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey, user }: FeedCl
                       onClick={() => signIn("google", { callbackUrl: "/" })}
                       className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-[rgba(255,255,255,0.08)] bg-white/[0.04] px-3 py-1.5 text-[12px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-white/[0.08] hover:text-[var(--text-primary)]"
                     >
-                      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24">
-                        <path
-                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
-                          fill="#4285F4"
-                        />
-                        <path
-                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                          fill="#34A853"
-                        />
-                        <path
-                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                          fill="#FBBC05"
-                        />
-                        <path
-                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                          fill="#EA4335"
-                        />
-                      </svg>
+                      <GoogleLogo className="h-3.5 w-3.5" />
                       Sign in with Google
                     </button>
                   )}
-                  <div className="flex items-center gap-1 text-[11px] text-[var(--text-disabled)]">
-                    <a
-                      href="https://github.com/talzerr/bgmancer"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="transition-colors hover:text-[var(--text-tertiary)]"
-                    >
-                      Source
-                    </a>
-                    <span>·</span>
-                    <Link
-                      href="/legal"
-                      className="transition-colors hover:text-[var(--text-tertiary)]"
-                    >
-                      Legal
-                    </Link>
-                    <span>·</span>
-                    <span>Discord: talzxc</span>
-                  </div>
+                  <FooterLinks />
                 </div>
               </aside>
 
-              {/* Center — scrollable playlist */}
               <main
                 className="playlist-scroll min-w-0 flex-1 lg:overflow-y-auto"
                 style={{ scrollbarColor: "rgba(255,255,255,0.12) transparent" }}
@@ -493,7 +430,6 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey, user }: FeedCl
                 <div className="px-4 pb-4 sm:px-6 lg:px-8">{playlistContent}</div>
               </main>
 
-              {/* Right — player panel (desktop only) */}
               <div className="hidden lg:flex">
                 <PlayerPanel />
               </div>

@@ -1,3 +1,8 @@
+// ─── Guest identity ──────────────────────────────────────────────────────────
+
+/** Session ID used for guest (unauthenticated) playlist sessions. */
+export const GUEST_SESSION_ID = "guest";
+
 // ─── Session history ──────────────────────────────────────────────────────────
 
 /** Maximum number of playlist history sessions kept per user. Oldest is evicted when exceeded. */

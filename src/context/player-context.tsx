@@ -23,6 +23,7 @@ import {
   savePlaybackTracks,
 } from "@/hooks/player/playback-state";
 import { clearGuestLibrary } from "@/lib/guest-library";
+import { GUEST_SESSION_ID } from "@/lib/constants";
 
 type PlaylistState = ReturnType<typeof usePlaylist>;
 type PlayerState = ReturnType<typeof usePlayerState>;
@@ -75,7 +76,7 @@ export function PlayerProvider({
     if (isSignedIn) {
       clearGuestLibrary();
       const saved = readPlaybackState();
-      if (!saved || saved.sessionId === "guest") {
+      if (!saved || saved.sessionId === GUEST_SESSION_ID) {
         clearPlaybackState();
         return { tracks: null, playback: null };
       }
@@ -102,7 +103,7 @@ export function PlayerProvider({
   const playlist = usePlaylist({
     initialTracks: restoreData.tracks ?? initialTracks,
     initialSessionId: restoreData.tracks
-      ? (restoreData.playback?.sessionId ?? "guest")
+      ? (restoreData.playback?.sessionId ?? GUEST_SESSION_ID)
       : initialSessionId,
   });
   const config = useConfig();
@@ -154,7 +155,7 @@ export function PlayerProvider({
   const generatingRef = useRef(false);
   useEffect(() => {
     if (generatingRef.current && !playlist.generating) {
-      player.stopPlayback();
+      player.resetPlayback();
     }
     generatingRef.current = playlist.generating;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -167,7 +168,7 @@ export function PlayerProvider({
   const handleTimeUpdate = useCallback(
     (time: number, paused: boolean) => {
       const idx = player.currentTrackIndex;
-      const sessionId = player.playingSessionId ?? "guest";
+      const sessionId = player.playingSessionId ?? GUEST_SESSION_ID;
       if (idx === null) return;
       const track = player.effectiveFoundTracks[idx];
       if (!track?.video_id) return;
@@ -185,7 +186,7 @@ export function PlayerProvider({
   useEffect(() => {
     if (restoredSeekSeconds !== null) return;
     const idx = player.currentTrackIndex;
-    const sessionId = player.playingSessionId ?? "guest";
+    const sessionId = player.playingSessionId ?? GUEST_SESSION_ID;
     if (idx === null) return;
     const track = player.effectiveFoundTracks[idx];
     if (!track?.video_id) return;
