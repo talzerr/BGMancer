@@ -3,11 +3,22 @@
 import { useCallback, useRef, useState } from "react";
 import type { CurationMode, Game } from "@/types";
 import { LIBRARY_MAX_GAMES } from "@/lib/constants";
-import { readGuestLibrary, writeGuestLibrary } from "@/lib/guest-library";
+import {
+  readGuestLibrary,
+  readGuestLibraryHydrated,
+  writeGuestLibrary,
+  writeGuestLibraryHydrated,
+} from "@/lib/guest-library";
 
-export function useGameLibrary(isSignedIn: boolean) {
-  const [games, setGames] = useState<Game[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export function useGameLibrary(isSignedIn: boolean, initialGames: Game[] = []) {
+  const [games, setGames] = useState<Game[]>(() => {
+    if (initialGames.length > 0) return initialGames;
+    if (!isSignedIn && typeof window !== "undefined") {
+      return readGuestLibraryHydrated();
+    }
+    return [];
+  });
+  const [isLoading, setIsLoading] = useState(games.length === 0);
   const [error, setError] = useState<string | null>(null);
   // Cache catalog for guest hydration so we don't re-fetch every time.
   const catalogCache = useRef<Game[] | null>(null);
@@ -37,6 +48,7 @@ export function useGameLibrary(isSignedIn: boolean) {
         const entries = readGuestLibrary();
         if (entries.length === 0) {
           setGames([]);
+          writeGuestLibraryHydrated([]);
           return;
         }
         const catalog = await fetchCatalog();
@@ -47,6 +59,7 @@ export function useGameLibrary(isSignedIn: boolean) {
           if (game) hydrated.push({ ...game, curation: entry.curation });
         }
         setGames(hydrated);
+        writeGuestLibraryHydrated(hydrated);
       }
     } catch (err) {
       console.error("Failed to fetch games:", err);
@@ -72,7 +85,11 @@ export function useGameLibrary(isSignedIn: boolean) {
       }
       if (entries.some((e) => e.gameId === game.id)) return;
       writeGuestLibrary([...entries, { gameId: game.id, curation }]);
-      setGames((prev) => [...prev, { ...game, curation }]);
+      setGames((prev) => {
+        const next = [...prev, { ...game, curation }];
+        writeGuestLibraryHydrated(next);
+        return next;
+      });
     }
   }
 
@@ -88,7 +105,11 @@ export function useGameLibrary(isSignedIn: boolean) {
       const entries = readGuestLibrary();
       writeGuestLibrary(entries.map((e) => (e.gameId === gameId ? { ...e, curation } : e)));
     }
-    setGames((prev) => prev.map((g) => (g.id === gameId ? { ...g, curation } : g)));
+    setGames((prev) => {
+      const next = prev.map((g) => (g.id === gameId ? { ...g, curation } : g));
+      if (!isSignedIn) writeGuestLibraryHydrated(next);
+      return next;
+    });
   }
 
   async function deleteGame(gameId: string): Promise<boolean> {
@@ -108,7 +129,11 @@ export function useGameLibrary(isSignedIn: boolean) {
     } else {
       const entries = readGuestLibrary();
       writeGuestLibrary(entries.filter((e) => e.gameId !== gameId));
-      setGames((prev) => prev.filter((g) => g.id !== gameId));
+      setGames((prev) => {
+        const next = prev.filter((g) => g.id !== gameId);
+        writeGuestLibraryHydrated(next);
+        return next;
+      });
       return true;
     }
   }

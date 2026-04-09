@@ -80,6 +80,8 @@ describe("CatalogBrowser", () => {
       const CatalogBrowser = await importComponent();
       render(
         <CatalogBrowser
+          requestFormEnabled={false}
+          turnstileSiteKey={undefined}
           libraryGameIds={new Set()}
           onAdd={vi.fn()}
           drawerExpanded={true}
@@ -99,6 +101,8 @@ describe("CatalogBrowser", () => {
       const CatalogBrowser = await importComponent();
       render(
         <CatalogBrowser
+          requestFormEnabled={false}
+          turnstileSiteKey={undefined}
           libraryGameIds={new Set()}
           onAdd={vi.fn()}
           drawerExpanded={true}
@@ -115,6 +119,8 @@ describe("CatalogBrowser", () => {
       const CatalogBrowser = await importComponent();
       render(
         <CatalogBrowser
+          requestFormEnabled={false}
+          turnstileSiteKey={undefined}
           libraryGameIds={new Set()}
           onAdd={vi.fn()}
           drawerExpanded={true}
@@ -133,6 +139,8 @@ describe("CatalogBrowser", () => {
       const CatalogBrowser = await importComponent();
       render(
         <CatalogBrowser
+          requestFormEnabled={false}
+          turnstileSiteKey={undefined}
           libraryGameIds={new Set(["game-hk"])}
           onAdd={vi.fn()}
           drawerExpanded={true}
@@ -149,6 +157,8 @@ describe("CatalogBrowser", () => {
       const CatalogBrowser = await importComponent();
       render(
         <CatalogBrowser
+          requestFormEnabled={false}
+          turnstileSiteKey={undefined}
           libraryGameIds={new Set(["game-hk", "game-celeste"])}
           onAdd={vi.fn()}
           drawerExpanded={true}
@@ -167,6 +177,8 @@ describe("CatalogBrowser", () => {
       const CatalogBrowser = await importComponent();
       render(
         <CatalogBrowser
+          requestFormEnabled={false}
+          turnstileSiteKey={undefined}
           libraryGameIds={new Set()}
           onAdd={vi.fn()}
           drawerExpanded={true}
@@ -186,6 +198,8 @@ describe("CatalogBrowser", () => {
       const CatalogBrowser = await importComponent();
       render(
         <CatalogBrowser
+          requestFormEnabled={false}
+          turnstileSiteKey={undefined}
           libraryGameIds={new Set()}
           onAdd={vi.fn()}
           searchFilter="hollow"
@@ -203,6 +217,8 @@ describe("CatalogBrowser", () => {
       const CatalogBrowser = await importComponent();
       render(
         <CatalogBrowser
+          requestFormEnabled={false}
+          turnstileSiteKey={undefined}
           libraryGameIds={new Set()}
           onAdd={vi.fn()}
           searchFilter=""
@@ -225,6 +241,8 @@ describe("CatalogBrowser", () => {
       const CatalogBrowser = await importComponent();
       render(
         <CatalogBrowser
+          requestFormEnabled={false}
+          turnstileSiteKey={undefined}
           libraryGameIds={new Set()}
           onAdd={onAdd}
           drawerExpanded={true}
@@ -251,6 +269,8 @@ describe("CatalogBrowser", () => {
       const CatalogBrowser = await importComponent();
       render(
         <CatalogBrowser
+          requestFormEnabled={false}
+          turnstileSiteKey={undefined}
           libraryGameIds={new Set()}
           onAdd={onAdd}
           drawerExpanded={true}

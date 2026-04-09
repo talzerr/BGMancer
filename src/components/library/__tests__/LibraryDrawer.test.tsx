@@ -198,7 +198,7 @@ describe("LibraryDrawer", () => {
       expect(screen.getAllByText("2").length).toBeGreaterThanOrEqual(1);
     });
 
-    it("should show steam thumbnail for games with steam_appid", async () => {
+    it("should render thumbnail_url as the source of truth", async () => {
       const LibraryDrawer = await importComponent();
       render(
         <LibraryDrawer
@@ -212,10 +212,7 @@ describe("LibraryDrawer", () => {
       );
 
       const img = screen.getByAltText("Hollow Knight");
-      expect(img).toHaveAttribute(
-        "src",
-        "https://cdn.akamai.steamstatic.com/steam/apps/367520/header.jpg",
-      );
+      expect(img).toHaveAttribute("src", "https://example.com/hk.jpg");
     });
 
     it("should fall back to thumbnail_url for games without steam_appid", async () => {

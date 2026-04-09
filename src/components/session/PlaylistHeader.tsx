@@ -5,10 +5,14 @@ import { EyeIcon, EyeOffIcon, PlayIcon, TrashIcon } from "@/components/Icons";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { SESSION_NAME_MAX_LENGTH } from "@/lib/constants";
 import { formatSessionName } from "@/components/session/SessionList";
-import type { PlaylistSessionWithCount } from "@/types";
+import type { PlaylistSessionWithCount, PlaylistTrack } from "@/types";
 
 interface PlaylistHeaderProps {
   sessions: PlaylistSessionWithCount[];
+  // Session and tracks rendered by the header. Passed explicitly (not read
+  // from context) so the parent can show a stale snapshot during a crossfade.
+  currentSessionId: string | null;
+  tracks: PlaylistTrack[];
   isSignedIn: boolean;
   isDev: boolean;
   onRename: (id: string, name: string) => Promise<void>;
@@ -24,6 +28,8 @@ function formatDuration(seconds: number): string {
 
 export function PlaylistHeader({
   sessions,
+  currentSessionId,
+  tracks,
   isSignedIn,
   isDev,
   onRename,
@@ -46,7 +52,7 @@ export function PlaylistHeader({
     }
   }, [editingTitle]);
 
-  const currentSession = sessions.find((s) => s.id === playlist.currentSessionId);
+  const currentSession = sessions.find((s) => s.id === currentSessionId);
   const displayTitle = currentSession ? formatSessionName(currentSession.name) : "";
 
   // Measure on a hidden shadow span at the fixed 26px size — measuring the rendered
@@ -65,15 +71,12 @@ export function PlaylistHeader({
     return () => ro.disconnect();
   }, [displayTitle]);
 
-  if (!playlist.currentSessionId) return null;
+  if (!currentSessionId) return null;
 
-  const trackCount = playlist.tracks.length;
+  const trackCount = tracks.length;
   const hasFoundTracks = trackCount > 0;
 
-  const totalDurationSeconds = playlist.tracks.reduce(
-    (sum, t) => sum + (t.duration_seconds ?? 0),
-    0,
-  );
+  const totalDurationSeconds = tracks.reduce((sum, t) => sum + (t.duration_seconds ?? 0), 0);
 
   const titleSizeClass = isLongTitle ? "text-[22px]" : "text-[26px]";
 
@@ -100,8 +103,8 @@ export function PlaylistHeader({
             onBlur={() => {
               setEditingTitle(false);
               const trimmed = titleEditValue.trim();
-              if (trimmed && trimmed !== displayTitle && playlist.currentSessionId) {
-                void onRename(playlist.currentSessionId, trimmed);
+              if (trimmed && trimmed !== displayTitle && currentSessionId) {
+                void onRename(currentSessionId, trimmed);
               }
             }}
             onKeyDown={(e) => {
@@ -164,7 +167,7 @@ export function PlaylistHeader({
             {trackCount > 0 && (
               <button
                 onClick={() => {
-                  player.startPlaying(playlist.tracks, 0, playlist.currentSessionId);
+                  player.startPlaying(tracks, 0, currentSessionId);
                 }}
                 className="bg-primary text-foreground flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all hover:bg-[var(--primary-hover)] active:scale-[0.98]"
               >
@@ -186,7 +189,7 @@ export function PlaylistHeader({
               />
             )}
 
-            {playlist.tracks.length > 0 && (
+            {trackCount > 0 && (
               <>
                 <Tooltip>
                   <TooltipTrigger
@@ -219,8 +222,8 @@ export function PlaylistHeader({
                     <button
                       onClick={() => {
                         playlist.setConfirmClear(false);
-                        if (playlist.currentSessionId) {
-                          void onDeleteSession(playlist.currentSessionId);
+                        if (currentSessionId) {
+                          void onDeleteSession(currentSessionId);
                         }
                       }}
                       className="text-foreground cursor-pointer rounded-lg bg-red-600/90 px-2 py-1 text-xs font-medium hover:bg-red-500"

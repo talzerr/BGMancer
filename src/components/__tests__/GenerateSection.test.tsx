@@ -10,8 +10,6 @@ afterEach(() => {
 });
 
 import { GenerateSection } from "../GenerateSection";
-import { GameProgressStatus } from "@/types";
-import type { GameProgressEntry } from "@/hooks/player/usePlaylist";
 
 // ─── File-level constants ────────────────────────────────────────────────────
 
@@ -29,13 +27,15 @@ const GEN_ERROR_MSG = "Failed to generate playlist.";
 function defaultProps() {
   return {
     generating: false,
-    genProgress: [] as GameProgressEntry[],
     genError: null as string | null,
     cooldownUntil: 0,
     targetTrackCount: DEFAULT_TRACK_COUNT,
-    onTargetChange: vi.fn(),
     onTargetSave: vi.fn(),
     gamesCount: DEFAULT_GAMES_COUNT,
+    games: [
+      { id: "g1", title: PROGRESS_TITLE_A },
+      { id: "g2", title: PROGRESS_TITLE_B },
+    ],
     onGenerate: vi.fn(),
     allowLongTracks: false,
     onToggleLongTracks: vi.fn(),
@@ -43,7 +43,6 @@ function defaultProps() {
     onToggleShortTracks: vi.fn(),
     rawVibes: false,
     onToggleRawVibes: vi.fn(),
-    isSignedIn: true,
   };
 }
 
@@ -74,13 +73,6 @@ describe("GenerateSection", () => {
       render(<GenerateSection {...defaultProps()} />);
       expect(screen.getByRole("button", { name: /curate.*tracks/i })).toBeEnabled();
     });
-
-    it("should show the game count and track count summary", () => {
-      render(<GenerateSection {...defaultProps()} />);
-      expect(
-        screen.getByText(`${DEFAULT_GAMES_COUNT} games`, { exact: false }),
-      ).toBeInTheDocument();
-    });
   });
 
   describe("when gamesCount is 0", () => {
@@ -88,28 +80,22 @@ describe("GenerateSection", () => {
       render(<GenerateSection {...defaultProps()} gamesCount={0} />);
       expect(screen.getByRole("button", { name: /curate.*tracks/i })).toBeDisabled();
     });
-
-    it("should show the empty library message", () => {
-      render(<GenerateSection {...defaultProps()} gamesCount={0} />);
-      expect(screen.getByText(/add games to your library/i)).toBeInTheDocument();
-    });
   });
 
   describe("when generating is true", () => {
-    it("should hide the Generate control card", () => {
+    it("should show the Curating… label on the action button", () => {
       render(<GenerateSection {...defaultProps()} generating={true} />);
-      // The generate card wrapper gets overflow-hidden + opacity-0 when
-      // generating is true. The button is still in the DOM but the panel
-      // is visually collapsed.
-      const button = screen.getByRole("button", { name: /curate.*tracks/i });
-      const hiddenWrapper = button.closest("[class*='overflow-hidden']");
-      expect(hiddenWrapper).toBeInTheDocument();
-      expect(hiddenWrapper).toHaveClass("opacity-0");
+      expect(screen.getByRole("button", { name: /curating…/i })).toBeInTheDocument();
     });
 
-    it("should show the progress panel", () => {
+    it("should disable the action button", () => {
       render(<GenerateSection {...defaultProps()} generating={true} />);
-      expect(screen.getByText(/curating your playlist/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /curating…/i })).toBeDisabled();
+    });
+
+    it("should render the cycling progress line", () => {
+      render(<GenerateSection {...defaultProps()} generating={true} />);
+      expect(screen.getByText(/curating from/i)).toBeInTheDocument();
     });
   });
 
@@ -141,15 +127,13 @@ describe("GenerateSection", () => {
     });
   });
 
-  describe("when genProgress has entries", () => {
-    it("should display progress item titles", () => {
-      const progress: GameProgressEntry[] = [
-        { id: "g1", title: PROGRESS_TITLE_A, status: GameProgressStatus.Active },
-        { id: "g2", title: PROGRESS_TITLE_B, status: GameProgressStatus.Waiting },
-      ];
-      render(<GenerateSection {...defaultProps()} generating={true} genProgress={progress} />);
-      expect(screen.getByText(PROGRESS_TITLE_A)).toBeInTheDocument();
-      expect(screen.getByText(PROGRESS_TITLE_B)).toBeInTheDocument();
+  describe("when generating with library games", () => {
+    it("should display one of the shuffled game titles in the cycling line", () => {
+      render(<GenerateSection {...defaultProps()} generating={true} />);
+      // The cycling line picks one of the library games to display first
+      const displayed =
+        screen.queryByText(PROGRESS_TITLE_A) ?? screen.queryByText(PROGRESS_TITLE_B);
+      expect(displayed).toBeInTheDocument();
     });
   });
 

@@ -30,4 +30,13 @@ export function getVibeProfilerProvider(): LLMProvider {
   return makeAnthropicProvider(env.anthropicVibeModel);
 }
 
+/**
+ * Session naming provider — short, evocative playlist title.
+ *
+ * Override via: ANTHROPIC_NAMING_MODEL=claude-haiku-4-5-20251001
+ */
+export function getSessionNamingProvider(): LLMProvider {
+  return makeAnthropicProvider(env.anthropicNamingModel);
+}
+
 export type { LLMProvider } from "./provider";

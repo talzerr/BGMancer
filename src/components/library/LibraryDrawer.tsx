@@ -2,7 +2,7 @@
 
 import { CurationMode } from "@/types";
 import type { Game } from "@/types";
-import { LIBRARY_MAX_GAMES, steamHeaderUrl } from "@/lib/constants";
+import { LIBRARY_MAX_GAMES } from "@/lib/constants";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { outlineAmberCtaClass } from "@/components/ui/button";
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon } from "@/components/Icons";
@@ -124,7 +124,7 @@ function GameRow({
 
 function GameThumbnail({ game }: { game: Game }) {
   const [failed, setFailed] = useState(false);
-  const src = game.steam_appid ? steamHeaderUrl(game.steam_appid) : game.thumbnail_url;
+  const src = game.thumbnail_url;
 
   if (src && !failed) {
     return (

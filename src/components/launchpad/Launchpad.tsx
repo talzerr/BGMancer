@@ -5,8 +5,9 @@ import Link from "next/link";
 import { Headphones } from "lucide-react";
 import { usePlayerContext } from "@/context/player-context";
 import { useCooldownTimer } from "@/hooks/shared/useCooldownTimer";
-import { steamHeaderUrl, MAX_TRACK_COUNT } from "@/lib/constants";
+import { MAX_TRACK_COUNT } from "@/lib/constants";
 import { outlineAmberCtaClass } from "@/components/ui/button";
+import { GenerateProgressLine } from "@/components/GenerateProgressLine";
 import type { Game } from "@/types";
 
 const PRESETS = [25, 50, 100] as const;
@@ -97,13 +98,14 @@ function LaunchpadReady({
   genError,
 }: LaunchpadReadyProps) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const showCuratingLabel = pressedCurate || generating;
-  const buttonDisabled = pressedCurate || generating || secsLeft > 0;
+  const isCurating = pressedCurate || generating;
+  const showCuratingLabel = isCurating;
+  const buttonDisabled = isCurating || secsLeft > 0;
 
   const optionClass = (active: boolean) =>
     `cursor-pointer transition-colors ${
       active
-        ? "text-[var(--text-secondary)] underline decoration-[var(--text-disabled)] underline-offset-4"
+        ? "text-primary font-medium underline decoration-primary/40 underline-offset-4"
         : "text-[var(--text-disabled)] hover:text-[var(--text-tertiary)]"
     }`;
 
@@ -115,12 +117,26 @@ function LaunchpadReady({
         {games.length} game{games.length !== 1 ? "s" : ""}
       </p>
 
-      <Link
-        href="/catalog"
-        className="mt-1 text-[12px] text-[var(--text-disabled)] transition-colors hover:text-[var(--text-tertiary)]"
-      >
-        Add games →
-      </Link>
+      <div className="relative mt-1 flex h-[20px] w-full items-center justify-center">
+        <Link
+          href="/catalog"
+          aria-hidden={isCurating}
+          tabIndex={isCurating ? -1 : 0}
+          className={`absolute text-[12px] text-[var(--text-disabled)] transition-opacity duration-200 hover:text-[var(--text-tertiary)] ${
+            isCurating ? "pointer-events-none opacity-0" : "opacity-100"
+          }`}
+        >
+          Add games →
+        </Link>
+        <div
+          aria-hidden={!isCurating}
+          className={`absolute transition-opacity duration-200 ${
+            isCurating ? "opacity-100" : "pointer-events-none opacity-0"
+          }`}
+        >
+          {isCurating && <GenerateProgressLine games={games} />}
+        </div>
+      </div>
 
       <button
         type="button"
@@ -132,8 +148,9 @@ function LaunchpadReady({
       </button>
 
       <div
+        aria-hidden={isCurating}
         className={`mt-5 flex items-center gap-4 text-[12px] transition-opacity duration-200 ${
-          pressedCurate ? "pointer-events-none opacity-30" : "opacity-100"
+          isCurating ? "pointer-events-none opacity-0" : "opacity-100"
         }`}
       >
         <div className="flex items-center gap-3">
@@ -162,10 +179,10 @@ function LaunchpadReady({
 
       {/* Absolute so opening Advanced does not reflow the centered cluster. */}
       <div
-        aria-hidden={!advancedOpen}
+        aria-hidden={!advancedOpen || isCurating}
         className={`absolute top-full left-1/2 mt-5 w-[300px] -translate-x-1/2 transition-opacity duration-[180ms] ease-out ${
-          advancedOpen ? "opacity-100" : "pointer-events-none opacity-0"
-        } ${pressedCurate ? "pointer-events-none opacity-30" : ""}`}
+          advancedOpen && !isCurating ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
       >
         <div className="flex flex-col gap-3 border-t border-[var(--border-default)] pt-4">
           <CustomSizeRow
@@ -291,17 +308,7 @@ function CoverRow({ games }: { games: Game[] }) {
     <div className="flex items-center gap-2">
       {visible.map((game) => (
         <div key={game.id} className={`bg-secondary ${COVER_BOX}`}>
-          {game.steam_appid ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={steamHeaderUrl(game.steam_appid)}
-              alt={game.title}
-              width={48}
-              height={48}
-              loading="lazy"
-              className="h-full w-full object-cover"
-            />
-          ) : game.thumbnail_url ? (
+          {game.thumbnail_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={game.thumbnail_url}

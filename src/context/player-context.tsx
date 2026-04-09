@@ -14,6 +14,7 @@ import { usePlayerState } from "@/hooks/player/usePlayerState";
 import { useConfig } from "@/hooks/config/useConfig";
 import { useGameLibrary } from "@/hooks/library/useGameLibrary";
 import { PlayerBar } from "@/components/player/PlayerBar";
+import type { Game, PlaylistTrack } from "@/types";
 import {
   readPlaybackState,
   readPlaybackTracks,
@@ -41,13 +42,19 @@ const PlayerContext = createContext<PlayerContextValue | null>(null);
 export function PlayerProvider({
   children,
   isSignedIn,
+  initialGames = [],
+  initialTracks = [],
+  initialSessionId = null,
 }: {
   children: React.ReactNode;
   isSignedIn: boolean;
+  initialGames?: Game[];
+  initialTracks?: PlaylistTrack[];
+  initialSessionId?: string | null;
 }) {
-  const playlist = usePlaylist();
+  const playlist = usePlaylist({ initialTracks, initialSessionId });
   const config = useConfig();
-  const gameLibrary = useGameLibrary(isSignedIn);
+  const gameLibrary = useGameLibrary(isSignedIn, initialGames);
 
   const player = usePlayerState();
   const {

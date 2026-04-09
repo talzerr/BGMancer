@@ -37,7 +37,9 @@ interface Env {
   anthropicTaggingModel: string | undefined;
   /** Override model for the Vibe Profiler LLM. Falls back to anthropicModel. */
   anthropicVibeModel: string | undefined;
-  /** Default Anthropic model (fallback for tagging + vibe). */
+  /** Override model for the session-naming LLM. Falls back to anthropicModel. */
+  anthropicNamingModel: string | undefined;
+  /** Default Anthropic model (fallback for tagging + vibe + naming). */
   anthropicModel: string | undefined;
 
   /** Cloudflare Turnstile site key (public, used client-side). */
@@ -99,6 +101,7 @@ function loadEnv(): Env {
     anthropicApiKey: process.env.ANTHROPIC_API_KEY || undefined,
     anthropicTaggingModel: process.env.ANTHROPIC_TAGGING_MODEL || undefined,
     anthropicVibeModel: process.env.ANTHROPIC_VIBE_MODEL || undefined,
+    anthropicNamingModel: process.env.ANTHROPIC_NAMING_MODEL || undefined,
     anthropicModel: process.env.ANTHROPIC_MODEL || undefined,
 
     turnstileSiteKey: process.env.TURNSTILE_SITE_KEY || undefined,

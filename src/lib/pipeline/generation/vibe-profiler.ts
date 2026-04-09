@@ -4,13 +4,7 @@ import type { LLMProvider } from "@/lib/llm/provider";
 const log = createLogger("vibe-profiler");
 import { ArcPhase, TrackMood, TrackInstrumentation, TrackRole } from "@/types";
 import type { VibeRubric, PhaseOverride } from "@/types";
-import { SESSION_NAME_MAX_LENGTH } from "@/lib/constants";
 import { Sessions } from "@/lib/db/repo";
-
-export interface ProfilerResult {
-  rubric: VibeRubric;
-  sessionName: string | null;
-}
 
 export interface GameProfile {
   title: string;
@@ -92,8 +86,7 @@ Return ONLY a JSON object with this structure:
     "outro": { ... }
   },
   "penalizedMoods": ["mood1", "mood2"],
-  "allowVocals": false,
-  "sessionName": "Short Evocative Title"
+  "allowVocals": false
 }
 
 ## Rules
@@ -106,7 +99,6 @@ Per-phase fields:
 Global fields:
 - penalizedMoods: 2-3 moods that universally clash with these games' aesthetics.
 - allowVocals: true if vocals fit, false if instrumental-only is better, null if no preference.
-- sessionName: a 2-4 word evocative playlist title capturing the mood of this game combination. Think album title, not description. No exclamation marks, no first-person, no marketing language. Do not reuse words from these examples — they show the style, not a template. Examples: "Moonlit Kingdoms", "Fading Embers", "Crystalline Drift", "Velvet Circuitry".
 
 ## Example
 
@@ -196,7 +188,7 @@ export function buildGameProfiles(
 export async function generateRubric(
   ctx: ProfilerContext,
   provider: LLMProvider,
-): Promise<ProfilerResult | null> {
+): Promise<VibeRubric | null> {
   if (ctx.gameProfiles.length === 0) return null;
 
   const userPrompt = formatUserPrompt(ctx.gameProfiles);
@@ -251,31 +243,14 @@ export async function generateRubric(
     allowVocals = parsed.allowVocals;
   }
 
-  const rawName = parsed.sessionName;
-  const sessionName =
-    typeof rawName === "string" &&
-    rawName.trim().length > 0 &&
-    rawName.length <= SESSION_NAME_MAX_LENGTH
-      ? rawName.trim()
-      : null;
-
-  return {
-    rubric: { phases, penalizedMoods, allowVocals },
-    sessionName,
-  };
+  return { phases, penalizedMoods, allowVocals };
 }
 
-/**
- * Checks the user's existing sessions for one with a matching game set and returns
- * its stored rubric + name. Game sets are compared as unordered sets of game IDs.
- * Returns null if no session matches or if no cached session has valid telemetry.
- *
- * Sessions are FIFO-capped at MAX_PLAYLIST_SESSIONS (3), so this is bounded.
- */
+// Bounded by MAX_PLAYLIST_SESSIONS (3 sessions per user).
 export async function findCachedRubric(
   userId: string,
   activeGameIds: string[],
-): Promise<ProfilerResult | null> {
+): Promise<VibeRubric | null> {
   const sessions = await Sessions.listAllWithCounts(userId);
   if (sessions.length === 0) return null;
 
@@ -290,7 +265,7 @@ export async function findCachedRubric(
     if (cachedIds.length !== targetSize) continue;
     if (!cachedIds.every((id) => targetSet.has(id))) continue;
 
-    return { rubric: telemetry.rubric, sessionName: telemetry.name };
+    return telemetry.rubric;
   }
 
   return null;

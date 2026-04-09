@@ -1,20 +1,18 @@
 "use client";
 
-import { GameProgressStatus } from "@/types";
-import type { GameProgressEntry } from "@/hooks/player/usePlaylist";
-import { Spinner, CheckIcon, XIcon, ErrorCircle } from "@/components/Icons";
+import { ErrorCircle, MusicNote } from "@/components/Icons";
 import { useCooldownTimer } from "@/hooks/shared/useCooldownTimer";
 import { GenerateControls } from "@/components/GenerateControls";
+import { GenerateProgressLine } from "@/components/GenerateProgressLine";
 
 interface GenerateSectionProps {
   generating: boolean;
-  genProgress: GameProgressEntry[];
   genError: string | null;
   cooldownUntil: number;
   targetTrackCount: number;
-  onTargetChange: (n: number) => void;
   onTargetSave: (n: number) => void;
   gamesCount: number;
+  games: { id: string; title: string }[];
   onGenerate: () => void;
   allowLongTracks: boolean;
   onToggleLongTracks: (enabled: boolean) => void;
@@ -22,18 +20,16 @@ interface GenerateSectionProps {
   onToggleShortTracks: (enabled: boolean) => void;
   rawVibes: boolean;
   onToggleRawVibes: (enabled: boolean) => void;
-  isSignedIn: boolean;
 }
 
 export function GenerateSection({
   generating,
-  genProgress,
   genError,
   cooldownUntil,
   targetTrackCount,
-  onTargetChange,
   onTargetSave,
   gamesCount,
+  games,
   onGenerate,
   allowLongTracks,
   onToggleLongTracks,
@@ -41,103 +37,53 @@ export function GenerateSection({
   onToggleShortTracks,
   rawVibes,
   onToggleRawVibes,
-  isSignedIn,
 }: GenerateSectionProps) {
   const { secsLeft, quip } = useCooldownTimer(cooldownUntil);
 
   return (
-    <div className="flex flex-col">
-      {/* Progress card (animated in/out) */}
-      <div
-        className={`grid transition-[grid-template-rows] duration-250 ease-in-out ${
-          generating ? "[grid-template-rows:1fr]" : "[grid-template-rows:0fr]"
-        }`}
-      >
-        <div
-          className={`overflow-hidden transition-opacity duration-200 ${
-            generating ? "opacity-100" : "opacity-0"
-          }`}
+    <div className="flex flex-col gap-3">
+      {/* Action — sits directly below the library card so the primary
+          action is reachable without scrolling past settings. */}
+      <div className="px-1">
+        <button
+          onClick={onGenerate}
+          disabled={gamesCount === 0 || secsLeft > 0 || generating}
+          className="bg-primary text-foreground disabled:bg-secondary/80 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-medium transition-all duration-200 hover:bg-[var(--primary-hover)] active:scale-[0.98] active:bg-[var(--primary-muted)] disabled:cursor-not-allowed disabled:border disabled:border-white/[0.05] disabled:text-[var(--text-disabled)] disabled:hover:scale-100"
         >
-          <div className="bg-secondary/70 mb-2 flex flex-col gap-3 rounded-xl border border-[var(--border-emphasis)] p-4">
-            <div className="flex items-center gap-2">
-              <Spinner className="text-primary h-3 w-3 shrink-0" />
-              <span className="text-primary text-[11px] font-medium tracking-widest uppercase">
-                Curating your playlist…
-              </span>
-            </div>
+          <MusicNote className="h-3.5 w-3.5" />
+          {secsLeft > 0 ? (
+            <span className="text-xs font-normal opacity-60">{quip}</span>
+          ) : generating ? (
+            "Curating…"
+          ) : (
+            `Curate ${targetTrackCount} Tracks`
+          )}
+        </button>
 
-            <div className="flex flex-col gap-1.5">
-              {genProgress.map((entry) => (
-                <div key={entry.id} className="flex min-w-0 items-start gap-2">
-                  <div className="mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center">
-                    {entry.status === GameProgressStatus.Active ? (
-                      <Spinner className="text-primary h-3 w-3" />
-                    ) : entry.status === GameProgressStatus.Done ? (
-                      <CheckIcon className="text-primary h-3 w-3" />
-                    ) : entry.status === GameProgressStatus.Error ? (
-                      <XIcon className="h-3 w-3 text-red-400" />
-                    ) : (
-                      <span className="block h-1.5 w-1.5 rounded-full bg-[var(--text-disabled)]" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <span
-                      className={`truncate text-xs font-medium ${
-                        entry.status === GameProgressStatus.Active
-                          ? "text-foreground"
-                          : entry.status === GameProgressStatus.Done
-                            ? "text-muted-foreground"
-                            : entry.status === GameProgressStatus.Error
-                              ? "text-red-400"
-                              : "text-[var(--text-disabled)]"
-                      }`}
-                    >
-                      {entry.title}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+        {generating && (
+          <div className="mt-3">
+            <GenerateProgressLine games={games} />
           </div>
-        </div>
+        )}
+
+        {genError && secsLeft === 0 && (
+          <div className="mt-2 flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-950/40 px-3 py-2.5 text-xs text-red-400">
+            <ErrorCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            {genError}
+          </div>
+        )}
       </div>
 
-      {/* Controls card (animated in/out) */}
-      <div
-        className={`grid transition-[grid-template-rows] duration-250 ease-in-out ${
-          !generating ? "[grid-template-rows:1fr]" : "[grid-template-rows:0fr]"
-        }`}
-      >
-        <div
-          className={`transition-opacity duration-200 ${
-            !generating ? "overflow-visible opacity-100" : "overflow-hidden opacity-0"
-          }`}
-        >
-          <GenerateControls
-            targetTrackCount={targetTrackCount}
-            onTargetChange={onTargetChange}
-            onTargetSave={onTargetSave}
-            gamesCount={gamesCount}
-            onGenerate={onGenerate}
-            allowLongTracks={allowLongTracks}
-            onToggleLongTracks={onToggleLongTracks}
-            allowShortTracks={allowShortTracks}
-            onToggleShortTracks={onToggleShortTracks}
-            rawVibes={rawVibes}
-            onToggleRawVibes={onToggleRawVibes}
-            isSignedIn={isSignedIn}
-            secsLeft={secsLeft}
-            quip={quip}
-          />
-        </div>
-      </div>
-
-      {genError && secsLeft === 0 && (
-        <div className="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-950/40 px-3 py-2.5 text-xs text-red-400">
-          <ErrorCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          {genError}
-        </div>
-      )}
+      <GenerateControls
+        targetTrackCount={targetTrackCount}
+        onTargetSave={onTargetSave}
+        allowLongTracks={allowLongTracks}
+        onToggleLongTracks={onToggleLongTracks}
+        allowShortTracks={allowShortTracks}
+        onToggleShortTracks={onToggleShortTracks}
+        rawVibes={rawVibes}
+        onToggleRawVibes={onToggleRawVibes}
+      />
     </div>
   );
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { GameProgressStatus } from "@/types";
 import type { Game, PlaylistTrack } from "@/types";
 import { GENERATION_COOLDOWN_MS } from "@/lib/constants";
 import { clearPlaybackState } from "@/hooks/player/playback-state";
@@ -16,19 +15,19 @@ export interface GenerateConfig {
   gameSelections?: { gameId: string; curation?: string }[];
 }
 
-export type GameProgressEntry = {
-  id: string;
-  title: string;
-  status: GameProgressStatus;
-};
+export interface UsePlaylistInit {
+  initialTracks?: PlaylistTrack[];
+  initialSessionId?: string | null;
+}
 
-export function usePlaylist() {
-  const [tracks, setTracks] = useState<PlaylistTrack[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+export function usePlaylist(init: UsePlaylistInit = {}) {
+  const [tracks, setTracks] = useState<PlaylistTrack[]>(init.initialTracks ?? []);
+  const [isLoading, setIsLoading] = useState((init.initialTracks?.length ?? 0) === 0);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(
+    init.initialSessionId ?? null,
+  );
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
-  const [genProgress, setGenProgress] = useState<GameProgressEntry[]>([]);
   // Unix ms timestamp after which a new generation is allowed (0 = no cooldown active).
   const [cooldownUntil, setCooldownUntil] = useState(0);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -200,21 +199,10 @@ export function usePlaylist() {
             // First non-error event — generation is real; enter generating state now.
             if (!started) {
               started = true;
-              setGenProgress(
-                games.map((g) => ({
-                  id: g.id,
-                  title: g.title,
-                  status: GameProgressStatus.Waiting,
-                })),
-              );
               setGenerating(true);
             }
 
-            if (event.type === "progress") {
-              setGenProgress((prev) =>
-                prev.map((e) => (e.id === event.gameId ? { ...e, status: event.status } : e)),
-              );
-            } else if (event.type === "done") {
+            if (event.type === "done") {
               setTracks(event.tracks ?? []);
               if (event.sessionId) setCurrentSessionId(event.sessionId);
             }
@@ -255,7 +243,6 @@ export function usePlaylist() {
     currentSessionId,
     generating,
     genError,
-    genProgress,
     cooldownUntil,
     confirmClear,
     setConfirmClear,

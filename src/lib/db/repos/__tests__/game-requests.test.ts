@@ -10,7 +10,8 @@ vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
   return {
     getDB: () => db,
-    batch: async (queries: unknown[]) => db.batch(queries as Parameters<typeof db.batch>[0]),
+    batch: async (queries: unknown[]) =>
+      db.batch(queries as unknown as Parameters<typeof db.batch>[0]),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { PlaylistTrackCard } from "@/components/player/PlaylistTrackCard";
@@ -11,12 +12,12 @@ interface SortableTrackItemProps {
   isActivelyPlaying: boolean;
   spoilerHidden: boolean;
   isRerolling: boolean;
-  onPlay?: () => void;
-  onRemove: () => void;
-  onReroll: () => void;
+  onPlay: (trackId: string, index: number) => void;
+  onRemove: (track: PlaylistTrack) => void;
+  onReroll: (trackId: string) => void;
 }
 
-export function SortableTrackItem({
+export const SortableTrackItem = memo(function SortableTrackItem({
   track,
   index,
   gameThumbnail,
@@ -49,12 +50,12 @@ export function SortableTrackItem({
         isActivelyPlaying={isActivelyPlaying}
         spoilerHidden={spoilerHidden}
         isRerolling={isRerolling}
-        onPlay={onPlay}
-        onRemove={onRemove}
-        onReroll={onReroll}
+        onPlay={() => onPlay(track.id, index)}
+        onRemove={() => onRemove(track)}
+        onReroll={() => onReroll(track.id)}
         dragHandleProps={{ ...listeners, ...attributes }}
         isDragging={isDragging}
       />
     </div>
   );
-}
+});

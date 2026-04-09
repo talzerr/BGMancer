@@ -22,7 +22,6 @@ const mockPlayerContext = {
     tracks: [] as PlaylistTrack[],
     isLoading: false,
     generating: false,
-    genProgress: null,
     genError: null,
     cooldownUntil: null,
     currentSessionId: null,
@@ -223,11 +222,11 @@ describe("FeedClient", () => {
   });
 
   describe("when generation is in flight without tracks", () => {
-    it("should render the playlist mode (not the launchpad)", () => {
+    it("should keep the launchpad mounted", () => {
       mockPlayerContext.playlist.generating = true;
       renderFeedClient();
-      expect(screen.queryByTestId("launchpad")).not.toBeInTheDocument();
-      expect(screen.getByTestId("library-widget")).toBeInTheDocument();
+      expect(screen.getByTestId("launchpad")).toBeInTheDocument();
+      expect(screen.queryByTestId("library-widget")).not.toBeInTheDocument();
     });
   });
 
