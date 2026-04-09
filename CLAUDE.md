@@ -91,9 +91,9 @@ Next.js App Router with three main page areas:
 
 - `/` — main feed (`src/app/(main)/page.tsx` + `src/app/(main)/FeedClient.tsx`). Renders one of two layouts based on derived `mode` state in `FeedClient`:
   - **Launchpad mode** (`src/components/launchpad/Launchpad.tsx`) — full-width centered onboarding screen shown when there are no tracks, no in-flight generation, and the user has not pressed Curate. Two states: empty library (CTA → catalog) and ready library (cover row + Curate + size presets + `Advanced` reveal with custom size, Long/Short tracks, Raw vibes).
-  - **Playlist mode** — the two-column layout (controls aside + playlist main). Active when tracks exist, generation is in flight, or `pressedCurate` is set.
-  - The transition between modes is a single opacity cross-fade owned by `FeedClient` (timing constants `LAUNCHPAD_HOLD_MS`, `LAUNCHPAD_FADE_MS`, `LAUNCHPAD_SWAP_DELAY_MS` at the top of the file). The launchpad Curate handler holds for `LAUNCHPAD_HOLD_MS` so the user sees "Curating…" before the layout swaps; generation runs in the background after the swap.
-- `/catalog` — catalog browser + library drawer (`src/app/(main)/catalog/page.tsx` + `src/app/(main)/catalog/CatalogClient.tsx`) — browse published games, add to library with curation modes
+  - **Playlist mode** — three-region full-height flexbox layout. Left sidebar (290px, desktop-only: logo, LibraryWidget, GenerateSection, session history, user/auth, footer links). Center (scrollable playlist with sticky header). Right sidebar (80px PlayerPanel, desktop-only). On mobile the layout stacks vertically with a separate header.
+  - The transition between modes is a single opacity cross-fade owned by `FeedClient` (timing constants `LAUNCHPAD_FADE_MS`, `LAUNCHPAD_SWAP_DELAY_MS` at the top of the file). Generation runs in the background after the layout swap.
+- `/catalog` — catalog browser + library drawer (`src/app/(main)/catalog/page.tsx` + `src/app/(main)/catalog/CatalogClient.tsx`) — browse published games, add to library with curation modes. Full-height flexbox: center (header + scrollable grid), library drawer (right), and PlayerPanel (right, conditional on active playlist).
 - `/backstage` — admin control plane (`src/app/(backstage)/backstage/`) — inspect/correct track metadata, review flags, Director telemetry, and the game request queue. Four views:
   - `/backstage/games` — game list with needs-review badges, re-ingest / retag actions
   - `/backstage/tracks` — track lab: full tag table with inline editing via `TrackEditSheet`, bulk actions, re-tag trigger
@@ -102,21 +102,36 @@ Next.js App Router with three main page areas:
 
 All non-backstage pages are wrapped by `PlayerProvider` (in `src/app/layout.tsx`), which manages global state via `src/context/player-context.tsx`. Backstage has its own layout (`BackstageLayout`) and does not use `PlayerProvider`.
 
+**Page-owned layouts:** Each page owns its full layout including header, navigation, and footer. There is no shared `Header` component — FeedClient and CatalogClient each render their own header inline. Shared layout pieces live in `src/components/layout/`:
+
+- `LogoLink` — logo + wordmark link to home, used by both pages
+- `FooterLinks` — Source/Legal/Discord links, used in the feed sidebar and the catalog library drawer
+
+**Sign-out cleanup:** `performSignOut()` (exported from `src/components/AuthButtons.tsx`) centralizes the sign-out flow: clears playback state, clears guest library, then calls `signOut()`. All sign-out call sites use this function.
+
+**Player UI:** The `PlayerPanel` (`src/components/player/PlayerPanel.tsx`) is a compact 80px vertical sidebar shown on desktop. It displays cover art (clickable YouTube link), a progress bar, transport controls (prev/play-pause/next), and a vertical volume slider. It reads all state from `usePlayerContext().media`. On mobile, the PlayerPanel is hidden (`hidden lg:flex`).
+
 ### Global state (PlayerContext)
 
-`PlayerProvider` (rendered in `src/app/(main)/layout.tsx`) composes four hooks and shares their state app-wide. It receives `isSignedIn` from the server layout (via `auth()`) and exposes it on the context:
+`PlayerProvider` (rendered in `src/app/(main)/layout.tsx`) composes four hooks, manages the YouTube player, and shares their state app-wide. It receives `isSignedIn` from the server layout (via `auth()`) and exposes it on the context:
 
 - `usePlaylist` — playlist tracks + session management, fetches from `/api/playlist`
-- `usePlayerState` — playback state (current track, shuffle, play/pause, revealed tracks for anti-spoiler)
+- `usePlayerState` — playback state (current track, shuffle, play/pause, revealed tracks for anti-spoiler). Two reset functions: `reset()` clears runtime state AND localStorage cache; `resetPlayback()` clears runtime state only (used after generation to preserve guest cache).
 - `useConfig` — app config (track count, anti-spoiler, etc.) stored in localStorage
 - `useGameLibrary(isSignedIn)` — game library; authenticated users fetch from `/api/games`, guests use localStorage (key `bgm_guest_library`) hydrated against `/api/games/catalog`
+- `useYouTubePlayer` — YouTube IFrame API wrapper, managed by the context (not by any component). Exposes playback controls via the `MediaState` interface.
 - `useSteamLibrary(isSignedIn)` — authenticated-only Steam library state (used by the catalog page, not composed into `PlayerProvider`). Owns `linked`, `steamSyncedAt`, `matchedGameIds`, `cooldownMinutes`, and the `sync`/`disconnect` mutations. Guest users never call it.
+- `media: MediaState | null` — unified playback interface (`isPlaying`, `currentTime`, `duration`, `volume`, `togglePlayPause`, `seekTo`, `applyVolume`). Null when no track is active. Components consume media state through this interface, never through the YouTube player directly.
 - `isSignedIn` — boolean, available on the context for auth-gating UI
 - `toggleAntiSpoiler` — single callback that flips the anti-spoiler config and clears revealed tracks (preserving the currently playing one) when the toggle goes from off→on. This logic lives on the context because both `usePlayerState` (revealed tracks) and `useConfig` (the toggle) are involved.
 
 Use `usePlayerContext()` to access any of these from any client component.
 
-**Playback persistence (authenticated users only):** On mount, `PlayerProvider` reads cached playback state from localStorage (`bgm_playback_state` for position/track, `bgm_playback_tracks` for the playlist, `bgm_revealed_tracks` for anti-spoiler state — see `src/hooks/player/playback-state.ts`) and hydrates the playlist + player instantly. The server fetch then refreshes in the background. Cached track lookups verify by `video_id` to detect stale entries. While playing, the player polls position every ~5s (20 ticks of the 250ms interval) and writes to `bgm_playback_state`. The YouTube IFrame player itself is a module-level singleton (`useYouTubePlayer.ts`) — only one instance ever exists, preventing the dual-player bug when switching playlists.
+**Playback persistence:** On mount, `PlayerProvider` runs a unified restore memo (`restoreData`) that reads cached playback state from localStorage (`bgm_playback_state` for position/track, `bgm_playback_tracks` for the playlist, `bgm_revealed_tracks` for anti-spoiler state — see `src/hooks/player/playback-state.ts`). For signed-in users: clears guest artifacts, validates the cached session belongs to the current user, and hydrates if valid. For guests: always restores cached tracks, validates video ID match before restoring position. The server fetch then refreshes in the background. While playing, the player polls position every ~5s and writes to `bgm_playback_state`. Pause state is persisted immediately via `patchPausedState()` to avoid stale closure issues. The YouTube IFrame player itself is a module-level singleton (`useYouTubePlayer.ts`) — only one instance ever exists, with its DOM element created off-screen outside the React tree to survive App Router page transitions.
+
+**Guest hydration:** `FeedClient` starts with `hydrated = false` for guests (server can't read localStorage), rendering at `opacity: 0` until a mount effect flips it to `true`. This prevents a flash of the launchpad when a guest has cached playlist data.
+
+**Known limitation — pause state not restored:** Although `paused` is persisted to localStorage via `patchPausedState()`, the YouTube IFrame player always auto-plays on restore. The `startPaused` option is passed through but the YouTube API does not reliably honor it. Accepted as-is — on refresh, playback resumes from the saved position rather than staying paused.
 
 ### Database layer (`src/lib/db/`)
 
@@ -314,6 +329,7 @@ Games can be flagged for manual review via `ReviewFlags.markAsNeedsReview(gameId
 - **Next.js 16 with OpenNext Cloudflare MUST use `middleware.ts`** — `proxy.ts` is not yet supported by `@opennextjs/cloudflare`
 - `process.env.NODE_ENV` does **not** work reliably in client components with Turbopack — avoid conditional rendering based on it. Use `env.isDev` on the server instead
 - `useEffect` must be placed **after** all `const` variables it references (temporal dead zone issue in this codebase's hook patterns)
+- **Guest sessions use `GUEST_SESSION_ID`** (`"guest"`, defined in `src/lib/constants.ts`) — never hardcode the string `"guest"` directly
 - Sessions are FIFO-evicted: at most `MAX_PLAYLIST_SESSIONS` (3) sessions are kept per user; the oldest is deleted automatically
 - YouTube OST playlist IDs are cached on the `games.yt_playlist_id` column to minimize API quota usage
 
