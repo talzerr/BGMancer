@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { PlaylistTrack } from "@/types";
@@ -25,7 +25,7 @@ const THIRD_GAME_TITLE = "Celeste";
 
 // ─── Mocks ─────────────────────────────────────────────────────────────────
 
-const mockYTPlayer = {
+const mockMedia = {
   isPlaying: false,
   currentTime: 30,
   duration: 240,
@@ -35,18 +35,17 @@ const mockYTPlayer = {
   seekTo: vi.fn(),
   applyVolume: vi.fn(),
   toggleDim: vi.fn(),
-  playerDivRef: { current: null },
 };
 
-vi.mock("@/hooks/player/useYouTubePlayer", () => ({
-  useYouTubePlayer: () => mockYTPlayer,
+let mockContext: Record<string, unknown>;
+
+vi.mock("@/context/player-context", () => ({
+  usePlayerContext: () => mockContext,
 }));
 
 vi.mock("next/image", () => ({
   default: (props: any) => <img {...props} />,
 }));
-
-import { PlayerBar } from "../PlayerBar";
 
 afterEach(() => {
   cleanup();
@@ -100,58 +99,75 @@ function buildTracks(): PlaylistTrack[] {
   ];
 }
 
-const defaultProps = () => ({
-  tracks: buildTracks(),
-  currentIndex: 0,
-  onIndexChange: vi.fn(),
-  onPlayingChange: vi.fn(),
-  shuffleMode: false,
-  onToggleShuffle: vi.fn(),
-  gameThumbnailByGameId: new Map<string, string>(),
-});
+function buildContext(overrides: Record<string, unknown> = {}) {
+  const tracks = (overrides.tracks as PlaylistTrack[] | undefined) ?? buildTracks();
+  const currentIndex = (overrides.currentIndex as number | undefined) ?? 0;
+  return {
+    player: {
+      effectiveFoundTracks: tracks,
+      currentTrackIndex: tracks.length > 0 ? currentIndex : null,
+      setCurrentTrackIndex: (overrides.onIndexChange as (() => void) | undefined) ?? vi.fn(),
+      shuffleMode: (overrides.shuffleMode as boolean | undefined) ?? false,
+      handleToggleShuffle: (overrides.onToggleShuffle as (() => void) | undefined) ?? vi.fn(),
+    },
+    media: tracks.length > 0 ? { ...mockMedia } : null,
+    gameThumbnailByGameId: new Map<string, string>(),
+    playerPanelActive: false,
+    ...overrides,
+  };
+}
 
-function renderPlayerBar(overrides: Record<string, any> = {}) {
-  const props = { ...defaultProps(), ...overrides };
-  return render(<PlayerBar {...props} />);
+// Dynamic import so vi.mock runs first
+async function importComponent() {
+  const mod = await import("../PlayerBar");
+  return mod.PlayerBar;
 }
 
 // ─── Tests ─────────────────────────────────────────────────────────────────
 
 describe("PlayerBar", () => {
+  beforeEach(() => {
+    mockContext = buildContext();
+  });
+
   describe("when rendered with tracks", () => {
-    it("should show the current track title", () => {
-      renderPlayerBar();
+    it("should show the current track title", async () => {
+      const PlayerBar = await importComponent();
+      render(<PlayerBar />);
       expect(screen.getByText("Firelink Shrine")).toBeInTheDocument();
     });
 
-    it("should show the game title", () => {
-      renderPlayerBar();
+    it("should show the game title", async () => {
+      const PlayerBar = await importComponent();
+      render(<PlayerBar />);
       expect(screen.getByText(TEST_GAME_TITLE)).toBeInTheDocument();
     });
 
-    it("should show formatted time", () => {
-      renderPlayerBar();
-      // currentTime=30 -> "0:30", duration=240 -> "4:00"
+    it("should show formatted time", async () => {
+      const PlayerBar = await importComponent();
+      render(<PlayerBar />);
       expect(screen.getByText("0:30")).toBeInTheDocument();
       expect(screen.getByText("4:00")).toBeInTheDocument();
     });
 
-    it("should show the track counter", () => {
-      renderPlayerBar();
-      // "1" for current (1-indexed), "3" for total
+    it("should show the track counter", async () => {
+      const PlayerBar = await importComponent();
+      render(<PlayerBar />);
       expect(screen.getByText("1")).toBeInTheDocument();
       expect(screen.getByText("3")).toBeInTheDocument();
     });
 
-    it("should show the Up Next track info", () => {
-      renderPlayerBar();
+    it("should show the Up Next track info", async () => {
+      const PlayerBar = await importComponent();
+      render(<PlayerBar />);
       expect(screen.getByText("Up Next")).toBeInTheDocument();
       expect(screen.getByText("Greenpath")).toBeInTheDocument();
     });
   });
 
   describe("when track has no track_name", () => {
-    it("should fall back to video_title", () => {
+    it("should fall back to video_title", async () => {
+      const PlayerBar = await importComponent();
       const tracks = buildTracks();
       tracks[0] = makeTrack({
         id: "pt-1",
@@ -159,26 +175,30 @@ describe("PlayerBar", () => {
         video_title: "Firelink Shrine - Dark Souls OST",
         position: 0,
       });
-      renderPlayerBar({ tracks });
+      mockContext = buildContext({ tracks });
+      render(<PlayerBar />);
       expect(screen.getByText("Firelink Shrine - Dark Souls OST")).toBeInTheDocument();
     });
   });
 
   describe("when play/pause button is clicked", () => {
     it("should call togglePlayPause", async () => {
+      const PlayerBar = await importComponent();
       const user = userEvent.setup();
-      renderPlayerBar();
+      render(<PlayerBar />);
       const playButton = screen.getByRole("button", { name: "Play" });
       await user.click(playButton);
-      expect(mockYTPlayer.togglePlayPause).toHaveBeenCalledTimes(1);
+      expect(mockMedia.togglePlayPause).toHaveBeenCalledTimes(1);
     });
   });
 
   describe("when next button is clicked", () => {
-    it("should call onIndexChange with currentIndex + 1", async () => {
+    it("should call setCurrentTrackIndex with currentIndex + 1", async () => {
+      const PlayerBar = await importComponent();
       const user = userEvent.setup();
       const onIndexChange = vi.fn();
-      renderPlayerBar({ currentIndex: 0, onIndexChange });
+      mockContext = buildContext({ currentIndex: 0, onIndexChange });
+      render(<PlayerBar />);
       const nextButton = screen.getByRole("button", { name: "Next track" });
       await user.click(nextButton);
       expect(onIndexChange).toHaveBeenCalledWith(1);
@@ -186,10 +206,12 @@ describe("PlayerBar", () => {
   });
 
   describe("when previous button is clicked", () => {
-    it("should call onIndexChange with currentIndex - 1", async () => {
+    it("should call setCurrentTrackIndex with currentIndex - 1", async () => {
+      const PlayerBar = await importComponent();
       const user = userEvent.setup();
       const onIndexChange = vi.fn();
-      renderPlayerBar({ currentIndex: 1, onIndexChange });
+      mockContext = buildContext({ currentIndex: 1, onIndexChange });
+      render(<PlayerBar />);
       const prevButton = screen.getByRole("button", { name: "Previous track" });
       await user.click(prevButton);
       expect(onIndexChange).toHaveBeenCalledWith(0);
@@ -197,10 +219,12 @@ describe("PlayerBar", () => {
   });
 
   describe("when shuffle button is clicked", () => {
-    it("should call onToggleShuffle", async () => {
+    it("should call handleToggleShuffle", async () => {
+      const PlayerBar = await importComponent();
       const user = userEvent.setup();
       const onToggleShuffle = vi.fn();
-      renderPlayerBar({ onToggleShuffle });
+      mockContext = buildContext({ onToggleShuffle });
+      render(<PlayerBar />);
       const shuffleButton = screen.getByTitle(/Shuffle off/);
       await user.click(shuffleButton);
       expect(onToggleShuffle).toHaveBeenCalledTimes(1);
@@ -208,16 +232,20 @@ describe("PlayerBar", () => {
   });
 
   describe("when at first track", () => {
-    it("should disable the previous button", () => {
-      renderPlayerBar({ currentIndex: 0 });
+    it("should disable the previous button", async () => {
+      const PlayerBar = await importComponent();
+      mockContext = buildContext({ currentIndex: 0 });
+      render(<PlayerBar />);
       const prevButton = screen.getByRole("button", { name: "Previous track" });
       expect(prevButton).toBeDisabled();
     });
 
-    it("should not call onIndexChange when previous is clicked", async () => {
+    it("should not call setCurrentTrackIndex when previous is clicked", async () => {
+      const PlayerBar = await importComponent();
       const user = userEvent.setup();
       const onIndexChange = vi.fn();
-      renderPlayerBar({ currentIndex: 0, onIndexChange });
+      mockContext = buildContext({ currentIndex: 0, onIndexChange });
+      render(<PlayerBar />);
       const prevButton = screen.getByRole("button", { name: "Previous track" });
       await user.click(prevButton);
       expect(onIndexChange).not.toHaveBeenCalled();
@@ -225,8 +253,10 @@ describe("PlayerBar", () => {
   });
 
   describe("when at last track", () => {
-    it("should disable the next button", () => {
-      renderPlayerBar({ currentIndex: 2 });
+    it("should disable the next button", async () => {
+      const PlayerBar = await importComponent();
+      mockContext = buildContext({ currentIndex: 2 });
+      render(<PlayerBar />);
       const nextButton = screen.getByRole("button", { name: "Next track" });
       expect(nextButton).toBeDisabled();
     });
@@ -234,16 +264,18 @@ describe("PlayerBar", () => {
 
   describe("when minimized", () => {
     it("should show the expand button after clicking minimize", async () => {
+      const PlayerBar = await importComponent();
       const user = userEvent.setup();
-      renderPlayerBar();
+      render(<PlayerBar />);
       const minimizeButton = screen.getByTitle("Minimize player");
       await user.click(minimizeButton);
       expect(screen.getByTitle("Expand player")).toBeInTheDocument();
     });
 
     it("should not show transport controls when minimized", async () => {
+      const PlayerBar = await importComponent();
       const user = userEvent.setup();
-      renderPlayerBar();
+      render(<PlayerBar />);
       const minimizeButton = screen.getByTitle("Minimize player");
       await user.click(minimizeButton);
       expect(screen.queryByRole("button", { name: "Play" })).not.toBeInTheDocument();
@@ -251,9 +283,10 @@ describe("PlayerBar", () => {
   });
 
   describe("when tracks array is empty", () => {
-    it("should not render anything", () => {
-      const { container } = renderPlayerBar({ tracks: [], currentIndex: 0 });
-      // PlayerBar returns null when no currentTrack
+    it("should not render anything", async () => {
+      const PlayerBar = await importComponent();
+      mockContext = buildContext({ tracks: [] });
+      const { container } = render(<PlayerBar />);
       expect(container.querySelector("input[aria-label='Seek']")).not.toBeInTheDocument();
     });
   });

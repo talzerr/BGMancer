@@ -1,9 +1,8 @@
 "use client";
 
-import { forwardRef, useImperativeHandle, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
-import type { PlaylistTrack } from "@/types";
-import { useYouTubePlayer } from "@/hooks/player/useYouTubePlayer";
+import { usePlayerContext } from "@/context/player-context";
 import {
   YouTubeLogo,
   MusicNote,
@@ -18,10 +17,6 @@ import {
   ChevronUpIcon,
 } from "@/components/Icons";
 
-export interface PlayerBarHandle {
-  togglePlayPause: () => void;
-}
-
 function fmtTime(s: number): string {
   if (!isFinite(s) || s < 0) return "0:00";
   const m = Math.floor(s / 60);
@@ -29,36 +24,18 @@ function fmtTime(s: number): string {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
-interface PlayerBarProps {
-  tracks: PlaylistTrack[];
-  currentIndex: number;
-  onIndexChange: (i: number) => void;
-  onPlayingChange?: (playing: boolean) => void;
-  shuffleMode?: boolean;
-  onToggleShuffle?: () => void;
-  gameThumbnailByGameId?: Map<string, string>;
-  startPaused?: boolean;
-  initialSeekSeconds?: number;
-  onTimeUpdate?: (time: number) => void;
-}
+export function PlayerBar() {
+  const { player, media, gameThumbnailByGameId, playerPanelActive } = usePlayerContext();
 
-export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function PlayerBar(
-  {
-    tracks,
-    currentIndex,
-    onIndexChange,
-    onPlayingChange,
-    shuffleMode = false,
-    onToggleShuffle,
-    gameThumbnailByGameId,
-    startPaused,
-    initialSeekSeconds,
-    onTimeUpdate,
-  },
-  ref,
-) {
+  const [isSeeking, setIsSeeking] = useState(false);
+  const [seekingValue, setSeekingValue] = useState(0);
+  const [isMinimized, setIsMinimized] = useState(false);
+
+  if (!media) return null;
+
+  const tracks = player.effectiveFoundTracks;
+  const currentIndex = player.currentTrackIndex!;
   const {
-    playerDivRef,
     isPlaying,
     currentTime,
     duration,
@@ -68,19 +45,7 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
     seekTo,
     applyVolume,
     toggleDim,
-  } = useYouTubePlayer({
-    tracks,
-    currentIndex,
-    onIndexChange,
-    onPlayingChange,
-    startPaused,
-    initialSeekSeconds,
-    onTimeUpdate,
-  });
-
-  const [isSeeking, setIsSeeking] = useState(false);
-  const [seekingValue, setSeekingValue] = useState(0);
-  const [isMinimized, setIsMinimized] = useState(false);
+  } = media;
 
   const safeDuration = isFinite(duration) && duration > 0 ? duration : 0;
   const displayTime = isFinite(isSeeking ? seekingValue : currentTime)
@@ -89,8 +54,6 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
       : currentTime
     : 0;
   const fillPct = safeDuration > 0 ? (displayTime / safeDuration) * 100 : 0;
-
-  useImperativeHandle(ref, () => ({ togglePlayPause }));
 
   const currentTrack = tracks[currentIndex] ?? null;
   const nextTrack = tracks[currentIndex + 1] ?? null;
@@ -106,7 +69,13 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
   if (!currentTrack) return null;
 
   return (
-    <div className="border-border bg-background fixed right-0 bottom-0 left-0 z-50 border-t">
+    <div
+      className={
+        playerPanelActive
+          ? "border-border bg-background fixed right-0 bottom-0 left-0 z-50 border-t lg:hidden"
+          : "border-border bg-background fixed right-0 bottom-0 left-0 z-50 border-t"
+      }
+    >
       {/* Seek bar — full width, positioned at the very top of the player */}
       <input
         type="range"
@@ -128,13 +97,6 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
           background: `linear-gradient(to right, #D4A04A 0%, #D4A04A ${fillPct}%, #1c1b17 ${fillPct}%, #1c1b17 100%)`,
         }}
         className="[&::-webkit-slider-thumb]:bg-primary absolute top-0 right-0 left-0 h-1 w-full cursor-pointer appearance-none accent-[#D4A04A] [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:opacity-0 hover:[&::-webkit-slider-thumb]:opacity-100"
-      />
-
-      {/* Hidden YT player div */}
-      <div
-        ref={playerDivRef}
-        style={{ position: "fixed", left: -9999, top: 0, width: 1, height: 1 }}
-        aria-hidden="true"
       />
 
       {isMinimized ? (
@@ -194,7 +156,7 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
           <div className="flex flex-col items-center gap-1">
             <div className="flex items-center gap-0.5">
               <button
-                onClick={() => canPrev && onIndexChange(currentIndex - 1)}
+                onClick={() => canPrev && player.setCurrentTrackIndex(currentIndex - 1)}
                 disabled={!canPrev}
                 aria-label="Previous track"
                 className="hover:text-foreground cursor-pointer rounded-full p-2 text-[var(--text-tertiary)] disabled:cursor-default disabled:opacity-20"
@@ -211,7 +173,7 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
               </button>
 
               <button
-                onClick={() => canNext && onIndexChange(currentIndex + 1)}
+                onClick={() => canNext && player.setCurrentTrackIndex(currentIndex + 1)}
                 disabled={!canNext}
                 aria-label="Next track"
                 className="hover:text-foreground cursor-pointer rounded-full p-2 text-[var(--text-tertiary)] disabled:cursor-default disabled:opacity-20"
@@ -245,14 +207,16 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
               </div>
             )}
 
-            {onToggleShuffle && (
+            {player.effectiveFoundTracks.length > 0 && (
               <button
-                onClick={onToggleShuffle}
+                onClick={player.handleToggleShuffle}
                 title={
-                  shuffleMode ? "Shuffle on — click to turn off" : "Shuffle off — click to turn on"
+                  player.shuffleMode
+                    ? "Shuffle on — click to turn off"
+                    : "Shuffle off — click to turn on"
                 }
                 className={`cursor-pointer rounded-md p-1.5 transition-colors ${
-                  shuffleMode
+                  player.shuffleMode
                     ? "bg-primary/15 text-primary"
                     : "hover:bg-secondary/80 hover:text-foreground text-[var(--text-tertiary)]"
                 }`}
@@ -306,4 +270,4 @@ export const PlayerBar = forwardRef<PlayerBarHandle, PlayerBarProps>(function Pl
       )}
     </div>
   );
-});
+}

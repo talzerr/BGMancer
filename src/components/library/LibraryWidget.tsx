@@ -132,7 +132,7 @@ export function LibraryWidget() {
             <span className="bg-primary relative inline-flex h-2 w-2 rounded-full" />
           </span>
           <span className="truncate text-xs">
-            <span className="text-[var(--text-disabled)]">From </span>
+            <span className="text-[var(--text-disabled)]">from </span>
             <span className="text-foreground font-medium">{playingGameTitle}</span>
           </span>
         </div>

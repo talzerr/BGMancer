@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PlaylistTrack } from "@/types";
 import Script from "next/script";
+import Image from "next/image";
+import Link from "next/link";
+import { signOut } from "next-auth/react";
 import {
   DndContext,
   closestCenter,
@@ -29,6 +32,8 @@ import { PlaylistHeader } from "@/components/session/PlaylistHeader";
 import { SortableTrackItem } from "@/components/player/SortableTrackItem";
 import { Launchpad } from "@/components/launchpad/Launchpad";
 import { UndoToast } from "@/components/player/UndoToast";
+import { PlayerPanel } from "@/components/player/PlayerPanel";
+import { AuthButtons } from "@/components/AuthButtons";
 
 const LAUNCHPAD_FADE_MS = 700;
 const LAUNCHPAD_SWAP_DELAY_MS = 800; // fade-out duration + brief held-at-zero pause
@@ -38,10 +43,37 @@ interface FeedClientProps {
   isSignedIn: boolean;
   isDev: boolean;
   turnstileSiteKey?: string;
+  user: { name?: string | null; email?: string | null; image?: string | null } | null;
 }
 
-export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientProps) {
-  const { playlist, player, config, gameLibrary, gameThumbnailByGameId } = usePlayerContext();
+function LogoLink() {
+  return (
+    <Link href="/" className="flex items-center gap-2.5">
+      <Image
+        src="/icon-192.png"
+        alt="BGMancer"
+        width={20}
+        height={20}
+        className="h-5 w-5 shrink-0"
+        priority
+      />
+      <h1 className="font-display text-foreground text-[14px] leading-[1.2] font-semibold -tracking-[0.03em]">
+        BGMancer
+      </h1>
+    </Link>
+  );
+}
+
+export function FeedClient({ isSignedIn, isDev, turnstileSiteKey, user }: FeedClientProps) {
+  const {
+    playlist,
+    player,
+    config,
+    gameLibrary,
+    gameThumbnailByGameId,
+    media,
+    setPlayerPanelActive,
+  } = usePlayerContext();
   const { sessions, fetchSessions, handleRenameSession, handleDeleteSession } = useSessionManager();
   const { pendingDelete, initiateRemove, undoRemove } = useTrackDeleteUndo();
 
@@ -198,13 +230,27 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
   // Stable callbacks for memo'd SortableTrackItem. The hook/context functions
   // aren't memoized, so we pin current values via refs to keep callback
   // identity stable across renders.
-  const trackCallbackRefs = useRef({ player, playlist, initiateRemove, config, displayedSnapshot });
-  trackCallbackRefs.current = { player, playlist, initiateRemove, config, displayedSnapshot };
+  const trackCallbackRefs = useRef({
+    player,
+    playlist,
+    initiateRemove,
+    config,
+    displayedSnapshot,
+    media,
+  });
+  trackCallbackRefs.current = {
+    player,
+    playlist,
+    initiateRemove,
+    config,
+    displayedSnapshot,
+    media,
+  };
 
   const handleTrackPlay = useCallback((trackId: string, index: number) => {
-    const { player: p, displayedSnapshot: snap } = trackCallbackRefs.current;
+    const { player: p, displayedSnapshot: snap, media: m } = trackCallbackRefs.current;
     if (p.playingTrackId === trackId) {
-      p.playerBarRef.current?.togglePlayPause();
+      m?.togglePlayPause();
     } else {
       p.startPlaying(snap.tracks, index, snap.sessionId);
     }
@@ -218,6 +264,117 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
     const { playlist: pl, config: c } = trackCallbackRefs.current;
     pl.rerollTrack(trackId, c.allowLongTracks, c.allowShortTracks);
   }, []);
+
+  // Tell context that the player panel is active when in playlist mode
+  // so the bottom PlayerBar hides on desktop.
+  useEffect(() => {
+    if (mode === "playlist") {
+      setPlayerPanelActive(true);
+      return () => setPlayerPanelActive(false);
+    }
+  }, [mode, setPlayerPanelActive]);
+
+  function handleSignOut() {
+    signOut({ callbackUrl: "/" }).then(() => window.location.reload());
+  }
+
+  // ── Sidebar content (shared between mobile stacked + desktop fixed) ──
+  const sidebarControls = (
+    <>
+      <LibraryWidget />
+
+      <GenerateSection
+        generating={playlist.generating}
+        genError={playlist.genError}
+        cooldownUntil={playlist.cooldownUntil}
+        targetTrackCount={config.targetTrackCount}
+        onTargetSave={config.saveTrackCount}
+        gamesCount={gameLibrary.games.length}
+        games={gameLibrary.games}
+        onGenerate={handleGenerate}
+        allowLongTracks={config.allowLongTracks}
+        onToggleLongTracks={config.saveAllowLongTracks}
+        allowShortTracks={config.allowShortTracks}
+        onToggleShortTracks={config.saveAllowShortTracks}
+        rawVibes={config.rawVibes}
+        onToggleRawVibes={config.saveRawVibes}
+      />
+    </>
+  );
+
+  const sessionList = isSignedIn ? (
+    <SessionList
+      sessions={sessions.map((s) =>
+        s.id === playlist.currentSessionId ? { ...s, track_count: playlist.tracks.length } : s,
+      )}
+      selectedId={playlist.currentSessionId}
+      onSelect={(id) => {
+        playlist.loadForSession(id);
+      }}
+      onDelete={handleDeleteSession}
+    />
+  ) : null;
+
+  // ── Playlist content ──
+  const playlistContent =
+    playlist.isLoading || displayedTracks.length === 0 ? null : (
+      <div
+        className="flex flex-col gap-0"
+        style={{
+          opacity: playlistOpacity,
+          transition: `opacity ${PLAYLIST_FADE_MS}ms cubic-bezier(0.25, 0.1, 0.25, 1)`,
+          pointerEvents: playlistOpacity === 0 ? "none" : "auto",
+        }}
+      >
+        <PlaylistHeader
+          sessions={sessions}
+          currentSessionId={displayedSnapshot.sessionId}
+          tracks={displayedTracks}
+          isSignedIn={isSignedIn}
+          isDev={isDev}
+          onRename={handleRenameSession}
+          onDeleteSession={handleDeleteSession}
+        />
+        <DndContext
+          id="playlist-dnd"
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={trackIds} strategy={verticalListSortingStrategy}>
+            <div className="flex flex-col gap-0 pb-24">
+              {(() => {
+                const viewingPlayingSession =
+                  player.playingSessionId === displayedSnapshot.sessionId;
+                return displayedTracks.map((track, i) => {
+                  const isCurrentTrack =
+                    viewingPlayingSession && track.id === player.playingTrackId;
+                  const spoilerHidden =
+                    config.antiSpoilerEnabled &&
+                    !player.playedTrackIds.has(track.id) &&
+                    track.id !== player.playingTrackId;
+                  return (
+                    <SortableTrackItem
+                      key={track.id}
+                      track={track}
+                      index={i}
+                      gameThumbnail={gameThumbnailByGameId.get(track.game_id)}
+                      isPlaying={isCurrentTrack}
+                      isActivelyPlaying={isCurrentTrack && player.isPlayerPlaying}
+                      spoilerHidden={spoilerHidden}
+                      isRerolling={playlist.rerollingIds.has(track.id)}
+                      onPlay={handleTrackPlay}
+                      onRemove={handleTrackRemove}
+                      onReroll={handleTrackReroll}
+                    />
+                  );
+                });
+              })()}
+            </div>
+          </SortableContext>
+        </DndContext>
+      </div>
+    );
 
   return (
     <>
@@ -236,108 +393,67 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
         style={{ opacity: fadeOpacity, transitionDuration: `${LAUNCHPAD_FADE_MS}ms` }}
       >
         {mode === "launchpad" ? (
-          <Launchpad pressedCurate={pressedCurate} onCurateClick={handleLaunchpadCurate} />
+          <>
+            {/* Minimal header for launchpad */}
+            <header className="mx-auto flex max-w-7xl items-center justify-between px-4 pt-[18px] sm:px-6">
+              <LogoLink />
+              <AuthButtons user={user} isDev={isDev} />
+            </header>
+            <Launchpad pressedCurate={pressedCurate} onCurateClick={handleLaunchpadCurate} />
+          </>
         ) : (
-          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[320px_1fr] lg:gap-8">
-            {/* Left panel */}
-            <aside className="flex flex-col gap-4 p-4 lg:sticky lg:top-4 lg:pl-0">
-              <LibraryWidget />
+          <>
+            {/* Mobile header (hidden on desktop) */}
+            <header className="flex items-center justify-between px-4 pt-[18px] sm:px-6 lg:hidden">
+              <LogoLink />
+              <AuthButtons user={user} isDev={isDev} />
+            </header>
 
-              <GenerateSection
-                generating={playlist.generating}
-                genError={playlist.genError}
-                cooldownUntil={playlist.cooldownUntil}
-                targetTrackCount={config.targetTrackCount}
-                onTargetSave={config.saveTrackCount}
-                gamesCount={gameLibrary.games.length}
-                games={gameLibrary.games}
-                onGenerate={handleGenerate}
-                allowLongTracks={config.allowLongTracks}
-                onToggleLongTracks={config.saveAllowLongTracks}
-                allowShortTracks={config.allowShortTracks}
-                onToggleShortTracks={config.saveAllowShortTracks}
-                rawVibes={config.rawVibes}
-                onToggleRawVibes={config.saveRawVibes}
-              />
-
-              {isSignedIn && (
-                <SessionList
-                  sessions={sessions.map((s) =>
-                    s.id === playlist.currentSessionId
-                      ? { ...s, track_count: playlist.tracks.length }
-                      : s,
-                  )}
-                  selectedId={playlist.currentSessionId}
-                  onSelect={(id) => {
-                    playlist.loadForSession(id);
-                  }}
-                  onDelete={handleDeleteSession}
-                />
-              )}
-            </aside>
-
-            {/* Right panel: Playlist */}
-            <main className="flex flex-col gap-4">
-              {playlist.isLoading || displayedTracks.length === 0 ? null : (
-                <div
-                  className="flex flex-col gap-0"
-                  style={{
-                    opacity: playlistOpacity,
-                    transition: `opacity ${PLAYLIST_FADE_MS}ms cubic-bezier(0.25, 0.1, 0.25, 1)`,
-                    pointerEvents: playlistOpacity === 0 ? "none" : "auto",
-                  }}
-                >
-                  <PlaylistHeader
-                    sessions={sessions}
-                    currentSessionId={displayedSnapshot.sessionId}
-                    tracks={displayedTracks}
-                    isSignedIn={isSignedIn}
-                    isDev={isDev}
-                    onRename={handleRenameSession}
-                    onDeleteSession={handleDeleteSession}
-                  />
-                  <DndContext
-                    id="playlist-dnd"
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragEnd={handleDragEnd}
-                  >
-                    <SortableContext items={trackIds} strategy={verticalListSortingStrategy}>
-                      <div className="flex flex-col gap-0 pb-24">
-                        {(() => {
-                          const viewingPlayingSession =
-                            player.playingSessionId === displayedSnapshot.sessionId;
-                          return displayedTracks.map((track, i) => {
-                            const isCurrentTrack =
-                              viewingPlayingSession && track.id === player.playingTrackId;
-                            const spoilerHidden =
-                              config.antiSpoilerEnabled &&
-                              !player.playedTrackIds.has(track.id) &&
-                              track.id !== player.playingTrackId;
-                            return (
-                              <SortableTrackItem
-                                key={track.id}
-                                track={track}
-                                index={i}
-                                gameThumbnail={gameThumbnailByGameId.get(track.game_id)}
-                                isPlaying={isCurrentTrack}
-                                isActivelyPlaying={isCurrentTrack && player.isPlayerPlaying}
-                                spoilerHidden={spoilerHidden}
-                                isRerolling={playlist.rerollingIds.has(track.id)}
-                                onPlay={handleTrackPlay}
-                                onRemove={handleTrackRemove}
-                                onReroll={handleTrackReroll}
-                              />
-                            );
-                          });
-                        })()}
-                      </div>
-                    </SortableContext>
-                  </DndContext>
+            <div className="flex flex-col lg:h-screen lg:flex-row lg:overflow-hidden">
+              {/* Left sidebar — curation */}
+              <aside className="flex flex-col gap-4 p-4 lg:w-[290px] lg:shrink-0 lg:border-r lg:border-[rgba(255,255,255,0.04)] lg:p-5 lg:pb-16">
+                {/* Logo (desktop only) */}
+                <div className="mb-3 hidden lg:block">
+                  <LogoLink />
                 </div>
-              )}
-            </main>
-          </div>
+
+                {sidebarControls}
+
+                {/* Spacer — pushes history + user info to bottom on desktop */}
+                <div className="hidden lg:block lg:flex-1" />
+
+                {sessionList}
+
+                {/* User info (desktop only) */}
+                {user && (
+                  <div className="mt-2 hidden items-center gap-2 border-t border-[rgba(255,255,255,0.04)] pt-3 lg:flex">
+                    <span className="text-[11px] text-[var(--text-disabled)]">
+                      {user.email?.split("@")[0] ?? "User"}
+                    </span>
+                    <button
+                      onClick={handleSignOut}
+                      className="cursor-pointer text-[11px] text-[rgba(255,255,255,0.20)] transition-colors hover:text-[var(--text-tertiary)]"
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                )}
+              </aside>
+
+              {/* Center — scrollable playlist */}
+              <main
+                className="playlist-scroll min-w-0 flex-1 lg:overflow-y-auto"
+                style={{ scrollbarColor: "rgba(255,255,255,0.12) transparent" }}
+              >
+                <div className="px-4 pt-6 pb-24 sm:px-6 lg:px-8">{playlistContent}</div>
+              </main>
+
+              {/* Right — player panel (desktop only) */}
+              <div className="hidden lg:flex">
+                <PlayerPanel />
+              </div>
+            </div>
+          </>
         )}
       </div>
 

@@ -64,6 +64,8 @@ interface UseYouTubePlayerOptions {
   startPaused?: boolean;
   initialSeekSeconds?: number;
   onTimeUpdate?: (time: number) => void;
+  /** When false, the hook skips all effects and returns inert state. */
+  enabled?: boolean;
 }
 
 export function useYouTubePlayer({
@@ -74,6 +76,7 @@ export function useYouTubePlayer({
   startPaused,
   initialSeekSeconds,
   onTimeUpdate,
+  enabled = true,
 }: UseYouTubePlayerOptions) {
   const playerDivRef = useRef<HTMLDivElement>(null);
   const [apiReady, setApiReady] = useState(false);
@@ -171,6 +174,7 @@ export function useYouTubePlayer({
   }, [isPlaying]);
 
   useEffect(() => {
+    if (!enabled) return;
     if (typeof window === "undefined") return;
     if (window.YT?.Player) {
       setApiReady(true);
@@ -184,10 +188,10 @@ export function useYouTubePlayer({
       document.body.appendChild(tag);
     }
     window.onYouTubeIframeAPIReady = () => setApiReady(true);
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
-    if (!apiReady || !playerDivRef.current) return;
+    if (!enabled || !apiReady || !playerDivRef.current) return;
     const videoId = tracksRef.current[currentIndexRef.current]?.video_id;
     if (!videoId) return;
 
@@ -227,7 +231,7 @@ export function useYouTubePlayer({
 
   const currentVideoId = tracks[currentIndex]?.video_id;
   useEffect(() => {
-    if (!currentVideoId || !singletonPlayer) return;
+    if (!enabled || !currentVideoId || !singletonPlayer) return;
     singletonPlayer.loadVideoById(currentVideoId);
     singletonPlayer.setVolume(volumeRef.current);
     setCurrentTime(0);

@@ -34,7 +34,6 @@ const mockPlayerContext = {
     rerollTrack: vi.fn(),
   },
   player: {
-    playerBarRef: { current: null },
     currentTrackIndex: 0,
     effectiveFoundTracks: [] as PlaylistTrack[],
     isPlayerPlaying: false,
@@ -68,6 +67,10 @@ const mockPlayerContext = {
   },
   gameThumbnailByGameId: new Map<string, string>(),
   isSignedIn: false,
+  toggleAntiSpoiler: vi.fn(),
+  media: null,
+  playerPanelActive: false,
+  setPlayerPanelActive: vi.fn(),
 };
 
 const mockSessionManager = {
@@ -126,6 +129,18 @@ vi.mock("@/components/player/UndoToast", () => ({
   UndoToast: () => <div data-testid="undo-toast" />,
 }));
 
+vi.mock("@/components/player/PlayerPanel", () => ({
+  PlayerPanel: () => <div data-testid="player-panel" />,
+}));
+
+vi.mock("@/components/AuthButtons", () => ({
+  AuthButtons: () => <div data-testid="auth-buttons" />,
+}));
+
+vi.mock("next-auth/react", () => ({
+  signOut: vi.fn(),
+}));
+
 vi.mock("@dnd-kit/core", () => ({
   DndContext: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   closestCenter: vi.fn(),
@@ -177,7 +192,9 @@ function makeTrack(overrides: Partial<PlaylistTrack> = {}): PlaylistTrack {
 }
 
 function renderFeedClient(props: Partial<{ isSignedIn: boolean; isDev: boolean }> = {}) {
-  return render(<FeedClient isSignedIn={props.isSignedIn ?? false} isDev={props.isDev ?? false} />);
+  return render(
+    <FeedClient isSignedIn={props.isSignedIn ?? false} isDev={props.isDev ?? false} user={null} />,
+  );
 }
 
 // ─── Tests ─────────────────────────────────────────────────────────────────
