@@ -69,8 +69,6 @@ const mockPlayerContext = {
   isSignedIn: false,
   toggleAntiSpoiler: vi.fn(),
   media: null,
-  playerPanelActive: false,
-  setPlayerPanelActive: vi.fn(),
 };
 
 const mockSessionManager = {

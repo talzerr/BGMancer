@@ -65,15 +65,8 @@ function LogoLink() {
 }
 
 export function FeedClient({ isSignedIn, isDev, turnstileSiteKey, user }: FeedClientProps) {
-  const {
-    playlist,
-    player,
-    config,
-    gameLibrary,
-    gameThumbnailByGameId,
-    media,
-    setPlayerPanelActive,
-  } = usePlayerContext();
+  const { playlist, player, config, gameLibrary, gameThumbnailByGameId, media } =
+    usePlayerContext();
   const { sessions, fetchSessions, handleRenameSession, handleDeleteSession } = useSessionManager();
   const { pendingDelete, initiateRemove, undoRemove } = useTrackDeleteUndo();
 
@@ -264,15 +257,6 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey, user }: FeedCl
     const { playlist: pl, config: c } = trackCallbackRefs.current;
     pl.rerollTrack(trackId, c.allowLongTracks, c.allowShortTracks);
   }, []);
-
-  // Tell context that the player panel is active when in playlist mode
-  // so the bottom PlayerBar hides on desktop.
-  useEffect(() => {
-    if (mode === "playlist") {
-      setPlayerPanelActive(true);
-      return () => setPlayerPanelActive(false);
-    }
-  }, [mode, setPlayerPanelActive]);
 
   function handleSignOut() {
     signOut({ callbackUrl: "/" }).then(() => window.location.reload());

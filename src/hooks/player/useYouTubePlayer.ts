@@ -78,7 +78,7 @@ export function useYouTubePlayer({
   onTimeUpdate,
   enabled = true,
 }: UseYouTubePlayerOptions) {
-  const playerDivRef = useRef<HTMLDivElement>(null);
+  const playerElRef = useRef<HTMLDivElement | null>(null);
   const [apiReady, setApiReady] = useState(false);
   const [isPlaying, setIsPlayingState] = useState(false);
   const isPlayingRef = useRef(false);
@@ -173,6 +173,21 @@ export function useYouTubePlayer({
     return () => clearInterval(id);
   }, [isPlaying]);
 
+  // Create a DOM element outside React's tree for the YouTube iframe.
+  // This prevents DOM reconciliation errors during App Router page transitions.
+  useEffect(() => {
+    if (playerElRef.current) return;
+    const el = document.createElement("div");
+    el.style.cssText = "position:fixed;left:-9999px;top:0;width:1px;height:1px";
+    el.setAttribute("aria-hidden", "true");
+    document.body.appendChild(el);
+    playerElRef.current = el;
+    return () => {
+      el.remove();
+      playerElRef.current = null;
+    };
+  }, []);
+
   useEffect(() => {
     if (!enabled) return;
     if (typeof window === "undefined") return;
@@ -191,7 +206,7 @@ export function useYouTubePlayer({
   }, [enabled]);
 
   useEffect(() => {
-    if (!enabled || !apiReady || !playerDivRef.current) return;
+    if (!enabled || !apiReady || !playerElRef.current) return;
     const videoId = tracksRef.current[currentIndexRef.current]?.video_id;
     if (!videoId) return;
 
@@ -199,7 +214,7 @@ export function useYouTubePlayer({
 
     const paused = startPausedRef.current;
     startPausedRef.current = false;
-    singletonPlayer = new window.YT.Player(playerDivRef.current, {
+    singletonPlayer = new window.YT.Player(playerElRef.current, {
       videoId,
       width: 1,
       height: 1,
@@ -245,7 +260,6 @@ export function useYouTubePlayer({
   }, []);
 
   return {
-    playerDivRef,
     isPlaying,
     currentTime,
     duration,

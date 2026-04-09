@@ -14,7 +14,6 @@ import { usePlayerState } from "@/hooks/player/usePlayerState";
 import { useConfig } from "@/hooks/config/useConfig";
 import { useGameLibrary } from "@/hooks/library/useGameLibrary";
 import { useYouTubePlayer } from "@/hooks/player/useYouTubePlayer";
-import { PlayerBar } from "@/components/player/PlayerBar";
 import type { Game, PlaylistTrack } from "@/types";
 import {
   readPlaybackState,
@@ -49,8 +48,6 @@ interface PlayerContextValue {
   isSignedIn: boolean;
   toggleAntiSpoiler: () => void;
   media: MediaState | null;
-  playerPanelActive: boolean;
-  setPlayerPanelActive: (active: boolean) => void;
 }
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
@@ -79,7 +76,6 @@ export function PlayerProvider({
   const [restoredSeekSeconds, setRestoredSeekSeconds] = useState<number | null>(null);
   const cacheRestoredRef = useRef(false);
   const restoredSessionIdRef = useRef<string | null>(null);
-  const [playerPanelActive, setPlayerPanelActive] = useState(false);
 
   const fetchTracks = playlist.fetchTracks;
   const fetchGames = gameLibrary.fetchGames;
@@ -166,7 +162,7 @@ export function PlayerProvider({
     return map;
   }, [playlist.tracks]);
 
-  // ── YouTube player (lifted from PlayerBar) ──
+  // ── YouTube player ──
   const hasActiveTrack = currentTrackIndex !== null && effectiveFoundTracks.length > 0;
 
   const ytPlayer = useYouTubePlayer({
@@ -205,20 +201,9 @@ export function PlayerProvider({
         isSignedIn,
         toggleAntiSpoiler,
         media,
-        playerPanelActive,
-        setPlayerPanelActive,
       }}
     >
-      {/* Hidden YouTube iframe — always mounted when tracks are active */}
-      {hasActiveTrack && (
-        <div
-          ref={ytPlayer.playerDivRef}
-          style={{ position: "fixed", left: -9999, top: 0, width: 1, height: 1 }}
-          aria-hidden="true"
-        />
-      )}
       {children}
-      {hasActiveTrack && <PlayerBar />}
     </PlayerContext.Provider>
   );
 }

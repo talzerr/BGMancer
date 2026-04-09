@@ -8,6 +8,7 @@ import { CatalogBrowser } from "@/components/library/CatalogBrowser";
 import { CatalogHeaderBar } from "@/components/library/CatalogHeaderBar";
 import { CatalogSteamControls } from "@/components/library/CatalogSteamControls";
 import { LibraryDrawer } from "@/components/library/LibraryDrawer";
+import { PlayerPanel } from "@/components/player/PlayerPanel";
 import type { CurationMode, Game } from "@/types";
 
 interface CatalogClientProps {
@@ -17,7 +18,7 @@ interface CatalogClientProps {
 
 export function CatalogClient({ requestFormEnabled, turnstileSiteKey }: CatalogClientProps) {
   const router = useRouter();
-  const { gameLibrary, isSignedIn } = usePlayerContext();
+  const { gameLibrary, isSignedIn, playlist } = usePlayerContext();
   const steamLib = useSteamLibrary(isSignedIn);
   const [search, setSearch] = useState("");
   // null = not yet manually overridden; derive from library state below.
@@ -85,6 +86,13 @@ export function CatalogClient({ requestFormEnabled, turnstileSiteKey }: CatalogC
         onRemove={handleRemove}
         onCurate={handleCurate}
       />
+
+      {/* Player strip — when playlist exists */}
+      {playlist.tracks.length > 0 && (
+        <div className="hidden lg:flex">
+          <PlayerPanel />
+        </div>
+      )}
     </div>
   );
 }
