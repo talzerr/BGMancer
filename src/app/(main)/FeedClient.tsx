@@ -445,7 +445,7 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey, user }: FeedCl
                 className="playlist-scroll min-w-0 flex-1 lg:overflow-y-auto"
                 style={{ scrollbarColor: "rgba(255,255,255,0.12) transparent" }}
               >
-                <div className="px-4 pt-6 pb-24 sm:px-6 lg:px-8">{playlistContent}</div>
+                <div className="px-4 pb-24 sm:px-6 lg:px-8">{playlistContent}</div>
               </main>
 
               {/* Right — player panel (desktop only) */}

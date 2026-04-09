@@ -71,8 +71,8 @@ export function PlaylistHeader({
   }
 
   return (
-    <div>
-      <div className="flex flex-col gap-1.5 pb-[14px]">
+    <div className="sticky top-0 z-10 -mx-4 bg-[#13120f] px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+      <div className="flex flex-col gap-1.5 pt-6 pb-[14px]">
         {/* First line: title left, actions right */}
         <div className="flex items-center justify-between">
           <div className="min-w-0 flex-1">
@@ -113,15 +113,8 @@ export function PlaylistHeader({
               </button>
             )}
           </div>
-        </div>
 
-        {/* Second line: metadata left, actions right */}
-        {trackCount > 0 && (
-          <div className="flex items-center justify-between">
-            <span className="text-[12px] text-[var(--text-disabled)] tabular-nums">
-              {trackCount} tracks · {formatDuration(totalDurationSeconds)}
-            </span>
-
+          {trackCount > 0 && (
             <div className="flex shrink-0 items-center gap-[14px]">
               <button
                 onClick={() => player.startPlaying(tracks, 0, currentSessionId)}
@@ -186,7 +179,14 @@ export function PlaylistHeader({
                 </button>
               )}
             </div>
-          </div>
+          )}
+        </div>
+
+        {/* Second line: metadata */}
+        {trackCount > 0 && (
+          <span className="text-[12px] text-[var(--text-disabled)] tabular-nums">
+            {trackCount} tracks · {formatDuration(totalDurationSeconds)}
+          </span>
         )}
       </div>
       <div className="mb-5 h-px bg-[rgba(255,255,255,0.06)]" />
