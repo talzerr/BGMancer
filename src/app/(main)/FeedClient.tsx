@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PlaylistTrack } from "@/types";
 import Script from "next/script";
 import {
@@ -195,6 +195,30 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
     playlist.reorderTracks(arrayMove(displayedTracks, oldIndex, newIndex).map((t) => t.id));
   }
 
+  // Stable callbacks for memo'd SortableTrackItem. The hook/context functions
+  // aren't memoized, so we pin current values via refs to keep callback
+  // identity stable across renders.
+  const trackCallbackRefs = useRef({ player, playlist, initiateRemove, config, displayedSnapshot });
+  trackCallbackRefs.current = { player, playlist, initiateRemove, config, displayedSnapshot };
+
+  const handleTrackPlay = useCallback((trackId: string, index: number) => {
+    const { player: p, displayedSnapshot: snap } = trackCallbackRefs.current;
+    if (p.playingTrackId === trackId) {
+      p.playerBarRef.current?.togglePlayPause();
+    } else {
+      p.startPlaying(snap.tracks, index, snap.sessionId);
+    }
+  }, []);
+
+  const handleTrackRemove = useCallback((track: PlaylistTrack) => {
+    trackCallbackRefs.current.initiateRemove(track);
+  }, []);
+
+  const handleTrackReroll = useCallback((trackId: string) => {
+    const { playlist: pl, config: c } = trackCallbackRefs.current;
+    pl.rerollTrack(trackId, c.allowLongTracks, c.allowShortTracks);
+  }, []);
+
   return (
     <>
       {!isSignedIn && turnstileSiteKey && (
@@ -300,25 +324,9 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey }: FeedClientPr
                                 isActivelyPlaying={isCurrentTrack && player.isPlayerPlaying}
                                 spoilerHidden={spoilerHidden}
                                 isRerolling={playlist.rerollingIds.has(track.id)}
-                                onPlay={() => {
-                                  if (isCurrentTrack) {
-                                    player.playerBarRef.current?.togglePlayPause();
-                                  } else {
-                                    player.startPlaying(
-                                      displayedTracks,
-                                      i,
-                                      displayedSnapshot.sessionId,
-                                    );
-                                  }
-                                }}
-                                onRemove={() => initiateRemove(track)}
-                                onReroll={() =>
-                                  playlist.rerollTrack(
-                                    track.id,
-                                    config.allowLongTracks,
-                                    config.allowShortTracks,
-                                  )
-                                }
+                                onPlay={handleTrackPlay}
+                                onRemove={handleTrackRemove}
+                                onReroll={handleTrackReroll}
                               />
                             );
                           });

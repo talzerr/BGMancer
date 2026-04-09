@@ -22,7 +22,6 @@ const mockPlayerContext = {
     tracks: [] as PlaylistTrack[],
     isLoading: false,
     generating: false,
-    genProgress: null,
     genError: null,
     cooldownUntil: null,
     currentSessionId: null,

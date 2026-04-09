@@ -25,18 +25,24 @@ export function LibraryWidget() {
   useLayoutEffect(() => {
     const el = coverRowRef.current;
     if (!el) return;
+    let rafId = 0;
     const recompute = () => {
       const width = el.clientWidth;
       if (width <= 0) return;
-      // n tiles overlapped by OVERLAP_PX consume: COVER_PX + (n - 1) * (COVER_PX - OVERLAP_PX)
       const step = COVER_PX - OVERLAP_PX;
       const fit = Math.max(1, Math.floor((width - COVER_PX) / step) + 1);
       setMaxTiles(fit);
     };
     recompute();
-    const ro = new ResizeObserver(recompute);
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(recompute);
+    });
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+      cancelAnimationFrame(rafId);
+    };
   }, [games.length]);
 
   // Total tiles = covers + (overflow indicator if it exists). When overflow
