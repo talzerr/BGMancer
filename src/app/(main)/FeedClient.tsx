@@ -249,7 +249,9 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey, user }: FeedCl
     pl.rerollTrack(trackId, c.allowLongTracks, c.allowShortTracks);
   }, []);
 
-  const handleSignOut = performSignOut;
+  function handleSignOut() {
+    performSignOut();
+  }
 
   // ── Sidebar content (shared between mobile stacked + desktop fixed) ──
   const sidebarControls = (
