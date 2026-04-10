@@ -8,7 +8,11 @@ Claude Code session can implement them.
 
 ## Bugs
 
-No open bugs.
+- **[backstage] Unresolved tracks can't be re-resolved** — when no videos resolve
+  (including cases where tracks were outside the 80-track cap), there's no way to
+  trigger re-resolution from the backstage UI.
+- **[backstage] Track rename resets resolved state** — changing a track's name clears
+  its resolved YouTube video, requiring re-resolution.
 
 ---
 
@@ -16,34 +20,40 @@ No open bugs.
 
 Items that must be done before removing Zero Trust and going public.
 
-- **[infra] Verify admin route protection** — `/api/steam/*` routes are `AuthLevel.Admin`
-  but not under the `/backstage*` path. Confirm these return 404 to unauthenticated users
-  after the Cloudflare Access policy is narrowed to backstage only.
-- **[infra] Rate limiting baseline** — no unified rate limiting strategy exists. Need at
-  minimum a clear alignment on approach before opening to the public. Known gap:
-  `POST /api/sync` has no rate limit for authenticated users and could hammer YouTube
-  API quota. Needs PM session.
-- **[infra] App/backstage shared code boundary** — currently clean but informal. Needs
-  explicit documentation or enforcement before the codebase grows further.
-- **[infra] Data retention policy** — needs PM session. What happens to inactive user
-  data? No automatic cleanup exists. Decision needed before finalizing legal pages.
-  Sequence: this decision first, then legal page review.
-- **[backstage] Users page** — baseline view at `/backstage/users` to see who's using the
-  app (activity, library stats). Expand later.
+- **[feature] YouTube sync implementation** — sync-to-YouTube is currently a
+  placeholder, not implemented. Full implementation needed before launch.
+- **[feature] Curation modes** — needs PM session. Journey (full Director arc),
+  Focus (filtered low-energy shuffle), Hype (filtered high-energy shuffle). Journey
+  uses the full pipeline; other modes bypass the profiler and Director entirely,
+  using energy/mood filters on the tagged pool. All modes available to all users
+  including guests.
+- **[infra] Verify admin route protection** — `/api/steam/*` routes are
+  `AuthLevel.Admin` but not under the `/backstage*` path. Confirm these return 404
+  to unauthenticated users after Cloudflare Access policy is narrowed.
+- **[infra] Rate limiting baseline** — no unified rate limiting strategy exists.
+  Known gap: `POST /api/sync` has no rate limit for authenticated users and could
+  hammer YouTube API quota. Needs PM session.
+- **[infra] App/backstage shared code boundary** — currently clean but informal.
+  Needs explicit documentation or enforcement before the codebase grows further.
+- **[infra] Data retention policy** — needs PM session. What happens to inactive
+  user data? No automatic cleanup exists. Decision needed before finalizing legal
+  pages. Sequence: this decision first, then legal page review.
+- **[backstage] Users page** — baseline view at `/backstage/users` to see who's
+  using the app (activity, library stats). Expand later.
 - **[docs] README overhaul** — hero section, features, architecture overview, setup
   guide, env var reference. Must be done before the repo is public-facing.
 - **[legal] YouTube API ToS compliance audit** — full review from zero: logo display,
   ToS links, privacy policy links to Google, caching durations, player branding,
   revocation mechanism for Sync-to-YouTube OAuth. Google enforces these.
-- **[legal] Review privacy policy and ToS pages** — pages exist but need review against
-  current app behavior (Google OAuth data, YouTube embeds, Anthropic usage, cookie
-  policy). Sequence after the data retention decision.
+- **[legal] Review privacy policy and ToS pages** — pages exist but need review
+  against current app behavior (Google OAuth data, YouTube embeds, Anthropic usage,
+  cookie policy). Sequence after the data retention decision.
 - **[polish] Graceful degradation audit** — YouTube player resilience when a video is
-  unavailable (skip gracefully, don't hang), React error boundaries, empty states when
-  the Director can't fill enough tracks. Audit current state, fix gaps.
+  unavailable (skip gracefully, don't hang), React error boundaries, empty states
+  when the Director can't fill enough tracks. Audit current state, fix gaps.
 - **[polish] Production seed data verification** — one-time check before launch: all
-  published games have tagged tracks and resolved videos, no orphaned or half-onboarded
-  games in the catalog.
+  published games have tagged tracks and resolved videos, no orphaned or
+  half-onboarded games in the catalog.
 
 ---
 
@@ -52,9 +62,9 @@ Items that must be done before removing Zero Trust and going public.
 Ideas with merit that need discussion and scoping before implementation. Cannot go
 to a Claude Code session directly.
 
-- **[player] Revisit playlist manipulation features** — shuffle, reorder, remove, reroll.
-  The arc changes what makes sense here. Some of these may conflict with the Director's
-  sequencing. Needs a principled decision on which controls exist.
+- **[player] Revisit playlist manipulation features** — shuffle, reorder, remove,
+  reroll. The arc changes what makes sense here. Some of these may conflict with the
+  Director's sequencing. Needs a principled decision on which controls exist.
 
 ---
 
@@ -78,46 +88,42 @@ Future work. No urgency, no commitment.
   PR template, CODE_OF_CONDUCT.md.
 - **[docs] Deployment documentation** — step-by-step Cloudflare setup, env var
   reference, operations runbook.
+- **[design] Design system addendum** — minor. The release design session produced
+  updates to DESIGN_SYSTEM.md (game color tints, arc spacing, launchpad welcome,
+  player strip, overlay treatment, catalog buttons). Needs PM review before merging.
+- **[design] Now-playing track indicator** — minor. Current implementation needs
+  review against design system spec (left-edge amber bar + equalizer icon).
 - **[player] Repeat modes** — off / repeat all / repeat one. Straightforward, doesn't
   conflict with the arc.
 - **[player] Keyboard shortcuts** — space (play/pause), ←/→ (prev/next), m (mute),
   ? (help).
 - **[ux] Guest-to-logged-in state migration** — needs PM session. When a guest signs
   in, should localStorage state (game library, config) transfer to their account?
-- **[ux] Shareable playlist seeds** — encode playlists as compact strings, `/share/[seed]`
-  read-only view. Merges the old "playlist export" and "playlist seed share" ideas.
-- **[engine] Vibe input UI** — structured selectors for energy (calm/balanced/intense) and
-  activity (study, gaming, commute, exercise, relaxing). Depends on the profiler being
-  perceptibly useful first.
+- **[ux] Shareable playlist seeds** — encode playlists as compact strings,
+  `/share/[seed]` read-only view.
 - **[catalog] Full "request a game" flow** — expand the pre-launch IGDB-based request
-  system into a proper pipeline: status tracking (pending → in progress → ready →
-  rejected), user notifications, automatic onboarding from IGDB data. The lean version
-  is already live.
-- **[ux] Dynamic game art background** — hero image wash as ambient layer. Heavily blurred
-  and desaturated, 3–6% opacity, crossfade on game transitions. Approved in principle,
-  implementation deferred.
+  system into a proper pipeline: status tracking, user notifications, automatic
+  onboarding. The lean version is already live.
+- **[ux] Dynamic game art background** — hero image wash as ambient layer. Heavily
+  blurred and desaturated, 3–6% opacity, crossfade on game transitions. Approved in
+  principle, implementation deferred.
 - **[ux] Track rating** — thumbs up/down while playing. Vague idea for future
   personalization. Low priority, may not be relevant.
-- **[ux] Track flagging by users** — let users flag problematic tracks (bad YouTube match,
-  wrong metadata). Appears in backstage for admin review. Replaces the old track
-  blacklist idea.
+- **[ux] Track flagging by users** — let users flag problematic tracks (bad YouTube
+  match, wrong metadata). Appears in backstage for admin review.
 - **[ux] URL state strategy** — shareable playlist links, deep-linkable filter states.
-  Becomes relevant if sharing or link-based navigation becomes a feature.
-- **[backstage] User/Admin view toggle** — toggle between user and admin experience in
-  the main app. Surfaces admin affordances (backstage quick-open on tracks, dev overlays)
-  without separate accounts. Not relevant until admin features exist in the main app.
-- **[backstage] Quick-open from playlist track** — admin-only affordance on playlist
-  track cards to navigate directly to that track's game in backstage. Depends on
-  admin view toggle.
-- **[backstage] Visual guidelines doc** — lightweight guardrails for backstage UI.
-  Not a full design system — just a short doc that establishes backstage as visually
-  separate from the main app (no amber, no warm neutrals, no design system bleed).
-  Baseline: shadcn defaults, neutral palette, functional over polished. Keeps future
-  backstage sessions consistent without over-engineering admin tooling.
-- **[ux] Natural auth incentive** — explore non-intrusive ways to communicate that
-  signing in improves the experience (better playlist shaping, session history,
-  persistent library, sync to YouTube) without implying the guest experience is
-  inferior or using "AI-powered" language. Must feel discovered, not sold.
+- **[backstage] User/Admin view toggle** — toggle between user and admin experience.
+- **[backstage] Quick-open from playlist track** — admin-only affordance to navigate
+  directly to that track's game in backstage.
+- **[backstage] Visual guidelines doc** — lightweight guardrails for backstage UI
+  establishing visual separation from the main app.
+- **[backstage] Bug fixes** — unresolved track re-resolution and track rename state
+  reset issues to be addressed post-launch.
+- **[ux] Natural auth incentive** — non-intrusive sign-in encouragement after first
+  completed playlist generation (DEC-018). Needs design pass for trigger, placement,
+  and copy.
+- **[schema] Game accent color column** — pre-computed `accent_color` on `games`
+  table (DEC-019). Bundle into next natural schema migration.
 
 ---
 
