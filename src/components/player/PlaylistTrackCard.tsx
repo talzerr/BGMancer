@@ -15,8 +15,6 @@ import {
 
 interface PlaylistTrackCardProps {
   track: PlaylistTrack;
-  index: number;
-  /** Game cover thumbnail URL (Steam header) shown instead of the YouTube video thumbnail */
   gameThumbnail?: string;
   /** true when this is the currently selected track (highlights the card) */
   isPlaying?: boolean;
@@ -43,7 +41,6 @@ function formatTrackDuration(seconds: number): string {
 
 export function PlaylistTrackCard({
   track,
-  index,
   gameThumbnail,
   isPlaying = false,
   isActivelyPlaying = false,
@@ -61,16 +58,22 @@ export function PlaylistTrackCard({
 
   const isPlayable = hasVideo && !!onPlay;
 
+  const durationText =
+    track.duration_seconds != null && track.duration_seconds > 0
+      ? formatTrackDuration(track.duration_seconds)
+      : null;
+
   return (
     <div
       onClick={isPlayable ? onPlay : undefined}
-      className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-150 ${
+      className={`group border-border relative flex items-center gap-4 border-b px-3 py-2 transition-all duration-150 ${
         isPlayable ? "cursor-pointer" : ""
-      } ${isDragging ? "opacity-50" : ""} ${
-        isPlaying ? "bg-primary/5" : "bg-white/[0.02] hover:bg-white/[0.04]"
-      }`}
+      } ${isDragging ? "opacity-50" : ""} bg-white/[0.02] hover:bg-white/[0.04]`}
     >
-      {/* Drag handle */}
+      {isPlaying && (
+        <div className="bg-primary absolute top-0 bottom-0 left-0 w-[3px] rounded-r-sm" />
+      )}
+
       {dragHandleProps && (
         <div
           {...dragHandleProps}
@@ -81,23 +84,7 @@ export function PlaylistTrackCard({
         </div>
       )}
 
-      {/* Position number -> waves when actively playing */}
-      <div className="flex w-6 shrink-0 items-center justify-center">
-        {isPlaying ? (
-          <div className="flex h-[16px] items-end gap-[2px]">
-            <span className={`eq-bar${!isActivelyPlaying ? "eq-bar-paused" : ""}`} />
-            <span className={`eq-bar${!isActivelyPlaying ? "eq-bar-paused" : ""}`} />
-            <span className={`eq-bar${!isActivelyPlaying ? "eq-bar-paused" : ""}`} />
-          </div>
-        ) : (
-          <span className="font-mono text-xs text-[var(--text-tertiary)] select-none">
-            {index + 1}
-          </span>
-        )}
-      </div>
-
-      {/* Thumbnail */}
-      <div className="bg-secondary relative h-12 w-[72px] shrink-0 overflow-hidden rounded-lg ring-1 ring-white/[0.06]">
+      <div className="bg-secondary relative h-[44px] w-16 shrink-0 overflow-hidden rounded-[6px] ring-1 ring-white/[0.06]">
         {hasVideo && thumbnailSrc ? (
           <>
             <Image
@@ -117,11 +104,16 @@ export function PlaylistTrackCard({
                 <PlayIcon className="h-4 w-4 text-white drop-shadow" />
               )}
             </div>
-            {/* YouTube attribution */}
-            <div className="absolute right-0 bottom-0 flex items-center gap-0.5 rounded-tl bg-black/70 px-1 py-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="absolute right-0 bottom-0 flex items-center rounded-tl bg-black/70 px-1 py-0.5 opacity-0 transition-opacity group-hover:opacity-100">
               <YouTubeLogo className="h-2 w-2 shrink-0 fill-current text-[#FF0000]" />
-              <span className="text-[8px] leading-none font-medium text-white">YouTube</span>
             </div>
+            {isPlaying && (
+              <div className="absolute bottom-[3px] left-[3px] flex items-end gap-[1.5px] rounded-sm bg-black/40 px-[2px] py-[1px]">
+                <span className={isActivelyPlaying ? "eq-bar-sm" : "eq-bar-sm eq-bar-paused"} />
+                <span className={isActivelyPlaying ? "eq-bar-sm" : "eq-bar-sm eq-bar-paused"} />
+                <span className={isActivelyPlaying ? "eq-bar-sm" : "eq-bar-sm eq-bar-paused"} />
+              </div>
+            )}
           </>
         ) : (
           <div className="flex h-full w-full items-center justify-center">
@@ -130,43 +122,24 @@ export function PlaylistTrackCard({
         )}
       </div>
 
-      {/* Track info */}
       <div className="min-w-0 flex-1">
-        <div className="mb-0.5 flex items-center gap-1.5">
-          <span
-            className={`text-muted-foreground truncate text-[11px] leading-none ${spoilerHidden ? "blur-sm select-none" : ""}`}
-          >
-            {track.game_title}
-          </span>
-        </div>
         {spoilerHidden ? (
-          <p className="text-muted-foreground line-clamp-1 text-sm leading-tight font-medium blur-sm select-none">
+          <p className="line-clamp-1 text-[15px] leading-snug font-normal -tracking-[0.01em] text-[var(--text-primary)] blur-sm select-none">
             {track.track_name ?? track.video_title}
           </p>
         ) : (
-          <p
-            className={`line-clamp-1 text-sm leading-tight font-medium ${
-              isPlaying ? "text-primary" : "text-foreground"
-            }`}
-          >
+          <p className="line-clamp-1 text-[15px] leading-snug font-normal -tracking-[0.01em] text-[var(--text-primary)]">
             {track.track_name ?? track.video_title}
           </p>
         )}
-        {hasVideo && track.channel_title && !spoilerHidden && (
-          <p className="text-muted-foreground mt-0.5 truncate text-[11px] leading-none">
-            {track.channel_title}
-          </p>
-        )}
+        <p
+          className={`mt-1 truncate text-[13px] text-[var(--text-tertiary)] ${spoilerHidden ? "blur-sm select-none" : ""}`}
+        >
+          from {track.game_title}
+          {durationText && ` · ${durationText}`}
+        </p>
       </div>
 
-      {/* Duration */}
-      {track.duration_seconds != null && track.duration_seconds > 0 && (
-        <span className="shrink-0 font-mono text-xs text-[var(--text-tertiary)] tabular-nums">
-          {formatTrackDuration(track.duration_seconds)}
-        </span>
-      )}
-
-      {/* Right side: action buttons */}
       <div className="flex shrink-0 items-center gap-0.5">
         {onReroll && (
           <div className="group/reroll relative ml-1">

@@ -10,7 +10,7 @@ interface CatalogHeaderBarProps {
 
 export function CatalogHeaderBar({ search, onSearchChange, children }: CatalogHeaderBarProps) {
   return (
-    <div className="border-border flex items-center justify-between gap-3 border-b px-1 pb-2">
+    <div className="flex items-center gap-3">
       <input
         type="text"
         value={search}

@@ -51,31 +51,26 @@ function makeTrack(overrides: Partial<PlaylistTrack> = {}): PlaylistTrack {
 describe("PlaylistTrackCard", () => {
   describe("when rendered with a found track", () => {
     it("should display the track name", () => {
-      render(<PlaylistTrackCard track={makeTrack()} index={0} />);
+      render(<PlaylistTrackCard track={makeTrack()} />);
       // track_name is shown when present (preferred over video_title)
       expect(screen.getByText(TEST_TRACK_NAME)).toBeInTheDocument();
     });
 
-    it("should display the game title", () => {
-      render(<PlaylistTrackCard track={makeTrack()} index={0} />);
-      expect(screen.getByText(TEST_GAME_TITLE)).toBeInTheDocument();
+    it("should display the game title in the attribution line", () => {
+      render(<PlaylistTrackCard track={makeTrack()} />);
+      expect(screen.getByText(/from Dark Souls/)).toBeInTheDocument();
     });
 
-    it("should display the channel title", () => {
-      render(<PlaylistTrackCard track={makeTrack()} index={0} />);
-      expect(screen.getByText(TEST_CHANNEL_TITLE)).toBeInTheDocument();
-    });
-
-    it("should display the 1-indexed position number", () => {
-      render(<PlaylistTrackCard track={makeTrack()} index={2} />);
-      expect(screen.getByText("3")).toBeInTheDocument();
+    it("should display the duration in the attribution line", () => {
+      render(<PlaylistTrackCard track={makeTrack()} />);
+      expect(screen.getByText(/4:00/)).toBeInTheDocument();
     });
   });
 
   describe("when onRemove is provided", () => {
     it("should call onRemove when the remove button is clicked", async () => {
       const onRemove = vi.fn();
-      render(<PlaylistTrackCard track={makeTrack()} index={0} onRemove={onRemove} />);
+      render(<PlaylistTrackCard track={makeTrack()} onRemove={onRemove} />);
       const buttons = screen.getAllByRole("button");
       // Remove button is the last button
       await userEvent.click(buttons[buttons.length - 1]);
@@ -86,7 +81,7 @@ describe("PlaylistTrackCard", () => {
   describe("when onReroll is provided", () => {
     it("should call onReroll when the reroll button is clicked", async () => {
       const onReroll = vi.fn();
-      render(<PlaylistTrackCard track={makeTrack()} index={0} onReroll={onReroll} />);
+      render(<PlaylistTrackCard track={makeTrack()} onReroll={onReroll} />);
       const buttons = screen.getAllByRole("button");
       // Reroll is the first (and only) button when no onRemove
       await userEvent.click(buttons[0]);
@@ -96,7 +91,7 @@ describe("PlaylistTrackCard", () => {
 
   describe("when isRerolling is true", () => {
     it("should disable the reroll button", () => {
-      render(<PlaylistTrackCard track={makeTrack()} index={0} onReroll={vi.fn()} isRerolling />);
+      render(<PlaylistTrackCard track={makeTrack()} onReroll={vi.fn()} isRerolling />);
       const buttons = screen.getAllByRole("button");
       const rerollBtn = buttons.find(
         (b) => b.textContent?.includes("Imported") || (b as HTMLButtonElement).disabled,
@@ -108,29 +103,27 @@ describe("PlaylistTrackCard", () => {
 
   describe("when spoilerHidden is true", () => {
     it("should hide the channel title", () => {
-      render(<PlaylistTrackCard track={makeTrack()} index={0} spoilerHidden />);
+      render(<PlaylistTrackCard track={makeTrack()} spoilerHidden />);
       expect(screen.queryByText(TEST_CHANNEL_TITLE)).not.toBeInTheDocument();
     });
 
-    it("should apply blur to the game title", () => {
-      render(<PlaylistTrackCard track={makeTrack()} index={0} spoilerHidden />);
-      const gameTitle = screen.getByText(TEST_GAME_TITLE);
-      expect(gameTitle.className).toContain("blur");
+    it("should apply blur to the attribution line", () => {
+      render(<PlaylistTrackCard track={makeTrack()} spoilerHidden />);
+      const attribution = screen.getByText(/from Dark Souls/);
+      expect(attribution.className).toContain("blur");
     });
   });
 
   describe("when the track has no video_id", () => {
     it("should show track_name as the title", () => {
-      render(
-        <PlaylistTrackCard track={makeTrack({ video_id: null, video_title: null })} index={0} />,
-      );
+      render(<PlaylistTrackCard track={makeTrack({ video_id: null, video_title: null })} />);
       expect(screen.getByText(TEST_TRACK_NAME)).toBeInTheDocument();
     });
   });
 
   describe("when no onPlay/onRemove/onReroll handlers are provided", () => {
     it("should not render action buttons", () => {
-      render(<PlaylistTrackCard track={makeTrack()} index={0} />);
+      render(<PlaylistTrackCard track={makeTrack()} />);
       const buttons = screen.queryAllByRole("button");
       expect(buttons).toHaveLength(0);
     });

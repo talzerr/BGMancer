@@ -44,7 +44,6 @@ export const SortableTrackItem = memo(function SortableTrackItem({
     <div ref={setNodeRef} style={style}>
       <PlaylistTrackCard
         track={track}
-        index={index}
         gameThumbnail={gameThumbnail}
         isPlaying={isPlaying}
         isActivelyPlaying={isActivelyPlaying}

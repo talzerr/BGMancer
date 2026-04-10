@@ -26,8 +26,14 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Load test env
+      - name: Load env
         run: cp .env.test .env.local
+
+      - name: Generate Cloudflare types
+        run: pnpm cf-typegen
+
+      - name: Build
+        run: pnpm build
 
       - name: Lint
         run: pnpm lint
@@ -37,9 +43,3 @@ jobs:
 
       - name: Tests + Coverage
         run: pnpm test:coverage
-
-      - name: Generate Cloudflare types
-        run: pnpm cf-typegen
-
-      - name: Build
-        run: pnpm build

@@ -2,7 +2,6 @@
 
 import { useRef, useState, useEffect, useCallback } from "react";
 import type { PlaylistTrack } from "@/types";
-import type { PlayerBarHandle } from "@/components/player/PlayerBar";
 import {
   clearPlaybackState,
   saveRevealedTracks,
@@ -20,8 +19,6 @@ export function usePlayerState() {
   const [playingTracks, setPlayingTracks] = useState<PlaylistTrack[]>([]);
   /** Session ID that is currently playing (may differ from viewed session) */
   const [playingSessionId, setPlayingSessionId] = useState<string | null>(null);
-  const playerBarRef = useRef<PlayerBarHandle | null>(null);
-
   /** Start playing a set of tracks from a given index */
   function startPlaying(tracks: PlaylistTrack[], index: number, sessionId: string | null) {
     if (sessionId !== null && playingSessionId !== null && sessionId !== playingSessionId) {
@@ -43,6 +40,16 @@ export function usePlayerState() {
     setPlayingTracks([]);
     setPlayingSessionId(null);
     clearPlaybackState();
+  }
+
+  /** Stop playback without clearing localStorage cache (used after generation). */
+  function resetPlayback() {
+    setCurrentTrackIndex(null);
+    setShuffleMode(false);
+    setShuffleOrder([]);
+    setPlayedTrackIds(new Set());
+    setPlayingTracks([]);
+    setPlayingSessionId(null);
   }
 
   function restorePlayback(tracks: PlaylistTrack[], index: number, sessionId: string | null) {
@@ -128,8 +135,8 @@ export function usePlayerState() {
     setIsPlayerPlaying,
     shuffleMode,
     handleToggleShuffle,
-    playerBarRef,
     reset,
+    resetPlayback,
     startPlaying,
     restorePlayback,
     clearPlayedTracks,

@@ -12,11 +12,8 @@ const OVERLAP_PX = 10; // matches -ml-[10px] below
 const COMPACT_GAP_PX = 6;
 
 export function LibraryWidget() {
-  const { gameLibrary, player, playlist } = usePlayerContext();
+  const { gameLibrary } = usePlayerContext();
   const { games, isLoading } = gameLibrary;
-
-  const playingGameTitle =
-    playlist.tracks.find((t) => t.id === player.playingTrackId)?.game_title ?? null;
 
   // Measure the cover row to figure out how many tiles fit. Recomputes on
   // resize so the stack adapts to the controls column width.
@@ -66,76 +63,64 @@ export function LibraryWidget() {
           />
           <span className="text-foreground text-sm font-medium">Game Library</span>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-[var(--text-tertiary)] tabular-nums">
-            {games.length} game{games.length !== 1 ? "s" : ""}
-          </span>
-          <span className="group-hover:text-primary text-[11px] text-[var(--text-tertiary)] transition-colors">
-            Add Games →
-          </span>
-        </div>
+        <span className="group-hover:text-primary text-xs whitespace-nowrap text-[var(--text-tertiary)] transition-colors">
+          Add Games →
+        </span>
       </div>
 
       {games.length > 0 && (
-        <div ref={coverRowRef} className="mt-3 flex items-center">
-          {visibleCovers.map((game, i) => {
-            // 1-2 games (and no overflow): side by side with 6px gap.
-            // Otherwise: -10px overlap with descending z-index so the leftmost
-            // is on top.
-            const compact = !showOverflow && visibleCovers.length <= 2;
-            const style = compact
-              ? i > 0
-                ? { marginLeft: COMPACT_GAP_PX }
-                : undefined
-              : { marginLeft: i === 0 ? 0 : -OVERLAP_PX, zIndex: 100 - i };
-            return (
-              <div key={game.id} className={`bg-secondary ${COVER_BOX}`} style={style}>
-                {game.thumbnail_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={game.thumbnail_url}
-                    alt={game.title}
-                    width={40}
-                    height={40}
-                    loading="lazy"
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-[var(--surface-hover)]">
-                    <span className="text-muted-foreground text-[10px] font-medium uppercase">
-                      {game.title.charAt(0)}
-                    </span>
-                  </div>
-                )}
+        <>
+          <div ref={coverRowRef} className="mt-3 flex items-center">
+            {visibleCovers.map((game, i) => {
+              const compact = !showOverflow && visibleCovers.length <= 2;
+              const style = compact
+                ? i > 0
+                  ? { marginLeft: COMPACT_GAP_PX }
+                  : undefined
+                : { marginLeft: i === 0 ? 0 : -OVERLAP_PX, zIndex: 100 - i };
+              return (
+                <div key={game.id} className={`bg-secondary ${COVER_BOX}`} style={style}>
+                  {game.thumbnail_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={game.thumbnail_url}
+                      alt={game.title}
+                      width={40}
+                      height={40}
+                      loading="lazy"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-[var(--surface-hover)]">
+                      <span className="text-muted-foreground text-[11px] font-medium uppercase">
+                        {game.title.charAt(0)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {showOverflow && (
+              <div
+                className={`flex items-center justify-center bg-white/[0.08] ${COVER_BOX}`}
+                style={{
+                  marginLeft: visibleCovers.length === 0 ? 0 : -OVERLAP_PX,
+                  zIndex: 100 - visibleCovers.length,
+                }}
+              >
+                <span className="text-[11px] font-medium text-[var(--text-secondary)] tabular-nums">
+                  +{overflow}
+                </span>
               </div>
-            );
-          })}
-          {showOverflow && (
-            <div
-              className={`flex items-center justify-center bg-white/[0.08] ${COVER_BOX}`}
-              style={{
-                marginLeft: visibleCovers.length === 0 ? 0 : -OVERLAP_PX,
-                zIndex: 100 - visibleCovers.length,
-              }}
-            >
-              <span className="text-[11px] font-medium text-[var(--text-secondary)] tabular-nums">
-                +{overflow}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
 
-      {playingGameTitle && (
-        <div className="mt-2.5 flex items-center gap-2">
-          <span className="relative flex h-2 w-2 shrink-0">
-            <span className="bg-primary relative inline-flex h-2 w-2 rounded-full" />
-          </span>
-          <span className="truncate text-xs">
-            <span className="text-[var(--text-disabled)]">From </span>
-            <span className="text-foreground font-medium">{playingGameTitle}</span>
-          </span>
-        </div>
+          <div className="mt-2.5">
+            <span className="text-xs text-[var(--text-tertiary)] tabular-nums">
+              {games.length} game{games.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+        </>
       )}
 
       {!isLoading && games.length === 0 && (

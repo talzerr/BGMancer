@@ -18,8 +18,8 @@ import type { AppConfig, Game, PlaylistTrack, TaggedTrack, VibeRubric } from "@/
 import {
   MIN_TRACK_DURATION_SECONDS,
   MAX_TRACK_DURATION_SECONDS,
-  SESSION_NAME_MAX_GAMES,
-  SESSION_NAME_MAX_LENGTH,
+  GUEST_SESSION_ID,
+  buildSessionName,
 } from "@/lib/constants";
 
 const log = createLogger("generate");
@@ -121,14 +121,7 @@ async function persistSession(
   if (generatedName) {
     sessionName = generatedName;
   } else {
-    const gameNames = [...new Set(allTracks.map((t) => t.game_title ?? t.game_id))];
-    const rawNameList =
-      gameNames.slice(0, SESSION_NAME_MAX_GAMES).join(", ") +
-      (gameNames.length > SESSION_NAME_MAX_GAMES ? " and more" : "");
-    sessionName =
-      rawNameList.length > SESSION_NAME_MAX_LENGTH
-        ? `${rawNameList.slice(0, SESSION_NAME_MAX_LENGTH - 1).trimEnd()}…`
-        : rawNameList;
+    sessionName = buildSessionName(allTracks.map((t) => t.game_title ?? t.game_id));
   }
 
   const session = await Sessions.create(userId, sessionName);
@@ -206,7 +199,7 @@ export async function generatePlaylistForGuest(
     const g = gameMap.get(t.game_id);
     return {
       ...t,
-      playlist_id: "guest",
+      playlist_id: GUEST_SESSION_ID,
       position,
       created_at: new Date().toISOString(),
       synced_at: null,
@@ -216,6 +209,7 @@ export async function generatePlaylistForGuest(
 
   send({
     type: "done",
+    sessionId: GUEST_SESSION_ID,
     tracks: finalTracks,
     count: finalTracks.length,
   });

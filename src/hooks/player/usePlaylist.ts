@@ -204,6 +204,7 @@ export function usePlaylist(init: UsePlaylistInit = {}) {
 
             if (event.type === "done") {
               setTracks(event.tracks ?? []);
+              setIsLoading(false);
               if (event.sessionId) setCurrentSessionId(event.sessionId);
             }
           } catch {

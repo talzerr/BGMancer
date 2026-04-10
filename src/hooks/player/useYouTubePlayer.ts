@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { PlaylistTrack } from "@/types";
+import { patchPausedState } from "@/hooks/player/playback-state";
 
 // ─── Minimal YT IFrame API types ─────────────────────────────────────────────
 
@@ -63,7 +64,9 @@ interface UseYouTubePlayerOptions {
   onPlayingChange?: (playing: boolean) => void;
   startPaused?: boolean;
   initialSeekSeconds?: number;
-  onTimeUpdate?: (time: number) => void;
+  onTimeUpdate?: (time: number, paused: boolean) => void;
+  /** When false, the hook skips all effects and returns inert state. */
+  enabled?: boolean;
 }
 
 export function useYouTubePlayer({
@@ -74,8 +77,9 @@ export function useYouTubePlayer({
   startPaused,
   initialSeekSeconds,
   onTimeUpdate,
+  enabled = true,
 }: UseYouTubePlayerOptions) {
-  const playerDivRef = useRef<HTMLDivElement>(null);
+  const playerElRef = useRef<HTMLDivElement | null>(null);
   const [apiReady, setApiReady] = useState(false);
   const [isPlaying, setIsPlayingState] = useState(false);
   const isPlayingRef = useRef(false);
@@ -116,6 +120,18 @@ export function useYouTubePlayer({
     setIsPlayingState(value);
     isPlayingRef.current = value;
     onPlayingChange?.(value);
+    if (!value && singletonPlayer) {
+      // Persist paused state + position directly to localStorage, bypassing
+      // the onTimeUpdate callback chain which suffers from stale closures.
+      const ct = singletonPlayer.getCurrentTime();
+      if (isFinite(ct)) {
+        setCurrentTime(ct);
+        onTimeUpdateRef.current?.(ct, true);
+        patchPausedState(true, ct);
+      }
+    } else if (value) {
+      patchPausedState(false);
+    }
   }
 
   function applyVolume(v: number) {
@@ -155,22 +171,40 @@ export function useYouTubePlayer({
     if (!isPlaying) return;
     tickCountRef.current = 0;
     const id = setInterval(() => {
-      if (singletonPlayer) {
-        const ct = singletonPlayer.getCurrentTime();
-        const dur = singletonPlayer.getDuration();
-        if (isFinite(ct)) setCurrentTime(ct);
-        if (isFinite(dur) && dur > 0) setDuration(dur);
-        tickCountRef.current += 1;
-        if (tickCountRef.current >= TIME_UPDATE_TICK_INTERVAL) {
-          tickCountRef.current = 0;
-          if (isFinite(ct)) onTimeUpdateRef.current?.(ct);
-        }
+      // Guard with ref — setPlaying(false) sets isPlayingRef synchronously,
+      // but the effect cleanup (clearInterval) only runs after re-render.
+      // Without this, a stale tick can overwrite paused: true with paused: false.
+      if (!isPlayingRef.current || !singletonPlayer) return;
+      const ct = singletonPlayer.getCurrentTime();
+      const dur = singletonPlayer.getDuration();
+      if (isFinite(ct)) setCurrentTime(ct);
+      if (isFinite(dur) && dur > 0) setDuration(dur);
+      tickCountRef.current += 1;
+      if (tickCountRef.current >= TIME_UPDATE_TICK_INTERVAL) {
+        tickCountRef.current = 0;
+        if (isFinite(ct)) onTimeUpdateRef.current?.(ct, false);
       }
     }, POLL_INTERVAL_MS);
     return () => clearInterval(id);
   }, [isPlaying]);
 
+  // Create a DOM element outside React's tree for the YouTube iframe.
+  // This prevents DOM reconciliation errors during App Router page transitions.
   useEffect(() => {
+    if (playerElRef.current) return;
+    const el = document.createElement("div");
+    el.style.cssText = "position:fixed;left:-9999px;top:0;width:1px;height:1px";
+    el.setAttribute("aria-hidden", "true");
+    document.body.appendChild(el);
+    playerElRef.current = el;
+    return () => {
+      el.remove();
+      playerElRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!enabled) return;
     if (typeof window === "undefined") return;
     if (window.YT?.Player) {
       setApiReady(true);
@@ -184,10 +218,10 @@ export function useYouTubePlayer({
       document.body.appendChild(tag);
     }
     window.onYouTubeIframeAPIReady = () => setApiReady(true);
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
-    if (!apiReady || !playerDivRef.current) return;
+    if (!enabled || !apiReady || !playerElRef.current) return;
     const videoId = tracksRef.current[currentIndexRef.current]?.video_id;
     if (!videoId) return;
 
@@ -195,7 +229,7 @@ export function useYouTubePlayer({
 
     const paused = startPausedRef.current;
     startPausedRef.current = false;
-    singletonPlayer = new window.YT.Player(playerDivRef.current, {
+    singletonPlayer = new window.YT.Player(playerElRef.current, {
       videoId,
       width: 1,
       height: 1,
@@ -227,7 +261,7 @@ export function useYouTubePlayer({
 
   const currentVideoId = tracks[currentIndex]?.video_id;
   useEffect(() => {
-    if (!currentVideoId || !singletonPlayer) return;
+    if (!enabled || !currentVideoId || !singletonPlayer) return;
     singletonPlayer.loadVideoById(currentVideoId);
     singletonPlayer.setVolume(volumeRef.current);
     setCurrentTime(0);
@@ -236,12 +270,20 @@ export function useYouTubePlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentVideoId]);
 
+  // When playback is deactivated (e.g. generation completes), pause the singleton.
+  useEffect(() => {
+    if (!enabled && singletonPlayer) {
+      singletonPlayer.pauseVideo();
+      setPlaying(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled]);
+
   useEffect(() => {
     return () => destroySingleton();
   }, []);
 
   return {
-    playerDivRef,
     isPlaying,
     currentTime,
     duration,

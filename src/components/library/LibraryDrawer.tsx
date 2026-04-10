@@ -5,7 +5,8 @@ import type { Game } from "@/types";
 import { LIBRARY_MAX_GAMES } from "@/lib/constants";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { outlineAmberCtaClass } from "@/components/ui/button";
-import { CheckIcon, ChevronLeftIcon, ChevronRightIcon } from "@/components/Icons";
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, GoogleLogo } from "@/components/Icons";
+import { FooterLinks } from "@/components/layout/FooterLinks";
 import { useState } from "react";
 
 interface LibraryDrawerProps {
@@ -15,6 +16,9 @@ interface LibraryDrawerProps {
   onCurationChange: (gameId: string, curation: CurationMode) => void;
   onRemove: (gameId: string) => void;
   onCurate: () => void;
+  userName?: string | null;
+  onSignIn?: () => void;
+  onSignOut?: () => void;
 }
 
 // Order shown inside the row popover.
@@ -143,7 +147,7 @@ function GameThumbnail({ game }: { game: Game }) {
 
   return (
     <div className="bg-secondary/60 flex h-[22px] w-[48px] shrink-0 items-center justify-center rounded">
-      <span className="text-[9px] font-medium text-[var(--text-tertiary)] uppercase">
+      <span className="text-[11px] font-medium text-[var(--text-tertiary)] uppercase">
         {game.title.charAt(0)}
       </span>
     </div>
@@ -157,13 +161,16 @@ export function LibraryDrawer({
   onCurationChange,
   onRemove,
   onCurate,
+  userName,
+  onSignIn,
+  onSignOut,
 }: LibraryDrawerProps) {
   return (
     <aside
-      className="border-border bg-background/80 sticky top-[57px] hidden max-h-[calc(100vh-57px)] shrink-0 overflow-hidden border-l transition-[width] duration-300 [transition-timing-function:cubic-bezier(0.25,0.1,0.25,1)] lg:block"
+      className="border-border bg-background/80 hidden h-full shrink-0 overflow-hidden border-l transition-[width] duration-300 [transition-timing-function:cubic-bezier(0.25,0.1,0.25,1)] lg:block"
       style={{ width: isExpanded ? 300 : 40 }}
     >
-      <div className="relative h-[calc(100vh-57px)] w-[300px]">
+      <div className="relative h-full w-[300px]">
         {/* Collapsed strip */}
         <button
           type="button"
@@ -269,13 +276,28 @@ export function LibraryDrawer({
             </div>
           )}
 
-          {/* End-of-list footer — sized to match the global player bar so it sits
-              underneath when the player is up, only visible when no track is playing. */}
-          {games.length > 0 && (
-            <div className="border-border flex h-[65px] shrink-0 items-center justify-center border-t text-[7px] text-[var(--text-tertiary)] opacity-25">
-              ◆
-            </div>
-          )}
+          <div className="border-border flex shrink-0 flex-col gap-2 border-t px-4 py-3">
+            {userName && onSignOut ? (
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-[var(--text-disabled)]">{userName}</span>
+                <button
+                  onClick={onSignOut}
+                  className="cursor-pointer text-[11px] text-[rgba(255,255,255,0.20)] transition-colors hover:text-[var(--text-tertiary)]"
+                >
+                  Sign out
+                </button>
+              </div>
+            ) : onSignIn ? (
+              <button
+                onClick={onSignIn}
+                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-[rgba(255,255,255,0.08)] bg-white/[0.04] px-3 py-1.5 text-[12px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-white/[0.08] hover:text-[var(--text-primary)]"
+              >
+                <GoogleLogo className="h-3.5 w-3.5" />
+                Sign in with Google
+              </button>
+            ) : null}
+            <FooterLinks />
+          </div>
         </div>
       </div>
     </aside>

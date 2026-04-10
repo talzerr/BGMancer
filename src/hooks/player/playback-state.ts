@@ -5,6 +5,7 @@ export interface SavedPlaybackState {
   trackIndex: number;
   positionSeconds: number;
   videoId: string;
+  paused?: boolean;
 }
 
 const PLAYBACK_STATE_KEY = "bgm_playback_state";
@@ -37,6 +38,21 @@ export function readPlaybackState(): SavedPlaybackState | null {
 export function savePlaybackState(state: SavedPlaybackState): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(PLAYBACK_STATE_KEY, JSON.stringify(state));
+}
+
+/** Patch only the paused + position fields of the existing saved state. */
+export function patchPausedState(paused: boolean, positionSeconds?: number): void {
+  if (typeof window === "undefined") return;
+  try {
+    const raw = localStorage.getItem(PLAYBACK_STATE_KEY);
+    if (!raw) return;
+    const state = JSON.parse(raw) as Record<string, unknown>;
+    state.paused = paused;
+    if (positionSeconds !== undefined) state.positionSeconds = positionSeconds;
+    localStorage.setItem(PLAYBACK_STATE_KEY, JSON.stringify(state));
+  } catch {
+    // ignore
+  }
 }
 
 export function clearPlaybackState(): void {
