@@ -52,16 +52,6 @@ Items that must be done before removing Zero Trust and going public.
 Ideas with merit that need discussion and scoping before implementation. Cannot go
 to a Claude Code session directly.
 
-- **[ux] Settings panel redesign** — are pill toggles the right pattern for generation
-  options? Label naming, overall settings UX.
-- **[ux] Post-generation layout collapse** — how controls recede after playlist generation.
-  The principle is decided (listening wins over configuration), the mechanism is not.
-- **[ux] Playlist history UX** — where it lives, how it's accessed. Panel, dropdown, or
-  page.
-- **[player] Player bar density** — whether "Up Next" preview is needed, YouTube logo
-  placement, overall player bar information architecture.
-- **[player] Now-playing track indicator** — current full-width highlight is too aggressive.
-  Needs redesign — subtle left-edge amber bar or small indicator.
 - **[player] Revisit playlist manipulation features** — shuffle, reorder, remove, reroll.
   The arc changes what makes sense here. Some of these may conflict with the Director's
   sequencing. Needs a principled decision on which controls exist.
