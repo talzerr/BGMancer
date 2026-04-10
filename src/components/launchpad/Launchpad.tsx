@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Headphones } from "lucide-react";
+import { MusicNote } from "@/components/Icons";
 import { usePlayerContext } from "@/context/player-context";
 import { useCooldownTimer } from "@/hooks/shared/useCooldownTimer";
 import { MAX_TRACK_COUNT } from "@/lib/constants";
@@ -17,9 +17,10 @@ const COVER_BOX = "h-[48px] w-[48px] shrink-0 overflow-hidden rounded-[6px]";
 interface LaunchpadProps {
   pressedCurate: boolean;
   onCurateClick: () => void;
+  previewCovers: string[];
 }
 
-export function Launchpad({ pressedCurate, onCurateClick }: LaunchpadProps) {
+export function Launchpad({ pressedCurate, onCurateClick, previewCovers }: LaunchpadProps) {
   const { gameLibrary, config, playlist } = usePlayerContext();
   const games = gameLibrary.games;
   const { secsLeft } = useCooldownTimer(playlist.cooldownUntil ?? 0);
@@ -27,7 +28,7 @@ export function Launchpad({ pressedCurate, onCurateClick }: LaunchpadProps) {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center pt-16 pb-24">
       {games.length === 0 ? (
-        <LaunchpadEmpty />
+        <LaunchpadEmpty previewCovers={previewCovers} />
       ) : (
         <LaunchpadReady
           games={games}
@@ -50,13 +51,39 @@ export function Launchpad({ pressedCurate, onCurateClick }: LaunchpadProps) {
   );
 }
 
-function LaunchpadEmpty() {
+function LaunchpadEmpty({ previewCovers }: { previewCovers: string[] }) {
   return (
-    <div className="flex max-w-[400px] flex-col items-center text-center">
-      <Headphones strokeWidth={1.5} className="h-7 w-7 text-[var(--text-disabled)]" />
-      <p className="mt-5 text-[15px] leading-[1.5] font-normal text-[var(--text-secondary)]">
-        Add games from the catalog to build your first playlist
+    <div className="flex max-w-[600px] flex-col items-center text-center">
+      {previewCovers.length > 0 && (
+        <div className="mb-8 flex items-center gap-3">
+          {previewCovers.map((url, i) => (
+            <div
+              key={i}
+              className="h-[56px] w-[56px] shrink-0 overflow-hidden rounded-lg opacity-[0.12]"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={url}
+                alt=""
+                width={56}
+                height={56}
+                loading="eager"
+                className="h-full w-full object-cover"
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      <MusicNote className="h-8 w-8 text-[rgba(255,255,255,0.25)]" />
+
+      <p className="mt-4 text-[17px] leading-[1.4] font-normal -tracking-[0.01em] text-[rgba(255,255,255,0.6)]">
+        Playlists from the games you&apos;ve played
       </p>
+      <p className="mt-1.5 text-[13px] font-normal text-[rgba(255,255,255,0.3)]">
+        Pick your games, get a soundtrack mix
+      </p>
+
       <Link href="/catalog" className={`${outlineAmberCtaClass("md")} mt-6`}>
         Browse catalog →
       </Link>
