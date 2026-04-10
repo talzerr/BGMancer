@@ -64,8 +64,10 @@ export const WEIGHTED_RANDOM_EPSILON = 0.01;
 /** Score penalty when selecting a track from the same game as the previous slot. */
 export const SAME_GAME_PENALTY = 0.05;
 
-/** Score bonus per remaining budget slot — biases toward under-represented games. */
-export const BUDGET_HEADROOM_BONUS = 0.01;
+/** Scale factor for deficit-based diversity bonus. At 0.20, a game that is
+ *  one full budget cycle behind its expected fill rate receives a bonus
+ *  comparable to typical resonance score gaps (0.15–0.25). */
+export const DIVERSITY_BONUS_SCALE = 0.2;
 
 /** Random jitter added to scores for tie-breaking between equally-scored candidates. */
 export const SCORE_JITTER_MAX = 0.005;

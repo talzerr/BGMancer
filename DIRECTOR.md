@@ -4,8 +4,6 @@
 
 The **Director** is the deterministic orchestration engine at the heart of BGMancer's playlist generation pipeline. It operates entirely without LLM involvement: given a pool of tagged tracks and a set of game library constraints, it assembles a final ordered playlist that adheres to a predefined narrative energy arc while maximizing cross-game diversity and per-track contextual fit. The quality of the output depends entirely on the precision of its internal scoring model — which this document specifies in full.
 
-All tunable parameters referenced in this document are defined in `director-constants.ts`. The mathematical variables map directly to those named parameters.
-
 ---
 
 ## The Problem With "Shuffle"
@@ -179,7 +177,11 @@ Three mechanisms apply, in order of strength:
 
 2. **Same-Game Score Penalty.** When the outer selection loop compares candidates across games, any candidate from the same game as the previous slot's track receives a score penalty $\delta_{\text{same}}$. This discourages same-game placement even when the exclusion pass fails and the relaxed pass produces a candidate — the penalty makes it less likely to win the cross-game comparison. The penalty is small relative to the score range, acting as a tiebreaker rather than a veto.
 
-3. **Budget Headroom Bonus.** Under-represented games — those further below their budget ceiling — receive a small score bonus proportional to their remaining budget ($\beta \times \text{remaining slots}$). This biases toward spreading tracks across games proportionally before exhausting any single game's pool, producing natural interleaving even without explicit sequencing logic.
+3. **Deficit-Based Diversity Bonus.** Under-represented games receive a score bonus proportional to how far behind they are relative to their expected fill rate at the current point in assembly. Let $b$ be a game's budget, $u$ its current usage, $i$ the current slot index, and $n$ the total playlist length. The expected usage at position $i$ is $b \cdot (i / n)$. The deficit is:
+
+$$d = \frac{b \cdot (i / n) - u}{b}$$
+
+The diversity bonus is $\max(0, d) \times \gamma$, where $\gamma$ is the diversity scale parameter. A game running ahead of its expected fill rate ($d \leq 0$) receives no bonus. A game that is behind receives a boost that grows with both the magnitude of underrepresentation and assembly progress — the same absolute deficit produces a larger normalized deficit later in the playlist, when underrepresentation is a genuine problem rather than natural early variance. The scale parameter $\gamma$ is calibrated to produce bonuses in the same order of magnitude as typical resonance score gaps, making diversity competitive with — but not dominant over — track-to-slot fit.
 
 Additionally, a small random jitter $\epsilon_{\text{jitter}}$ is added to each candidate's score to break ties between equally-scored candidates from different games, preventing deterministic ordering artifacts.
 
@@ -223,6 +225,18 @@ $$R \leftarrow R \times \alpha_{\text{mood}} \quad \text{if } t.\text{moods} \ca
 $$R \leftarrow R \times \alpha_{\text{vocals}} \quad \text{if } \rho.\text{allowVocals} = \text{false} \text{ and } t.\text{hasVocals} = \text{true}$$
 
 Score range: $R \in [0.0, 1.0]$, reducible to $[0.0, \alpha_{\text{mood}} \cdot \alpha_{\text{vocals}}]$ when both penalties apply.
+
+**8. Assembly-Time Adjustments**
+
+When comparing candidates across games for a given slot during assembly (not during isolated scoring), three adjustments apply to the penalized score $R$:
+
+$$R \leftarrow R - \delta_{\text{same}} \quad \text{if game} = \text{lastGame}$$
+
+$$R \leftarrow R + \max\!\left(0,\ \frac{b \cdot (i/n) - u}{b}\right) \times \gamma \quad \text{(diversity bonus)}$$
+
+$$R \leftarrow R + \text{Uniform}(0, \epsilon_{\text{jitter}}) \quad \text{(tie-breaking)}$$
+
+where $b$ is the game's budget, $u$ its current usage, $i$ the slot index, $n$ the playlist length, $\gamma$ the diversity scale, and $\delta_{\text{same}}$ the same-game penalty. These adjustments operate on the cross-game comparison, not on the per-track resonance score.
 
 ---
 
@@ -299,6 +313,8 @@ $$= 0.300 + 0.250 + 0.269 + 0.100 = 0.919$$
 **Step 7 — Penalties:** No penalized moods present. No vocals. No penalties apply.
 
 **Final Score: $R = 0.919$** — near-perfect fit. This track would dominate the top-N pool for this slot.
+
+_Note: the assembly-time adjustments (same-game penalty, diversity bonus, jitter) apply during cross-game comparison, not shown in this single-track evaluation._
 
 ---
 

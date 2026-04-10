@@ -34,7 +34,7 @@ import {
   DIRECTOR_TOP_N_POOL,
   WEIGHTED_RANDOM_EPSILON,
   SAME_GAME_PENALTY,
-  BUDGET_HEADROOM_BONUS,
+  DIVERSITY_BONUS_SCALE,
   SCORE_JITTER_MAX,
   BUDGET_WEIGHT_FOCUS,
   BUDGET_WEIGHT_LITE,
@@ -474,7 +474,9 @@ export function assemblePlaylist(
 
       let score = pick.breakdown.adjustedScore;
       if (gameId === lastGameId) score -= SAME_GAME_PENALTY;
-      score += Math.max(0, budget - currentUsed) * BUDGET_HEADROOM_BONUS;
+      const expectedUsed = budget * (i / slots.length);
+      const deficit = (expectedUsed - currentUsed) / budget;
+      score += Math.max(0, deficit) * DIVERSITY_BONUS_SCALE;
       score += Math.random() * SCORE_JITTER_MAX;
 
       if (score > bestScore) {
