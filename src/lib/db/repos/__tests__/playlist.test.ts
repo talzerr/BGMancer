@@ -306,6 +306,38 @@ describe("Playlist", () => {
         expect(tracks[0].track_name).toBe("Active");
       });
     });
+
+    describe("when decision data exists", () => {
+      it("should include arc_phase from decisions", async () => {
+        await Playlist.replaceAll(sessionId, [
+          makeTrack({ id: "ap1", track_name: "Intro Track" }),
+          makeTrack({ id: "ap2", track_name: "Rising Track" }),
+        ]);
+        rawDb
+          .prepare(
+            "INSERT INTO playlist_track_decisions (playlist_id, position, arc_phase, game_id, track_video_id) VALUES (?, ?, ?, ?, ?)",
+          )
+          .run(sessionId, 0, "intro", gameId, "v1");
+        rawDb
+          .prepare(
+            "INSERT INTO playlist_track_decisions (playlist_id, position, arc_phase, game_id, track_video_id) VALUES (?, ?, ?, ?, ?)",
+          )
+          .run(sessionId, 1, "rising", gameId, "v2");
+
+        const tracks = await Playlist.listAllWithGameTitle(userId, sessionId);
+        expect(tracks[0].arc_phase).toBe("intro");
+        expect(tracks[1].arc_phase).toBe("rising");
+      });
+    });
+
+    describe("when no decision data exists", () => {
+      it("should return null arc_phase", async () => {
+        await Playlist.replaceAll(sessionId, [makeTrack({ id: "nd1", track_name: "No Decision" })]);
+
+        const tracks = await Playlist.listAllWithGameTitle(userId, sessionId);
+        expect(tracks[0].arc_phase).toBeNull();
+      });
+    });
   });
 
   describe("getVideoIdsForSession", () => {

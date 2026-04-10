@@ -1,5 +1,4 @@
 import { createLogger } from "@/lib/logger";
-import { VIEW_BIAS_LOG_MIN, VIEW_BIAS_LOG_MAX } from "@/lib/constants";
 import type {
   TaggedTrack,
   Game,
@@ -25,10 +24,23 @@ import {
   SCORE_WEIGHT_VIEW_BIAS,
   SCORE_WEIGHT_INSTRUMENT_VIEW_BIAS,
   VIEW_BIAS_SCORE_BASELINE,
+  VIEW_BIAS_LOG_MIN,
+  VIEW_BIAS_LOG_MAX,
+  VIEW_BIAS_GLOBAL_HEAT_WEIGHT,
+  VIEW_BIAS_LOCAL_STATURE_WEIGHT,
+  VIEW_BIAS_LOCAL_STATURE_CEILING,
   SCORE_PENALTY_MULTIPLIER,
   SCORE_VOCALS_PENALTY_MULTIPLIER,
   DIRECTOR_TOP_N_POOL,
-} from "@/lib/constants";
+  WEIGHTED_RANDOM_EPSILON,
+  SAME_GAME_PENALTY,
+  DIVERSITY_BONUS_SCALE,
+  SCORE_JITTER_MAX,
+  BUDGET_WEIGHT_FOCUS,
+  BUDGET_WEIGHT_LITE,
+  BUDGET_WEIGHT_INCLUDE,
+  BUDGET_SOFT_CAP_FRACTION,
+} from "./director-constants";
 
 const log = createLogger("director");
 
@@ -207,10 +219,16 @@ export function computeViewBiasScores(
         localStature = VIEW_BIAS_SCORE_BASELINE;
       } else {
         // ratio of 1.0 = average → 0.33; ratio of 3.0+ = 1.0
-        localStature = Math.max(0, Math.min(1, track.viewCount / avgViews / 3));
+        localStature = Math.max(
+          0,
+          Math.min(1, track.viewCount / avgViews / VIEW_BIAS_LOCAL_STATURE_CEILING),
+        );
       }
 
-      scores.set(track.videoId, globalHeat * 0.6 + localStature * 0.4);
+      scores.set(
+        track.videoId,
+        globalHeat * VIEW_BIAS_GLOBAL_HEAT_WEIGHT + localStature * VIEW_BIAS_LOCAL_STATURE_WEIGHT,
+      );
     }
   }
 
@@ -233,7 +251,11 @@ export function computeGameBudgets(
   const weights = new Map<string, number>();
   for (const game of activeGames) {
     const w =
-      game.curation === CurationMode.Focus ? 2 : game.curation === CurationMode.Lite ? 0.5 : 1;
+      game.curation === CurationMode.Focus
+        ? BUDGET_WEIGHT_FOCUS
+        : game.curation === CurationMode.Lite
+          ? BUDGET_WEIGHT_LITE
+          : BUDGET_WEIGHT_INCLUDE;
     weights.set(game.id, w);
     totalWeight += w;
   }
@@ -242,7 +264,7 @@ export function computeGameBudgets(
   for (const game of activeGames) {
     const w = weights.get(game.id) ?? 1;
     const pool = taggedPools.get(game.id) ?? [];
-    const softCap = Math.ceil(targetCount * 0.4);
+    const softCap = Math.ceil(targetCount * BUDGET_SOFT_CAP_FRACTION);
     const raw = Math.round((w / totalWeight) * targetCount);
     const budget = Math.min(raw, pool.length, softCap);
     budgets.set(game.id, budget);
@@ -395,15 +417,7 @@ export function assemblePlaylist(
         while (slotIdx < slots.length && focusSlotIndices.has(slotIdx)) slotIdx++;
         if (slotIdx >= slots.length) break;
 
-        const pick = pickBestTrack(
-          pool,
-          slots[slotIdx],
-          used,
-          gameId,
-          lastGameId,
-          rubric,
-          viewBiasScores,
-        );
+        const pick = pickBestTrack(pool, slots[slotIdx], used, rubric, viewBiasScores);
         if (pick) {
           result[slotIdx] = pick.track;
           focusSlotIndices.add(slotIdx);
@@ -447,13 +461,15 @@ export function assemblePlaylist(
       if (currentUsed >= budget) continue;
 
       const pool = shuffledPools.get(gameId) ?? [];
-      const pick = pickBestTrack(pool, slot, used, gameId, lastGameId, rubric, viewBiasScores);
+      const pick = pickBestTrack(pool, slot, used, rubric, viewBiasScores);
       if (!pick) continue;
 
       let score = pick.breakdown.adjustedScore;
-      if (gameId === lastGameId) score -= 0.05;
-      score += Math.max(0, budget - currentUsed) * 0.01;
-      score += Math.random() * 0.005;
+      if (gameId === lastGameId) score -= SAME_GAME_PENALTY;
+      const expectedUsed = budget * (i / slots.length);
+      const deficit = (expectedUsed - currentUsed) / budget;
+      score += Math.max(0, deficit) * DIVERSITY_BONUS_SCALE;
+      score += Math.random() * SCORE_JITTER_MAX;
 
       if (score > bestScore) {
         bestScore = score;
@@ -469,7 +485,7 @@ export function assemblePlaylist(
       const allGameIds = [...nonFocusGameIds, ...focusGameIds];
       for (const gameId of allGameIds) {
         const pool = shuffledPools.get(gameId) ?? [];
-        const pick = pickBestTrack(pool, slot, used, gameId, lastGameId, rubric, viewBiasScores);
+        const pick = pickBestTrack(pool, slot, used, rubric, viewBiasScores);
         if (pick) {
           bestTrack = pick.track;
           bestBreakdown = pick.breakdown;
@@ -540,33 +556,18 @@ export function pickBestTrack(
   pool: TaggedTrack[],
   slot: ArcSlot,
   used: Set<string>,
-  _gameId: string,
-  lastGameId: string | null,
   rubric: VibeRubric | undefined,
   viewBiasScores: Map<string, number> | null,
 ): PickResult | null {
-  // Pass 1: avoid consecutive same-game
   const candidates: Array<{ track: TaggedTrack; breakdown: ScoreBreakdown }> = [];
   for (const track of pool) {
     if (used.has(track.videoId)) continue;
-    if (track.gameId === lastGameId) continue;
     const breakdown = scoreTrack(track, slot, rubric, viewBiasScores);
     if (breakdown) candidates.push({ track, breakdown });
   }
 
   const picked = weightedTopN(candidates);
   if (picked) return { ...picked, poolSize: candidates.length };
-
-  // Pass 2: relax same-game constraint
-  const relaxed: Array<{ track: TaggedTrack; breakdown: ScoreBreakdown }> = [];
-  for (const track of pool) {
-    if (used.has(track.videoId)) continue;
-    const breakdown = scoreTrack(track, slot, rubric, viewBiasScores);
-    if (breakdown) relaxed.push({ track, breakdown });
-  }
-
-  const relaxedPick = weightedTopN(relaxed);
-  if (relaxedPick) return { ...relaxedPick, poolSize: relaxed.length };
 
   return null;
 }
@@ -579,12 +580,14 @@ export function weightedTopN(
   candidates.sort((a, b) => b.breakdown.adjustedScore - a.breakdown.adjustedScore);
   const pool = candidates.slice(0, DIRECTOR_TOP_N_POOL);
 
-  const epsilon = 0.01;
-  const totalWeight = pool.reduce((sum, c) => sum + c.breakdown.adjustedScore + epsilon, 0);
+  const totalWeight = pool.reduce(
+    (sum, c) => sum + c.breakdown.adjustedScore + WEIGHTED_RANDOM_EPSILON,
+    0,
+  );
   let rand = Math.random() * totalWeight;
   let picked = pool[0];
   for (const c of pool) {
-    rand -= c.breakdown.adjustedScore + epsilon;
+    rand -= c.breakdown.adjustedScore + WEIGHTED_RANDOM_EPSILON;
     picked = c;
     if (rand <= 0) break;
   }

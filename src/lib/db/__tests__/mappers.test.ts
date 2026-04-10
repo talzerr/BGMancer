@@ -395,6 +395,7 @@ describe("toPlaylistTrack", () => {
     position: 0,
     created_at: "2025-01-01",
     synced_at: null,
+    arc_phase: null,
   };
 
   describe("when given a complete row", () => {
@@ -442,6 +443,16 @@ describe("toPlaylistTrack", () => {
       });
       expect(pt.synced_at).toBe("2025-06-01");
       expect(pt.game_thumbnail_url).toBe("https://cdn.steam.com/header.jpg");
+    });
+
+    it("should map arc_phase when present", () => {
+      const pt = toPlaylistTrack({ ...baseRow, arc_phase: "rising" });
+      expect(pt.arc_phase).toBe("rising");
+    });
+
+    it("should map arc_phase as null when absent", () => {
+      const pt = toPlaylistTrack({ ...baseRow, arc_phase: null });
+      expect(pt.arc_phase).toBeNull();
     });
   });
 

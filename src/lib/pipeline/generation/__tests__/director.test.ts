@@ -35,7 +35,7 @@ import {
   SCORE_PENALTY_MULTIPLIER,
   SCORE_VOCALS_PENALTY_MULTIPLIER,
   DIRECTOR_TOP_N_POOL,
-} from "@/lib/constants";
+} from "../director-constants";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -779,45 +779,10 @@ describe("pickBestTrack", () => {
         [makeTrack({ energy: 2, videoId: "v1" })],
         makeSlot(),
         new Set(["v1"]),
-        DEFAULT_GAME_ID,
-        null,
         undefined,
         null,
       );
       expect(result).toBeNull();
-    });
-  });
-
-  describe("when lastGameId matches the track's game (Pass 1)", () => {
-    it("should prefer tracks from a different game", () => {
-      const t1 = makeTrack({ energy: 2, videoId: "v1", gameId: DEFAULT_GAME_ID });
-      const t2 = makeTrack({ energy: 2, videoId: "v2", gameId: "game-2" });
-      const result = pickBestTrack(
-        [t1, t2],
-        makeSlot(),
-        new Set(),
-        DEFAULT_GAME_ID,
-        DEFAULT_GAME_ID,
-        undefined,
-        null,
-      );
-      expect(result!.track.videoId).toBe("v2");
-    });
-  });
-
-  describe("when only same-game tracks are available (Pass 2 fallback)", () => {
-    it("should relax the same-game constraint", () => {
-      const t1 = makeTrack({ energy: 2, videoId: "v1", gameId: DEFAULT_GAME_ID });
-      const result = pickBestTrack(
-        [t1],
-        makeSlot(),
-        new Set(),
-        DEFAULT_GAME_ID,
-        DEFAULT_GAME_ID,
-        undefined,
-        null,
-      );
-      expect(result!.track.videoId).toBe("v1");
     });
   });
 
@@ -827,8 +792,6 @@ describe("pickBestTrack", () => {
         [makeTrack({ energy: 2, videoId: "v1" })],
         makeSlot(),
         new Set(["v1"]),
-        DEFAULT_GAME_ID,
-        null,
         undefined,
         null,
       );
@@ -842,8 +805,6 @@ describe("pickBestTrack", () => {
         [makeTrack({ energy: 3 })],
         makeSlot({ energyPrefs: [1] }),
         new Set(),
-        DEFAULT_GAME_ID,
-        null,
         undefined,
         null,
       );
@@ -856,10 +817,7 @@ describe("pickBestTrack", () => {
       const tracks = Array.from({ length: 5 }, (_, i) =>
         makeTrack({ energy: 2, videoId: `v${i}` }),
       );
-      expect(
-        pickBestTrack(tracks, makeSlot(), new Set(), DEFAULT_GAME_ID, null, undefined, null)!
-          .poolSize,
-      ).toBe(5);
+      expect(pickBestTrack(tracks, makeSlot(), new Set(), undefined, null)!.poolSize).toBe(5);
     });
   });
 });

@@ -117,49 +117,6 @@ export const DEFAULT_LLM_MODEL = "claude-haiku-4-5-20251001";
 /** Default max tokens for LLM calls. */
 export const DEFAULT_LLM_MAX_TOKENS = 2048;
 
-// ─── Director scoring weights ────────────────────────────────────────────────
-
-/** Dimension weight for role match (binary: 1.0 if match, 0.0 if not). */
-export const SCORE_WEIGHT_ROLE = 0.4;
-
-/** Dimension weight for mood Jaccard similarity. */
-export const SCORE_WEIGHT_MOOD = 0.35;
-
-/** Dimension weight for instrumentation Jaccard similarity. */
-export const SCORE_WEIGHT_INSTRUMENT = 0.25;
-
-/** Multiplier applied when a track contains a penalized mood. */
-export const SCORE_PENALTY_MULTIPLIER = 0.5;
-
-/** Multiplier applied when rubric.allowVocals is false and track has vocals. */
-export const SCORE_VOCALS_PENALTY_MULTIPLIER = 0.5;
-
-// ─── View bias-enabled Director scoring weights ────────────────────────────────
-
-/** Dimension weight for role match when View bias scoring is active. */
-export const SCORE_WEIGHT_ROLE_VIEW_BIAS = 0.3;
-
-/** Dimension weight for mood Jaccard similarity when View bias scoring is active. */
-export const SCORE_WEIGHT_MOOD_VIEW_BIAS = 0.25;
-
-/** Dimension weight for the View Bias score (log-scaled global heat + per-game local stature) when View Bias scoring is active. */
-export const SCORE_WEIGHT_VIEW_BIAS = 0.3;
-
-/** Dimension weight for instrumentation Jaccard similarity when View bias scoring is active. */
-export const SCORE_WEIGHT_INSTRUMENT_VIEW_BIAS = 0.15;
-
-/** Baseline View bias Score for tracks with no YouTube view data. */
-export const VIEW_BIAS_SCORE_BASELINE = 0.3;
-
-/** Lower bound of log10 view count for View bias normalization (log10(1,000)). */
-export const VIEW_BIAS_LOG_MIN = 3;
-
-/** Upper bound of log10 view count for View bias normalization (log10(10,000,000)). */
-export const VIEW_BIAS_LOG_MAX = 7;
-
-/** Number of top candidates for weighted random selection. */
-export const DIRECTOR_TOP_N_POOL = 5;
-
 // ─── UI timing ────────────────────────────────────────────────────────────────
 
 /** How long (ms) the undo toast stays visible before a track deletion is committed. */

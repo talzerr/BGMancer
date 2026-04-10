@@ -27,9 +27,12 @@ export const Playlist = {
     if (sessionId) {
       return toPlaylistTracks(
         await db.all(sql`
-          SELECT pt.*, g.title AS game_title, g.thumbnail_url AS game_thumbnail_url
+          SELECT pt.*, g.title AS game_title, g.thumbnail_url AS game_thumbnail_url,
+                 d.arc_phase
           FROM playlist_tracks pt
           JOIN games g ON g.id = pt.game_id
+          LEFT JOIN playlist_track_decisions d
+            ON d.playlist_id = pt.playlist_id AND d.position = pt.position
           WHERE pt.playlist_id = ${sessionId}
           ORDER BY pt.position ASC
         `),
@@ -37,9 +40,12 @@ export const Playlist = {
     }
     return toPlaylistTracks(
       await db.all(sql`
-        SELECT pt.*, g.title AS game_title, g.thumbnail_url AS game_thumbnail_url
+        SELECT pt.*, g.title AS game_title, g.thumbnail_url AS game_thumbnail_url,
+               d.arc_phase
         FROM playlist_tracks pt
         JOIN games g ON g.id = pt.game_id
+        LEFT JOIN playlist_track_decisions d
+          ON d.playlist_id = pt.playlist_id AND d.position = pt.position
         WHERE pt.playlist_id = (SELECT id FROM playlists WHERE user_id = ${userId} AND is_archived = 0 ORDER BY created_at DESC LIMIT 1)
         ORDER BY pt.position ASC
       `),
@@ -155,9 +161,12 @@ export const Playlist = {
   async getById(id: string): Promise<PlaylistTrack | undefined> {
     const rows = toPlaylistTracks(
       await getDB().all(sql`
-        SELECT pt.*, g.title AS game_title, g.thumbnail_url AS game_thumbnail_url
+        SELECT pt.*, g.title AS game_title, g.thumbnail_url AS game_thumbnail_url,
+               d.arc_phase
         FROM playlist_tracks pt
         JOIN games g ON g.id = pt.game_id
+        LEFT JOIN playlist_track_decisions d
+          ON d.playlist_id = pt.playlist_id AND d.position = pt.position
         WHERE pt.id = ${id}
       `),
     );

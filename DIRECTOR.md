@@ -51,7 +51,7 @@ Energy
 
 Each phase carries not just energy bounds but **preferred moods**, **penalized moods**, and **preferred instrumentation** — the full emotional fingerprint of what belongs there.
 
-**Energy is a hard gate.** A track with energy `3` (intense) cannot be placed in the intro regardless of how good its mood or instrumentation match is. This prevents the system from rationalizing an obviously wrong placement via high scores on softer dimensions.
+**Energy is a hard gate.** A track with energy 3 (intense) cannot be placed in the intro regardless of how good its mood or instrumentation match is. This prevents the system from rationalizing an obviously wrong placement via high scores on softer dimensions.
 
 ---
 
@@ -67,7 +67,7 @@ The original placeholder used additive integer scoring (`score += 5` for a role 
 
 2. **Dimensionless Magnitude.** Additive scores have no natural ceiling, making the penalty multipliers arbitrary. A `−5` penalty means something very different when scores range from `50–60` versus `0–100`.
 
-The Weighted Jaccard model bounds all dimension scores to `[0.0, 1.0]`, making the final resonance score a genuine probability-like measure of fit.
+The Weighted Jaccard model bounds all dimension scores to $[0.0, 1.0]$, making the final resonance score a genuine probability-like measure of fit.
 
 #### The Jaccard Index
 
@@ -75,7 +75,7 @@ For two finite sets $A$ and $B$, the Jaccard similarity coefficient is:
 
 $$J(A, B) = \frac{|A \cap B|}{|A \cup B|}$$
 
-A score of `1.0` means the sets are identical. A score of `0.0` means they share no elements. This naturally handles **sparse tags** — a track with only one mood tag is not penalized for not having five; it simply scores based on whether its one tag overlaps with the target set.
+A score of $1.0$ means the sets are identical. A score of $0.0$ means they share no elements. This naturally handles **sparse tags** — a track with only one mood tag is not penalized for not having five; it simply scores based on whether its one tag overlaps with the target set.
 
 #### The Weighted Resonance Formula
 
@@ -83,22 +83,26 @@ The final resonance score $R$ for a track against a slot is the weighted sum of 
 
 $$R = w_{\text{role}} \cdot S_{\text{role}} + w_{\text{mood}} \cdot S_{\text{mood}} + w_{\text{vb}} \cdot S_{\text{vb}} + w_{\text{inst}} \cdot S_{\text{inst}}$$
 
-| Dimension       | Weight (raw vibes mode) | Weight (view bias mode) | Scoring Method     |
-| --------------- | ----------------------- | ----------------------- | ------------------ |
-| Role            | 0.40                    | 0.30                    | Binary (1.0 / 0.0) |
-| Mood            | 0.35                    | 0.25                    | Jaccard similarity |
-| View Bias       | —                       | 0.30                    | Log-scaled views   |
-| Instrumentation | 0.25                    | 0.15                    | Jaccard similarity |
+The four dimensions are ordered by priority. Role carries the most weight: what a track _is for_ matters more than how it feels. Mood follows: emotional fit is the next most important signal. View bias provides a popularity correction — enough to consistently surface iconic tracks without overriding contextual fit. Instrumentation rounds out the score as a textural tiebreaker.
 
-When the **Raw vibes** toggle is on, the View Bias dimension is dropped and the weights redistribute to the three-dimension values shown above, preserving the same relative priority ordering.
+When the **Raw vibes** toggle is active, the view bias dimension is dropped entirely and the remaining three dimensions absorb its weight, preserving the same relative priority ordering.
+
+The current parameterization:
+
+| Dimension       | $w$ (raw vibes) | $w$ (view bias active) | Scoring Method     |
+| --------------- | --------------- | ---------------------- | ------------------ |
+| Role            | highest         | high                   | Binary (1.0 / 0.0) |
+| Mood            | mid             | mid                    | Jaccard similarity |
+| View Bias       | —               | high (= role)          | Log-scaled views   |
+| Instrumentation | lowest          | lowest                 | Jaccard similarity |
 
 #### Why Role Is an Intersection Check, Not Jaccard
 
-Tracks carry an array of roles (e.g., `[Combat, Cinematic]`) and slots carry a preferred role set. The scoring is a **pass/fail membership test**: if any of the track's roles overlaps with the slot's preferred roles, the full `1.0` is awarded. If the intersection is empty, the score is `0.0`.
+Tracks carry an array of roles (e.g., `[Combat, Cinematic]`) and slots carry a preferred role set. The scoring is a **pass/fail membership test**: if any of the track's roles overlaps with the slot's preferred roles, the full $1.0$ is awarded. If the intersection is empty, the score is $0.0$.
 
 Jaccard is deliberately avoided here. Jaccard would penalize a track for having _more_ roles than the slot expects — a track tagged `[Combat, Cinematic]` would score lower than a track tagged only `[Combat]` in a Combat slot, even though the multi-role track is at least as good a fit. The intersection check removes this "flexibility penalty" entirely: extra roles never hurt, they only help.
 
-The binary outcome also means role carries its full weight only when any match exists. A role mismatch floors that dimension to `0.0` — a strong signal, not a soft nudge. Role is a categorical classification, not a fuzzy one: a `Closer` track in a climax slot isn't "somewhat wrong," it's categorically wrong.
+The binary outcome also means role carries its full weight only when any match exists. A role mismatch floors that dimension to $0.0$ — a strong signal, not a soft nudge. Role is a categorical classification, not a fuzzy one: a `Closer` track in a climax slot isn't "somewhat wrong," it's categorically wrong.
 
 #### Penalty Multipliers
 
@@ -106,51 +110,55 @@ After the weighted sum, two multiplicative penalties may apply:
 
 **Penalized Mood Penalty** — If any of the track's moods appear in the slot's `penalizedMoods` list (or the rubric's `penalizedMoods`, if present), the score is halved:
 
-$$R' = R \times 0.5 \quad \text{if } \text{moods}_{\text{track}} \cap \text{penalized} \neq \emptyset$$
+$$R' = R \times \alpha_{\text{mood}} \quad \text{if } \text{moods}_{\text{track}} \cap \text{penalized} \neq \emptyset$$
 
 This is intentionally aggressive. A climax slot penalizes `peaceful` and `playful` because a genuinely peaceful track _does not belong there_, even if its instrumentation happens to match. The penalty does not eliminate the track — it merely ensures it loses to any unpenalized competitor.
 
 **Vocals Penalty** — If the active `ScoringRubric` specifies `allowVocals: false` and the track has vocals, the score is halved again (multiplicatively with the mood penalty if both apply):
 
-$$R'' = R' \times 0.5$$
+$$R'' = R' \times \alpha_{\text{vocals}}$$
+
+Both penalty multipliers $\alpha_{\text{mood}}$ and $\alpha_{\text{vocals}}$ are parameterized. When both apply, the score drops to one quarter of its original value — enough to bury the track in any competitive pool without hard-eliminating it.
 
 #### The View Bias Score — Popularity Dimension
 
 The View Bias Score is the fourth resonance dimension. It blends two sub-signals to solve a fundamental tension in popularity-based scoring: raw view counts favour AAA games categorically, making pure popularity a proxy for budget rather than quality. The solution is to split the signal — one half measures absolute reach, the other measures relative importance within the game's own catalogue.
 
-**Global Heat** — logarithmic scaling of raw view count, normalized to `[0.0, 1.0]`:
+**Global Heat** — logarithmic scaling of raw view count, normalized to $[0.0, 1.0]$:
 
-$$H = \text{clamp}\left(0, 1, \frac{\log_{10}(\text{views}) - 3}{4}\right)$$
+$$H = \text{clamp}\left(0, 1, \frac{\log_{10}(\text{views}) - L_{\min}}{L_{\max} - L_{\min}}\right)$$
 
-The `−3` sets the floor: $10^3 = 1{,}000$ views. Below this threshold a track has essentially no cultural visibility, so it scores `0.0`. The `/4` sets the ceiling by defining the useful range as four orders of magnitude wide — from $10^3$ (1k) to $10^7$ (10M) — and normalizing it to `[0, 1]`. A track at 10M views is in "iconic OST theme" territory; there is no meaningful scoring distinction above that. The logarithm itself is what makes the scale feel natural: doubling from 500k to 1M views advances the score by the same amount as doubling from 5k to 10k, because both represent the same proportional leap in reach.
+The lower bound $L_{\min}$ sets the floor: below $10^{L_{\min}}$ views a track has essentially no cultural visibility and scores $0.0$. The upper bound $L_{\max}$ sets the ceiling — beyond it, a track is in "iconic OST theme" territory and there is no meaningful scoring distinction. The logarithm makes the scale perceptually linear: doubling from 500k to 1M views advances the score by the same amount as doubling from 5k to 10k, because both represent the same proportional leap in reach.
 
 **Local Stature** — how essential a track is relative to its own game's average:
 
-$$L = \text{clamp}\left(0, 1, \frac{\text{trackViews} / \text{avgGameViews}}{3}\right)$$
+$$L = \text{clamp}\left(0, 1, \frac{\text{trackViews} / \text{avgGameViews}}{C_{\text{stature}}}\right)$$
 
-The `/3` sets the ceiling: a track at $3\times$ its game's average is treated as maximally important within that catalogue. Below that threshold the score scales linearly — a track at the game average scores `0.33`, one at $2\times$ scores `0.67`. The choice of $3\times$ reflects what "standout" means at the catalogue level: a track that gets triple the average views is clearly the one people actively seek out for that game, not just a track they happened to listen to. Below $3\times$ the signal is graduated; above it, the track has established itself as a landmark regardless of how far beyond it goes.
+The ceiling $C_{\text{stature}}$ defines what "standout" means at the catalogue level: a track at $C_{\text{stature}}\times$ its game's average scores $1.0$, treated as maximally important within that catalogue. Below that threshold the score scales linearly. The choice reflects what "standout" means: a track that gets several multiples of the average views is clearly the one people actively seek out, not just a track they happened to listen to.
 
 **Combined:**
 
-$$S_{\text{vb}} = 0.6 \cdot H + 0.4 \cdot L$$
+$$S_{\text{vb}} = w_H \cdot H + w_L \cdot L$$
 
-Tracks with no view data receive a **baseline** of `0.3` — not penalized to zero, but naturally outscored by tracks with real popularity signal.
+where $w_H$ and $w_L$ are the global heat and local stature blend weights respectively ($w_H + w_L = 1$). The split gives global reach the majority influence while reserving meaningful weight for per-game significance.
 
-View bias scores are pre-computed once per `assemblePlaylist` call — not on a per-slot basis — because the per-game average required for Local Stature must be computed across the entire pool before any slot is filled.
+Tracks with no view data receive a **baseline** score — not penalized to zero, but naturally outscored by tracks with real popularity signal.
+
+View bias scores are pre-computed once per playlist assembly — not on a per-slot basis — because the per-game average required for Local Stature must be computed across the entire pool before any slot is filled.
 
 ---
 
 ### III. The Scoring Rubric — External Override Layer
 
-The **Scoring Rubric** is an optional parameter passed into `assemblePlaylist` that lets an external caller bend the Director's decisions without rewriting the arc template. It carries six scoring signals: a target energy range, preferred and penalized mood sets, preferred instrumentation, a vocals constraint, and a set of promoted roles. Where present, it interacts with the arc slot defaults through three distinct override modes — not a single merge strategy:
+The **Scoring Rubric** is an optional parameter passed into the assembly function that lets an external caller bend the Director's decisions without rewriting the arc template. It carries six scoring signals: a target energy range, preferred and penalized mood sets, preferred instrumentation, a vocals constraint, and a set of promoted roles. Where present, it interacts with the arc slot defaults through three distinct override modes — not a single merge strategy:
 
 | Field                      | Interaction with Arc Slot                                                                         |
 | -------------------------- | ------------------------------------------------------------------------------------------------- |
 | `preferredMoods`           | **Replaces** `slot.preferredMoods` as the Jaccard target                                          |
 | `preferredInstrumentation` | **Replaces** `slot.preferredInstrumentation` as the Jaccard target                                |
-| `preferredRoles`           | **Promotes** matching tracks to full role score (`1.0`), even when role isn't in `slot.rolePrefs` |
+| `preferredRoles`           | **Promotes** matching tracks to full role score ($1.0$), even when role isn't in `slot.rolePrefs` |
 | `penalizedMoods`           | **Unioned** with `slot.penalizedMoods` — arc penalties always apply, rubric adds to them          |
-| `allowVocals`              | **Applies globally** — `null` means no constraint, `false` triggers the 0.5× vocals penalty       |
+| `allowVocals`              | **Applies globally** — `null` means no constraint, `false` triggers the vocals penalty            |
 | `targetEnergy`             | Currently informational — energy gating is still defined by the arc slot                          |
 
 The asymmetry is deliberate. Preference targets (moods, instrumentation) are replaced by the rubric because they represent a global aesthetic intent that should override the arc's generic profile — if the caller specifies a rubric, it knows more about the desired feel than the template does. Penalized moods are unioned rather than replaced because the arc's structural prohibitions (no `chaotic` in outro, no `peaceful` in climax) are safety rails that no external caller should be able to lift.
@@ -163,11 +171,17 @@ The asymmetry is deliberate. Preference targets (moods, instrumentation) are rep
 
 Resonance scoring determines fitness within a slot. The Texture Bridge layer handles **inter-slot transitions** — specifically, avoiding the jarring effect of hearing the same game's OST twice in a row.
 
-Two rules apply:
+Two mechanisms apply:
 
-1. **Same-Game Avoidance.** The `pickBestTrack` function runs two passes: the first excludes any track from the same game as the previous slot's track. Only if no qualifying candidate survives does it fall back to a relaxed pass that allows same-game placement. This is a soft constraint, not a hard gate.
+1. **Same-Game Score Penalty.** When the selection loop compares each game's best candidate for a slot, any candidate from the same game as the previous slot's track receives a score penalty $\delta_{\text{same}}$. This makes same-game placement less likely to win the cross-game comparison. The penalty is small relative to the score range — a tiebreaker, not a veto. A game with significantly higher-scoring tracks can still win despite the penalty.
 
-2. **Diversity Bonus in Game Selection.** When selecting which game's candidate to use for a slot (the outer loop in `assemblePlaylist`), under-represented games — those further below their budget ceiling — receive a small score bonus (`budget_remaining × 0.01`). This biases toward spreading tracks across games proportionally before exhausting any single game's pool.
+2. **Deficit-Based Diversity Bonus.** Under-represented games receive a score bonus proportional to how far behind they are relative to their expected fill rate at the current point in assembly. Let $b$ be a game's budget, $u$ its current usage, $i$ the current slot index, and $n$ the total playlist length. The expected usage at position $i$ is $b \cdot (i / n)$. The deficit is:
+
+$$d = \frac{b \cdot (i / n) - u}{b}$$
+
+The diversity bonus is $\max(0, d) \times \gamma$, where $\gamma$ is the diversity scale parameter. A game running ahead of its expected fill rate ($d \leq 0$) receives no bonus. A game that is behind receives a boost that grows with both the magnitude of underrepresentation and assembly progress — the same absolute deficit produces a larger normalized deficit later in the playlist, when underrepresentation is a genuine problem rather than natural early variance. The scale parameter $\gamma$ is calibrated to produce bonuses in the same order of magnitude as typical resonance score gaps, making diversity competitive with — but not dominant over — track-to-slot fit.
+
+Additionally, a small random jitter $\epsilon_{\text{jitter}}$ is added to each candidate's score to break ties between equally-scored candidates from different games, preventing deterministic ordering artifacts.
 
 ---
 
@@ -197,36 +211,48 @@ The rubric target sets are **exclusive-or**: when $\rho$ is present, it fully re
 
 **5. View Bias Score**
 
-$$S_{\text{vb}} = 0.6 \cdot \text{clamp}\!\left(0, 1, \frac{\log_{10}(\text{views}) - 3}{4}\right) + 0.4 \cdot \text{clamp}\!\left(0, 1, \frac{\text{trackViews} / \text{avgGameViews}}{3}\right)$$
+$$S_{\text{vb}} = w_H \cdot \text{clamp}\!\left(0, 1, \frac{\log_{10}(\text{views}) - L_{\min}}{L_{\max} - L_{\min}}\right) + w_L \cdot \text{clamp}\!\left(0, 1, \frac{\text{trackViews} / \text{avgGameViews}}{C_{\text{stature}}}\right)$$
 
 **6. Weighted Sum**
 
 $$R = w_{\text{role}} \cdot S_{\text{role}} + w_{\text{mood}} \cdot S_{\text{mood}} + w_{\text{vb}} \cdot S_{\text{vb}} + w_{\text{inst}} \cdot S_{\text{inst}}$$
 
-See the weight table in §II for values per mode.
-
 **7. Penalty Application**
 
-$$R \leftarrow R \times 0.5 \quad \text{if } t.\text{moods} \cap \text{penalized}(s, \rho) \neq \emptyset$$
-$$R \leftarrow R \times 0.5 \quad \text{if } \rho.\text{allowVocals} = \text{false} \text{ and } t.\text{hasVocals} = \text{true}$$
+$$R \leftarrow R \times \alpha_{\text{mood}} \quad \text{if } t.\text{moods} \cap \text{penalized}(s, \rho) \neq \emptyset$$
+$$R \leftarrow R \times \alpha_{\text{vocals}} \quad \text{if } \rho.\text{allowVocals} = \text{false} \text{ and } t.\text{hasVocals} = \text{true}$$
 
-Score range: $R \in [0.0, 1.0]$, reducible to $[0.0, 0.25]$ when both penalties apply.
+Score range: $R \in [0.0, 1.0]$, reducible to $[0.0, \alpha_{\text{mood}} \cdot \alpha_{\text{vocals}}]$ when both penalties apply.
+
+**8. Assembly-Time Adjustments**
+
+When comparing candidates across games for a given slot during assembly (not during isolated scoring), three adjustments apply to the penalized score $R$:
+
+$$R \leftarrow R - \delta_{\text{same}} \quad \text{if game} = \text{lastGame}$$
+
+$$R \leftarrow R + \max\!\left(0,\ \frac{b \cdot (i/n) - u}{b}\right) \times \gamma \quad \text{(diversity bonus)}$$
+
+$$R \leftarrow R + \text{Uniform}(0, \epsilon_{\text{jitter}}) \quad \text{(tie-breaking)}$$
+
+where $b$ is the game's budget, $u$ its current usage, $i$ the slot index, $n$ the playlist length, $\gamma$ the diversity scale, and $\delta_{\text{same}}$ the same-game penalty. These adjustments operate on the cross-game comparison, not on the per-track resonance score.
 
 ---
 
 ## Top-N Weighted Random Selection
 
-The Director does not greedily pick the single highest-scoring track. Instead, for each slot it collects all energy-gated candidates, sorts by $R$ descending, and takes the top $N$ (currently `DIRECTOR_TOP_N_POOL = 5`). It then performs a **weighted random draw** with probability proportional to $R + \epsilon$ (where $\epsilon = 0.01$ prevents zero-weight exclusion):
+The Director does not greedily pick the single highest-scoring track. Instead, for each slot it collects all energy-gated candidates, sorts by $R$ descending, and takes the top $N$. It then performs a **weighted random draw** with probability proportional to $R + \epsilon$ (where $\epsilon$ is a small constant preventing zero-weight exclusion):
 
 $$P(t_i) = \frac{R_i + \epsilon}{\sum_{j=1}^{N} (R_j + \epsilon)}$$
 
 This introduces controlled non-determinism: two generation runs with the same library will produce different playlists, but the score-weighting ensures high-fit tracks appear far more often than low-fit ones. The result feels curated rather than mechanical, without sacrificing the coherence of the arc.
 
-**The pool size $N$ is the primary personality dial.** A small pool (`N = 3`) produces tight, predictable playlists — the Director always picks from a near-optimal shortlist. A large pool (`N = 10`) trades coherence for discovery, letting lower-scored but surprising tracks surface regularly. The current value of `5` sits in the middle: enough randomness that repeated generations feel fresh, not so much that the arc degrades.
+**The pool size $N$ is the primary personality dial.** A small pool produces tight, predictable playlists — the Director always picks from a near-optimal shortlist. A large pool trades coherence for discovery, letting lower-scored but surprising tracks surface regularly. The current value sits in the middle: enough randomness that repeated generations feel fresh, not so much that the arc degrades.
 
 ---
 
 ## Worked Example
+
+_Using the default parameterization at time of writing._
 
 **Track:** "The Last of Us Main Theme" (hypothetical tags)
 
@@ -269,22 +295,24 @@ $S_{\text{inst}} \approx 0.667$
 
 **Step 5 — View Bias Score:**
 
-$$H = \text{clamp}\left(0, 1, \frac{\log_{10}(2{,}000{,}000) - 3}{4}\right) = \frac{6.30 - 3}{4} = \frac{3.30}{4} \approx 0.825$$
+$$H = \text{clamp}\left(0, 1, \frac{\log_{10}(2{,}000{,}000) - L_{\min}}{L_{\max} - L_{\min}}\right) = \frac{6.30 - 3}{4} \approx 0.825$$
 
-$$L = \text{clamp}\left(0, 1, \frac{2{,}000{,}000\ /\ 500{,}000}{3}\right) = \text{clamp}\left(0, 1, \frac{4.0}{3}\right) = 1.0$$
+$$L = \text{clamp}\left(0, 1, \frac{2{,}000{,}000\ /\ 500{,}000}{C_{\text{stature}}}\right) = \text{clamp}\left(0, 1, \frac{4.0}{3}\right) = 1.0$$
 
-The track is $4\times$ the game average — above the $3\times$ ceiling — so Local Stature clamps to `1.0`.
+The track is at $4\times$ its game's average — above the stature ceiling — so Local Stature clamps to $1.0$.
 
-$$S_{\text{vb}} = 0.6 \times 0.825 + 0.4 \times 1.0 = 0.495 + 0.400 = \mathbf{0.895}$$
+$$S_{\text{vb}} = w_H \times 0.825 + w_L \times 1.0 = 0.495 + 0.400 = 0.895$$
 
 **Step 6 — Weighted Sum:**
 
-$$R = 0.30 \times 1.0 + 0.25 \times 1.0 + 0.30 \times 0.895 + 0.15 \times 0.667$$
-$$= 0.300 + 0.250 + 0.269 + 0.100 = \mathbf{0.919}$$
+$$R = w_{\text{role}} \times 1.0 + w_{\text{mood}} \times 1.0 + w_{\text{vb}} \times 0.895 + w_{\text{inst}} \times 0.667$$
+$$= 0.300 + 0.250 + 0.269 + 0.100 = 0.919$$
 
 **Step 7 — Penalties:** No penalized moods present. No vocals. No penalties apply.
 
 **Final Score: $R = 0.919$** — near-perfect fit. This track would dominate the top-N pool for this slot.
+
+_Note: the assembly-time adjustments (same-game penalty, diversity bonus, jitter) apply during cross-game comparison, not shown in this single-track evaluation._
 
 ---
 
@@ -300,7 +328,7 @@ If no candidate passes the energy gate for a slot, the Director escalates throug
 
 ### Single-Game Libraries
 
-When only one game is active, the same-game avoidance pass will always fail (every track is from the same game). The Director falls through to the relaxed pass immediately, which accepts same-game tracks. The arc and resonance scoring still apply in full — the playlist is still shaped, just without cross-game diversity.
+When only one game is active, the same-game penalty and diversity bonus have no effect (there is no cross-game competition). The arc and resonance scoring still apply in full — the playlist is still shaped, just without cross-game diversity.
 
 ### Focus Game Oversubscription
 
@@ -312,14 +340,14 @@ Focus games receive double budget weight and pre-assigned arc slots. If a Focus 
 
 The Director embodies a specific thesis: **subjective listening experience can be approximated by a small set of well-chosen, weighted heuristics applied consistently.** The goal is not to perfectly score every track — it is to eliminate the worst placements, reward the best ones, and introduce enough controlled randomness that the output feels discovered rather than computed.
 
-The weights are not derived from first principles — they reflect a deliberate prioritization: _what a track is for_ (role) matters more than _how it feels_ (mood), which matters more than _how it sounds_ (instrumentation). A combat track in a combat slot feels right even if its mood is wrong. A peaceful track in a climax slot feels wrong even if its instrumentation is perfect. The weights encode that hierarchy.
+The weights encode a deliberate priority hierarchy: _what a track is for_ (role) matters more than _how it feels_ (mood), which matters more than _how it sounds_ (instrumentation). A combat track in a combat slot feels right even if its mood is wrong. A peaceful track in a climax slot feels wrong even if its instrumentation is perfect.
 
-The four-dimension weights (`0.30 / 0.25 / 0.30 / 0.15`) place View Bias at the same level as Role (`0.30`), numerically above Mood (`0.25`). This is intentional: popularity is significant enough to consistently surface iconic tracks from a catalogue, but role and mood together (`0.55`) still dominate, so a well-matched obscure track will often beat a massively popular but misfit one. A track with massive global reach but the wrong role for its slot still loses to a well-matched obscure one.
+With view bias active, popularity sits at the same level as role — significant enough to consistently surface iconic tracks, but role and mood together still dominate. A well-matched obscure track will often beat a massively popular but misfit one.
 
 ---
 
 ## Performance
 
-The scoring pipeline operates in $O(T \cdot S)$ time, where $T$ is the total number of candidate tracks across all active games and $S$ is the number of arc slots (equal to the requested playlist length). Each per-track scoring call is $O(1)$: Jaccard operates on small, fixed-size tag sets (moods cap at 15 values, instrumentation at 15 values), making intersection and union computations constant-time in practice.
+The scoring pipeline operates in $O(T \cdot S)$ time, where $T$ is the total number of candidate tracks across all active games and $S$ is the number of arc slots (equal to the requested playlist length). Each per-track scoring call is $O(1)$: Jaccard operates on small, fixed-size tag sets (moods and instrumentation each cap at a bounded number of values), making intersection and union computations constant-time in practice.
 
-On a typical library of 2,000 tagged tracks generating a 50-track playlist, the full `assemblePlaylist` call completes in under 50ms on commodity hardware. The dominant cost in the pipeline is Phase 2 (LLM tagging) — the Director itself is never the bottleneck.
+On a typical library of several thousand tagged tracks generating a 50-track playlist, the full assembly completes in under 50ms on commodity hardware. The dominant cost in the pipeline is the LLM tagging phase — the Director itself is never the bottleneck.

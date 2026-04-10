@@ -174,6 +174,7 @@ export interface PlaylistTrack {
   position: number;
   created_at: string;
   synced_at: string | null;
+  arc_phase?: string | null;
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────

@@ -15,6 +15,10 @@ interface SortableTrackItemProps {
   onPlay: (trackId: string, index: number) => void;
   onRemove: (track: PlaylistTrack) => void;
   onReroll: (trackId: string) => void;
+  /** Extra top margin when this track starts a new arc phase */
+  phaseGap?: boolean;
+  /** Raw RGB triplet for subtle row background tint */
+  accentColor?: string;
 }
 
 export const SortableTrackItem = memo(function SortableTrackItem({
@@ -28,6 +32,8 @@ export const SortableTrackItem = memo(function SortableTrackItem({
   onPlay,
   onRemove,
   onReroll,
+  phaseGap,
+  accentColor,
 }: SortableTrackItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: track.id,
@@ -41,7 +47,7 @@ export const SortableTrackItem = memo(function SortableTrackItem({
   };
 
   return (
-    <div ref={setNodeRef} style={style}>
+    <div ref={setNodeRef} style={style} className={phaseGap ? "mt-[10px]" : undefined}>
       <PlaylistTrackCard
         track={track}
         gameThumbnail={gameThumbnail}
@@ -54,6 +60,7 @@ export const SortableTrackItem = memo(function SortableTrackItem({
         onReroll={() => onReroll(track.id)}
         dragHandleProps={{ ...listeners, ...attributes }}
         isDragging={isDragging}
+        accentColor={accentColor}
       />
     </div>
   );
