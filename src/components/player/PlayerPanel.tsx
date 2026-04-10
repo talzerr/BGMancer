@@ -26,8 +26,8 @@ export function PlayerPanel() {
   const duration = media?.duration ?? 0;
   const volume = media?.volume ?? 100;
 
-  const canPrev = hasTrack && currentIndex! > 0;
-  const canNext = hasTrack && currentIndex! < tracks.length - 1;
+  const canPrev = currentIndex !== null && currentIndex > 0;
+  const canNext = currentIndex !== null && currentIndex < tracks.length - 1;
 
   const safeDuration = isFinite(duration) && duration > 0 ? duration : 0;
   const fillPct = safeDuration > 0 ? (currentTime / safeDuration) * 100 : 0;
@@ -82,7 +82,9 @@ export function PlayerPanel() {
 
       <div className="flex flex-col items-center gap-2">
         <button
-          onClick={() => canPrev && player.setCurrentTrackIndex(currentIndex! - 1)}
+          onClick={() =>
+            currentIndex !== null && canPrev && player.setCurrentTrackIndex(currentIndex - 1)
+          }
           disabled={!canPrev}
           aria-label="Previous track"
           className="cursor-pointer text-[var(--text-tertiary)] transition-colors duration-100 hover:text-[var(--text-secondary)] disabled:opacity-20"
@@ -99,7 +101,9 @@ export function PlayerPanel() {
         </button>
 
         <button
-          onClick={() => canNext && player.setCurrentTrackIndex(currentIndex! + 1)}
+          onClick={() =>
+            currentIndex !== null && canNext && player.setCurrentTrackIndex(currentIndex + 1)
+          }
           disabled={!canNext}
           aria-label="Next track"
           className="cursor-pointer text-[var(--text-tertiary)] transition-colors duration-100 hover:text-[var(--text-secondary)] disabled:opacity-20"

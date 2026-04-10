@@ -229,7 +229,7 @@ export function PlayerProvider({
 
   const ytPlayer = useYouTubePlayer({
     tracks: hasActiveTrack ? effectiveFoundTracks : [],
-    currentIndex: hasActiveTrack ? currentTrackIndex! : 0,
+    currentIndex: currentTrackIndex ?? 0,
     onIndexChange: setCurrentTrackIndex,
     onPlayingChange: setIsPlayerPlaying,
     startPaused: restoredSeekSeconds !== null && startPausedOnRestore,
