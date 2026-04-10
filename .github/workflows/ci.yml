@@ -26,6 +26,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Generate Cloudflare types
+        run: pnpm cf-typegen
+
       - name: Build
         run: pnpm build
 
@@ -34,9 +37,6 @@ jobs:
 
       - name: Format check
         run: pnpm format:check
-
-      - name: Generate Cloudflare types
-        run: pnpm cf-typegen
 
       - name: Load test env
         run: cp .env.test .env.local
