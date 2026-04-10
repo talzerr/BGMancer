@@ -133,6 +133,7 @@ vi.mock("@/components/player/PlayerPanel", () => ({
 
 vi.mock("@/components/AuthButtons", () => ({
   AuthButtons: () => <div data-testid="auth-buttons" />,
+  performSignOut: vi.fn(),
 }));
 
 vi.mock("next-auth/react", () => ({

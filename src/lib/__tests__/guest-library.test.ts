@@ -7,6 +7,7 @@ import {
   writeGuestLibrary,
   readGuestLibraryHydrated,
   writeGuestLibraryHydrated,
+  clearGuestLibrary,
 } from "../guest-library";
 
 function makeGame(id: string, title: string): Game {
@@ -116,5 +117,23 @@ describe("writeGuestLibraryHydrated", () => {
     const games = [makeGame("g1", "Celeste")];
     writeGuestLibraryHydrated(games);
     expect(JSON.parse(localStorage.getItem("bgm_guest_library_hydrated")!)).toEqual(games);
+  });
+});
+
+describe("clearGuestLibrary", () => {
+  it("should remove both library keys from localStorage", () => {
+    writeGuestLibrary([{ gameId: "g1", curation: CurationMode.Include }]);
+    writeGuestLibraryHydrated([makeGame("g1", "Celeste")]);
+    expect(localStorage.getItem("bgm_guest_library")).not.toBeNull();
+    expect(localStorage.getItem("bgm_guest_library_hydrated")).not.toBeNull();
+
+    clearGuestLibrary();
+
+    expect(localStorage.getItem("bgm_guest_library")).toBeNull();
+    expect(localStorage.getItem("bgm_guest_library_hydrated")).toBeNull();
+  });
+
+  it("should not throw when keys are already absent", () => {
+    expect(() => clearGuestLibrary()).not.toThrow();
   });
 });

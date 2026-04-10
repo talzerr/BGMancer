@@ -69,22 +69,22 @@ export function PlayerProvider({
   initialSessionId?: string | null;
 }) {
   // ── Unified restore ──
-  // Single synchronous memo that reads both cached tracks and playback state.
-  // For signed-in users: clears guest artifacts, keeps own session cache.
+  // Pure read of cached tracks and playback state — no side effects.
+  // For signed-in users: only restores own session cache (skips guest data).
   // For guests: restores tracks (always) and playback state (if valid).
   const restoreData = useMemo(() => {
     if (isSignedIn) {
-      clearGuestLibrary();
       const saved = readPlaybackState();
       if (!saved || saved.sessionId === GUEST_SESSION_ID) {
-        clearPlaybackState();
-        return { tracks: null, playback: null };
+        return { tracks: null, playback: null, clearGuest: true, clearPlayback: true };
       }
       const cachedTracks = readPlaybackTracks();
-      if (!cachedTracks) return { tracks: null, playback: null };
+      if (!cachedTracks) return { tracks: null, playback: null, clearGuest: true };
       const track = cachedTracks[saved.trackIndex];
-      if (!track || track.video_id !== saved.videoId) return { tracks: null, playback: null };
-      return { tracks: cachedTracks, playback: saved };
+      if (!track || track.video_id !== saved.videoId) {
+        return { tracks: null, playback: null, clearGuest: true };
+      }
+      return { tracks: cachedTracks, playback: saved, clearGuest: true };
     }
 
     const cachedTracks = readPlaybackTracks();
@@ -124,6 +124,13 @@ export function PlayerProvider({
   const fetchGames = gameLibrary.fetchGames;
   const clearPlayedTracks = player.clearPlayedTracks;
 
+  // Clean up stale localStorage on mount (side effects from restoreData).
+  useEffect(() => {
+    if (restoreData.clearGuest) clearGuestLibrary();
+    if (restoreData.clearPlayback) clearPlaybackState();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Restore playback position if cached state exists.
   useEffect(() => {
     if (restoredRef.current || !restoreData.playback || !restoreData.tracks) return;
@@ -150,7 +157,7 @@ export function PlayerProvider({
   }, [fetchGames]);
 
   // When generation completes, stop old playback so the player doesn't keep
-  // playing a track from the previous session. Uses stopPlayback (not reset)
+  // playing a track from the previous session. Uses resetPlayback (not reset)
   // to preserve the localStorage track cache for guest refresh persistence.
   const generatingRef = useRef(false);
   useEffect(() => {
@@ -231,19 +238,34 @@ export function PlayerProvider({
     enabled: hasActiveTrack,
   });
 
-  const media: MediaState | null = hasActiveTrack
-    ? {
-        isPlaying: ytPlayer.isPlaying,
-        currentTime: ytPlayer.currentTime,
-        duration: ytPlayer.duration,
-        volume: ytPlayer.volume,
-        dimmed: ytPlayer.dimmed,
-        togglePlayPause: ytPlayer.togglePlayPause,
-        seekTo: ytPlayer.seekTo,
-        applyVolume: ytPlayer.applyVolume,
-        toggleDim: ytPlayer.toggleDim,
-      }
-    : null;
+  const media: MediaState | null = useMemo(
+    () =>
+      hasActiveTrack
+        ? {
+            isPlaying: ytPlayer.isPlaying,
+            currentTime: ytPlayer.currentTime,
+            duration: ytPlayer.duration,
+            volume: ytPlayer.volume,
+            dimmed: ytPlayer.dimmed,
+            togglePlayPause: ytPlayer.togglePlayPause,
+            seekTo: ytPlayer.seekTo,
+            applyVolume: ytPlayer.applyVolume,
+            toggleDim: ytPlayer.toggleDim,
+          }
+        : null,
+    [
+      hasActiveTrack,
+      ytPlayer.isPlaying,
+      ytPlayer.currentTime,
+      ytPlayer.duration,
+      ytPlayer.volume,
+      ytPlayer.dimmed,
+      ytPlayer.togglePlayPause,
+      ytPlayer.seekTo,
+      ytPlayer.applyVolume,
+      ytPlayer.toggleDim,
+    ],
+  );
 
   return (
     <PlayerContext.Provider
