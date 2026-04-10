@@ -35,7 +35,7 @@ import {
   SCORE_PENALTY_MULTIPLIER,
   SCORE_VOCALS_PENALTY_MULTIPLIER,
   DIRECTOR_TOP_N_POOL,
-} from "@/lib/constants";
+} from "../director-constants";
 
 afterEach(() => {
   vi.restoreAllMocks();

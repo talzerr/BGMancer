@@ -8,7 +8,7 @@ import {
   SCORE_WEIGHT_MOOD_VIEW_BIAS,
   SCORE_WEIGHT_VIEW_BIAS,
   SCORE_WEIGHT_INSTRUMENT_VIEW_BIAS,
-} from "@/lib/constants";
+} from "@/lib/pipeline/generation/director-constants";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
