@@ -153,7 +153,7 @@ export function CatalogBrowser({
             <div className="flex justify-center pt-2">
               <button
                 onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
-                className="border-border bg-secondary/60 text-muted-foreground hover:text-foreground cursor-pointer rounded-lg border px-4 py-2 text-xs font-medium transition-colors hover:border-[var(--border-emphasis)]"
+                className="text-muted-foreground hover:text-foreground cursor-pointer rounded-lg px-4 py-2 text-xs font-medium transition-colors hover:bg-white/[0.04]"
               >
                 Show more
               </button>
@@ -243,7 +243,7 @@ function CatalogCard({
           ) : (
             <button
               onClick={() => onAdd(CurationMode.Include)}
-              className="bg-primary/80 text-primary-foreground w-full cursor-pointer rounded-lg px-2 py-1 text-[11px] font-medium transition-colors hover:bg-[var(--primary-hover)]"
+              className="text-primary border-primary/60 w-full cursor-pointer rounded-lg border bg-transparent px-2 py-1 text-[11px] font-medium transition-colors hover:bg-[var(--primary-muted)]/15"
             >
               + Add
             </button>

@@ -30,7 +30,7 @@ function PopoverContent({
         <PopoverPrimitive.Popup
           data-slot="popover-content"
           className={cn(
-            "bg-background min-w-[180px] rounded-lg border border-[var(--border-emphasis)] p-1 outline-none",
+            "min-w-[180px] rounded-lg border border-[var(--border-emphasis)] bg-[var(--surface-elevated)] p-1 outline-none",
             className,
           )}
           {...props}

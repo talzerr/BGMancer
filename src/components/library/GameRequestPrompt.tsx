@@ -110,7 +110,7 @@ export function GameRequestPrompt({
           />
 
           {showDropdown && (
-            <div className="border-border bg-secondary absolute top-full left-0 z-10 mt-1 w-full overflow-hidden rounded-md border shadow-lg">
+            <div className="border-border absolute top-full left-0 z-10 mt-1 w-full overflow-hidden rounded-md border border-[var(--border-emphasis)] bg-[var(--surface-elevated)]">
               {isLoading ? (
                 <div className="flex items-center gap-2 px-3 py-2">
                   <Spinner className="h-3 w-3 text-[var(--text-disabled)]" />
