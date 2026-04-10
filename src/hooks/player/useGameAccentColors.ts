@@ -2,16 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const NO_COLOR = "";
 const SAMPLE_SIZE = 16;
 
-function extractDominantColor(img: HTMLImageElement): string {
+/** Returns an RGB triplet like "120, 80, 60" or null on failure. */
+function extractDominantColor(img: HTMLImageElement): string | null {
   try {
     const canvas = document.createElement("canvas");
     canvas.width = SAMPLE_SIZE;
     canvas.height = SAMPLE_SIZE;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    if (!ctx) return NO_COLOR;
+    if (!ctx) return null;
 
     ctx.drawImage(img, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
     const data = ctx.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE).data;
@@ -45,7 +45,7 @@ function extractDominantColor(img: HTMLImageElement): string {
 
     return `${r}, ${g}, ${b}`;
   } catch {
-    return NO_COLOR;
+    return null;
   }
 }
 
@@ -62,7 +62,6 @@ export function useGameAccentColors(games: GameThumbnail[]): Map<string, string>
     if (games.length === 0) return;
 
     const pending: GameThumbnail[] = [];
-    const next = new Map(cacheRef.current);
 
     for (const g of games) {
       if (!cacheRef.current.has(g.gameId)) {
@@ -71,33 +70,28 @@ export function useGameAccentColors(games: GameThumbnail[]): Map<string, string>
     }
 
     if (pending.length === 0) {
-      // All cached — sync state if needed
-      if (next.size !== colors.size) setColors(next);
+      if (cacheRef.current.size !== colors.size) setColors(new Map(cacheRef.current));
       return;
     }
 
     let cancelled = false;
     let resolved = 0;
 
+    function flush() {
+      if (!cancelled) setColors(new Map(cacheRef.current));
+    }
+
     for (const g of pending) {
       const img = new Image();
-      img.crossOrigin = "anonymous";
       img.onload = () => {
         if (cancelled) return;
         const color = extractDominantColor(img);
-        cacheRef.current.set(g.gameId, color);
-        resolved++;
-        if (resolved === pending.length) {
-          setColors(new Map(cacheRef.current));
-        }
+        if (color) cacheRef.current.set(g.gameId, color);
+        if (++resolved === pending.length) flush();
       };
       img.onerror = () => {
         if (cancelled) return;
-        cacheRef.current.set(g.gameId, NO_COLOR);
-        resolved++;
-        if (resolved === pending.length) {
-          setColors(new Map(cacheRef.current));
-        }
+        if (++resolved === pending.length) flush();
       };
       img.src = g.url;
     }
