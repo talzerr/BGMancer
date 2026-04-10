@@ -36,6 +36,8 @@ function extractDominantColor(img: HTMLImageElement): string | null {
       }
     }
 
+    if (bestSat === 0) return null;
+
     // Boost saturation slightly and keep bright — applied at low opacity on the row
     const avg = (bestR + bestG + bestB) / 3;
     const boost = 1.3; // 30% saturation boost for visibility at low opacity
@@ -70,16 +72,12 @@ export function useGameAccentColors(games: GameThumbnail[]): Map<string, string>
     }
 
     if (pending.length === 0) {
-      if (cacheRef.current.size !== colors.size) setColors(new Map(cacheRef.current));
+      setColors((prev) => (prev.size === cacheRef.current.size ? prev : new Map(cacheRef.current)));
       return;
     }
 
     let cancelled = false;
     let resolved = 0;
-
-    function flush() {
-      if (!cancelled) setColors(new Map(cacheRef.current));
-    }
 
     for (const g of pending) {
       const img = new Image();
@@ -87,11 +85,15 @@ export function useGameAccentColors(games: GameThumbnail[]): Map<string, string>
         if (cancelled) return;
         const color = extractDominantColor(img);
         if (color) cacheRef.current.set(g.gameId, color);
-        if (++resolved === pending.length) flush();
+        if (++resolved === pending.length && !cancelled) {
+          setColors(new Map(cacheRef.current));
+        }
       };
       img.onerror = () => {
         if (cancelled) return;
-        if (++resolved === pending.length) flush();
+        if (++resolved === pending.length && !cancelled) {
+          setColors(new Map(cacheRef.current));
+        }
       };
       img.src = g.url;
     }
@@ -99,7 +101,7 @@ export function useGameAccentColors(games: GameThumbnail[]): Map<string, string>
     return () => {
       cancelled = true;
     };
-  }, [games, colors.size]);
+  }, [games]);
 
   return colors;
 }

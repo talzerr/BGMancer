@@ -243,7 +243,7 @@ function CatalogCard({
           ) : (
             <button
               onClick={() => onAdd(CurationMode.Include)}
-              className="text-primary border-primary/60 w-full cursor-pointer rounded-lg border bg-transparent px-2 py-1 text-[11px] font-medium transition-colors hover:bg-[var(--primary-muted)]/15"
+              className="text-primary border-primary w-full cursor-pointer rounded-lg border bg-transparent px-2 py-1 text-[11px] font-medium transition-colors hover:bg-[rgba(140,104,32,0.15)]"
             >
               + Add
             </button>

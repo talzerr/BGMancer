@@ -71,11 +71,11 @@ export function PlaylistTrackCard({
       onClick={isPlayable ? onPlay : undefined}
       className={`group border-border relative flex items-center gap-4 border-b px-3 py-2 transition-all duration-150 ${
         isPlayable ? "cursor-pointer" : ""
-      } ${isDragging ? "opacity-50" : ""} hover:bg-white/[0.04]`}
+      } ${isDragging ? "opacity-50" : ""} bg-[var(--row-tint)] hover:bg-white/[0.04]`}
       style={
-        accentColor
-          ? { backgroundColor: `rgba(${accentColor}, 0.04)` }
-          : { backgroundColor: "rgba(255, 255, 255, 0.02)" }
+        {
+          "--row-tint": accentColor ? `rgba(${accentColor}, 0.04)` : "rgba(255, 255, 255, 0.02)",
+        } as React.CSSProperties
       }
     >
       {isPlaying && (
@@ -107,9 +107,9 @@ export function PlaylistTrackCard({
               className={`absolute inset-0 flex items-center justify-center bg-black/50 transition-opacity ${isPlaying ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
             >
               {isActivelyPlaying ? (
-                <PauseIcon className="h-4 w-4 text-white drop-shadow" />
+                <PauseIcon className="h-4 w-4 text-white" />
               ) : (
-                <PlayIcon className="h-4 w-4 text-white drop-shadow" />
+                <PlayIcon className="h-4 w-4 text-white" />
               )}
             </div>
             <div className="absolute right-0 bottom-0 flex items-center rounded-tl bg-black/70 px-1 py-0.5 opacity-0 transition-opacity group-hover:opacity-100">
@@ -174,7 +174,7 @@ export function PlaylistTrackCard({
                 e.stopPropagation();
                 onRemove();
               }}
-              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-[var(--text-tertiary)] opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-900/40 hover:text-red-400"
+              className="hover:bg-destructive/20 hover:text-destructive flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-[var(--text-tertiary)] opacity-0 transition-opacity group-hover:opacity-100"
             >
               <XIcon className="h-3 w-3" />
             </button>

@@ -109,7 +109,7 @@ export function PlayerPanel() {
           <button
             onClick={handlePlayPause}
             aria-label={isPlaying ? "Pause" : "Play"}
-            className="bg-primary text-primary-foreground flex h-[30px] w-[30px] cursor-pointer items-center justify-center rounded-full transition-colors duration-100 hover:bg-[#B8882E]"
+            className="bg-primary text-primary-foreground flex h-[30px] w-[30px] cursor-pointer items-center justify-center rounded-full transition-colors duration-100 hover:bg-[var(--primary-hover)]"
           >
             {isPlaying ? <PauseIcon className="h-3 w-3" /> : <PlayIcon className="h-3 w-3" />}
           </button>
@@ -195,7 +195,7 @@ function VerticalVolumeSlider({
         />
       </div>
       <div
-        className="bg-primary absolute left-1/2 h-2.5 w-2.5 rounded-full opacity-0 shadow-sm transition-opacity group-hover/vol:opacity-100"
+        className="bg-primary absolute left-1/2 h-2.5 w-2.5 rounded-full opacity-0 transition-opacity group-hover/vol:opacity-100"
         style={{ bottom: `${volume}%`, transform: "translate(-50%, 50%)" }}
       />
     </div>
