@@ -17,7 +17,7 @@ interface SortableTrackItemProps {
   onReroll: (trackId: string) => void;
   /** Extra top margin when this track starts a new arc phase */
   phaseGap?: boolean;
-  /** Game accent color for cover border */
+  /** Raw RGB triplet for subtle row background tint */
   accentColor?: string;
 }
 
@@ -47,7 +47,7 @@ export const SortableTrackItem = memo(function SortableTrackItem({
   };
 
   return (
-    <div ref={setNodeRef} style={style} className={phaseGap ? "mt-[14px]" : undefined}>
+    <div ref={setNodeRef} style={style} className={phaseGap ? "mt-[10px]" : undefined}>
       <PlaylistTrackCard
         track={track}
         gameThumbnail={gameThumbnail}

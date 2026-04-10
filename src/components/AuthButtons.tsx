@@ -15,6 +15,7 @@ export function performSignOut(callbackUrl = "/") {
 interface AuthButtonsProps {
   user: { name?: string | null; email?: string | null; image?: string | null } | null;
   isDev: boolean;
+  hidePrompt?: boolean;
 }
 
 function LoginPrompt({ onDismiss }: { onDismiss: () => void }) {
@@ -48,9 +49,9 @@ function LoginPrompt({ onDismiss }: { onDismiss: () => void }) {
   );
 }
 
-export function AuthButtons({ user, isDev }: AuthButtonsProps) {
+export function AuthButtons({ user, isDev, hidePrompt }: AuthButtonsProps) {
   const [isDismissed, dismissPrompt] = useLoginPromptDismissed();
-  const showPrompt = !user && !isDismissed;
+  const showPrompt = !user && !isDismissed && !hidePrompt;
 
   function dismiss() {
     dismissPrompt();

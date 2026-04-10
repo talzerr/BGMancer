@@ -402,9 +402,9 @@ export function FeedClient({
       >
         {mode === "launchpad" ? (
           <>
-            <header className="mx-auto flex max-w-7xl items-center justify-between px-4 pt-4 sm:px-6">
+            <header className="flex items-center justify-between px-4 pt-4 sm:px-6 lg:px-5">
               <LogoLink />
-              <AuthButtons user={user} isDev={isDev} />
+              <AuthButtons user={user} isDev={isDev} hidePrompt />
             </header>
             <Launchpad
               pressedCurate={pressedCurate}

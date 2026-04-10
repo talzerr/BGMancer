@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const FALLBACK_COLOR = "rgba(255, 255, 255, 0.12)";
+const NO_COLOR = "";
 const SAMPLE_SIZE = 16;
 
 function extractDominantColor(img: HTMLImageElement): string {
@@ -11,7 +11,7 @@ function extractDominantColor(img: HTMLImageElement): string {
     canvas.width = SAMPLE_SIZE;
     canvas.height = SAMPLE_SIZE;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    if (!ctx) return FALLBACK_COLOR;
+    if (!ctx) return NO_COLOR;
 
     ctx.drawImage(img, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
     const data = ctx.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE).data;
@@ -36,17 +36,16 @@ function extractDominantColor(img: HTMLImageElement): string {
       }
     }
 
-    // Desaturate ~40% and darken to sit on dark background
+    // Boost saturation slightly and keep bright — applied at low opacity on the row
     const avg = (bestR + bestG + bestB) / 3;
-    const desat = 0.6; // keep 60% of original saturation
-    const darken = 0.55; // darken to 55% brightness
-    const r = Math.round((bestR * desat + avg * (1 - desat)) * darken);
-    const g = Math.round((bestG * desat + avg * (1 - desat)) * darken);
-    const b = Math.round((bestB * desat + avg * (1 - desat)) * darken);
+    const boost = 1.3; // 30% saturation boost for visibility at low opacity
+    const r = Math.min(255, Math.round(avg + (bestR - avg) * boost));
+    const g = Math.min(255, Math.round(avg + (bestG - avg) * boost));
+    const b = Math.min(255, Math.round(avg + (bestB - avg) * boost));
 
-    return `rgb(${r}, ${g}, ${b})`;
+    return `${r}, ${g}, ${b}`;
   } catch {
-    return FALLBACK_COLOR;
+    return NO_COLOR;
   }
 }
 
@@ -94,7 +93,7 @@ export function useGameAccentColors(games: GameThumbnail[]): Map<string, string>
       };
       img.onerror = () => {
         if (cancelled) return;
-        cacheRef.current.set(g.gameId, FALLBACK_COLOR);
+        cacheRef.current.set(g.gameId, NO_COLOR);
         resolved++;
         if (resolved === pending.length) {
           setColors(new Map(cacheRef.current));

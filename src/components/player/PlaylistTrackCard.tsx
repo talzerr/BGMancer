@@ -31,7 +31,7 @@ interface PlaylistTrackCardProps {
   dragHandleProps?: React.HTMLAttributes<HTMLElement>;
   /** true while this card is being dragged */
   isDragging?: boolean;
-  /** Muted color for the 3px left border on the cover art thumbnail */
+  /** Raw RGB triplet (e.g. "120, 80, 60") for subtle row background tint */
   accentColor?: string;
 }
 
@@ -71,7 +71,12 @@ export function PlaylistTrackCard({
       onClick={isPlayable ? onPlay : undefined}
       className={`group border-border relative flex items-center gap-4 border-b px-3 py-2 transition-all duration-150 ${
         isPlayable ? "cursor-pointer" : ""
-      } ${isDragging ? "opacity-50" : ""} bg-white/[0.02] hover:bg-white/[0.04]`}
+      } ${isDragging ? "opacity-50" : ""} hover:bg-white/[0.04]`}
+      style={
+        accentColor
+          ? { backgroundColor: `rgba(${accentColor}, 0.04)` }
+          : { backgroundColor: "rgba(255, 255, 255, 0.02)" }
+      }
     >
       {isPlaying && (
         <div className="bg-primary absolute top-0 bottom-0 left-0 w-[3px] rounded-r-sm" />
@@ -87,10 +92,7 @@ export function PlaylistTrackCard({
         </div>
       )}
 
-      <div
-        className="bg-secondary relative h-[44px] w-16 shrink-0 overflow-hidden rounded-r-[6px] ring-1 ring-white/[0.06]"
-        style={{ borderLeft: `3px solid ${accentColor ?? "rgba(255, 255, 255, 0.12)"}` }}
-      >
+      <div className="bg-secondary relative h-[44px] w-16 shrink-0 overflow-hidden rounded-[6px] ring-1 ring-white/[0.06]">
         {hasVideo && thumbnailSrc ? (
           <>
             <Image
