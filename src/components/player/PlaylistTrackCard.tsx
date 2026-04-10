@@ -31,6 +31,8 @@ interface PlaylistTrackCardProps {
   dragHandleProps?: React.HTMLAttributes<HTMLElement>;
   /** true while this card is being dragged */
   isDragging?: boolean;
+  /** Muted color for the 3px left border on the cover art thumbnail */
+  accentColor?: string;
 }
 
 function formatTrackDuration(seconds: number): string {
@@ -51,6 +53,7 @@ export function PlaylistTrackCard({
   isRerolling = false,
   dragHandleProps,
   isDragging = false,
+  accentColor,
 }: PlaylistTrackCardProps) {
   const hasVideo = !!track.video_id;
   const isImported = track.game_title === "YouTube Import";
@@ -84,7 +87,10 @@ export function PlaylistTrackCard({
         </div>
       )}
 
-      <div className="bg-secondary relative h-[44px] w-16 shrink-0 overflow-hidden rounded-[6px] ring-1 ring-white/[0.06]">
+      <div
+        className="bg-secondary relative h-[44px] w-16 shrink-0 overflow-hidden rounded-r-[6px] ring-1 ring-white/[0.06]"
+        style={{ borderLeft: `3px solid ${accentColor ?? "rgba(255, 255, 255, 0.12)"}` }}
+      >
         {hasVideo && thumbnailSrc ? (
           <>
             <Image

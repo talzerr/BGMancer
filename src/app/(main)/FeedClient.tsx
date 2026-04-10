@@ -35,6 +35,7 @@ import { AuthButtons, performSignOut } from "@/components/AuthButtons";
 import { LogoLink } from "@/components/layout/LogoLink";
 import { FooterLinks } from "@/components/layout/FooterLinks";
 import { GoogleLogo } from "@/components/Icons";
+import { useGameAccentColors } from "@/hooks/player/useGameAccentColors";
 
 const LAUNCHPAD_FADE_MS = 700;
 const LAUNCHPAD_SWAP_DELAY_MS = 800; // fade-out duration + brief held-at-zero pause
@@ -45,9 +46,16 @@ interface FeedClientProps {
   isDev: boolean;
   turnstileSiteKey?: string;
   user: { name?: string | null; email?: string | null; image?: string | null } | null;
+  previewCovers: string[];
 }
 
-export function FeedClient({ isSignedIn, isDev, turnstileSiteKey, user }: FeedClientProps) {
+export function FeedClient({
+  isSignedIn,
+  isDev,
+  turnstileSiteKey,
+  user,
+  previewCovers,
+}: FeedClientProps) {
   const { playlist, player, config, gameLibrary, gameThumbnailByGameId, media } =
     usePlayerContext();
   const { sessions, fetchSessions, handleRenameSession, handleDeleteSession } = useSessionManager();
@@ -201,6 +209,18 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey, user }: FeedCl
   );
 
   const displayedTracks = displayedSnapshot.tracks;
+
+  const accentGameInputs = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const t of playlist.tracks) {
+      if (!seen.has(t.game_id) && t.game_thumbnail_url) {
+        seen.set(t.game_id, t.game_thumbnail_url);
+      }
+    }
+    return Array.from(seen, ([gameId, url]) => ({ gameId, url }));
+  }, [playlist.tracks]);
+
+  const accentColors = useGameAccentColors(accentGameInputs);
   const trackIds = useMemo(() => displayedTracks.map((t) => t.id), [displayedTracks]);
 
   function handleDragEnd(event: DragEndEvent) {
@@ -328,12 +348,22 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey, user }: FeedCl
                     config.antiSpoilerEnabled &&
                     !player.playedTrackIds.has(track.id) &&
                     track.id !== player.playingTrackId;
+
+                  const prevTrack = i > 0 ? displayedTracks[i - 1] : null;
+                  const phaseGap =
+                    i > 0 &&
+                    track.arc_phase != null &&
+                    prevTrack?.arc_phase != null &&
+                    track.arc_phase !== prevTrack.arc_phase;
+
                   return (
                     <SortableTrackItem
                       key={track.id}
                       track={track}
                       index={i}
                       gameThumbnail={gameThumbnailByGameId.get(track.game_id)}
+                      accentColor={accentColors.get(track.game_id)}
+                      phaseGap={phaseGap}
                       isPlaying={isCurrentTrack}
                       isActivelyPlaying={isCurrentTrack && player.isPlayerPlaying}
                       spoilerHidden={spoilerHidden}
@@ -376,7 +406,11 @@ export function FeedClient({ isSignedIn, isDev, turnstileSiteKey, user }: FeedCl
               <LogoLink />
               <AuthButtons user={user} isDev={isDev} />
             </header>
-            <Launchpad pressedCurate={pressedCurate} onCurateClick={handleLaunchpadCurate} />
+            <Launchpad
+              pressedCurate={pressedCurate}
+              onCurateClick={handleLaunchpadCurate}
+              previewCovers={previewCovers}
+            />
           </>
         ) : (
           <>
