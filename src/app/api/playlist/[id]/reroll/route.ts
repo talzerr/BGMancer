@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { Playlist, Games } from "@/lib/db/repo";
+import { Playlist, Games, Sessions } from "@/lib/db/repo";
 import { MIN_TRACK_DURATION_SECONDS, MAX_TRACK_DURATION_SECONDS } from "@/lib/constants";
 import { withRequiredAuth } from "@/lib/services/auth/route-wrappers";
 import { rerollSchema, zodErrorResponse } from "@/lib/validation";
 import { getTaggedPool } from "@/lib/pipeline/generation/candidates";
+import { getEnergyModeTemplate } from "@/lib/pipeline/generation/director";
 
 /** POST /api/playlist/:id/reroll — Replace a track with a different one from the same game's curated pool. */
 export const POST = withRequiredAuth(
@@ -39,6 +40,12 @@ export const POST = withRequiredAuth(
       return NextResponse.json({ error: "Game not found" }, { status: 404 });
     }
 
+    const session = await Sessions.getById(track.playlist_id);
+    const energyTemplate = session ? getEnergyModeTemplate(session.playlist_mode) : null;
+    const allowedEnergies = energyTemplate
+      ? new Set(energyTemplate.flatMap((p) => p.energyPrefs))
+      : null;
+
     const pool = await getTaggedPool(game.id, game.title);
 
     // Exclude video IDs already in this session, but allow the current track's slot to be reused
@@ -49,6 +56,7 @@ export const POST = withRequiredAuth(
       if (sessionVideoIds.has(t.videoId)) return false;
       if (!allowShortTracks && t.durationSeconds < MIN_TRACK_DURATION_SECONDS) return false;
       if (!allowLongTracks && t.durationSeconds > MAX_TRACK_DURATION_SECONDS) return false;
+      if (allowedEnergies && !allowedEnergies.has(t.energy)) return false;
       return true;
     });
 

@@ -4,7 +4,12 @@ import { GameProgressStatus } from "@/types";
 import type { CurationMode, TrackDecision } from "@/types";
 import { fetchGameCandidates } from "@/lib/pipeline/generation/candidates";
 import { toInsertable, taggedTrackToPending } from "@/lib/pipeline/generation/assembly";
-import { assemblePlaylist } from "@/lib/pipeline/generation/director";
+import {
+  assemblePlaylist,
+  getEnergyModeTemplate,
+  JOURNEY_ARC_TEMPLATE,
+} from "@/lib/pipeline/generation/director";
+import type { ArcTemplate } from "@/lib/pipeline/generation/director";
 import {
   generateRubric,
   buildGameProfiles,
@@ -14,7 +19,14 @@ import { generateSessionName } from "@/lib/pipeline/generation/session-naming";
 import { getVibeProfilerProvider } from "@/lib/llm";
 import { acquireLlmGeneration } from "@/lib/rate-limit";
 import type { GenerateEvent, PendingTrack } from "@/lib/pipeline/generation/types";
-import type { AppConfig, Game, PlaylistTrack, TaggedTrack, VibeRubric } from "@/types";
+import type {
+  AppConfig,
+  Game,
+  PlaylistMode,
+  PlaylistTrack,
+  TaggedTrack,
+  VibeRubric,
+} from "@/types";
 import {
   MIN_TRACK_DURATION_SECONDS,
   MAX_TRACK_DURATION_SECONDS,
@@ -92,7 +104,8 @@ function runDirector(
   activeGames: Game[],
   targetCount: number,
   rubric: VibeRubric | undefined,
-  useViewBias: boolean,
+  arcTemplate: ArcTemplate,
+  allowLastResort: boolean,
 ): {
   pendingTracks: PendingTrack[];
   decisions: TrackDecision[];
@@ -100,7 +113,9 @@ function runDirector(
   gameBudgets: Record<string, number>;
 } {
   const assembleTarget = Math.ceil(targetCount * 1.15);
-  const result = assemblePlaylist(taggedPools, activeGames, assembleTarget, rubric, useViewBias);
+  const result = assemblePlaylist(taggedPools, activeGames, assembleTarget, rubric, arcTemplate, {
+    allowLastResort,
+  });
   return {
     pendingTracks: result.tracks.map((t) => taggedTrackToPending(t, t.durationSeconds)),
     decisions: result.decisions,
@@ -113,6 +128,7 @@ async function persistSession(
   userId: string,
   allTracks: PendingTrack[],
   decisions: TrackDecision[],
+  playlistMode: PlaylistMode,
   usedRubric?: VibeRubric,
   gameBudgets?: Record<string, number>,
   generatedName?: string | null,
@@ -124,7 +140,7 @@ async function persistSession(
     sessionName = buildSessionName(allTracks.map((t) => t.game_title ?? t.game_id));
   }
 
-  const session = await Sessions.create(userId, sessionName);
+  const session = await Sessions.create(userId, sessionName, playlistMode);
   await Playlist.replaceAll(session.id, toInsertable(allTracks));
 
   if (decisions.length > 0 || usedRubric || gameBudgets) {
@@ -149,11 +165,6 @@ async function persistSession(
 
 // ─── Guest pipeline ──────────────────────────────────────────────────────────
 
-/**
- * Guest generation: Director-only (no Vibe Profiler), no persistence.
- * Games are loaded by IDs from the published catalog, not from a user library.
- * Curation modes can be overridden via the gameSelections parameter.
- */
 export async function generatePlaylistForGuest(
   send: Send,
   gameSelections: Array<{ gameId: string; curation?: CurationMode }>,
@@ -170,7 +181,6 @@ export async function generatePlaylistForGuest(
     return;
   }
 
-  // Apply curation overrides from the request
   const curationMap = new Map(gameSelections.map((s) => [s.gameId, s.curation]));
   for (const game of games) {
     const curation = curationMap.get(game.id);
@@ -187,7 +197,17 @@ export async function generatePlaylistForGuest(
 
   if (filteredPools.size > 0 && targetCount > 0) {
     const activeGames = games.filter((g) => filteredPools.has(g.id));
-    const directorResult = runDirector(filteredPools, activeGames, targetCount, undefined, false);
+    const energyTemplate = getEnergyModeTemplate(config.playlist_mode);
+    const arcTemplate = energyTemplate ?? JOURNEY_ARC_TEMPLATE;
+    const allowLastResort = energyTemplate === null;
+    const directorResult = runDirector(
+      filteredPools,
+      activeGames,
+      targetCount,
+      undefined,
+      arcTemplate,
+      allowLastResort,
+    );
     tracks = directorResult.pendingTracks;
   }
 
@@ -244,30 +264,40 @@ export async function generatePlaylist(
 
   if (filteredPools.size > 0 && targetCount > 0) {
     const activeGames = games.filter((g) => filteredPools.has(g.id));
-
-    let rubric: VibeRubric | undefined =
-      (await findCachedRubric(
-        userId,
-        activeGames.map((g) => g.id),
-      )) ?? undefined;
-
-    if (!rubric) {
-      const capExceeded = await acquireLlmGeneration(userId);
-      if (!capExceeded) {
-        rubric = await profileVibe(activeGames, filteredPools);
-      }
-    }
+    const energyTemplate = getEnergyModeTemplate(config.playlist_mode);
 
     // Naming runs in parallel with the Director; failures fall through to
     // the deterministic fallback in persistSession().
-    const namingPromise = generateSessionName(activeGames);
+    const namingPromise = generateSessionName(activeGames, {
+      playlistMode: config.playlist_mode,
+    });
 
+    // Energy modes skip the Vibe Profiler entirely; Journey resolves a rubric
+    // from cache or LLM (silently capped on miss).
+    let rubric: VibeRubric | undefined;
+    if (energyTemplate === null) {
+      rubric =
+        (await findCachedRubric(
+          userId,
+          activeGames.map((g) => g.id),
+        )) ?? undefined;
+      if (!rubric) {
+        const capExceeded = await acquireLlmGeneration(userId);
+        if (!capExceeded) {
+          rubric = await profileVibe(activeGames, filteredPools);
+        }
+      }
+    }
+
+    const arcTemplate = energyTemplate ?? JOURNEY_ARC_TEMPLATE;
+    const allowLastResort = energyTemplate === null;
     const directorResult = runDirector(
       filteredPools,
       activeGames,
       targetCount,
       rubric,
-      !config.raw_vibes,
+      arcTemplate,
+      allowLastResort,
     );
     individualTracks = directorResult.pendingTracks;
     decisions = directorResult.decisions;
@@ -287,6 +317,7 @@ export async function generatePlaylist(
     userId,
     allTracks,
     slicedDecisions,
+    config.playlist_mode,
     usedRubric,
     gameBudgets,
     sessionName,

@@ -10,6 +10,7 @@ afterEach(() => {
 });
 
 import { GenerateSection } from "../GenerateSection";
+import { PlaylistMode } from "@/types";
 
 // ─── File-level constants ────────────────────────────────────────────────────
 
@@ -41,8 +42,8 @@ function defaultProps() {
     onToggleLongTracks: vi.fn(),
     allowShortTracks: false,
     onToggleShortTracks: vi.fn(),
-    rawVibes: false,
-    onToggleRawVibes: vi.fn(),
+    playlistMode: PlaylistMode.Journey,
+    onPlaylistModeChange: vi.fn(),
   };
 }
 

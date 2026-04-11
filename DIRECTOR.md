@@ -1,8 +1,8 @@
-# The Director: Architectural Deep Dive
+# The Director: Algorithmic Specification
 
 ## Abstract
 
-The **Director** is the deterministic orchestration engine at the heart of BGMancer's playlist generation pipeline. It operates entirely without LLM involvement: given a pool of tagged tracks and a set of game library constraints, it assembles a final ordered playlist that adheres to a predefined narrative energy arc while maximizing cross-game diversity and per-track contextual fit. The quality of the output depends entirely on the precision of its internal scoring model — which this document specifies in full.
+The **Director** is a deterministic playlist-assembly algorithm. Given a pool of tagged tracks grouped by the game they belong to, it produces an ordered playlist that adheres to a predefined narrative energy arc while maximizing cross-game diversity and per-track contextual fit. No probabilistic language model is involved at any step: the output is determined entirely by the weighted heuristic scoring model specified in this document.
 
 ---
 
@@ -10,7 +10,7 @@ The **Director** is the deterministic orchestration engine at the heart of BGMan
 
 Traditional shuffle logic — even weighted shuffle — fails to create immersive listening experiences because it has no concept of **narrative shape**. A gaming session has a rhythm: it starts with exploration, builds tension, peaks during conflict, breathes in quiet moments, and resolves. A random track order violates this structure constantly. The listener never settles into a flow state; instead, they're yanked between moods arbitrarily.
 
-BGMancer's Director solves this by treating playlist assembly as a **constrained optimization problem over a narrative arc** rather than a sampling problem. Every track placement is a deliberate decision, scored against the emotional and sonic requirements of its position in the playlist.
+The Director solves this by treating playlist assembly as a **constrained optimization problem over a narrative arc** rather than a sampling problem. Every track placement is a deliberate decision, scored against the emotional and sonic requirements of its position in the playlist.
 
 ---
 
@@ -22,9 +22,9 @@ The Director applies four layers of logic in sequence. Each layer narrows the ca
 
 ### I. The Arc Weaver — Narrative Energy
 
-Before a single track is evaluated, the Director expands a fixed **Arc Template** into a sequence of `ArcSlot` objects — one per position in the final playlist. Each slot encodes the emotional and sonic expectations for that position in the arc.
+Before a single track is evaluated, the Director expands an **Arc Template** into a sequence of per-position constraints — one per slot in the final playlist. Each slot encodes the emotional and sonic expectations for that position in the arc. The template is an input to the algorithm, not a constant: a different sequence of phases produces a different shape of playlist while reusing every other piece of the heuristic. The canonical six-phase arc described below is one such template, but a single-phase arc that holds the listener at a constant energy band is just as valid an input.
 
-The arc is divided into six named phases:
+The canonical arc is divided into six named phases:
 
 | Phase  | Share | Energy   | Emotional Character                              |
 | ------ | ----- | -------- | ------------------------------------------------ |
@@ -63,7 +63,7 @@ Once energy gating passes, the Director scores each candidate track against its 
 
 The original placeholder used additive integer scoring (`score += 5` for a role match). This creates two failure modes:
 
-1. **Tag-Stuffing Vulnerability.** A track tagged with many moods accumulates points for partial matches across multiple dimensions, inflating its score without genuinely fitting the slot. A track tagged `[epic, tense, peaceful, melancholic]` would outscore a cleanly focused `[epic, tense]` track even in a climax slot.
+1. **Tag-Stuffing Vulnerability.** A track tagged with many moods accumulates points for partial matches across multiple dimensions, inflating its score without genuinely fitting the slot. A track tagged $\{\text{epic, tense, peaceful, melancholic}\}$ would outscore a cleanly focused $\{\text{epic, tense}\}$ track even in a climax slot.
 
 2. **Dimensionless Magnitude.** Additive scores have no natural ceiling, making the penalty multipliers arbitrary. A `−5` penalty means something very different when scores range from `50–60` versus `0–100`.
 
@@ -85,36 +85,34 @@ $$R = w_{\text{role}} \cdot S_{\text{role}} + w_{\text{mood}} \cdot S_{\text{moo
 
 The four dimensions are ordered by priority. Role carries the most weight: what a track _is for_ matters more than how it feels. Mood follows: emotional fit is the next most important signal. View bias provides a popularity correction — enough to consistently surface iconic tracks without overriding contextual fit. Instrumentation rounds out the score as a textural tiebreaker.
 
-When the **Raw vibes** toggle is active, the view bias dimension is dropped entirely and the remaining three dimensions absorb its weight, preserving the same relative priority ordering.
-
 The current parameterization:
 
-| Dimension       | $w$ (raw vibes) | $w$ (view bias active) | Scoring Method     |
-| --------------- | --------------- | ---------------------- | ------------------ |
-| Role            | highest         | high                   | Binary (1.0 / 0.0) |
-| Mood            | mid             | mid                    | Jaccard similarity |
-| View Bias       | —               | high (= role)          | Log-scaled views   |
-| Instrumentation | lowest          | lowest                 | Jaccard similarity |
+| Dimension       | $w$           | Scoring Method     |
+| --------------- | ------------- | ------------------ |
+| Role            | high          | Binary (1.0 / 0.0) |
+| Mood            | mid           | Jaccard similarity |
+| View Bias       | high (= role) | Log-scaled views   |
+| Instrumentation | lowest        | Jaccard similarity |
 
 #### Why Role Is an Intersection Check, Not Jaccard
 
-Tracks carry an array of roles (e.g., `[Combat, Cinematic]`) and slots carry a preferred role set. The scoring is a **pass/fail membership test**: if any of the track's roles overlaps with the slot's preferred roles, the full $1.0$ is awarded. If the intersection is empty, the score is $0.0$.
+Tracks carry a set of roles (e.g., $\{\text{Combat, Cinematic}\}$) and slots carry a preferred role set. The scoring is a **pass/fail membership test**: if any of the track's roles overlaps with the slot's preferred roles, the full $1.0$ is awarded. If the intersection is empty, the score is $0.0$.
 
-Jaccard is deliberately avoided here. Jaccard would penalize a track for having _more_ roles than the slot expects — a track tagged `[Combat, Cinematic]` would score lower than a track tagged only `[Combat]` in a Combat slot, even though the multi-role track is at least as good a fit. The intersection check removes this "flexibility penalty" entirely: extra roles never hurt, they only help.
+Jaccard is deliberately avoided here. Jaccard would penalize a track for having _more_ roles than the slot expects — a track tagged $\{\text{Combat, Cinematic}\}$ would score lower than a track tagged only $\{\text{Combat}\}$ in a Combat slot, even though the multi-role track is at least as good a fit. The intersection check removes this "flexibility penalty" entirely: extra roles never hurt, they only help.
 
-The binary outcome also means role carries its full weight only when any match exists. A role mismatch floors that dimension to $0.0$ — a strong signal, not a soft nudge. Role is a categorical classification, not a fuzzy one: a `Closer` track in a climax slot isn't "somewhat wrong," it's categorically wrong.
+The binary outcome also means role carries its full weight only when any match exists. A role mismatch floors that dimension to $0.0$ — a strong signal, not a soft nudge. Role is a categorical classification, not a fuzzy one: a Closer-role track in a climax slot isn't "somewhat wrong," it's categorically wrong.
 
 #### Penalty Multipliers
 
 After the weighted sum, two multiplicative penalties may apply:
 
-**Penalized Mood Penalty** — If any of the track's moods appear in the slot's `penalizedMoods` list (or the rubric's `penalizedMoods`, if present), the score is halved:
+**Penalized Mood Penalty** — If any of the track's moods appear in the slot's penalized-mood set (extended by the rubric's penalized moods when a rubric is active), the score is halved:
 
 $$R' = R \times \alpha_{\text{mood}} \quad \text{if } \text{moods}_{\text{track}} \cap \text{penalized} \neq \emptyset$$
 
-This is intentionally aggressive. A climax slot penalizes `peaceful` and `playful` because a genuinely peaceful track _does not belong there_, even if its instrumentation happens to match. The penalty does not eliminate the track — it merely ensures it loses to any unpenalized competitor.
+This is intentionally aggressive. A climax slot penalizes peaceful and playful moods because a genuinely peaceful track _does not belong there_, even if its instrumentation happens to match. The penalty does not eliminate the track — it merely ensures it loses to any unpenalized competitor.
 
-**Vocals Penalty** — If the active `ScoringRubric` specifies `allowVocals: false` and the track has vocals, the score is halved again (multiplicatively with the mood penalty if both apply):
+**Vocals Penalty** — If the active rubric forbids vocals and the track has vocals, the score is halved again (multiplicatively with the mood penalty if both apply):
 
 $$R'' = R' \times \alpha_{\text{vocals}}$$
 
@@ -148,22 +146,21 @@ View bias scores are pre-computed once per playlist assembly — not on a per-sl
 
 ---
 
-### III. The Scoring Rubric — External Override Layer
+### III. The Scoring Rubric — Auxiliary Override Layer
 
-The **Scoring Rubric** is an optional parameter passed into the assembly function that lets an external caller bend the Director's decisions without rewriting the arc template. It carries six scoring signals: a target energy range, preferred and penalized mood sets, preferred instrumentation, a vocals constraint, and a set of promoted roles. Where present, it interacts with the arc slot defaults through three distinct override modes — not a single merge strategy:
+The **Scoring Rubric** is an optional auxiliary input that bends the Director's decisions without rewriting the arc template. It carries a small set of signals: preferred and penalized mood sets, preferred instrumentation, a vocals constraint, and a set of promoted roles. Where present, it interacts with the arc slot defaults through three distinct override modes — not a single merge strategy:
 
-| Field                      | Interaction with Arc Slot                                                                         |
-| -------------------------- | ------------------------------------------------------------------------------------------------- |
-| `preferredMoods`           | **Replaces** `slot.preferredMoods` as the Jaccard target                                          |
-| `preferredInstrumentation` | **Replaces** `slot.preferredInstrumentation` as the Jaccard target                                |
-| `preferredRoles`           | **Promotes** matching tracks to full role score ($1.0$), even when role isn't in `slot.rolePrefs` |
-| `penalizedMoods`           | **Unioned** with `slot.penalizedMoods` — arc penalties always apply, rubric adds to them          |
-| `allowVocals`              | **Applies globally** — `null` means no constraint, `false` triggers the vocals penalty            |
-| `targetEnergy`             | Currently informational — energy gating is still defined by the arc slot                          |
+| Rubric signal             | Interaction with slot defaults                                                                    |
+| ------------------------- | ------------------------------------------------------------------------------------------------- |
+| preferred moods           | **Replaces** the slot's preferred moods as the Jaccard target                                     |
+| preferred instrumentation | **Replaces** the slot's preferred instrumentation as the Jaccard target                           |
+| promoted roles            | **Promotes** matching tracks to full role score ($1.0$), even when the role is not in the slot    |
+| penalized moods           | **Unioned** with the slot's penalized moods — arc penalties always apply, the rubric adds to them |
+| vocals constraint         | **Applies globally** — absent means no constraint; forbidding vocals triggers the vocals penalty  |
 
-The asymmetry is deliberate. Preference targets (moods, instrumentation) are replaced by the rubric because they represent a global aesthetic intent that should override the arc's generic profile — if the caller specifies a rubric, it knows more about the desired feel than the template does. Penalized moods are unioned rather than replaced because the arc's structural prohibitions (no `chaotic` in outro, no `peaceful` in climax) are safety rails that no external caller should be able to lift.
+The asymmetry is deliberate. Preference targets (moods, instrumentation) are replaced by the rubric because they represent a global aesthetic intent that should override the arc's generic profile — a rubric, when present, knows more about the desired feel than the template does. Penalized moods are unioned rather than replaced because the arc's structural prohibitions (no chaotic moods in outro, no peaceful moods in climax) are safety rails that no override should be able to lift.
 
-**The rubric is the integration point for pipeline signals.** It is what allows a future Vibe Check phase, a user preference layer, or any other upstream signal to influence the Director without touching the arc logic. The Director remains fully deterministic given identical inputs — the rubric simply changes what "identical inputs" means.
+The rubric is the algorithm's sole entry point for external aesthetic intent. The Director remains fully deterministic given identical inputs — the rubric simply changes what "identical inputs" means.
 
 ---
 
@@ -187,31 +184,33 @@ Additionally, a small random jitter $\epsilon_{\text{jitter}}$ is added to each 
 
 ## Mathematical Specification
 
-### Full Scoring Pipeline
+### Full Scoring Procedure
 
-For a track $t$ and slot $s$, with optional rubric $\rho$:
+Let a track be characterized by the tuple $(e_t,\ R_t,\ M_t,\ I_t,\ v_t)$ where $e_t \in \mathbb{N}$ is its energy level, $R_t$ its role set, $M_t$ its mood set, $I_t$ its instrumentation set, and $v_t \in \{0,1\}$ its vocals indicator. Let a slot be characterized by $(E_s,\ R_s^\star,\ M_s^\star,\ I_s^\star,\ P_s)$ where $E_s$ is the admissible energy set, $R_s^\star,\ M_s^\star,\ I_s^\star$ its preferred role/mood/instrumentation sets, and $P_s$ its penalized mood set. An optional rubric $\rho$ contributes $(R_\rho^\star,\ M_\rho^\star,\ I_\rho^\star,\ P_\rho,\ v_\rho^{\max})$ with the same semantics plus an optional vocal prohibition $v_\rho^{\max} \in \{0,1\}$.
 
 **1. Energy Gate**
 
-$$\text{if } t.\text{energy} \notin s.\text{energyPrefs} \Rightarrow R = -\infty \quad \text{(eliminated)}$$
+$$\text{if } e_t \notin E_s \Rightarrow R = -\infty \quad \text{(eliminated)}$$
 
 **2. Role Score**
 
-$$S_{\text{role}} = \begin{cases} 1.0 & \text{if } t.\text{roles} \cap s.\text{rolePrefs} \neq \emptyset \text{ or } t.\text{roles} \cap \rho.\text{preferredRoles} \neq \emptyset \\ 0.0 & \text{otherwise} \end{cases}$$
+$$S_{\text{role}} = \begin{cases} 1.0 & \text{if } R_t \cap R_s^\star \neq \emptyset \ \text{ or } \ R_t \cap R_\rho^\star \neq \emptyset \\ 0.0 & \text{otherwise} \end{cases}$$
+
+Let $M^\star$ denote the preferred-mood target: $M_\rho^\star$ when a rubric is present, otherwise $M_s^\star$. Let $I^\star$ denote the preferred-instrumentation target defined analogously.
 
 **3. Mood Score**
 
-$$S_{\text{mood}} = J\!\left(t.\text{moods},\ \rho.\text{preferredMoods} \text{ if } \rho \text{ else } s.\text{preferredMoods}\right)$$
+$$S_{\text{mood}} = J\left(M_t,\ M^\star\right)$$
 
 **4. Instrumentation Score**
 
-$$S_{\text{inst}} = J\!\left(t.\text{instrumentation},\ \rho.\text{preferredInstrumentation} \text{ if } \rho \text{ else } s.\text{preferredInstrumentation}\right)$$
+$$S_{\text{inst}} = J\left(I_t,\ I^\star\right)$$
 
-The rubric target sets are **exclusive-or**: when $\rho$ is present, it fully replaces the arc slot's preference targets for those dimensions. The two sources are never merged — the rubric either owns the target or it doesn't. This prevents a dilution effect where a general arc preference and a specific rubric preference average each other out into something neither caller intended.
+The rubric target sets are **exclusive-or**: when a rubric is present, it fully replaces the arc slot's preference targets for those dimensions. The two sources are never merged — the rubric either owns the target or it doesn't. This prevents a dilution effect where a general arc preference and a specific rubric preference average each other out into something neither was meant to express.
 
 **5. View Bias Score**
 
-$$S_{\text{vb}} = w_H \cdot \text{clamp}\!\left(0, 1, \frac{\log_{10}(\text{views}) - L_{\min}}{L_{\max} - L_{\min}}\right) + w_L \cdot \text{clamp}\!\left(0, 1, \frac{\text{trackViews} / \text{avgGameViews}}{C_{\text{stature}}}\right)$$
+$$S_{\text{vb}} = w_H \cdot \text{clamp}\left(0, 1, \frac{\log_{10}(\text{views}) - L_{\min}}{L_{\max} - L_{\min}}\right) + w_L \cdot \text{clamp}\left(0, 1, \frac{\text{trackViews} / \text{avgGameViews}}{C_{\text{stature}}}\right)$$
 
 **6. Weighted Sum**
 
@@ -219,8 +218,10 @@ $$R = w_{\text{role}} \cdot S_{\text{role}} + w_{\text{mood}} \cdot S_{\text{moo
 
 **7. Penalty Application**
 
-$$R \leftarrow R \times \alpha_{\text{mood}} \quad \text{if } t.\text{moods} \cap \text{penalized}(s, \rho) \neq \emptyset$$
-$$R \leftarrow R \times \alpha_{\text{vocals}} \quad \text{if } \rho.\text{allowVocals} = \text{false} \text{ and } t.\text{hasVocals} = \text{true}$$
+Let $P = P_s \cup P_\rho$ be the union of the slot's and rubric's penalized moods (the latter being $\emptyset$ when no rubric is present).
+
+$$R \leftarrow R \times \alpha_{\text{mood}} \quad \text{if } M_t \cap P \neq \emptyset$$
+$$R \leftarrow R \times \alpha_{\text{vocals}} \quad \text{if } v_\rho^{\max} = 0 \ \text{ and } \ v_t = 1$$
 
 Score range: $R \in [0.0, 1.0]$, reducible to $[0.0, \alpha_{\text{mood}} \cdot \alpha_{\text{vocals}}]$ when both penalties apply.
 
@@ -230,7 +231,7 @@ When comparing candidates across games for a given slot during assembly (not dur
 
 $$R \leftarrow R - \delta_{\text{same}} \quad \text{if game} = \text{lastGame}$$
 
-$$R \leftarrow R + \max\!\left(0,\ \frac{b \cdot (i/n) - u}{b}\right) \times \gamma \quad \text{(diversity bonus)}$$
+$$R \leftarrow R + \max\left(0,\ \frac{b \cdot (i/n) - u}{b}\right) \times \gamma \quad \text{(diversity bonus)}$$
 
 $$R \leftarrow R + \text{Uniform}(0, \epsilon_{\text{jitter}}) \quad \text{(tie-breaking)}$$
 
@@ -256,40 +257,36 @@ _Using the default parameterization at time of writing._
 
 **Track:** "The Last of Us Main Theme" (hypothetical tags)
 
-```
-energy:          1
-roles:           [Closer, Ambient]
-moods:           [melancholic, nostalgic, peaceful]
-instrumentation: [acoustic, strings]
-hasVocals:       false
-viewCount:       2,000,000
-avgGameViews:    500,000
-```
+- Energy: $1$
+- Roles: $\{\text{Closer, Ambient}\}$
+- Moods: $\{\text{melancholic, nostalgic, peaceful}\}$
+- Instrumentation: $\{\text{acoustic, strings}\}$
+- Has vocals: no
+- View count: $2{,}000{,}000$
+- Game average views: $500{,}000$
 
-**Slot:** `outro` phase
+**Slot:** outro phase
 
-```
-energyPrefs:              [1]
-rolePrefs:                [Closer, Ambient, Menu]
-preferredMoods:           [melancholic, nostalgic, peaceful]
-penalizedMoods:           [chaotic, tense]
-preferredInstrumentation: [piano, acoustic, strings]
-```
+- Allowed energies: $\{1\}$
+- Preferred roles: $\{\text{Closer, Ambient, Menu}\}$
+- Preferred moods: $\{\text{melancholic, nostalgic, peaceful}\}$
+- Penalized moods: $\{\text{chaotic, tense}\}$
+- Preferred instrumentation: $\{\text{piano, acoustic, strings}\}$
 
-**Step 1 — Energy Gate:** Energy `1` ∈ `[1]`. Passes.
+**Step 1 — Energy Gate:** Energy $1 \in \{1\}$. Passes.
 
 **Step 2 — Role Score:**
-$\{Closer, Ambient\} \cap \{Closer, Ambient, Menu\} = \{Closer, Ambient\} \neq \emptyset$ → $S_{\text{role}} = 1.0$
+$\{\text{Closer, Ambient}\} \cap \{\text{Closer, Ambient, Menu}\} = \{\text{Closer, Ambient}\} \neq \emptyset$ → $S_{\text{role}} = 1.0$
 
 **Step 3 — Mood Score:**
 
-$$J(\{melancholic, nostalgic, peaceful\}, \{melancholic, nostalgic, peaceful\}) = \frac{3}{3} = 1.0$$
+$$J(\{\text{melancholic, nostalgic, peaceful}\}, \{\text{melancholic, nostalgic, peaceful}\}) = \frac{3}{3} = 1.0$$
 
 $S_{\text{mood}} = 1.0$
 
 **Step 4 — Instrumentation Score:**
 
-$$J(\{acoustic, strings\}, \{piano, acoustic, strings\}) = \frac{|\{acoustic, strings\}|}{|\{piano, acoustic, strings\}|} = \frac{2}{3} \approx 0.667$$
+$$J(\{\text{acoustic, strings}\}, \{\text{piano, acoustic, strings}\}) = \frac{|\{\text{acoustic, strings}\}|}{|\{\text{piano, acoustic, strings}\}|} = \frac{2}{3} \approx 0.667$$
 
 $S_{\text{inst}} \approx 0.667$
 
@@ -323,8 +320,8 @@ _Note: the assembly-time adjustments (same-game penalty, diversity bonus, jitter
 If no candidate passes the energy gate for a slot, the Director escalates through three fallback tiers:
 
 1. **Budget-relaxed pass** — the same energy-gated scoring runs across all games, ignoring budget ceilings. A game that has already hit its allocation can still fill a slot no one else can.
-2. **Arc-relaxed pass** — any unused track from any game is accepted regardless of energy or mood, solely to avoid a gap in the playlist.
-3. **Gap** — if the pool is genuinely exhausted, the slot is left empty and compacted out of the final result. The playlist is shorter than requested rather than padded with duplicates.
+2. **Arc-relaxed pass** — any unused track from any game is accepted regardless of energy or mood, solely to avoid a gap in the playlist. This tier is optional: when the arc is a structural guarantee rather than a preference (for example, a single-phase arc with a hard energy band), the assembly runs with this tier disabled and unfilled slots fall through to step 3 instead of accepting an arc-violating track.
+3. **Gap** — if the pool is genuinely exhausted, or the arc-relaxed pass was disabled and no arc-respecting candidate remained, the slot is left empty and compacted out of the final result. The playlist is shorter than requested rather than padded with duplicates or arc-violating tracks.
 
 ### Single-Game Libraries
 
@@ -342,12 +339,12 @@ The Director embodies a specific thesis: **subjective listening experience can b
 
 The weights encode a deliberate priority hierarchy: _what a track is for_ (role) matters more than _how it feels_ (mood), which matters more than _how it sounds_ (instrumentation). A combat track in a combat slot feels right even if its mood is wrong. A peaceful track in a climax slot feels wrong even if its instrumentation is perfect.
 
-With view bias active, popularity sits at the same level as role — significant enough to consistently surface iconic tracks, but role and mood together still dominate. A well-matched obscure track will often beat a massively popular but misfit one.
+View bias sits at the same weight as role — significant enough to consistently surface iconic tracks, but role and mood together still dominate. A well-matched obscure track will often beat a massively popular but misfit one.
 
 ---
 
-## Performance
+## Complexity
 
-The scoring pipeline operates in $O(T \cdot S)$ time, where $T$ is the total number of candidate tracks across all active games and $S$ is the number of arc slots (equal to the requested playlist length). Each per-track scoring call is $O(1)$: Jaccard operates on small, fixed-size tag sets (moods and instrumentation each cap at a bounded number of values), making intersection and union computations constant-time in practice.
+The scoring procedure runs in $O(T \cdot S)$ time, where $T$ is the total number of candidate tracks across all active games and $S$ is the number of arc slots (equal to the requested playlist length). Each per-track scoring step is $O(1)$: Jaccard operates on small, bounded-size tag sets (moods and instrumentation each cap at a fixed number of values), making intersection and union computations constant-time in practice.
 
-On a typical library of several thousand tagged tracks generating a 50-track playlist, the full assembly completes in under 50ms on commodity hardware. The dominant cost in the pipeline is the LLM tagging phase — the Director itself is never the bottleneck.
+Because both $T$ and $S$ are modest in realistic inputs (tracks in the low thousands, slots in the tens), the full assembly is effectively instantaneous on commodity hardware. All tags and view counts are assumed pre-computed; the algorithm performs no I/O, no probabilistic calls, and no scoring against external sources.

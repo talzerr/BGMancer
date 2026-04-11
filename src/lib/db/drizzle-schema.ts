@@ -116,6 +116,7 @@ export const playlists = sqliteTable(
     name: text("name").notNull(),
     description: text("description"),
     is_archived: integer("is_archived", { mode: "boolean" }).notNull().default(false),
+    playlist_mode: text("playlist_mode").notNull().default("journey"),
     rubric: text("rubric"),
     game_budgets: text("game_budgets"),
     created_at: text("created_at").notNull().default(timestampDefault),
@@ -178,7 +179,6 @@ export const playlistTrackDecisions = sqliteTable(
     game_budget: integer("game_budget").notNull().default(0),
     game_budget_used: integer("game_budget_used").notNull().default(0),
     selection_pass: text("selection_pass").notNull().default("scored"),
-    view_bias_active: integer("view_bias_active", { mode: "boolean" }).notNull().default(false),
   },
   (table) => [primaryKey({ columns: [table.playlist_id, table.position] })],
 );

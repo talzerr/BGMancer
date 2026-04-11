@@ -5,12 +5,21 @@ const log = createLogger("sessions");
 import { eq, desc, asc, and, count } from "drizzle-orm";
 import { playlists, playlistTracks } from "@/lib/db/drizzle-schema";
 import type { PlaylistSession, VibeRubric } from "@/types";
+import { PlaylistMode } from "@/types";
 import { newId } from "@/lib/uuid";
 import { MAX_PLAYLIST_SESSIONS } from "@/lib/constants";
 
 export interface SessionWithTelemetry extends PlaylistSession {
   rubric: VibeRubric | null;
   gameBudgets: Record<string, number> | null;
+}
+
+const VALID_PLAYLIST_MODES = new Set<string>(Object.values(PlaylistMode));
+
+/** Validates the raw `playlist_mode` text against the enum. Garbage values
+ *  fall back to Journey so a stray write can never crash the UI. */
+function parsePlaylistMode(raw: string): PlaylistMode {
+  return VALID_PLAYLIST_MODES.has(raw) ? (raw as PlaylistMode) : PlaylistMode.Journey;
 }
 
 function rowToSession(row: typeof playlists.$inferSelect): PlaylistSession {
@@ -20,13 +29,19 @@ function rowToSession(row: typeof playlists.$inferSelect): PlaylistSession {
     name: row.name,
     description: row.description,
     is_archived: row.is_archived,
+    playlist_mode: parsePlaylistMode(row.playlist_mode),
     created_at: row.created_at,
   };
 }
 
 export const Sessions = {
   /** Creates a new session, enforcing a MAX_PLAYLIST_SESSIONS-per-user FIFO limit. */
-  async create(userId: string, name: string, description?: string): Promise<PlaylistSession> {
+  async create(
+    userId: string,
+    name: string,
+    playlistMode: PlaylistMode,
+    description?: string,
+  ): Promise<PlaylistSession> {
     const db = getDB();
 
     const { cnt } = (await db
@@ -49,7 +64,13 @@ export const Sessions = {
     const id = newId();
     await db
       .insert(playlists)
-      .values({ id, user_id: userId, name, description: description ?? null })
+      .values({
+        id,
+        user_id: userId,
+        name,
+        playlist_mode: playlistMode,
+        description: description ?? null,
+      })
       .run();
 
     return rowToSession((await db.select().from(playlists).where(eq(playlists.id, id)).get())!);
@@ -83,6 +104,7 @@ export const Sessions = {
         name: playlists.name,
         description: playlists.description,
         is_archived: playlists.is_archived,
+        playlist_mode: playlists.playlist_mode,
         rubric: playlists.rubric,
         game_budgets: playlists.game_budgets,
         created_at: playlists.created_at,
@@ -101,6 +123,7 @@ export const Sessions = {
       name: r.name,
       description: r.description,
       is_archived: r.is_archived,
+      playlist_mode: parsePlaylistMode(r.playlist_mode),
       created_at: r.created_at,
       track_count: r.track_count,
     }));
@@ -158,6 +181,7 @@ export const Sessions = {
         name: playlists.name,
         description: playlists.description,
         is_archived: playlists.is_archived,
+        playlist_mode: playlists.playlist_mode,
         rubric: playlists.rubric,
         game_budgets: playlists.game_budgets,
         created_at: playlists.created_at,
@@ -176,6 +200,7 @@ export const Sessions = {
       name: r.name,
       description: r.description,
       is_archived: r.is_archived,
+      playlist_mode: parsePlaylistMode(r.playlist_mode),
       created_at: r.created_at,
       track_count: r.track_count,
     }));

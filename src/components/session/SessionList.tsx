@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { PlaylistMode } from "@/types";
 import type { PlaylistSessionWithCount } from "@/types";
 import { MAX_PLAYLIST_SESSIONS } from "@/lib/constants";
+import { PLAYLIST_MODE_LABELS } from "@/lib/playlist-mode";
 
 interface SessionListProps {
   sessions: PlaylistSessionWithCount[];
@@ -109,6 +111,12 @@ export function SessionList({ sessions, selectedId, onSelect, onDelete }: Sessio
                   {session.track_count} track{session.track_count !== 1 ? "s" : ""}
                   <span className="mx-1 text-[var(--text-disabled)]">·</span>
                   {formatRelativeDate(session.created_at)}
+                  {session.playlist_mode !== PlaylistMode.Journey && (
+                    <>
+                      <span className="mx-1 text-[var(--text-disabled)]">·</span>
+                      {PLAYLIST_MODE_LABELS[session.playlist_mode].name}
+                    </>
+                  )}
                 </p>
               </div>
 

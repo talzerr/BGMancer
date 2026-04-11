@@ -1,14 +1,17 @@
-import type { PlaylistTrack, TrackDecision, VibeRubric, PlaylistSession } from "@/types";
+import type {
+  PlaylistMode,
+  PlaylistTrack,
+  TrackDecision,
+  VibeRubric,
+  PlaylistSession,
+} from "@/types";
 import { ArcPhase, SelectionPass } from "@/types";
 import {
   SCORE_WEIGHT_ROLE,
   SCORE_WEIGHT_MOOD,
   SCORE_WEIGHT_INSTRUMENT,
-  SCORE_WEIGHT_ROLE_VIEW_BIAS,
-  SCORE_WEIGHT_MOOD_VIEW_BIAS,
   SCORE_WEIGHT_VIEW_BIAS,
-  SCORE_WEIGHT_INSTRUMENT_VIEW_BIAS,
-} from "@/lib/pipeline/generation/director-constants";
+} from "@/lib/pipeline/generation/director/constants";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -17,7 +20,7 @@ export interface SessionSummary extends PlaylistSession {
 }
 
 export interface PlaylistTelemetry {
-  session: { id: string; name: string; created_at: string };
+  session: { id: string; name: string; playlist_mode: PlaylistMode; created_at: string };
   tracks: PlaylistTrack[];
   decisions: TrackDecision[];
   gameBudgets: Record<string, number> | null;
@@ -33,6 +36,7 @@ export const PHASE_COLORS: Record<string, string> = {
   [ArcPhase.Valley]: "bg-emerald-900/40 border-emerald-700/30",
   [ArcPhase.Climax]: "bg-rose-900/40 border-rose-700/30",
   [ArcPhase.Outro]: "bg-primary/10 border-primary/30",
+  [ArcPhase.Steady]: "bg-zinc-800/40 border-zinc-700/30",
 };
 
 export const PHASE_TEXT: Record<string, string> = {
@@ -42,6 +46,7 @@ export const PHASE_TEXT: Record<string, string> = {
   [ArcPhase.Valley]: "text-emerald-400",
   [ArcPhase.Climax]: "text-rose-400",
   [ArcPhase.Outro]: "text-primary",
+  [ArcPhase.Steady]: "text-zinc-300",
 };
 
 export const PASS_STYLES: Record<string, { label: string; cls: string }> = {
@@ -83,27 +88,25 @@ interface ScoringWeightRow {
   method: string;
 }
 
-const w = (a: number, b: number) => `${a.toFixed(2)} / ${b.toFixed(2)}`;
-
 export const SCORING_WEIGHTS: ScoringWeightRow[] = [
   {
     dimension: "Role",
-    weight: w(SCORE_WEIGHT_ROLE, SCORE_WEIGHT_ROLE_VIEW_BIAS),
+    weight: SCORE_WEIGHT_ROLE.toFixed(2),
     method: "Binary -- 1.0 if role matches slot, 0.0 otherwise",
   },
   {
     dimension: "Mood",
-    weight: w(SCORE_WEIGHT_MOOD, SCORE_WEIGHT_MOOD_VIEW_BIAS),
+    weight: SCORE_WEIGHT_MOOD.toFixed(2),
     method: "Jaccard similarity on mood intersection",
   },
   {
     dimension: "Instrumentation",
-    weight: w(SCORE_WEIGHT_INSTRUMENT, SCORE_WEIGHT_INSTRUMENT_VIEW_BIAS),
+    weight: SCORE_WEIGHT_INSTRUMENT.toFixed(2),
     method: "Jaccard similarity on instrumentation intersection",
   },
   {
     dimension: "View Bias",
-    weight: `— / ${SCORE_WEIGHT_VIEW_BIAS.toFixed(2)}`,
+    weight: SCORE_WEIGHT_VIEW_BIAS.toFixed(2),
     method: "YouTube view count popularity (global heat + local stature)",
   },
 ];

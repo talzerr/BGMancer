@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { MAX_TRACK_COUNT } from "@/lib/constants";
+import { ToggleRow } from "./ToggleRow";
 
 const PRESETS = [25, 50, 100] as const;
 
@@ -12,8 +13,6 @@ interface GenerateControlsProps {
   onToggleLongTracks: (enabled: boolean) => void;
   allowShortTracks: boolean;
   onToggleShortTracks: (enabled: boolean) => void;
-  rawVibes: boolean;
-  onToggleRawVibes: (enabled: boolean) => void;
 }
 
 export function GenerateControls({
@@ -23,8 +22,6 @@ export function GenerateControls({
   onToggleLongTracks,
   allowShortTracks,
   onToggleShortTracks,
-  rawVibes,
-  onToggleRawVibes,
 }: GenerateControlsProps) {
   const isPresetValue = (PRESETS as readonly number[]).includes(targetTrackCount);
   // Custom is active when the user has explicitly opened it OR when the
@@ -95,50 +92,8 @@ export function GenerateControls({
           on={allowShortTracks}
           onToggle={() => onToggleShortTracks(!allowShortTracks)}
         />
-        <ToggleRow
-          label="Raw vibes"
-          description="Ignore popularity, score on tags only"
-          on={rawVibes}
-          onToggle={() => onToggleRawVibes(!rawVibes)}
-        />
       </div>
     </div>
-  );
-}
-
-// Local to this file: the launchpad has its own ToggleRow with a dimmer
-// "on/off" treatment. Sharing them would force one to compromise.
-function ToggleRow({
-  label,
-  description,
-  on,
-  onToggle,
-}: {
-  label: string;
-  description: string;
-  on: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className="flex w-full cursor-pointer flex-col gap-0.5 text-left"
-    >
-      <div className="flex w-full items-center justify-between gap-3">
-        <span
-          className={`text-[13px] ${
-            on ? "text-[var(--text-secondary)]" : "text-[var(--text-disabled)]"
-          }`}
-        >
-          {label}
-        </span>
-        <span className={`text-[11px] ${on ? "text-primary" : "text-[var(--text-disabled)]"}`}>
-          {on ? "on" : "off"}
-        </span>
-      </div>
-      <span className="text-[11px] text-white/[0.15]">{description}</span>
-    </button>
   );
 }
 

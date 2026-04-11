@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PLAYLIST_MODE_LABELS } from "@/lib/playlist-mode";
 import type { SessionSummary, PlaylistTelemetry } from "./theatre-constants";
 import { PlaylistInspector } from "./_components/PlaylistInspector";
 import { DirectorReference } from "./_components/DirectorReference";
@@ -97,7 +98,12 @@ export function TheatreClient() {
                 className="hover:bg-secondary/50 flex w-full items-center justify-between rounded px-2 py-1.5 text-left transition-colors"
               >
                 <div className="min-w-0">
-                  <span className="text-foreground block truncate text-xs">{s.name}</span>
+                  <span className="text-foreground flex items-center gap-2 truncate text-xs">
+                    {s.name}
+                    <span className="text-[10px] text-[var(--text-tertiary)]">
+                      [{PLAYLIST_MODE_LABELS[s.playlist_mode].name}]
+                    </span>
+                  </span>
                   <span className="font-mono text-[10px] text-[var(--text-disabled)]">
                     {s.id.slice(0, 8)}
                   </span>

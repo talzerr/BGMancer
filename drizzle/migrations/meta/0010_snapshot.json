@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "8eed443a-517c-4566-9050-951f59d46d91",
-  "prevId": "94f25273-3db5-4c41-b881-8b996b70d735",
+  "id": "a71117e8-a0d4-403b-9336-9ae52cc97c47",
+  "prevId": "0021b07f-22b4-4a48-a6fc-4c2a1ad88e5f",
   "tables": {
     "game_requests": {
       "name": "game_requests",
@@ -494,14 +494,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'scored'"
-        },
-        "view_bias_active": {
-          "name": "view_bias_active",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
         }
       },
       "indexes": {},
@@ -694,6 +686,14 @@
           "notNull": true,
           "autoincrement": false,
           "default": false
+        },
+        "playlist_mode": {
+          "name": "playlist_mode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'journey'"
         },
         "rubric": {
           "name": "rubric",

@@ -7,15 +7,22 @@ import {
   type SessionNamingGame,
 } from "@/lib/prompts/session-naming";
 import type { LLMProvider } from "@/lib/llm/provider";
-import type { Game } from "@/types";
+import type { Game, PlaylistMode } from "@/types";
 
 const log = createLogger("session-naming");
 
+export interface SessionNameOptions {
+  playlistMode: PlaylistMode;
+  provider?: LLMProvider;
+}
+
 export async function generateSessionName(
   games: Game[],
-  provider: LLMProvider = getSessionNamingProvider(),
+  options: SessionNameOptions,
 ): Promise<string | null> {
   if (games.length === 0) return null;
+
+  const provider = options.provider ?? getSessionNamingProvider();
 
   const input: SessionNamingGame[] = games.map((g) => ({
     title: g.title,
@@ -25,7 +32,7 @@ export async function generateSessionName(
   try {
     const raw = await provider.complete(
       SESSION_NAMING_SYSTEM_PROMPT,
-      buildSessionNamingUserPrompt(input),
+      buildSessionNamingUserPrompt(input, options.playlistMode),
       {
         temperature: 0.9,
         maxTokens: 32,

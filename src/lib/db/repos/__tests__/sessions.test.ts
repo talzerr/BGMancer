@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type Database from "better-sqlite3";
 import { createTestDrizzleDB, seedTestUser, seedTestSession } from "../../test-helpers";
 import { TEST_USER_ID } from "@/test/constants";
-import { ArcPhase, TrackInstrumentation, TrackMood, TrackRole } from "@/types";
+import { ArcPhase, PlaylistMode, TrackInstrumentation, TrackMood, TrackRole } from "@/types";
 import type { DrizzleDB } from "@/lib/db";
 
 let db: DrizzleDB;
@@ -32,30 +32,41 @@ describe("Sessions", () => {
   describe("create", () => {
     describe("when creating a new session", () => {
       it("should return a PlaylistSession with the given name", async () => {
-        const session = await Sessions.create(TEST_USER_ID, "My Session");
+        const session = await Sessions.create(TEST_USER_ID, "My Session", PlaylistMode.Journey);
         expect(session.name).toBe("My Session");
         expect(session.user_id).toBe(TEST_USER_ID);
         expect(session.is_archived).toBe(false);
+        expect(session.playlist_mode).toBe(PlaylistMode.Journey);
         expect(session.id).toBeTruthy();
       });
 
       it("should store the description when provided", async () => {
-        const session = await Sessions.create(TEST_USER_ID, "S1", "A description");
+        const session = await Sessions.create(
+          TEST_USER_ID,
+          "S1",
+          PlaylistMode.Journey,
+          "A description",
+        );
         expect(session.description).toBe("A description");
       });
 
       it("should set description to null when not provided", async () => {
-        const session = await Sessions.create(TEST_USER_ID, "S1");
+        const session = await Sessions.create(TEST_USER_ID, "S1", PlaylistMode.Journey);
         expect(session.description).toBeNull();
+      });
+
+      it("should persist the provided playlist mode", async () => {
+        const session = await Sessions.create(TEST_USER_ID, "Chill Run", PlaylistMode.Chill);
+        expect(session.playlist_mode).toBe(PlaylistMode.Chill);
       });
     });
 
     describe("when FIFO limit is reached", () => {
       it("should evict the oldest session when creating a 4th", async () => {
-        const s1 = await Sessions.create(TEST_USER_ID, "Session 1");
-        await Sessions.create(TEST_USER_ID, "Session 2");
-        await Sessions.create(TEST_USER_ID, "Session 3");
-        await Sessions.create(TEST_USER_ID, "Session 4");
+        const s1 = await Sessions.create(TEST_USER_ID, "Session 1", PlaylistMode.Journey);
+        await Sessions.create(TEST_USER_ID, "Session 2", PlaylistMode.Journey);
+        await Sessions.create(TEST_USER_ID, "Session 3", PlaylistMode.Journey);
+        await Sessions.create(TEST_USER_ID, "Session 4", PlaylistMode.Journey);
 
         const remaining = rawDb
           .prepare("SELECT id FROM playlists WHERE user_id = ? ORDER BY created_at ASC")
@@ -66,12 +77,12 @@ describe("Sessions", () => {
 
       it("should not evict sessions belonging to other users", async () => {
         seedTestUser(rawDb, "other-user");
-        const otherSession = await Sessions.create("other-user", "Other");
+        const otherSession = await Sessions.create("other-user", "Other", PlaylistMode.Journey);
 
-        await Sessions.create(TEST_USER_ID, "S1");
-        await Sessions.create(TEST_USER_ID, "S2");
-        await Sessions.create(TEST_USER_ID, "S3");
-        await Sessions.create(TEST_USER_ID, "S4");
+        await Sessions.create(TEST_USER_ID, "S1", PlaylistMode.Journey);
+        await Sessions.create(TEST_USER_ID, "S2", PlaylistMode.Journey);
+        await Sessions.create(TEST_USER_ID, "S3", PlaylistMode.Journey);
+        await Sessions.create(TEST_USER_ID, "S4", PlaylistMode.Journey);
 
         const otherStillExists = await Sessions.getById(otherSession.id);
         expect(otherStillExists).not.toBeNull();
@@ -120,10 +131,21 @@ describe("Sessions", () => {
   describe("getById", () => {
     describe("when session exists", () => {
       it("should return the session", async () => {
-        const created = await Sessions.create(TEST_USER_ID, "Test");
+        const created = await Sessions.create(TEST_USER_ID, "Test", PlaylistMode.Journey);
         const found = await Sessions.getById(created.id);
         expect(found).not.toBeNull();
         expect(found!.name).toBe("Test");
+      });
+
+      it("should sanitize an unknown playlist_mode column value to Journey", async () => {
+        const created = await Sessions.create(TEST_USER_ID, "Test", PlaylistMode.Chill);
+        // Simulate corruption / forwards-incompat: write a value the enum doesn't know.
+        rawDb
+          .prepare("UPDATE playlists SET playlist_mode = ? WHERE id = ?")
+          .run("bogus", created.id);
+
+        const found = await Sessions.getById(created.id);
+        expect(found!.playlist_mode).toBe(PlaylistMode.Journey);
       });
     });
 
@@ -137,7 +159,7 @@ describe("Sessions", () => {
   describe("listAllWithCounts", () => {
     describe("when sessions have tracks", () => {
       it("should include track_count for each session", async () => {
-        const session = await Sessions.create(TEST_USER_ID, "With tracks");
+        const session = await Sessions.create(TEST_USER_ID, "With tracks", PlaylistMode.Journey);
 
         // Insert some playlist tracks directly
         const gameId = "game-1";
@@ -156,8 +178,8 @@ describe("Sessions", () => {
       });
 
       it("should return newest first", async () => {
-        await Sessions.create(TEST_USER_ID, "First");
-        await Sessions.create(TEST_USER_ID, "Second");
+        await Sessions.create(TEST_USER_ID, "First", PlaylistMode.Journey);
+        await Sessions.create(TEST_USER_ID, "Second", PlaylistMode.Journey);
 
         const list = await Sessions.listAllWithCounts(TEST_USER_ID);
         expect(list[0].name).toBe("Second");
@@ -174,7 +196,7 @@ describe("Sessions", () => {
 
     describe("when sessions have no tracks", () => {
       it("should return track_count of 0", async () => {
-        await Sessions.create(TEST_USER_ID, "Empty");
+        await Sessions.create(TEST_USER_ID, "Empty", PlaylistMode.Journey);
         const list = await Sessions.listAllWithCounts(TEST_USER_ID);
         expect(list[0].track_count).toBe(0);
       });
@@ -184,7 +206,7 @@ describe("Sessions", () => {
   describe("rename", () => {
     describe("when renaming a session", () => {
       it("should update the session name", async () => {
-        const session = await Sessions.create(TEST_USER_ID, "Original");
+        const session = await Sessions.create(TEST_USER_ID, "Original", PlaylistMode.Journey);
         await Sessions.rename(session.id, "Renamed");
 
         const updated = await Sessions.getById(session.id);
@@ -196,7 +218,7 @@ describe("Sessions", () => {
   describe("updateTelemetry + getByIdWithTelemetry", () => {
     describe("when storing rubric and game budgets", () => {
       it("should roundtrip JSON data correctly", async () => {
-        const session = await Sessions.create(TEST_USER_ID, "Telemetry");
+        const session = await Sessions.create(TEST_USER_ID, "Telemetry", PlaylistMode.Journey);
         const rubric = {
           phases: {
             [ArcPhase.Rising]: {
@@ -221,7 +243,11 @@ describe("Sessions", () => {
 
     describe("when rubric and gameBudgets are undefined", () => {
       it("should store null for both fields", async () => {
-        const session = await Sessions.create(TEST_USER_ID, "Undefined telemetry");
+        const session = await Sessions.create(
+          TEST_USER_ID,
+          "Undefined telemetry",
+          PlaylistMode.Journey,
+        );
         await Sessions.updateTelemetry(session.id);
 
         const result = await Sessions.getByIdWithTelemetry(session.id);
@@ -233,7 +259,7 @@ describe("Sessions", () => {
 
     describe("when telemetry is not set", () => {
       it("should return null for rubric and gameBudgets", async () => {
-        const session = await Sessions.create(TEST_USER_ID, "No telemetry");
+        const session = await Sessions.create(TEST_USER_ID, "No telemetry", PlaylistMode.Journey);
         const result = await Sessions.getByIdWithTelemetry(session.id);
 
         expect(result!.rubric).toBeNull();
@@ -243,7 +269,7 @@ describe("Sessions", () => {
 
     describe("when JSON is malformed in the database", () => {
       it("should return null for the malformed field", async () => {
-        const session = await Sessions.create(TEST_USER_ID, "Bad JSON");
+        const session = await Sessions.create(TEST_USER_ID, "Bad JSON", PlaylistMode.Journey);
         rawDb
           .prepare("UPDATE playlists SET rubric = ?, game_budgets = ? WHERE id = ?")
           .run("{not valid json", '{"a":1}', session.id);
@@ -254,7 +280,7 @@ describe("Sessions", () => {
       });
 
       it("should return null for gameBudgets when game_budgets JSON is malformed", async () => {
-        const session = await Sessions.create(TEST_USER_ID, "Bad Budgets");
+        const session = await Sessions.create(TEST_USER_ID, "Bad Budgets", PlaylistMode.Journey);
         rawDb
           .prepare("UPDATE playlists SET rubric = ?, game_budgets = ? WHERE id = ?")
           .run('{"targetEnergy":[2]}', "not valid json!!!", session.id);
@@ -292,9 +318,9 @@ describe("Sessions", () => {
       });
 
       it("should respect the limit parameter", async () => {
-        await Sessions.create(TEST_USER_ID, "A");
-        await Sessions.create(TEST_USER_ID, "B");
-        await Sessions.create(TEST_USER_ID, "C");
+        await Sessions.create(TEST_USER_ID, "A", PlaylistMode.Journey);
+        await Sessions.create(TEST_USER_ID, "B", PlaylistMode.Journey);
+        await Sessions.create(TEST_USER_ID, "C", PlaylistMode.Journey);
 
         const recent = await Sessions.listRecent(2);
         expect(recent).toHaveLength(2);
@@ -305,14 +331,14 @@ describe("Sessions", () => {
   describe("delete", () => {
     describe("when deleting a session", () => {
       it("should remove the session", async () => {
-        const session = await Sessions.create(TEST_USER_ID, "Doomed");
+        const session = await Sessions.create(TEST_USER_ID, "Doomed", PlaylistMode.Journey);
         await Sessions.delete(session.id);
 
         expect(await Sessions.getById(session.id)).toBeNull();
       });
 
       it("should cascade-delete playlist tracks", async () => {
-        const session = await Sessions.create(TEST_USER_ID, "With tracks");
+        const session = await Sessions.create(TEST_USER_ID, "With tracks", PlaylistMode.Journey);
         const gameId = "game-cascade";
         rawDb.prepare("INSERT INTO games (id, title) VALUES (?, ?)").run(gameId, "Cascade Game");
         rawDb

@@ -4,6 +4,7 @@ import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import path from "path";
 import * as schema from "./drizzle-schema";
 import { TEST_USER_ID, TEST_USER_EMAIL, TEST_USER_NAME, TEST_SESSION_NAME } from "@/test/constants";
+import { PlaylistMode } from "@/types";
 import type { DrizzleDB } from ".";
 
 function addBatchSupport(
@@ -124,18 +125,16 @@ export function seedTestTracks(
 export function seedTestSession(
   db: Database.Database,
   userId: string,
-  overrides: { id?: string; name?: string; isArchived?: boolean } = {},
+  overrides: { id?: string; name?: string; isArchived?: boolean; playlistMode?: PlaylistMode } = {},
 ): string {
   const id = overrides.id ?? `session-${Math.random().toString(36).slice(2, 8)}`;
   const name = overrides.name ?? TEST_SESSION_NAME;
   const isArchived = overrides.isArchived ?? false;
+  const playlistMode = overrides.playlistMode ?? PlaylistMode.Journey;
 
-  db.prepare("INSERT INTO playlists (id, user_id, name, is_archived) VALUES (?, ?, ?, ?)").run(
-    id,
-    userId,
-    name,
-    isArchived ? 1 : 0,
-  );
+  db.prepare(
+    "INSERT INTO playlists (id, user_id, name, is_archived, playlist_mode) VALUES (?, ?, ?, ?, ?)",
+  ).run(id, userId, name, isArchived ? 1 : 0, playlistMode);
 
   return id;
 }

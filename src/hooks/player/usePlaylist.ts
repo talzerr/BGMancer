@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import type { Game, PlaylistTrack } from "@/types";
+import type { Game, PlaylistMode, PlaylistTrack } from "@/types";
 import { GENERATION_COOLDOWN_MS } from "@/lib/constants";
 import { clearPlaybackState } from "@/hooks/player/playback-state";
 
@@ -10,10 +10,21 @@ export interface GenerateConfig {
   allow_long_tracks: boolean;
   allow_short_tracks: boolean;
   anti_spoiler_enabled: boolean;
-  raw_vibes: boolean;
+  playlist_mode: PlaylistMode;
   turnstileToken?: string;
   gameSelections?: { gameId: string; curation?: string }[];
 }
+
+export interface GenerateResult {
+  /** True only when the SSE stream produced a `done` event. */
+  completed: boolean;
+  /** Server-assigned session id (or `GUEST_SESSION_ID` for guests). */
+  sessionId: string | null;
+  /** Number of tracks in the resulting playlist. */
+  count: number;
+}
+
+const NOT_COMPLETED: GenerateResult = { completed: false, sessionId: null, count: 0 };
 
 export interface UsePlaylistInit {
   initialTracks?: PlaylistTrack[];
@@ -144,11 +155,11 @@ export function usePlaylist(init: UsePlaylistInit = {}) {
     });
   }
 
-  async function handleGenerate(games: Game[], config?: GenerateConfig) {
-    if (games.length === 0) return;
+  async function handleGenerate(games: Game[], config?: GenerateConfig): Promise<GenerateResult> {
+    if (games.length === 0) return NOT_COMPLETED;
 
     // Client-side cooldown guard: skip the fetch entirely and let the UI countdown handle it.
-    if (Date.now() < cooldownUntil) return;
+    if (Date.now() < cooldownUntil) return NOT_COMPLETED;
 
     setGenError(null);
 
@@ -157,6 +168,7 @@ export function usePlaylist(init: UsePlaylistInit = {}) {
     // This prevents a visual jitter when the server rejects immediately (concurrent
     // generation, server-side cooldown from another client, etc.).
     let started = false;
+    let result: GenerateResult = NOT_COMPLETED;
 
     try {
       const response = await fetch("/api/playlist/generate", {
@@ -193,7 +205,7 @@ export function usePlaylist(init: UsePlaylistInit = {}) {
               } else {
                 setGenError(event.message ?? "Generation failed");
               }
-              return;
+              return NOT_COMPLETED;
             }
 
             // First non-error event — generation is real; enter generating state now.
@@ -203,9 +215,16 @@ export function usePlaylist(init: UsePlaylistInit = {}) {
             }
 
             if (event.type === "done") {
-              setTracks(event.tracks ?? []);
+              const doneTracks: PlaylistTrack[] = event.tracks ?? [];
+              const doneSessionId: string | null = event.sessionId ?? null;
+              setTracks(doneTracks);
               setIsLoading(false);
-              if (event.sessionId) setCurrentSessionId(event.sessionId);
+              if (doneSessionId) setCurrentSessionId(doneSessionId);
+              result = {
+                completed: true,
+                sessionId: doneSessionId,
+                count: doneTracks.length,
+              };
             }
           } catch {
             // skip malformed SSE line
@@ -220,6 +239,8 @@ export function usePlaylist(init: UsePlaylistInit = {}) {
         setGenerating(false);
       }
     }
+
+    return result;
   }
 
   async function handleClearPlaylist() {

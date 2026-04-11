@@ -23,7 +23,7 @@ import { usePlayerContext } from "@/context/player-context";
 import { useSessionManager } from "@/hooks/library/useSessionManager";
 import { useTrackDeleteUndo } from "@/hooks/player/useTrackDeleteUndo";
 import { useTurnstileToken } from "@/hooks/shared/useTurnstileToken";
-import { GenerateSection } from "@/components/GenerateSection";
+import { GenerateSection } from "@/components/generate/GenerateSection";
 import { SessionList } from "@/components/session/SessionList";
 import { LibraryWidget } from "@/components/library/LibraryWidget";
 import { PlaylistHeader } from "@/components/session/PlaylistHeader";
@@ -36,6 +36,11 @@ import { LogoLink } from "@/components/layout/LogoLink";
 import { FooterLinks } from "@/components/layout/FooterLinks";
 import { GoogleLogo } from "@/components/Icons";
 import { useGameAccentColors } from "@/hooks/player/useGameAccentColors";
+import {
+  buildShortPlaylistMessage,
+  formatShortPlaylistText,
+  type ShortPlaylistMessage,
+} from "@/lib/playlist-mode";
 
 const LAUNCHPAD_FADE_MS = 700;
 const LAUNCHPAD_SWAP_DELAY_MS = 800; // fade-out duration + brief held-at-zero pause
@@ -62,6 +67,9 @@ export function FeedClient({
   const { pendingDelete, initiateRemove, undoRemove } = useTrackDeleteUndo();
 
   const [pressedCurate, setPressedCurate] = useState(false);
+  const [shortPlaylistMessage, setShortPlaylistMessage] = useState<ShortPlaylistMessage | null>(
+    null,
+  );
   const [mode, setMode] = useState<"launchpad" | "playlist">(() =>
     playlist.tracks.length > 0 ? "playlist" : "launchpad",
   );
@@ -97,6 +105,30 @@ export function FeedClient({
     }
     wasGeneratingRef.current = playlist.generating;
   }, [playlist.generating]);
+
+  // Navigating away from the message's session retires it permanently —
+  // the message is per-generation, not per-session, so re-visiting the row
+  // should not bring it back.
+  useEffect(() => {
+    if (
+      shortPlaylistMessage &&
+      shortPlaylistMessage.sessionId !== null &&
+      playlist.currentSessionId !== null &&
+      shortPlaylistMessage.sessionId !== playlist.currentSessionId
+    ) {
+      setShortPlaylistMessage(null);
+    }
+  }, [playlist.currentSessionId, shortPlaylistMessage]);
+
+  // Any setting change invalidates the previous generation's result.
+  useEffect(() => {
+    setShortPlaylistMessage(null);
+  }, [
+    config.targetTrackCount,
+    config.allowLongTracks,
+    config.allowShortTracks,
+    config.playlistMode,
+  ]);
 
   useEffect(() => {
     const nextSessionId = playlist.currentSessionId;
@@ -170,19 +202,28 @@ export function FeedClient({
 
   async function handleGenerate() {
     const turnstileToken = !isSignedIn ? await getTurnstileToken() : undefined;
+    const requestedCount = config.targetTrackCount;
+    const requestedMode = config.playlistMode;
+    setShortPlaylistMessage(null);
 
-    await playlist.handleGenerate(gameLibrary.games, {
-      target_track_count: config.targetTrackCount,
+    const result = await playlist.handleGenerate(gameLibrary.games, {
+      target_track_count: requestedCount,
       allow_long_tracks: config.allowLongTracks,
       allow_short_tracks: config.allowShortTracks,
       anti_spoiler_enabled: config.antiSpoilerEnabled,
-      raw_vibes: config.rawVibes,
+      playlist_mode: requestedMode,
       turnstileToken,
       gameSelections: !isSignedIn
         ? gameLibrary.games.map((g) => ({ gameId: g.id, curation: g.curation }))
         : undefined,
     });
     await fetchSessions();
+
+    if (result.completed) {
+      setShortPlaylistMessage(
+        buildShortPlaylistMessage(result.count, requestedCount, requestedMode, result.sessionId),
+      );
+    }
   }
 
   async function handleLaunchpadCurate() {
@@ -291,8 +332,8 @@ export function FeedClient({
         onToggleLongTracks={config.saveAllowLongTracks}
         allowShortTracks={config.allowShortTracks}
         onToggleShortTracks={config.saveAllowShortTracks}
-        rawVibes={config.rawVibes}
-        onToggleRawVibes={config.saveRawVibes}
+        playlistMode={config.playlistMode}
+        onPlaylistModeChange={config.savePlaylistMode}
       />
     </>
   );
@@ -329,6 +370,13 @@ export function FeedClient({
           isDev={isDev}
           onRename={handleRenameSession}
           onDeleteSession={handleDeleteSession}
+          shortPlaylistNotice={
+            shortPlaylistMessage &&
+            shortPlaylistMessage.tier !== "empty" &&
+            shortPlaylistMessage.sessionId === displayedSnapshot.sessionId
+              ? { text: formatShortPlaylistText(shortPlaylistMessage) }
+              : null
+          }
         />
         <DndContext
           id="playlist-dnd"
@@ -410,6 +458,11 @@ export function FeedClient({
               pressedCurate={pressedCurate}
               onCurateClick={handleLaunchpadCurate}
               previewCovers={previewCovers}
+              emptyModeMessage={
+                shortPlaylistMessage?.tier === "empty"
+                  ? formatShortPlaylistText(shortPlaylistMessage)
+                  : null
+              }
             />
           </>
         ) : (

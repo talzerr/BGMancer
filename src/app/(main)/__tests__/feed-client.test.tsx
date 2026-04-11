@@ -53,13 +53,13 @@ const mockPlayerContext = {
     antiSpoilerEnabled: false,
     allowLongTracks: false,
     allowShortTracks: true,
-    rawVibes: false,
+    playlistMode: "journey",
     setTargetTrackCount: vi.fn(),
     saveTrackCount: vi.fn(),
     saveAllowLongTracks: vi.fn(),
     saveAllowShortTracks: vi.fn(),
     saveAntiSpoiler: vi.fn(),
-    saveRawVibes: vi.fn(),
+    savePlaylistMode: vi.fn(),
   },
   gameLibrary: {
     games: [],
@@ -96,7 +96,7 @@ vi.mock("@/hooks/player/useTrackDeleteUndo", () => ({
   useTrackDeleteUndo: () => mockTrackDeleteUndo,
 }));
 
-vi.mock("@/components/GenerateSection", () => ({
+vi.mock("@/components/generate/GenerateSection", () => ({
   GenerateSection: () => <div data-testid="generate-section" />,
 }));
 

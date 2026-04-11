@@ -4,6 +4,8 @@ import { usePlayerContext } from "@/context/player-context";
 import { EyeIcon, EyeOffIcon } from "@/components/Icons";
 import { SESSION_NAME_MAX_LENGTH, buildSessionName } from "@/lib/constants";
 import { formatSessionName } from "@/components/session/SessionList";
+import { PLAYLIST_MODE_LABELS } from "@/lib/playlist-mode";
+import { PlaylistMode } from "@/types";
 import type { PlaylistSessionWithCount, PlaylistTrack } from "@/types";
 
 interface PlaylistHeaderProps {
@@ -14,6 +16,7 @@ interface PlaylistHeaderProps {
   isDev: boolean;
   onRename: (id: string, name: string) => Promise<void>;
   onDeleteSession: (id: string) => Promise<void>;
+  shortPlaylistNotice: { text: string } | null;
 }
 
 function formatDuration(seconds: number): string {
@@ -33,6 +36,7 @@ export function PlaylistHeader({
   isDev,
   onRename,
   onDeleteSession,
+  shortPlaylistNotice,
 }: PlaylistHeaderProps) {
   const { playlist, config, player, toggleAntiSpoiler } = usePlayerContext();
   const [editingTitle, setEditingTitle] = useState(false);
@@ -193,6 +197,19 @@ export function PlaylistHeader({
         {trackCount > 0 && (
           <span className="text-[12px] text-[var(--text-disabled)] tabular-nums">
             {trackCount} tracks · {formatDuration(totalDurationSeconds)}
+            {(() => {
+              // Guests have no session record; current selection is the generation mode.
+              const mode = currentSession?.playlist_mode ?? config.playlistMode;
+              return mode !== PlaylistMode.Journey ? (
+                <> · {PLAYLIST_MODE_LABELS[mode].name}</>
+              ) : null;
+            })()}
+          </span>
+        )}
+
+        {shortPlaylistNotice && (
+          <span className="text-[13px] text-[var(--text-disabled)]">
+            {shortPlaylistNotice.text}
           </span>
         )}
       </div>

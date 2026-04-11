@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { PlaylistMode } from "@/types";
 import type { PlaylistTrack, PlaylistSessionWithCount } from "@/types";
 import {
   TEST_PLAYLIST_ID,
@@ -48,6 +49,7 @@ function makeSession(overrides: Partial<PlaylistSessionWithCount> = {}): Playlis
     name: TEST_SESSION_NAME,
     description: null,
     is_archived: false,
+    playlist_mode: PlaylistMode.Journey,
     created_at: "2026-01-01T00:00:00Z",
     track_count: 5,
     ...overrides,
@@ -82,6 +84,7 @@ const defaultProps = {
   isDev: true,
   onRename: vi.fn().mockResolvedValue(undefined),
   onDeleteSession: vi.fn().mockResolvedValue(undefined),
+  shortPlaylistNotice: null as { text: string } | null,
 };
 
 afterEach(() => {
@@ -155,6 +158,42 @@ describe("PlaylistHeader", () => {
       const tracks = [makeTrack(), makeTrack(), makeTrack()];
       render(<PlaylistHeader {...defaultProps} tracks={tracks} />);
       expect(screen.getByText(/3 tracks/)).toBeInTheDocument();
+    });
+
+    it("should NOT append a mode suffix to the metadata line for Journey", async () => {
+      const PlaylistHeader = await importComponent();
+      const tracks = [makeTrack()];
+      const { container } = render(<PlaylistHeader {...defaultProps} tracks={tracks} />);
+      const metadata = container.querySelector(".tabular-nums");
+      expect(metadata?.textContent).not.toMatch(/Journey/i);
+    });
+
+    it("should append the mode name for energy-mode sessions", async () => {
+      const PlaylistHeader = await importComponent();
+      const tracks = [makeTrack()];
+      const sessions = [makeSession({ playlist_mode: PlaylistMode.Rush })];
+      render(<PlaylistHeader {...defaultProps} sessions={sessions} tracks={tracks} />);
+      expect(screen.getByText(/· Rush/)).toBeInTheDocument();
+    });
+
+    it("should render the short-playlist notice text when set", async () => {
+      const PlaylistHeader = await importComponent();
+      const tracks = [makeTrack(), makeTrack(), makeTrack()];
+      render(
+        <PlaylistHeader
+          {...defaultProps}
+          tracks={tracks}
+          shortPlaylistNotice={{ text: "Matched 3 tracks for Chill" }}
+        />,
+      );
+      expect(screen.getByText("Matched 3 tracks for Chill")).toBeInTheDocument();
+    });
+
+    it("should NOT render the notice when shortPlaylistNotice is null", async () => {
+      const PlaylistHeader = await importComponent();
+      const tracks = [makeTrack()];
+      render(<PlaylistHeader {...defaultProps} tracks={tracks} shortPlaylistNotice={null} />);
+      expect(screen.queryByText(/Matched/i)).not.toBeInTheDocument();
     });
   });
 

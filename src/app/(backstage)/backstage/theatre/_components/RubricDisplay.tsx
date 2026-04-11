@@ -12,6 +12,7 @@ const PHASE_LABELS: Record<ArcPhase, string> = {
   [ArcPhase.Valley]: "Valley",
   [ArcPhase.Climax]: "Climax",
   [ArcPhase.Outro]: "Outro",
+  [ArcPhase.Steady]: "Steady",
 };
 
 function Tag({ label, color }: { label: string; color: string }) {

@@ -90,7 +90,7 @@ When adding a new API route:
 Next.js App Router with three main page areas:
 
 - `/` — main feed (`src/app/(main)/page.tsx` + `src/app/(main)/FeedClient.tsx`). Renders one of two layouts based on derived `mode` state in `FeedClient`:
-  - **Launchpad mode** (`src/components/launchpad/Launchpad.tsx`) — full-width centered onboarding screen shown when there are no tracks, no in-flight generation, and the user has not pressed Curate. Two states: empty library (faint game cover preview row from published catalog, app icon, tagline + subtitle, CTA → catalog) and ready library (cover row + Curate + size presets + `Advanced` reveal with custom size, Long/Short tracks, Raw vibes). The empty state receives `previewCovers` from the server component (`page.tsx` fetches and shuffles published game thumbnails).
+  - **Launchpad mode** (`src/components/launchpad/Launchpad.tsx`) — full-width centered onboarding screen shown when there are no tracks, no in-flight generation, and the user has not pressed Curate. Two states: empty library (faint game cover preview row from published catalog, app icon, tagline + subtitle, CTA → catalog) and ready library (cover row + Curate + size presets + `Advanced` reveal with custom size and Long/Short tracks). The empty state receives `previewCovers` from the server component (`page.tsx` fetches and shuffles published game thumbnails).
   - **Playlist mode** — three-region full-height flexbox layout. Left sidebar (290px, desktop-only: logo, LibraryWidget, GenerateSection, session history, user/auth, footer links). Center (scrollable playlist with sticky header). Right sidebar (80px PlayerPanel, desktop-only). On mobile the layout stacks vertically with a separate header.
   - The transition between modes is a single opacity cross-fade owned by `FeedClient` (timing constants `LAUNCHPAD_FADE_MS`, `LAUNCHPAD_SWAP_DELAY_MS` at the top of the file). Generation runs in the background after the layout swap.
 - `/catalog` — catalog browser + library drawer (`src/app/(main)/catalog/page.tsx` + `src/app/(main)/catalog/CatalogClient.tsx`) — browse published games, add to library with curation modes. Full-height flexbox: center (header + scrollable grid), library drawer (right), and PlayerPanel (right, conditional on active playlist).
@@ -161,16 +161,40 @@ Both called from `POST /api/playlist/generate`, which wraps them in an SSE strea
 Three-phase process (all track data is pre-cached during backstage onboarding — no YouTube API or LLM calls needed for candidate loading):
 
 1. **Candidate gathering** (`candidates.ts`): `getTaggedPool()` loads active, tagged tracks with pre-resolved video IDs from the `tracks` + `video_tracks` tables. Only tracks that are active, tagged (energy + roles), and have a resolved YouTube video are included.
-2. **Vibe Profiler** (`vibe-profiler.ts`): LLM produces a `VibeRubric` from the session's game titles + per-game tag distributions. The rubric provides per-phase mood/instrument overrides that sharpen the Director's arc template. Before calling the LLM, the pipeline checks the user's existing sessions for a cached rubric matching the same game set (`findCachedRubric`); a cache hit reuses the rubric without an LLM call and does not consume the daily LLM cap. On cache miss, the daily cap (`USER_DAILY_LLM_CAP = 10` actual LLM calls) is checked silently — if exceeded, the Director falls back to the default arc template with no user-visible indication. The profiler produces only the rubric — session naming is a separate LLM call (step 3). Always skipped for guests.
-3. **Deterministic arc assembly + parallel session naming** (`director.ts` + `session-naming.ts`): the TypeScript Director builds the final ordered playlist from the tagged pool, shaping energy flow and cross-game balance. **No LLM involvement in the Director.** Each selected track produces a `TrackDecision` record (score components, arc phase, pool size, game budget) persisted via `DirectorDecisions.bulkInsert()` into `playlist_track_decisions` — this is the Director telemetry shown in the Theatre view. The `arc_phase` field is also exposed to the client via a left-join in the playlist query, used for subtle spacing between arc phase transitions in the playlist UI (no labels or phase names are shown). Concurrently with the Director, `generateSessionName()` fires a dedicated, short LLM call (authenticated path only, guests skipped) that reads game titles + curation modes and returns a fresh 2–5 word playlist title. The naming call runs on **every** authenticated generation — cached-rubric reruns still get a new name — and is **not** gated by `USER_DAILY_LLM_CAP`. Any failure resolves to `null` and `persistSession` falls back to the deterministic `"Game A, Game B, Game C"` concatenation.
+2. **Rubric resolution** (mode-dependent):
+   - **Journey mode**: `vibe-profiler.ts` LLM produces a `VibeRubric` from the session's game titles + per-game tag distributions. The rubric provides per-phase mood/instrument overrides that sharpen the Director's arc template. Before calling the LLM, the pipeline checks the user's existing sessions for a cached rubric matching the same game set (`findCachedRubric`); a cache hit reuses the rubric without an LLM call and does not consume the daily LLM cap. On cache miss, the daily cap (`USER_DAILY_LLM_CAP = 10` actual LLM calls) is checked silently — if exceeded, the Director falls back to the `JOURNEY_ARC_TEMPLATE` with no rubric. Always skipped for guests.
+   - **Energy modes** (`low`/`mid`/`high`): no rubric, no LLM. The pipeline calls `getEnergyModeTemplate(mode)` from `director/arc-templates/` which returns a static single-phase `Steady` template (Chill / Mix / Rush). No cache lookup, no cap check, no profiler call.
+3. **Deterministic arc assembly + parallel session naming** (`director/index.ts` + `session-naming.ts`): the TypeScript Director builds the final ordered playlist from the tagged pool, shaping energy flow and cross-game balance against whatever `ArcTemplate` it was given. **No LLM involvement in the Director.** Energy modes pass `allowLastResort: false` so unmatched slots compact out (shorter playlist) instead of being filled with off-mode tracks. Each selected track produces a `TrackDecision` record (score components, arc phase, pool size, game budget) persisted via `DirectorDecisions.bulkInsert()` into `playlist_track_decisions` — this is the Director telemetry shown in the Theatre view. The `arc_phase` field is also exposed to the client via a left-join in the playlist query, used for subtle spacing between arc phase transitions in the playlist UI (no labels or phase names are shown). Energy-mode playlists tag every slot with `arc_phase = "steady"` so the spacing is naturally absent. Concurrently with the Director, `generateSessionName()` fires a dedicated, short LLM call (authenticated path only, guests skipped) that reads game titles + per-game curation modes + the `PlaylistMode` and returns a fresh 2–5 word playlist title shaped by the mode. The naming call runs on **every** authenticated generation — cached-rubric reruns still get a new name — and is **not** gated by `USER_DAILY_LLM_CAP`. Any failure resolves to `null` and `persistSession` falls back to the deterministic `"Game A, Game B, Game C"` concatenation.
 
-**Track reroll** (`POST /api/playlist/[id]/reroll`): picks a random replacement from the same backstage-curated pool (`getTaggedPool`), excluding tracks already in the current session. No YouTube API calls — everything from DB.
+**Track reroll** (`POST /api/playlist/[id]/reroll`): picks a random replacement from the same backstage-curated pool (`getTaggedPool`), excluding tracks already in the current session. For energy-mode playlists, the reroll handler reads `playlist_mode` from the session and applies the same energy filter the original generation used, so a Chill reroll never returns an energy-3 track. No YouTube API calls — everything from DB.
 
-Curation modes (see `CurationMode` enum in `src/types/index.ts`):
+**Two distinct "modes"** are stored on different rows and serve different purposes — do not confuse them:
 
-- `lite` — half budget weight in phase 3
-- `include` — standard (default)
-- `focus` — guaranteed double-weighted budget in phase 3
+- **`CurationMode`** enum (`src/types/index.ts`) — per-game library setting (`lite` / `include` / `focus`). Stored in `library_games.curation`. Controls how a single game contributes to **any** playlist regardless of which assembly mode is active.
+  - `lite` — half budget weight
+  - `include` — standard (default)
+  - `focus` — guaranteed double-weighted budget, pre-assigned slots across the arc
+- **`PlaylistMode`** enum (`src/types/index.ts`) — per-playlist assembly mode (`journey` / `low` / `mid` / `high`). Stored in `playlists.playlist_mode`. Controls the arc template + Vibe Profiler branching the Director runs against. Display names: Journey / Chill / Mix / Rush. Default is Journey.
+
+### Director (`src/lib/pipeline/generation/director/`)
+
+The Director lives in its own folder so the parameterized assembly logic, scoring constants, types, and arc templates each have a clear home:
+
+```
+director/
+├── index.ts              # main logic: assemblePlaylist, scoreTrack, expandArc, …
+├── constants.ts          # scoring weights, budget weights, view bias params, penalties
+├── types.ts              # ArcSlot, ArcTemplate, ArcTemplatePhase
+├── arc-templates/
+│   ├── index.ts          # barrel + getEnergyModeTemplate(mode)
+│   ├── journey.ts        # JOURNEY_ARC_TEMPLATE — six-phase narrative arc
+│   ├── chill.ts          # CHILL_ARC_TEMPLATE — single Steady phase, energy 1+2
+│   ├── mix.ts            # MIX_ARC_TEMPLATE — single Steady phase, all energies
+│   └── rush.ts           # RUSH_ARC_TEMPLATE — single Steady phase, energy 2+3
+└── __tests__/
+```
+
+`assemblePlaylist(taggedPools, games, targetCount, rubric, arcTemplate, options?)` is the only public entry. View bias scoring is always active. Adding a new mode is two steps: write a new `ArcTemplate` file and add a case to `getEnergyModeTemplate`.
 
 **Game onboarding** (`onboarding.ts`): backstage-driven process that prepares a game for playlist generation. Three phases:
 
@@ -185,8 +209,8 @@ Only after all three phases complete is a game ready for the Director. The Backs
 `src/lib/llm/index.ts` exports:
 
 - `getTaggingProvider()` — video resolver + track tagger (used during backstage onboarding). Override model with `ANTHROPIC_TAGGING_MODEL`.
-- `getVibeProfilerProvider()` — Vibe Profiler (used during playlist generation). Override model with `ANTHROPIC_VIBE_MODEL`.
-- `getSessionNamingProvider()` — session naming LLM call (used during authenticated playlist generation, runs in parallel with the Director; not gated by `USER_DAILY_LLM_CAP`). Override model with `ANTHROPIC_NAMING_MODEL`.
+- `getVibeProfilerProvider()` — Vibe Profiler (used during Journey-mode playlist generation only — energy modes never call this). Override model with `ANTHROPIC_VIBE_MODEL`.
+- `getSessionNamingProvider()` — session naming LLM call (used during authenticated playlist generation in all modes, runs in parallel with the Director; not gated by `USER_DAILY_LLM_CAP`). The user prompt includes the active `PlaylistMode` so names diverge across Journey / Chill / Mix / Rush. Override model with `ANTHROPIC_NAMING_MODEL`.
 
 All providers implement `LLMProvider` (`src/lib/llm/provider.ts`): `complete(system, user, opts)`. All LLM calls use Anthropic (`ANTHROPIC_API_KEY` required).
 
@@ -194,13 +218,13 @@ All providers implement `LLMProvider` (`src/lib/llm/provider.ts`): `complete(sys
 
 Config is stored in **localStorage** (not the DB). `useConfig` (`src/hooks/useConfig.ts`) reads/writes via `localStorage` with the following keys:
 
-| Key                        | Type       | Default | Purpose                                                |
-| -------------------------- | ---------- | ------- | ------------------------------------------------------ |
-| `bgm_target_track_count`   | number     | 50      | Target playlist length                                 |
-| `bgm_anti_spoiler_enabled` | "1" \| "0" | "0"     | Blur unplayed track titles                             |
-| `bgm_allow_long_tracks`    | "1" \| "0" | "0"     | Allow tracks >9min                                     |
-| `bgm_allow_short_tracks`   | "1" \| "0" | "1"     | Allow tracks <90s (note: always false in practice)     |
-| `bgm_raw_vibes`            | "1" \| "0" | "0"     | Disable view bias scoring — score on musical tags only |
+| Key                        | Type         | Default     | Purpose                                              |
+| -------------------------- | ------------ | ----------- | ---------------------------------------------------- |
+| `bgm_target_track_count`   | number       | 50          | Target playlist length                               |
+| `bgm_anti_spoiler_enabled` | "1" \| "0"   | "0"         | Blur unplayed track titles                           |
+| `bgm_allow_long_tracks`    | "1" \| "0"   | "0"         | Allow tracks >9min                                   |
+| `bgm_allow_short_tracks`   | "1" \| "0"   | "1"         | Allow tracks <90s (note: always false in practice)   |
+| `bgm_playlist_mode`        | PlaylistMode | `"journey"` | Playlist assembly mode: `journey`/`low`/`mid`/`high` |
 
 There is no `/api/config` route. The hook uses `localStorage.getItem()` / `localStorage.setItem()` directly with boolean parsing via `v === "1"`. To add a new config key:
 
@@ -260,7 +284,7 @@ The catalog empty state lets any user (guest or logged-in) request a game that i
 
 All under `src/app/api/`. Auth levels are defined in `src/lib/route-config.ts`. Key routes:
 
-- `POST /api/playlist/generate` — SSE stream; runs the pipeline (Optional — guests get Director-only)
+- `POST /api/playlist/generate` — SSE stream; runs the pipeline (Optional — guests get Director-only). Body accepts an optional `playlist_mode` field (`journey` / `low` / `mid` / `high`). Defaults to `journey` when omitted. Energy modes skip the Vibe Profiler entirely
 - `GET /api/games` — user's game library (Optional — guests get `[]`)
 - `POST/PATCH/DELETE /api/games` — game library mutations (Required)
 - `GET /api/games/catalog` — published game catalog (Public)
@@ -270,8 +294,8 @@ All under `src/app/api/`. Auth levels are defined in `src/lib/route-config.ts`. 
 - `DELETE /api/playlist` — clear playlist (Required)
 - `PATCH /api/playlist` — reorder tracks (Optional — guests get silent 200)
 - `DELETE /api/playlist/[id]` — remove a track (Required + ownership)
-- `POST /api/playlist/[id]/reroll` — reroll a single track (Required + ownership)
-- `GET /api/sessions` — session list (Optional — guests get `[]`)
+- `POST /api/playlist/[id]/reroll` — reroll a single track (Required + ownership). For energy-mode playlists the candidate pool is filtered by the mode's energy template so rerolls stay within the mode
+- `GET /api/sessions` — session list (Optional — guests get `[]`). Each row carries `playlist_mode` for header / history display
 - `PATCH/DELETE /api/sessions/[id]` — session management (Required + ownership)
 - `POST /api/sync` — sync playlist to YouTube account (Required + OAuth access token)
 - `POST /api/steam/sync` — link and/or re-sync the user's Steam library (Required). Body: `{ steamUrl? }`. Returns `{ totalSynced, catalogMatches, steamSyncedAt }`. On 429 cooldown the body also carries `cooldownMinutes: number`.
@@ -304,7 +328,8 @@ Backstage API routes (all under `src/app/api/backstage/`, auth level: Admin). Ev
 
 ## Code style
 
-- Use `enum` for all named value sets — not string literal union types (`type Foo = "a" | "b"`). See `CurationMode`, `TrackMood`, `TrackInstrumentation` as the established pattern.
+- Use `enum` for all named value sets — not string literal union types (`type Foo = "a" | "b"`). See `CurationMode`, `PlaylistMode`, `TrackMood`, `TrackInstrumentation` as the established pattern.
+- `CurationMode` (per-game) and `PlaylistMode` (per-playlist) are deliberately separate enums for two different concepts. Don't conflate them in code or copy.
 
 ## Schema changes
 

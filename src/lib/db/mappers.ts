@@ -6,7 +6,7 @@ import {
   TrackInstrumentation,
   TrackRole,
 } from "@/types";
-import type { Game, PlaylistTrack, PlaylistSession, Track, User } from "@/types";
+import type { Game, PlaylistTrack, Track, User } from "@/types";
 
 const VALID_ONBOARDING_PHASES = new Set<string>(Object.values(OnboardingPhase));
 
@@ -19,17 +19,6 @@ export function toUser(row: Record<string, unknown>): User {
     username: row.username != null ? String(row.username) : null,
     steam_id: row.steam_id != null ? String(row.steam_id) : null,
     steam_synced_at: row.steam_synced_at != null ? String(row.steam_synced_at) : null,
-    created_at: String(row.created_at ?? ""),
-  };
-}
-
-export function toPlaylistSession(row: Record<string, unknown>): PlaylistSession {
-  return {
-    id: String(row.id),
-    user_id: String(row.user_id),
-    name: String(row.name),
-    description: row.description != null ? String(row.description) : null,
-    is_archived: !!row.is_archived,
     created_at: String(row.created_at ?? ""),
   };
 }
