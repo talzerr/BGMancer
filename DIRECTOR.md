@@ -63,7 +63,7 @@ Once energy gating passes, the Director scores each candidate track against its 
 
 The original placeholder used additive integer scoring (`score += 5` for a role match). This creates two failure modes:
 
-1. **Tag-Stuffing Vulnerability.** A track tagged with many moods accumulates points for partial matches across multiple dimensions, inflating its score without genuinely fitting the slot. A track tagged $\{$epic, tense, peaceful, melancholic$\}$ would outscore a cleanly focused $\{$epic, tense$\}$ track even in a climax slot.
+1. **Tag-Stuffing Vulnerability.** A track tagged with many moods accumulates points for partial matches across multiple dimensions, inflating its score without genuinely fitting the slot. A track tagged $\{\text{epic, tense, peaceful, melancholic}\}$ would outscore a cleanly focused $\{\text{epic, tense}\}$ track even in a climax slot.
 
 2. **Dimensionless Magnitude.** Additive scores have no natural ceiling, making the penalty multipliers arbitrary. A `−5` penalty means something very different when scores range from `50–60` versus `0–100`.
 
@@ -96,9 +96,9 @@ The current parameterization:
 
 #### Why Role Is an Intersection Check, Not Jaccard
 
-Tracks carry a set of roles (e.g., $\{$Combat, Cinematic$\}$) and slots carry a preferred role set. The scoring is a **pass/fail membership test**: if any of the track's roles overlaps with the slot's preferred roles, the full $1.0$ is awarded. If the intersection is empty, the score is $0.0$.
+Tracks carry a set of roles (e.g., $\{\text{Combat, Cinematic}\}$) and slots carry a preferred role set. The scoring is a **pass/fail membership test**: if any of the track's roles overlaps with the slot's preferred roles, the full $1.0$ is awarded. If the intersection is empty, the score is $0.0$.
 
-Jaccard is deliberately avoided here. Jaccard would penalize a track for having _more_ roles than the slot expects — a track tagged $\{$Combat, Cinematic$\}$ would score lower than a track tagged only $\{$Combat$\}$ in a Combat slot, even though the multi-role track is at least as good a fit. The intersection check removes this "flexibility penalty" entirely: extra roles never hurt, they only help.
+Jaccard is deliberately avoided here. Jaccard would penalize a track for having _more_ roles than the slot expects — a track tagged $\{\text{Combat, Cinematic}\}$ would score lower than a track tagged only $\{\text{Combat}\}$ in a Combat slot, even though the multi-role track is at least as good a fit. The intersection check removes this "flexibility penalty" entirely: extra roles never hurt, they only help.
 
 The binary outcome also means role carries its full weight only when any match exists. A role mismatch floors that dimension to $0.0$ — a strong signal, not a soft nudge. Role is a categorical classification, not a fuzzy one: a Closer-role track in a climax slot isn't "somewhat wrong," it's categorically wrong.
 
@@ -258,9 +258,9 @@ _Using the default parameterization at time of writing._
 **Track:** "The Last of Us Main Theme" (hypothetical tags)
 
 - Energy: $1$
-- Roles: $\{$Closer, Ambient$\}$
-- Moods: $\{$melancholic, nostalgic, peaceful$\}$
-- Instrumentation: $\{$acoustic, strings$\}$
+- Roles: $\{\text{Closer, Ambient}\}$
+- Moods: $\{\text{melancholic, nostalgic, peaceful}\}$
+- Instrumentation: $\{\text{acoustic, strings}\}$
 - Has vocals: no
 - View count: $2{,}000{,}000$
 - Game average views: $500{,}000$
@@ -268,25 +268,25 @@ _Using the default parameterization at time of writing._
 **Slot:** outro phase
 
 - Allowed energies: $\{1\}$
-- Preferred roles: $\{$Closer, Ambient, Menu$\}$
-- Preferred moods: $\{$melancholic, nostalgic, peaceful$\}$
-- Penalized moods: $\{$chaotic, tense$\}$
-- Preferred instrumentation: $\{$piano, acoustic, strings$\}$
+- Preferred roles: $\{\text{Closer, Ambient, Menu}\}$
+- Preferred moods: $\{\text{melancholic, nostalgic, peaceful}\}$
+- Penalized moods: $\{\text{chaotic, tense}\}$
+- Preferred instrumentation: $\{\text{piano, acoustic, strings}\}$
 
 **Step 1 — Energy Gate:** Energy $1 \in \{1\}$. Passes.
 
 **Step 2 — Role Score:**
-$\{Closer, Ambient\} \cap \{Closer, Ambient, Menu\} = \{Closer, Ambient\} \neq \emptyset$ → $S_{\text{role}} = 1.0$
+$\{\text{Closer, Ambient}\} \cap \{\text{Closer, Ambient, Menu}\} = \{\text{Closer, Ambient}\} \neq \emptyset$ → $S_{\text{role}} = 1.0$
 
 **Step 3 — Mood Score:**
 
-$$J(\{melancholic, nostalgic, peaceful\}, \{melancholic, nostalgic, peaceful\}) = \frac{3}{3} = 1.0$$
+$$J(\{\text{melancholic, nostalgic, peaceful}\}, \{\text{melancholic, nostalgic, peaceful}\}) = \frac{3}{3} = 1.0$$
 
 $S_{\text{mood}} = 1.0$
 
 **Step 4 — Instrumentation Score:**
 
-$$J(\{acoustic, strings\}, \{piano, acoustic, strings\}) = \frac{|\{acoustic, strings\}|}{|\{piano, acoustic, strings\}|} = \frac{2}{3} \approx 0.667$$
+$$J(\{\text{acoustic, strings}\}, \{\text{piano, acoustic, strings}\}) = \frac{|\{\text{acoustic, strings}\}|}{|\{\text{piano, acoustic, strings}\}|} = \frac{2}{3} \approx 0.667$$
 
 $S_{\text{inst}} \approx 0.667$
 
