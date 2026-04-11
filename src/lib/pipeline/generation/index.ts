@@ -14,7 +14,14 @@ import { generateSessionName } from "@/lib/pipeline/generation/session-naming";
 import { getVibeProfilerProvider } from "@/lib/llm";
 import { acquireLlmGeneration } from "@/lib/rate-limit";
 import type { GenerateEvent, PendingTrack } from "@/lib/pipeline/generation/types";
-import type { AppConfig, Game, PlaylistTrack, TaggedTrack, VibeRubric } from "@/types";
+import type {
+  AppConfig,
+  Game,
+  PlaylistMode,
+  PlaylistTrack,
+  TaggedTrack,
+  VibeRubric,
+} from "@/types";
 import {
   MIN_TRACK_DURATION_SECONDS,
   MAX_TRACK_DURATION_SECONDS,
@@ -118,6 +125,7 @@ async function persistSession(
   userId: string,
   allTracks: PendingTrack[],
   decisions: TrackDecision[],
+  playlistMode: PlaylistMode,
   usedRubric?: VibeRubric,
   gameBudgets?: Record<string, number>,
   generatedName?: string | null,
@@ -129,7 +137,7 @@ async function persistSession(
     sessionName = buildSessionName(allTracks.map((t) => t.game_title ?? t.game_id));
   }
 
-  const session = await Sessions.create(userId, sessionName);
+  const session = await Sessions.create(userId, sessionName, playlistMode);
   await Playlist.replaceAll(session.id, toInsertable(allTracks));
 
   if (decisions.length > 0 || usedRubric || gameBudgets) {
@@ -286,6 +294,7 @@ export async function generatePlaylist(
     userId,
     allTracks,
     slicedDecisions,
+    config.playlist_mode,
     usedRubric,
     gameBudgets,
     sessionName,

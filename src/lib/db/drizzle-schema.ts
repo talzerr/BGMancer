@@ -116,6 +116,7 @@ export const playlists = sqliteTable(
     name: text("name").notNull(),
     description: text("description"),
     is_archived: integer("is_archived", { mode: "boolean" }).notNull().default(false),
+    playlist_mode: text("playlist_mode").notNull().default("journey"),
     rubric: text("rubric"),
     game_budgets: text("game_budgets"),
     created_at: text("created_at").notNull().default(timestampDefault),

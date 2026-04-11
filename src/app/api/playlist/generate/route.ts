@@ -13,6 +13,7 @@ import { generateSchema } from "@/lib/validation";
 import { checkGuestRateLimit, getClientIp } from "@/lib/rate-limit";
 import { verifyTurnstileToken } from "@/lib/services/external/turnstile";
 import type { AppConfig } from "@/types";
+import { PlaylistMode } from "@/types";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("generate");
@@ -59,6 +60,7 @@ export async function POST(request: Request) {
     allow_long_tracks: parsed.data.allow_long_tracks ?? false,
     allow_short_tracks: parsed.data.allow_short_tracks ?? false,
     anti_spoiler_enabled: parsed.data.anti_spoiler_enabled ?? false,
+    playlist_mode: parsed.data.playlist_mode ?? PlaylistMode.Journey,
   };
 
   const session = await getAuthSession();

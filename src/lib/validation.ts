@@ -1,6 +1,6 @@
 import { z } from "zod/v4";
 import { NextResponse } from "next/server";
-import { CurationMode } from "@/types";
+import { CurationMode, PlaylistMode } from "@/types";
 import { MAX_TRACK_COUNT, SESSION_NAME_MAX_LENGTH, GAME_TITLE_MAX_LENGTH } from "@/lib/constants";
 import { sanitizeGameTitle } from "@/lib/utils";
 import { parseSteamInput } from "@/lib/services/external/steam-input";
@@ -65,11 +65,14 @@ const gameSelectionSchema = z.object({
   curation: curationEnum.optional(),
 });
 
+const playlistModeEnum = z.enum(Object.values(PlaylistMode) as [PlaylistMode, ...PlaylistMode[]]);
+
 export const generateSchema = z.object({
   target_track_count: z.number().int().min(1).max(MAX_TRACK_COUNT).optional(),
   allow_long_tracks: z.boolean().optional(),
   allow_short_tracks: z.boolean().optional(),
   anti_spoiler_enabled: z.boolean().optional(),
+  playlist_mode: playlistModeEnum.optional(),
   gameSelections: z.array(gameSelectionSchema).optional(),
   turnstileToken: z.string().optional(),
 });

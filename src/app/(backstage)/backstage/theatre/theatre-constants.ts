@@ -30,6 +30,7 @@ export const PHASE_COLORS: Record<string, string> = {
   [ArcPhase.Valley]: "bg-emerald-900/40 border-emerald-700/30",
   [ArcPhase.Climax]: "bg-rose-900/40 border-rose-700/30",
   [ArcPhase.Outro]: "bg-primary/10 border-primary/30",
+  [ArcPhase.Steady]: "bg-zinc-800/40 border-zinc-700/30",
 };
 
 export const PHASE_TEXT: Record<string, string> = {
@@ -39,6 +40,7 @@ export const PHASE_TEXT: Record<string, string> = {
   [ArcPhase.Valley]: "text-emerald-400",
   [ArcPhase.Climax]: "text-rose-400",
   [ArcPhase.Outro]: "text-primary",
+  [ArcPhase.Steady]: "text-zinc-300",
 };
 
 export const PASS_STYLES: Record<string, { label: string; cls: string }> = {
