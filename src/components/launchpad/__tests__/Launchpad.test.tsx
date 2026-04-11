@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import type { Game } from "@/types";
-import { CurationMode, OnboardingPhase } from "@/types";
+import { CurationMode, OnboardingPhase, PlaylistMode } from "@/types";
 
 // ─── Mocks ─────────────────────────────────────────────────────────────────
 
@@ -13,9 +13,11 @@ const mockPlayerContext = {
     targetTrackCount: 50,
     allowLongTracks: false,
     allowShortTracks: false,
+    playlistMode: PlaylistMode.Journey,
     saveTrackCount: vi.fn(),
     saveAllowLongTracks: vi.fn(),
     saveAllowShortTracks: vi.fn(),
+    savePlaylistMode: vi.fn(),
   },
   playlist: {
     cooldownUntil: 0,
@@ -41,6 +43,7 @@ afterEach(() => {
   mockPlayerContext.config.targetTrackCount = 50;
   mockPlayerContext.config.allowLongTracks = false;
   mockPlayerContext.config.allowShortTracks = false;
+  mockPlayerContext.config.playlistMode = PlaylistMode.Journey;
   mockPlayerContext.playlist.cooldownUntil = 0;
   mockPlayerContext.playlist.generating = false;
   mockPlayerContext.playlist.genError = null;
@@ -168,6 +171,24 @@ describe("Launchpad", () => {
       fireEvent.click(screen.getByRole("button", { name: /advanced/i }));
       fireEvent.click(screen.getByRole("button", { name: /short tracks/i }));
       expect(mockPlayerContext.config.saveAllowShortTracks).toHaveBeenCalledWith(true);
+    });
+
+    it("should render the mode selector inside the Advanced reveal", () => {
+      mockPlayerContext.gameLibrary.games = [makeGame()];
+      render(<Launchpad pressedCurate={false} onCurateClick={vi.fn()} previewCovers={[]} />);
+      fireEvent.click(screen.getByRole("button", { name: /advanced/i }));
+      // Active mode (Journey) shown as text, inactive modes as buttons
+      expect(screen.getByRole("button", { name: "Chill" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Mix" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Rush" })).toBeInTheDocument();
+    });
+
+    it("should call savePlaylistMode when an inactive mode is clicked", () => {
+      mockPlayerContext.gameLibrary.games = [makeGame()];
+      render(<Launchpad pressedCurate={false} onCurateClick={vi.fn()} previewCovers={[]} />);
+      fireEvent.click(screen.getByRole("button", { name: /advanced/i }));
+      fireEvent.click(screen.getByRole("button", { name: "Chill" }));
+      expect(mockPlayerContext.config.savePlaylistMode).toHaveBeenCalledWith(PlaylistMode.Chill);
     });
 
     it("should call saveTrackCount when the Custom size input is committed on blur", () => {

@@ -8,7 +8,8 @@ import { useCooldownTimer } from "@/hooks/shared/useCooldownTimer";
 import { MAX_TRACK_COUNT } from "@/lib/constants";
 import { outlineAmberCtaClass } from "@/components/ui/button";
 import { GenerateProgressLine } from "@/components/GenerateProgressLine";
-import type { Game } from "@/types";
+import { ModeSelector } from "@/components/ModeSelector";
+import type { Game, PlaylistMode } from "@/types";
 
 const PRESETS = [25, 50, 100] as const;
 const COVER_ROW_MAX = 6;
@@ -35,9 +36,11 @@ export function Launchpad({ pressedCurate, onCurateClick, previewCovers }: Launc
           targetTrackCount={config.targetTrackCount}
           allowLongTracks={config.allowLongTracks}
           allowShortTracks={config.allowShortTracks}
+          playlistMode={config.playlistMode}
           onSaveTrackCount={config.saveTrackCount}
           onToggleLongTracks={config.saveAllowLongTracks}
           onToggleShortTracks={config.saveAllowShortTracks}
+          onPlaylistModeChange={config.savePlaylistMode}
           pressedCurate={pressedCurate}
           onCurateClick={onCurateClick}
           secsLeft={secsLeft}
@@ -94,9 +97,11 @@ interface LaunchpadReadyProps {
   targetTrackCount: number;
   allowLongTracks: boolean;
   allowShortTracks: boolean;
+  playlistMode: PlaylistMode;
   onSaveTrackCount: (n: number) => void;
   onToggleLongTracks: (enabled: boolean) => void;
   onToggleShortTracks: (enabled: boolean) => void;
+  onPlaylistModeChange: (mode: PlaylistMode) => void;
   pressedCurate: boolean;
   onCurateClick: () => void;
   secsLeft: number;
@@ -109,9 +114,11 @@ function LaunchpadReady({
   targetTrackCount,
   allowLongTracks,
   allowShortTracks,
+  playlistMode,
   onSaveTrackCount,
   onToggleLongTracks,
   onToggleShortTracks,
+  onPlaylistModeChange,
   pressedCurate,
   onCurateClick,
   secsLeft,
@@ -205,24 +212,28 @@ function LaunchpadReady({
           advancedOpen && !isCurating ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       >
-        <div className="flex flex-col gap-3 border-t border-[var(--border-default)] pt-4">
-          <CustomSizeRow
-            value={targetTrackCount}
-            onChange={onSaveTrackCount}
-            isCustom={!(PRESETS as readonly number[]).includes(targetTrackCount)}
-          />
-          <ToggleRow
-            label="Long tracks"
-            description="Allow tracks over 9 min"
-            on={allowLongTracks}
-            onToggle={() => onToggleLongTracks(!allowLongTracks)}
-          />
-          <ToggleRow
-            label="Short tracks"
-            description="Allow tracks under 90s"
-            on={allowShortTracks}
-            onToggle={() => onToggleShortTracks(!allowShortTracks)}
-          />
+        <div className="flex flex-col gap-4 border-t border-[var(--border-default)] pt-4 text-left">
+          <ModeSelector mode={playlistMode} onModeChange={onPlaylistModeChange} />
+          <div className="border-border border-t" />
+          <div className="flex flex-col gap-3">
+            <CustomSizeRow
+              value={targetTrackCount}
+              onChange={onSaveTrackCount}
+              isCustom={!(PRESETS as readonly number[]).includes(targetTrackCount)}
+            />
+            <ToggleRow
+              label="Long tracks"
+              description="Allow tracks over 9 min"
+              on={allowLongTracks}
+              onToggle={() => onToggleLongTracks(!allowLongTracks)}
+            />
+            <ToggleRow
+              label="Short tracks"
+              description="Allow tracks under 90s"
+              on={allowShortTracks}
+              onToggle={() => onToggleShortTracks(!allowShortTracks)}
+            />
+          </div>
         </div>
       </div>
 

@@ -176,6 +176,7 @@ export function FeedClient({
       allow_long_tracks: config.allowLongTracks,
       allow_short_tracks: config.allowShortTracks,
       anti_spoiler_enabled: config.antiSpoilerEnabled,
+      playlist_mode: config.playlistMode,
       turnstileToken,
       gameSelections: !isSignedIn
         ? gameLibrary.games.map((g) => ({ gameId: g.id, curation: g.curation }))
@@ -290,6 +291,8 @@ export function FeedClient({
         onToggleLongTracks={config.saveAllowLongTracks}
         allowShortTracks={config.allowShortTracks}
         onToggleShortTracks={config.saveAllowShortTracks}
+        playlistMode={config.playlistMode}
+        onPlaylistModeChange={config.savePlaylistMode}
       />
     </>
   );

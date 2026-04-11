@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import type { Game, PlaylistTrack } from "@/types";
+import type { Game, PlaylistMode, PlaylistTrack } from "@/types";
 import { GENERATION_COOLDOWN_MS } from "@/lib/constants";
 import { clearPlaybackState } from "@/hooks/player/playback-state";
 
@@ -10,6 +10,7 @@ export interface GenerateConfig {
   allow_long_tracks: boolean;
   allow_short_tracks: boolean;
   anti_spoiler_enabled: boolean;
+  playlist_mode: PlaylistMode;
   turnstileToken?: string;
   gameSelections?: { gameId: string; curation?: string }[];
 }

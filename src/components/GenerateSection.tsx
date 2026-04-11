@@ -4,6 +4,8 @@ import { ErrorCircle, MusicNote } from "@/components/Icons";
 import { useCooldownTimer } from "@/hooks/shared/useCooldownTimer";
 import { GenerateControls } from "@/components/GenerateControls";
 import { GenerateProgressLine } from "@/components/GenerateProgressLine";
+import { ModeSelector } from "@/components/ModeSelector";
+import type { PlaylistMode } from "@/types";
 
 interface GenerateSectionProps {
   generating: boolean;
@@ -18,6 +20,8 @@ interface GenerateSectionProps {
   onToggleLongTracks: (enabled: boolean) => void;
   allowShortTracks: boolean;
   onToggleShortTracks: (enabled: boolean) => void;
+  playlistMode: PlaylistMode;
+  onPlaylistModeChange: (mode: PlaylistMode) => void;
 }
 
 export function GenerateSection({
@@ -33,6 +37,8 @@ export function GenerateSection({
   onToggleLongTracks,
   allowShortTracks,
   onToggleShortTracks,
+  playlistMode,
+  onPlaylistModeChange,
 }: GenerateSectionProps) {
   const { secsLeft, quip } = useCooldownTimer(cooldownUntil);
 
@@ -69,6 +75,10 @@ export function GenerateSection({
           </div>
         )}
       </div>
+
+      <ModeSelector mode={playlistMode} onModeChange={onPlaylistModeChange} />
+
+      <div className="border-border border-t" />
 
       <GenerateControls
         targetTrackCount={targetTrackCount}
