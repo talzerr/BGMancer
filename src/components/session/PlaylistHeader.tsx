@@ -4,6 +4,8 @@ import { usePlayerContext } from "@/context/player-context";
 import { EyeIcon, EyeOffIcon } from "@/components/Icons";
 import { SESSION_NAME_MAX_LENGTH, buildSessionName } from "@/lib/constants";
 import { formatSessionName } from "@/components/session/SessionList";
+import { PLAYLIST_MODE_LABELS } from "@/lib/playlist-mode-labels";
+import { PlaylistMode } from "@/types";
 import type { PlaylistSessionWithCount, PlaylistTrack } from "@/types";
 
 interface PlaylistHeaderProps {
@@ -193,6 +195,9 @@ export function PlaylistHeader({
         {trackCount > 0 && (
           <span className="text-[12px] text-[var(--text-disabled)] tabular-nums">
             {trackCount} tracks · {formatDuration(totalDurationSeconds)}
+            {currentSession && currentSession.playlist_mode !== PlaylistMode.Journey && (
+              <> · {PLAYLIST_MODE_LABELS[currentSession.playlist_mode].name}</>
+            )}
           </span>
         )}
       </div>

@@ -9,6 +9,7 @@ afterEach(() => {
 });
 
 import { SessionList } from "../SessionList";
+import { PlaylistMode } from "@/types";
 import type { PlaylistSessionWithCount } from "@/types";
 import { TEST_PLAYLIST_ID, TEST_SESSION_NAME } from "@/test/constants";
 
@@ -23,13 +24,19 @@ const SESSION_B_TRACK_COUNT = 50;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function makeSession(id: string, name: string, trackCount: number): PlaylistSessionWithCount {
+function makeSession(
+  id: string,
+  name: string,
+  trackCount: number,
+  playlistMode: PlaylistMode = PlaylistMode.Journey,
+): PlaylistSessionWithCount {
   return {
     id,
     user_id: "u1",
     name,
     description: null,
     is_archived: false,
+    playlist_mode: playlistMode,
     track_count: trackCount,
     created_at: new Date().toISOString(),
   };
@@ -93,6 +100,26 @@ describe("SessionList", () => {
       );
       const todayLabels = screen.getAllByText(/Today/);
       expect(todayLabels.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("should NOT append a mode suffix for Journey sessions", () => {
+      render(
+        <SessionList
+          sessions={TWO_SESSIONS}
+          selectedId={null}
+          onSelect={vi.fn()}
+          onDelete={vi.fn()}
+        />,
+      );
+      expect(screen.queryByText(/Journey/i)).not.toBeInTheDocument();
+    });
+
+    it("should append a mode suffix for energy-mode sessions", () => {
+      const sessions = [makeSession("pl-chill", "Lo-Fi Run", 18, PlaylistMode.Chill)];
+      render(
+        <SessionList sessions={sessions} selectedId={null} onSelect={vi.fn()} onDelete={vi.fn()} />,
+      );
+      expect(screen.getByText(/Chill/)).toBeInTheDocument();
     });
   });
 
