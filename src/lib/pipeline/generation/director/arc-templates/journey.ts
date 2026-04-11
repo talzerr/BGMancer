@@ -1,11 +1,7 @@
 import { ArcPhase, TrackInstrumentation, TrackMood, TrackRole } from "@/types";
 import type { ArcTemplate } from "../types";
 
-/**
- * Journey — the default six-phase narrative arc. Shapes a playlist that opens
- * quietly, rises, peaks, falls, climaxes, and closes out. This is BGMancer's
- * identity mode.
- */
+/** Default six-phase narrative arc: quiet open → rise → peak → valley → climax → outro. */
 export const JOURNEY_ARC_TEMPLATE: ArcTemplate = [
   {
     phase: ArcPhase.Intro,

@@ -1,4 +1,5 @@
 import { SESSION_NAME_MAX_LENGTH } from "@/lib/constants";
+import { PlaylistMode } from "@/types";
 import type { CurationMode } from "@/types";
 
 export const SESSION_NAMING_SYSTEM_PROMPT = `You name video game soundtrack playlists. Read a short list of games and return ONE short title for the mix.
@@ -14,6 +15,16 @@ export const SESSION_NAMING_SYSTEM_PROMPT = `You name video game soundtrack play
 Think mixtape label scribbled by someone who just finished playing these games. Album-side-B energy. Specific and slightly offbeat — grounded in the actual worlds, themes, and textures of the games, not a generic mood description that could apply to anything.
 
 Two different game combinations should never produce the same title. If your candidate name would fit just as well on a "cozy indie" playlist and a "dark souls-like" playlist, it is too generic — try again.
+
+## Playlist mode
+
+Each request includes a playlist mode that sets the overall energy and listening context:
+- journey — a shaped arc with quiet, rising, peak, and closing moments. Title can reference narrative, pacing, or a full-session feel.
+- low — background listening for work, study, winding down. Title should feel calm, slow, textural.
+- mid — a steady mix for long sessions and grinding. Title can be plainer, any tone.
+- high — high-energy mix for workouts and intense gaming. Title should feel driving, charged, or intense.
+
+Do NOT name the mode in the title. Let it shape the word choice.
 
 ## Curation weighting
 
@@ -62,11 +73,14 @@ export interface SessionNamingGame {
   curation: CurationMode;
 }
 
-export function buildSessionNamingUserPrompt(games: SessionNamingGame[]): string {
+export function buildSessionNamingUserPrompt(
+  games: SessionNamingGame[],
+  playlistMode: PlaylistMode = PlaylistMode.Journey,
+): string {
   if (games.length === 0) return "No games.";
 
   const lines = games.map((g) => `- ${g.title} [${g.curation}]`);
-  return `Games for this mix:\n${lines.join("\n")}`;
+  return `Playlist mode: ${playlistMode}\n\nGames for this mix:\n${lines.join("\n")}`;
 }
 
 export function parseSessionName(raw: string): string | null {

@@ -11,14 +11,7 @@ export interface User {
 
 // ─── Playlist sessions ────────────────────────────────────────────────────────
 
-/** Playlist-level curation mode. Controls how the Director assembles the
- *  playlist: Journey runs the full six-phase arc with the Vibe Profiler,
- *  while Chill/Mix/Rush use single-phase energy templates with no LLM.
- *
- *  Distinct from the per-game `CurationMode` (lite/include/focus), which
- *  controls how much a single game contributes to any playlist regardless
- *  of which `PlaylistMode` is active.
- */
+/** Playlist-level assembly mode. Distinct from the per-game `CurationMode`. */
 export enum PlaylistMode {
   Journey = "journey",
   Chill = "low",
@@ -213,10 +206,7 @@ export enum SelectionPass {
   LastResort = "last_resort",
 }
 
-/** Phases the Director can tag a slot with. The six classical phases belong
- *  to the Journey template; `Steady` is used by single-phase templates
- *  (energy modes) where the whole playlist sits at a constant energy band.
- */
+/** Journey template uses the six classical phases; energy modes use `Steady`. */
 export enum ArcPhase {
   Intro = "intro",
   Rising = "rising",

@@ -4,7 +4,12 @@ import { GameProgressStatus } from "@/types";
 import type { CurationMode, TrackDecision } from "@/types";
 import { fetchGameCandidates } from "@/lib/pipeline/generation/candidates";
 import { toInsertable, taggedTrackToPending } from "@/lib/pipeline/generation/assembly";
-import { assemblePlaylist, JOURNEY_ARC_TEMPLATE } from "@/lib/pipeline/generation/director";
+import {
+  assemblePlaylist,
+  getEnergyModeTemplate,
+  JOURNEY_ARC_TEMPLATE,
+} from "@/lib/pipeline/generation/director";
+import type { ArcTemplate } from "@/lib/pipeline/generation/director";
 import {
   generateRubric,
   buildGameProfiles,
@@ -99,6 +104,8 @@ function runDirector(
   activeGames: Game[],
   targetCount: number,
   rubric: VibeRubric | undefined,
+  arcTemplate: ArcTemplate,
+  allowLastResort: boolean,
 ): {
   pendingTracks: PendingTrack[];
   decisions: TrackDecision[];
@@ -106,13 +113,9 @@ function runDirector(
   gameBudgets: Record<string, number>;
 } {
   const assembleTarget = Math.ceil(targetCount * 1.15);
-  const result = assemblePlaylist(
-    taggedPools,
-    activeGames,
-    assembleTarget,
-    rubric,
-    JOURNEY_ARC_TEMPLATE,
-  );
+  const result = assemblePlaylist(taggedPools, activeGames, assembleTarget, rubric, arcTemplate, {
+    allowLastResort,
+  });
   return {
     pendingTracks: result.tracks.map((t) => taggedTrackToPending(t, t.durationSeconds)),
     decisions: result.decisions,
@@ -162,11 +165,6 @@ async function persistSession(
 
 // ─── Guest pipeline ──────────────────────────────────────────────────────────
 
-/**
- * Guest generation: Director-only (no Vibe Profiler), no persistence.
- * Games are loaded by IDs from the published catalog, not from a user library.
- * Curation modes can be overridden via the gameSelections parameter.
- */
 export async function generatePlaylistForGuest(
   send: Send,
   gameSelections: Array<{ gameId: string; curation?: CurationMode }>,
@@ -183,7 +181,6 @@ export async function generatePlaylistForGuest(
     return;
   }
 
-  // Apply curation overrides from the request
   const curationMap = new Map(gameSelections.map((s) => [s.gameId, s.curation]));
   for (const game of games) {
     const curation = curationMap.get(game.id);
@@ -200,7 +197,10 @@ export async function generatePlaylistForGuest(
 
   if (filteredPools.size > 0 && targetCount > 0) {
     const activeGames = games.filter((g) => filteredPools.has(g.id));
-    const directorResult = runDirector(filteredPools, activeGames, targetCount, undefined);
+    const energyTemplate = getEnergyModeTemplate(config.playlist_mode);
+    const directorResult = energyTemplate
+      ? runDirector(filteredPools, activeGames, targetCount, undefined, energyTemplate, false)
+      : runDirector(filteredPools, activeGames, targetCount, undefined, JOURNEY_ARC_TEMPLATE, true);
     tracks = directorResult.pendingTracks;
   }
 
@@ -257,25 +257,45 @@ export async function generatePlaylist(
 
   if (filteredPools.size > 0 && targetCount > 0) {
     const activeGames = games.filter((g) => filteredPools.has(g.id));
-
-    let rubric: VibeRubric | undefined =
-      (await findCachedRubric(
-        userId,
-        activeGames.map((g) => g.id),
-      )) ?? undefined;
-
-    if (!rubric) {
-      const capExceeded = await acquireLlmGeneration(userId);
-      if (!capExceeded) {
-        rubric = await profileVibe(activeGames, filteredPools);
-      }
-    }
+    const energyTemplate = getEnergyModeTemplate(config.playlist_mode);
 
     // Naming runs in parallel with the Director; failures fall through to
     // the deterministic fallback in persistSession().
-    const namingPromise = generateSessionName(activeGames);
+    const namingPromise = generateSessionName(activeGames, {
+      playlistMode: config.playlist_mode,
+    });
 
-    const directorResult = runDirector(filteredPools, activeGames, targetCount, rubric);
+    let rubric: VibeRubric | undefined;
+    let arcTemplate: ArcTemplate;
+    let allowLastResort: boolean;
+
+    if (energyTemplate) {
+      arcTemplate = energyTemplate;
+      allowLastResort = false;
+    } else {
+      rubric =
+        (await findCachedRubric(
+          userId,
+          activeGames.map((g) => g.id),
+        )) ?? undefined;
+      if (!rubric) {
+        const capExceeded = await acquireLlmGeneration(userId);
+        if (!capExceeded) {
+          rubric = await profileVibe(activeGames, filteredPools);
+        }
+      }
+      arcTemplate = JOURNEY_ARC_TEMPLATE;
+      allowLastResort = true;
+    }
+
+    const directorResult = runDirector(
+      filteredPools,
+      activeGames,
+      targetCount,
+      rubric,
+      arcTemplate,
+      allowLastResort,
+    );
     individualTracks = directorResult.pendingTracks;
     decisions = directorResult.decisions;
     usedRubric = directorResult.usedRubric;

@@ -35,15 +35,17 @@ import {
 
 // Re-export types + templates so external callers can `from ".../director"`.
 export type { ArcSlot, ArcTemplate, ArcTemplatePhase } from "./types";
-export { JOURNEY_ARC_TEMPLATE } from "./arc-templates";
+export {
+  JOURNEY_ARC_TEMPLATE,
+  CHILL_ARC_TEMPLATE,
+  MIX_ARC_TEMPLATE,
+  RUSH_ARC_TEMPLATE,
+  getEnergyModeTemplate,
+} from "./arc-templates";
 
 const log = createLogger("director");
 
-/**
- * Expand an arc template into a sequence of per-slot constraints. Each phase
- * claims a `fraction` of the target count; the final phase absorbs any
- * rounding remainder so the slot total always equals `targetCount`.
- */
+/** Expand an arc template into per-slot constraints. Final phase absorbs rounding remainder. */
 export function expandArc(targetCount: number, template: ArcTemplate): ArcSlot[] {
   const slots: ArcSlot[] = [];
   let remaining = targetCount;
@@ -244,18 +246,21 @@ interface PickResult {
   poolSize: number;
 }
 
-/**
- * Pure TypeScript playlist assembler. Replaces the LLM-based Phase 3 curation.
- * Builds a playlist against the given `arcTemplate`, respecting game budgets,
- * curation weights, and rubric overrides.
- */
+export interface AssembleOptions {
+  /** Skip the arc-ignoring last-resort pass; shorter playlists over mismatches. Default true. */
+  allowLastResort?: boolean;
+}
+
+/** Pure TypeScript playlist assembler. Deterministic given its inputs. */
 export function assemblePlaylist(
   taggedPools: Map<string, TaggedTrack[]>,
   games: Game[],
   targetCount: number,
   rubric: VibeRubric | undefined,
   arcTemplate: ArcTemplate,
+  options: AssembleOptions = {},
 ): DirectorResult {
+  const allowLastResort = options.allowLastResort ?? true;
   const viewBiasScores = computeViewBiasScores(taggedPools);
   const budgets = computeGameBudgets(games, taggedPools, targetCount);
   const slots = expandArc(targetCount, arcTemplate);
@@ -395,7 +400,7 @@ export function assemblePlaylist(
     }
 
     // Last resort: any unused track from any game, ignore arc
-    if (!bestTrack) {
+    if (!bestTrack && allowLastResort) {
       for (const [, pool] of shuffledPools) {
         for (const track of pool) {
           if (!used.has(track.videoId)) {

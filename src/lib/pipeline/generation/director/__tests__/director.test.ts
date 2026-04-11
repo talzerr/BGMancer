@@ -1026,4 +1026,21 @@ describe("assemblePlaylist", () => {
       expect(lastResort.length).toBeGreaterThanOrEqual(1);
     });
   });
+
+  describe("when allowLastResort is false and tracks don't match the arc", () => {
+    it("should skip the LastResort pass and return fewer tracks", () => {
+      const result = assemblePlaylist(
+        new Map([["g1", makePool("g1", 15, { energy: 1 })]]),
+        [makeGame({ id: "g1" })],
+        10,
+        undefined,
+        JOURNEY_ARC_TEMPLATE,
+        { allowLastResort: false },
+      );
+      const lastResort = result.decisions.filter(
+        (d) => d.selectionPass === SelectionPass.LastResort,
+      );
+      expect(lastResort).toHaveLength(0);
+    });
+  });
 });
