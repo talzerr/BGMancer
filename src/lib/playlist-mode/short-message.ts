@@ -1,5 +1,5 @@
 import { PlaylistMode } from "@/types";
-import { PLAYLIST_MODE_LABELS } from "./playlist-mode-labels";
+import { PLAYLIST_MODE_LABELS } from "./labels";
 
 export type ShortPlaylistTier = "partial" | "sparse" | "empty";
 

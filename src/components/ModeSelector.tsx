@@ -1,7 +1,7 @@
 "use client";
 
 import type { PlaylistMode } from "@/types";
-import { PLAYLIST_MODE_LABELS, PLAYLIST_MODE_ORDER } from "@/lib/playlist-mode-labels";
+import { PLAYLIST_MODE_LABELS, PLAYLIST_MODE_ORDER } from "@/lib/playlist-mode";
 
 interface ModeSelectorProps {
   mode: PlaylistMode;

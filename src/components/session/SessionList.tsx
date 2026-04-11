@@ -4,7 +4,7 @@ import { useState } from "react";
 import { PlaylistMode } from "@/types";
 import type { PlaylistSessionWithCount } from "@/types";
 import { MAX_PLAYLIST_SESSIONS } from "@/lib/constants";
-import { PLAYLIST_MODE_LABELS } from "@/lib/playlist-mode-labels";
+import { PLAYLIST_MODE_LABELS } from "@/lib/playlist-mode";
 
 interface SessionListProps {
   sessions: PlaylistSessionWithCount[];

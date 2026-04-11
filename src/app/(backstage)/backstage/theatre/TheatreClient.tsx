@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PLAYLIST_MODE_LABELS } from "@/lib/playlist-mode-labels";
+import { PLAYLIST_MODE_LABELS } from "@/lib/playlist-mode";
 import type { SessionSummary, PlaylistTelemetry } from "./theatre-constants";
 import { PlaylistInspector } from "./_components/PlaylistInspector";
 import { DirectorReference } from "./_components/DirectorReference";

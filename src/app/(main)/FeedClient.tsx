@@ -40,7 +40,7 @@ import {
   buildShortPlaylistMessage,
   formatShortPlaylistText,
   type ShortPlaylistMessage,
-} from "@/lib/short-playlist-message";
+} from "@/lib/playlist-mode";
 
 const LAUNCHPAD_FADE_MS = 700;
 const LAUNCHPAD_SWAP_DELAY_MS = 800; // fade-out duration + brief held-at-zero pause

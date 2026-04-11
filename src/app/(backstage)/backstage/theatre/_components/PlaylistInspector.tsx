@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { PLAYLIST_MODE_LABELS } from "@/lib/playlist-mode-labels";
+import { PLAYLIST_MODE_LABELS } from "@/lib/playlist-mode";
 import type { PlaylistTelemetry } from "../theatre-constants";
 import { ArcTimeline } from "./ArcTimeline";
 import { DiagnosticsPanel } from "./DiagnosticsPanel";

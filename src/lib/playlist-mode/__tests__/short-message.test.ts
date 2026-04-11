@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { PlaylistMode } from "@/types";
-import { buildShortPlaylistMessage, formatShortPlaylistText } from "@/lib/short-playlist-message";
+import { buildShortPlaylistMessage, formatShortPlaylistText } from "..";
 
 describe("buildShortPlaylistMessage", () => {
   describe("when mode is Journey", () => {
