@@ -2,9 +2,9 @@
 
 import { ErrorCircle, MusicNote } from "@/components/Icons";
 import { useCooldownTimer } from "@/hooks/shared/useCooldownTimer";
-import { GenerateControls } from "@/components/GenerateControls";
-import { GenerateProgressLine } from "@/components/GenerateProgressLine";
-import { ModeSelector } from "@/components/ModeSelector";
+import { GenerateControls } from "./GenerateControls";
+import { GenerateProgressLine } from "./GenerateProgressLine";
+import { ModeSelector } from "./ModeSelector";
 import type { PlaylistMode } from "@/types";
 
 interface GenerateSectionProps {

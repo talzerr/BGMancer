@@ -23,7 +23,7 @@ import { usePlayerContext } from "@/context/player-context";
 import { useSessionManager } from "@/hooks/library/useSessionManager";
 import { useTrackDeleteUndo } from "@/hooks/player/useTrackDeleteUndo";
 import { useTurnstileToken } from "@/hooks/shared/useTurnstileToken";
-import { GenerateSection } from "@/components/GenerateSection";
+import { GenerateSection } from "@/components/generate/GenerateSection";
 import { SessionList } from "@/components/session/SessionList";
 import { LibraryWidget } from "@/components/library/LibraryWidget";
 import { PlaylistHeader } from "@/components/session/PlaylistHeader";

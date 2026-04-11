@@ -96,7 +96,7 @@ vi.mock("@/hooks/player/useTrackDeleteUndo", () => ({
   useTrackDeleteUndo: () => mockTrackDeleteUndo,
 }));
 
-vi.mock("@/components/GenerateSection", () => ({
+vi.mock("@/components/generate/GenerateSection", () => ({
   GenerateSection: () => <div data-testid="generate-section" />,
 }));
 
