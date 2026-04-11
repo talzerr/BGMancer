@@ -321,8 +321,8 @@ _Note: the assembly-time adjustments (same-game penalty, diversity bonus, jitter
 If no candidate passes the energy gate for a slot, the Director escalates through three fallback tiers:
 
 1. **Budget-relaxed pass** — the same energy-gated scoring runs across all games, ignoring budget ceilings. A game that has already hit its allocation can still fill a slot no one else can.
-2. **Arc-relaxed pass** — any unused track from any game is accepted regardless of energy or mood, solely to avoid a gap in the playlist.
-3. **Gap** — if the pool is genuinely exhausted, the slot is left empty and compacted out of the final result. The playlist is shorter than requested rather than padded with duplicates.
+2. **Arc-relaxed pass** — any unused track from any game is accepted regardless of energy or mood, solely to avoid a gap in the playlist. This tier is optional: a caller can disable it, in which case the slot falls through directly to step 3 instead of accepting an arc-violating track.
+3. **Gap** — if the pool is genuinely exhausted, or the arc-relaxed pass was disabled and no arc-respecting candidate remained, the slot is left empty and compacted out of the final result. The playlist is shorter than requested rather than padded with duplicates or arc-violating tracks.
 
 ### Single-Game Libraries
 
