@@ -42,7 +42,9 @@ export const POST = withRequiredAuth(
 
     const session = await Sessions.getById(track.playlist_id);
     const energyTemplate = session ? getEnergyModeTemplate(session.playlist_mode) : null;
-    const allowedEnergies = energyTemplate ? new Set(energyTemplate[0].energyPrefs) : null;
+    const allowedEnergies = energyTemplate
+      ? new Set(energyTemplate.flatMap((p) => p.energyPrefs))
+      : null;
 
     const pool = await getTaggedPool(game.id, game.title);
 

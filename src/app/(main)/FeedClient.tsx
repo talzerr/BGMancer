@@ -101,14 +101,23 @@ export function FeedClient({
   useEffect(() => {
     if (wasGeneratingRef.current && !playlist.generating) {
       fadeOnNextSwapRef.current = true;
-      const requested = pendingRequestedCountRef.current;
-      if (requested != null && playlist.currentSessionId) {
-        setShortPlaylistNotice({ sessionId: playlist.currentSessionId, requested });
-      }
-      pendingRequestedCountRef.current = null;
     }
     wasGeneratingRef.current = playlist.generating;
-  }, [playlist.generating, playlist.currentSessionId]);
+  }, [playlist.generating]);
+
+  // Clear the short-playlist notice when the active session changes to one
+  // it doesn't belong to. The notice is per-generation, not per-session, so
+  // navigating away should retire it for good — re-clicking the same row in
+  // history should not bring it back.
+  useEffect(() => {
+    if (
+      shortPlaylistNotice &&
+      playlist.currentSessionId !== null &&
+      shortPlaylistNotice.sessionId !== playlist.currentSessionId
+    ) {
+      setShortPlaylistNotice(null);
+    }
+  }, [playlist.currentSessionId, shortPlaylistNotice]);
 
   useEffect(() => {
     const nextSessionId = playlist.currentSessionId;
@@ -180,17 +189,13 @@ export function FeedClient({
     getToken: getTurnstileToken,
   } = useTurnstileToken(turnstileSiteKey);
 
-  // The track count requested for the in-flight generation. Captured at
-  // submit time so the post-generation effect knows what to compare against.
-  const pendingRequestedCountRef = useRef<number | null>(null);
-
   async function handleGenerate() {
     const turnstileToken = !isSignedIn ? await getTurnstileToken() : undefined;
-    pendingRequestedCountRef.current = config.targetTrackCount;
+    const requestedCount = config.targetTrackCount;
     setShortPlaylistNotice(null);
 
-    await playlist.handleGenerate(gameLibrary.games, {
-      target_track_count: config.targetTrackCount,
+    const result = await playlist.handleGenerate(gameLibrary.games, {
+      target_track_count: requestedCount,
       allow_long_tracks: config.allowLongTracks,
       allow_short_tracks: config.allowShortTracks,
       anti_spoiler_enabled: config.antiSpoilerEnabled,
@@ -201,6 +206,10 @@ export function FeedClient({
         : undefined,
     });
     await fetchSessions();
+
+    if (result.completed && result.sessionId && result.count < requestedCount) {
+      setShortPlaylistNotice({ sessionId: result.sessionId, requested: requestedCount });
+    }
   }
 
   async function handleLaunchpadCurate() {

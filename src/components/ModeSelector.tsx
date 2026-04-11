@@ -19,7 +19,7 @@ export function ModeSelector({ mode, onModeChange }: ModeSelectorProps) {
       </span>
 
       <div className="flex flex-col gap-0.5">
-        <span className="text-primary text-[14px] font-medium">{active.name}</span>
+        <span className="text-primary text-[15px] font-medium">{active.name}</span>
         {/* All descriptions stacked in a single grid cell so the row always
             sizes to the tallest description and switching modes never reflows. */}
         <div className="grid">
@@ -27,7 +27,7 @@ export function ModeSelector({ mode, onModeChange }: ModeSelectorProps) {
             <span
               key={m}
               aria-hidden={m !== mode}
-              className={`col-start-1 row-start-1 text-[11px] text-white/[0.15] ${
+              className={`col-start-1 row-start-1 text-[11px] text-[var(--text-quaternary)] ${
                 m === mode ? "" : "invisible"
               }`}
             >
