@@ -171,9 +171,17 @@ function makeTrack(overrides: Partial<PlaylistTrack> = {}): PlaylistTrack {
   };
 }
 
-function renderFeedClient(props: Partial<{ isSignedIn: boolean; isDev: boolean }> = {}) {
+function renderFeedClient(
+  props: Partial<{ isSignedIn: boolean; isDev: boolean; youtubeSyncEnabled: boolean }> = {},
+) {
   return render(
-    <FeedClient isSignedIn={props.isSignedIn ?? false} isDev={props.isDev ?? false} user={null} />,
+    <FeedClient
+      isSignedIn={props.isSignedIn ?? false}
+      isDev={props.isDev ?? false}
+      youtubeSyncEnabled={props.youtubeSyncEnabled ?? false}
+      user={null}
+      previewCovers={[]}
+    />,
   );
 }
 

@@ -78,6 +78,12 @@ export const rerollSchema = z.object({
   allowShortTracks: z.boolean().optional(),
 });
 
+// ─── YouTube sync ────────────────────────────────────────────────────────────
+
+export const syncRequestSchema = z.object({
+  sessionId: z.string().min(1),
+});
+
 // ─── Game requests (catalog "can't find your game?") ────────────────────────
 
 export const igdbSearchQuerySchema = z.object({

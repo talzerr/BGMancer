@@ -16,7 +16,6 @@ export interface InsertableTrack {
 }
 
 export interface SyncableTrackRow {
-  id: string;
   video_id: string;
   position: number;
 }
@@ -52,24 +51,17 @@ export const Playlist = {
     );
   },
 
-  async listUnsyncedFound(userId: string): Promise<SyncableTrackRow[]> {
+  /** Returns an ordered list of YouTube video IDs for a session, used by the
+   *  sync route to populate a new YouTube playlist. Only tracks with a
+   *  non-null video_id are included. */
+  async listSyncableVideos(sessionId: string): Promise<SyncableTrackRow[]> {
     return await getDB().all<SyncableTrackRow>(sql`
-      SELECT id, video_id, position
+      SELECT video_id, position
       FROM playlist_tracks
-      WHERE video_id IS NOT NULL
-        AND synced_at IS NULL
-        AND playlist_id = (SELECT id FROM playlists WHERE user_id = ${userId} AND is_archived = 0 ORDER BY created_at DESC LIMIT 1)
+      WHERE playlist_id = ${sessionId}
+        AND video_id IS NOT NULL
       ORDER BY position ASC
     `);
-  },
-
-  async countSynced(userId: string): Promise<number> {
-    const row = (await getDB().get<{ cnt: number }>(sql`
-      SELECT COUNT(*) AS cnt FROM playlist_tracks
-      WHERE synced_at IS NOT NULL
-        AND playlist_id = (SELECT id FROM playlists WHERE user_id = ${userId} AND is_archived = 0 ORDER BY created_at DESC LIMIT 1)
-    `))!;
-    return row.cnt;
   },
 
   async replaceAll(playlistId: string, tracks: InsertableTrack[]): Promise<void> {
@@ -120,14 +112,6 @@ export const Playlist = {
         duration_seconds: durationSeconds,
         track_name: trackName,
       })
-      .where(eq(playlistTracks.id, id))
-      .run();
-  },
-
-  async markSynced(id: string): Promise<void> {
-    await getDB()
-      .update(playlistTracks)
-      .set({ synced_at: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')` })
       .where(eq(playlistTracks.id, id))
       .run();
   },

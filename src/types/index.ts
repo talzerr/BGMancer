@@ -37,6 +37,7 @@ export interface PlaylistSession {
   description: string | null;
   is_archived: boolean;
   playlist_mode: PlaylistMode;
+  youtube_playlist_id: string | null;
   created_at: string;
 }
 

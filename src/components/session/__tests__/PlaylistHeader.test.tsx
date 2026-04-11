@@ -50,6 +50,7 @@ function makeSession(overrides: Partial<PlaylistSessionWithCount> = {}): Playlis
     description: null,
     is_archived: false,
     playlist_mode: PlaylistMode.Journey,
+    youtube_playlist_id: null,
     created_at: "2026-01-01T00:00:00Z",
     track_count: 5,
     ...overrides,
@@ -82,6 +83,7 @@ const defaultProps = {
   tracks: [] as PlaylistTrack[],
   isSignedIn: true,
   isDev: true,
+  youtubeSyncEnabled: false,
   onRename: vi.fn().mockResolvedValue(undefined),
   onDeleteSession: vi.fn().mockResolvedValue(undefined),
   shortPlaylistNotice: null as { text: string } | null,
@@ -273,6 +275,83 @@ describe("PlaylistHeader", () => {
 
       expect(startPlayingMock).toHaveBeenCalledTimes(1);
       expect(startPlayingMock).toHaveBeenCalledWith([track], 0, SESSION_ID);
+    });
+  });
+
+  describe("Sync link", () => {
+    const baseProps = {
+      ...defaultProps,
+      isSignedIn: true,
+      isDev: false,
+      youtubeSyncEnabled: true,
+      tracks: [makeTrack()],
+    };
+
+    it("is hidden for guests", async () => {
+      const PlaylistHeader = await importComponent();
+      render(<PlaylistHeader {...baseProps} isSignedIn={false} />);
+      expect(screen.queryByRole("button", { name: "Sync" })).not.toBeInTheDocument();
+    });
+
+    it("is hidden in dev mode", async () => {
+      const PlaylistHeader = await importComponent();
+      render(<PlaylistHeader {...baseProps} isDev={true} />);
+      expect(screen.queryByRole("button", { name: "Sync" })).not.toBeInTheDocument();
+    });
+
+    it("is hidden when the YouTube sync feature flag is off", async () => {
+      const PlaylistHeader = await importComponent();
+      render(<PlaylistHeader {...baseProps} youtubeSyncEnabled={false} />);
+      expect(screen.queryByRole("button", { name: "Sync" })).not.toBeInTheDocument();
+    });
+
+    it("renders 'Sync' when the current session has no youtube_playlist_id", async () => {
+      const PlaylistHeader = await importComponent();
+      render(<PlaylistHeader {...baseProps} sessions={[makeSession()]} />);
+      expect(screen.getByRole("button", { name: "Sync" })).toBeInTheDocument();
+    });
+
+    it("renders 'Synced' when the current session has a youtube_playlist_id", async () => {
+      const PlaylistHeader = await importComponent();
+      render(
+        <PlaylistHeader
+          {...baseProps}
+          sessions={[makeSession({ youtube_playlist_id: "PL_existing" })]}
+        />,
+      );
+      expect(screen.getByRole("button", { name: /Synced/ })).toBeInTheDocument();
+    });
+
+    it("opens the YouTube URL in a new tab when '✓ Synced' is clicked", async () => {
+      const PlaylistHeader = await importComponent();
+      const user = userEvent.setup();
+      const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
+
+      render(
+        <PlaylistHeader
+          {...baseProps}
+          sessions={[makeSession({ youtube_playlist_id: "PL_existing" })]}
+        />,
+      );
+      await user.click(screen.getByRole("button", { name: /Synced/ }));
+
+      expect(openSpy).toHaveBeenCalledWith(
+        "https://www.youtube.com/playlist?list=PL_existing",
+        "_blank",
+        "noopener,noreferrer",
+      );
+      openSpy.mockRestore();
+    });
+
+    it("opens the confirmation dialog when 'Sync' is clicked", async () => {
+      const PlaylistHeader = await importComponent();
+      const user = userEvent.setup();
+      render(<PlaylistHeader {...baseProps} sessions={[makeSession()]} />);
+
+      await user.click(screen.getByRole("button", { name: "Sync" }));
+
+      expect(screen.getByRole("heading", { name: "Sync to YouTube" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Sync to YouTube" })).toBeInTheDocument();
     });
   });
 });

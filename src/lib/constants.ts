@@ -78,6 +78,17 @@ export const STEAM_SYNC_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
 /** Maximum games persisted per user per sync (top-N by playtime). */
 export const STEAM_SYNC_MAX_GAMES = 500;
 
+// ─── YouTube sync ─────────────────────────────────────────────────────────────
+
+/** Maximum sync requests per authenticated user within the sync rate limit window. */
+export const YOUTUBE_SYNC_MAX_PER_HOUR = 5;
+
+/** YouTube sync rate limit window in milliseconds (1 hour). */
+export const YOUTUBE_SYNC_WINDOW_MS = 60 * 60 * 1000;
+
+/** Max concurrent playlistItems.insert calls when populating a new YouTube playlist. */
+export const YOUTUBE_SYNC_CONCURRENCY = 4;
+
 // ─── Abuse limits ─────────────────────────────────────────────────────────────
 
 /** Maximum number of games allowed in a user's library. */

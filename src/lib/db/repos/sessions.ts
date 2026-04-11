@@ -30,6 +30,7 @@ function rowToSession(row: typeof playlists.$inferSelect): PlaylistSession {
     description: row.description,
     is_archived: row.is_archived,
     playlist_mode: parsePlaylistMode(row.playlist_mode),
+    youtube_playlist_id: row.youtube_playlist_id,
     created_at: row.created_at,
   };
 }
@@ -107,6 +108,7 @@ export const Sessions = {
         playlist_mode: playlists.playlist_mode,
         rubric: playlists.rubric,
         game_budgets: playlists.game_budgets,
+        youtube_playlist_id: playlists.youtube_playlist_id,
         created_at: playlists.created_at,
         track_count: count(playlistTracks.id),
       })
@@ -124,6 +126,7 @@ export const Sessions = {
       description: r.description,
       is_archived: r.is_archived,
       playlist_mode: parsePlaylistMode(r.playlist_mode),
+      youtube_playlist_id: r.youtube_playlist_id,
       created_at: r.created_at,
       track_count: r.track_count,
     }));
@@ -131,6 +134,15 @@ export const Sessions = {
 
   async rename(id: string, name: string): Promise<void> {
     await getDB().update(playlists).set({ name }).where(eq(playlists.id, id)).run();
+  },
+
+  /** Persists the YouTube playlist ID after a successful sync. */
+  async setYoutubePlaylistId(id: string, youtubePlaylistId: string): Promise<void> {
+    await getDB()
+      .update(playlists)
+      .set({ youtube_playlist_id: youtubePlaylistId })
+      .where(eq(playlists.id, id))
+      .run();
   },
 
   /** Stores rubric + game budgets on a session after generation. */
@@ -184,6 +196,7 @@ export const Sessions = {
         playlist_mode: playlists.playlist_mode,
         rubric: playlists.rubric,
         game_budgets: playlists.game_budgets,
+        youtube_playlist_id: playlists.youtube_playlist_id,
         created_at: playlists.created_at,
         track_count: count(playlistTracks.id),
       })
@@ -201,6 +214,7 @@ export const Sessions = {
       description: r.description,
       is_archived: r.is_archived,
       playlist_mode: parsePlaylistMode(r.playlist_mode),
+      youtube_playlist_id: r.youtube_playlist_id,
       created_at: r.created_at,
       track_count: r.track_count,
     }));

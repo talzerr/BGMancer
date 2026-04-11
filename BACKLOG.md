@@ -52,17 +52,6 @@ Items that must be done before removing Zero Trust and going public.
 
 ---
 
-## Needs PM Session
-
-Ideas with merit that need discussion and scoping before implementation. Cannot go
-to a Claude Code session directly.
-
-- **[player] Revisit playlist manipulation features** — shuffle, reorder, remove,
-  reroll. The arc changes what makes sense here. Some of these may conflict with the
-  Director's sequencing. Needs a principled decision on which controls exist.
-
----
-
 ## Post-launch
 
 Future work. No urgency, no commitment.

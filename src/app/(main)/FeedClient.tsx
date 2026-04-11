@@ -34,6 +34,7 @@ const PLAYLIST_FADE_MS = 300;
 interface FeedClientProps {
   isSignedIn: boolean;
   isDev: boolean;
+  youtubeSyncEnabled: boolean;
   turnstileSiteKey?: string;
   user: { name?: string | null; email?: string | null; image?: string | null } | null;
   previewCovers: string[];
@@ -42,6 +43,7 @@ interface FeedClientProps {
 export function FeedClient({
   isSignedIn,
   isDev,
+  youtubeSyncEnabled,
   turnstileSiteKey,
   user,
   previewCovers,
@@ -339,6 +341,7 @@ export function FeedClient({
           tracks={displayedTracks}
           isSignedIn={isSignedIn}
           isDev={isDev}
+          youtubeSyncEnabled={youtubeSyncEnabled}
           onRename={handleRenameSession}
           onDeleteSession={handleDeleteSession}
           shortPlaylistNotice={
