@@ -200,17 +200,17 @@ Let $M^\star$ denote the preferred-mood target: $M_\rho^\star$ when a rubric is 
 
 **3. Mood Score**
 
-$$S_{\text{mood}} = J\!\left(M_t,\ M^\star\right)$$
+$$S_{\text{mood}} = J\left(M_t,\ M^\star\right)$$
 
 **4. Instrumentation Score**
 
-$$S_{\text{inst}} = J\!\left(I_t,\ I^\star\right)$$
+$$S_{\text{inst}} = J\left(I_t,\ I^\star\right)$$
 
 The rubric target sets are **exclusive-or**: when a rubric is present, it fully replaces the arc slot's preference targets for those dimensions. The two sources are never merged — the rubric either owns the target or it doesn't. This prevents a dilution effect where a general arc preference and a specific rubric preference average each other out into something neither was meant to express.
 
 **5. View Bias Score**
 
-$$S_{\text{vb}} = w_H \cdot \text{clamp}\!\left(0, 1, \frac{\log_{10}(\text{views}) - L_{\min}}{L_{\max} - L_{\min}}\right) + w_L \cdot \text{clamp}\!\left(0, 1, \frac{\text{trackViews} / \text{avgGameViews}}{C_{\text{stature}}}\right)$$
+$$S_{\text{vb}} = w_H \cdot \text{clamp}\left(0, 1, \frac{\log_{10}(\text{views}) - L_{\min}}{L_{\max} - L_{\min}}\right) + w_L \cdot \text{clamp}\left(0, 1, \frac{\text{trackViews} / \text{avgGameViews}}{C_{\text{stature}}}\right)$$
 
 **6. Weighted Sum**
 
@@ -231,7 +231,7 @@ When comparing candidates across games for a given slot during assembly (not dur
 
 $$R \leftarrow R - \delta_{\text{same}} \quad \text{if game} = \text{lastGame}$$
 
-$$R \leftarrow R + \max\!\left(0,\ \frac{b \cdot (i/n) - u}{b}\right) \times \gamma \quad \text{(diversity bonus)}$$
+$$R \leftarrow R + \max\left(0,\ \frac{b \cdot (i/n) - u}{b}\right) \times \gamma \quad \text{(diversity bonus)}$$
 
 $$R \leftarrow R + \text{Uniform}(0, \epsilon_{\text{jitter}}) \quad \text{(tie-breaking)}$$
 
