@@ -16,6 +16,7 @@ interface PlaylistHeaderProps {
   isDev: boolean;
   onRename: (id: string, name: string) => Promise<void>;
   onDeleteSession: (id: string) => Promise<void>;
+  shortPlaylistNotice: { actual: number; requested: number } | null;
 }
 
 function formatDuration(seconds: number): string {
@@ -35,6 +36,7 @@ export function PlaylistHeader({
   isDev,
   onRename,
   onDeleteSession,
+  shortPlaylistNotice,
 }: PlaylistHeaderProps) {
   const { playlist, config, player, toggleAntiSpoiler } = usePlayerContext();
   const [editingTitle, setEditingTitle] = useState(false);
@@ -198,6 +200,12 @@ export function PlaylistHeader({
             {currentSession && currentSession.playlist_mode !== PlaylistMode.Journey && (
               <> · {PLAYLIST_MODE_LABELS[currentSession.playlist_mode].name}</>
             )}
+          </span>
+        )}
+
+        {shortPlaylistNotice && (
+          <span className="text-[12px] text-[var(--text-disabled)] tabular-nums">
+            {shortPlaylistNotice.actual} of {shortPlaylistNotice.requested} tracks matched.
           </span>
         )}
       </div>

@@ -84,6 +84,7 @@ const defaultProps = {
   isDev: true,
   onRename: vi.fn().mockResolvedValue(undefined),
   onDeleteSession: vi.fn().mockResolvedValue(undefined),
+  shortPlaylistNotice: null as { actual: number; requested: number } | null,
 };
 
 afterEach(() => {
@@ -174,6 +175,26 @@ describe("PlaylistHeader", () => {
       const sessions = [makeSession({ playlist_mode: PlaylistMode.Rush })];
       render(<PlaylistHeader {...defaultProps} sessions={sessions} tracks={tracks} />);
       expect(screen.getByText(/· Rush/)).toBeInTheDocument();
+    });
+
+    it("should render the short-playlist notice when shortPlaylistNotice is set", async () => {
+      const PlaylistHeader = await importComponent();
+      const tracks = [makeTrack(), makeTrack(), makeTrack()];
+      render(
+        <PlaylistHeader
+          {...defaultProps}
+          tracks={tracks}
+          shortPlaylistNotice={{ actual: 3, requested: 50 }}
+        />,
+      );
+      expect(screen.getByText(/3 of 50 tracks matched\./i)).toBeInTheDocument();
+    });
+
+    it("should NOT render the notice when shortPlaylistNotice is null", async () => {
+      const PlaylistHeader = await importComponent();
+      const tracks = [makeTrack()];
+      render(<PlaylistHeader {...defaultProps} tracks={tracks} shortPlaylistNotice={null} />);
+      expect(screen.queryByText(/tracks matched/i)).not.toBeInTheDocument();
     });
   });
 

@@ -62,6 +62,13 @@ export function FeedClient({
   const { pendingDelete, initiateRemove, undoRemove } = useTrackDeleteUndo();
 
   const [pressedCurate, setPressedCurate] = useState(false);
+  // Set when a generation completes; cleared on the next generation start or
+  // when the user navigates to a different session via history. Drives the
+  // "{actual} of {requested} tracks matched." line under the playlist header.
+  const [shortPlaylistNotice, setShortPlaylistNotice] = useState<{
+    sessionId: string | null;
+    requested: number;
+  } | null>(null);
   const [mode, setMode] = useState<"launchpad" | "playlist">(() =>
     playlist.tracks.length > 0 ? "playlist" : "launchpad",
   );
@@ -94,9 +101,14 @@ export function FeedClient({
   useEffect(() => {
     if (wasGeneratingRef.current && !playlist.generating) {
       fadeOnNextSwapRef.current = true;
+      const requested = pendingRequestedCountRef.current;
+      if (requested != null && playlist.currentSessionId) {
+        setShortPlaylistNotice({ sessionId: playlist.currentSessionId, requested });
+      }
+      pendingRequestedCountRef.current = null;
     }
     wasGeneratingRef.current = playlist.generating;
-  }, [playlist.generating]);
+  }, [playlist.generating, playlist.currentSessionId]);
 
   useEffect(() => {
     const nextSessionId = playlist.currentSessionId;
@@ -168,8 +180,14 @@ export function FeedClient({
     getToken: getTurnstileToken,
   } = useTurnstileToken(turnstileSiteKey);
 
+  // The track count requested for the in-flight generation. Captured at
+  // submit time so the post-generation effect knows what to compare against.
+  const pendingRequestedCountRef = useRef<number | null>(null);
+
   async function handleGenerate() {
     const turnstileToken = !isSignedIn ? await getTurnstileToken() : undefined;
+    pendingRequestedCountRef.current = config.targetTrackCount;
+    setShortPlaylistNotice(null);
 
     await playlist.handleGenerate(gameLibrary.games, {
       target_track_count: config.targetTrackCount,
@@ -329,6 +347,13 @@ export function FeedClient({
           isDev={isDev}
           onRename={handleRenameSession}
           onDeleteSession={handleDeleteSession}
+          shortPlaylistNotice={
+            shortPlaylistNotice &&
+            shortPlaylistNotice.sessionId === displayedSnapshot.sessionId &&
+            displayedTracks.length < shortPlaylistNotice.requested
+              ? { actual: displayedTracks.length, requested: shortPlaylistNotice.requested }
+              : null
+          }
         />
         <DndContext
           id="playlist-dnd"
