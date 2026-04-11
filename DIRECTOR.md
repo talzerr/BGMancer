@@ -186,7 +186,7 @@ Additionally, a small random jitter $\epsilon_{\text{jitter}}$ is added to each 
 
 ### Full Scoring Procedure
 
-Let a track be characterized by the tuple $(e_t,\ R_t,\ M_t,\ I_t,\ v_t)$ where $e_t \in \mathbb{N}$ is its energy level, $R_t$ its role set, $M_t$ its mood set, $I_t$ its instrumentation set, and $v_t \in \{0,1\}$ its vocals indicator. Let a slot be characterized by $(E_s,\ R_s^*,\ M_s^*,\ I_s^*,\ P_s)$ where $E_s$ is the admissible energy set, $R_s^*,\ M_s^*,\ I_s^*$ its preferred role/mood/instrumentation sets, and $P_s$ its penalized mood set. An optional rubric $\rho$ contributes $(R_\rho^*,\ M_\rho^*,\ I_\rho^*,\ P_\rho,\ v_\rho^{\max})$ with the same semantics plus an optional vocal prohibition $v_\rho^{\max} \in \{0,1\}$.
+Let a track be characterized by the tuple $(e_t,\ R_t,\ M_t,\ I_t,\ v_t)$ where $e_t \in \mathbb{N}$ is its energy level, $R_t$ its role set, $M_t$ its mood set, $I_t$ its instrumentation set, and $v_t \in \{0,1\}$ its vocals indicator. Let a slot be characterized by $(E_s,\ R_s^\star,\ M_s^\star,\ I_s^\star,\ P_s)$ where $E_s$ is the admissible energy set, $R_s^\star,\ M_s^\star,\ I_s^\star$ its preferred role/mood/instrumentation sets, and $P_s$ its penalized mood set. An optional rubric $\rho$ contributes $(R_\rho^\star,\ M_\rho^\star,\ I_\rho^\star,\ P_\rho,\ v_\rho^{\max})$ with the same semantics plus an optional vocal prohibition $v_\rho^{\max} \in \{0,1\}$.
 
 **1. Energy Gate**
 
@@ -194,9 +194,9 @@ $$\text{if } e_t \notin E_s \Rightarrow R = -\infty \quad \text{(eliminated)}$$
 
 **2. Role Score**
 
-$$S_{\text{role}} = \begin{cases} 1.0 & \text{if } R_t \cap R_s^* \neq \emptyset \ \text{ or } \ R_t \cap R_\rho^* \neq \emptyset \\ 0.0 & \text{otherwise} \end{cases}$$
+$$S_{\text{role}} = \begin{cases} 1.0 & \text{if } R_t \cap R_s^\star \neq \emptyset \ \text{ or } \ R_t \cap R_\rho^\star \neq \emptyset \\ 0.0 & \text{otherwise} \end{cases}$$
 
-Let $M^\star$ denote the preferred-mood target: $M_\rho^*$ when a rubric is present, otherwise $M_s^*$. Let $I^\star$ denote the preferred-instrumentation target defined analogously.
+Let $M^\star$ denote the preferred-mood target: $M_\rho^\star$ when a rubric is present, otherwise $M_s^\star$. Let $I^\star$ denote the preferred-instrumentation target defined analogously.
 
 **3. Mood Score**
 
