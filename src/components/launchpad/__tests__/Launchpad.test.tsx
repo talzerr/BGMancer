@@ -282,7 +282,6 @@ describe("Launchpad", () => {
         />,
       );
       fireEvent.click(screen.getByRole("button", { name: /advanced/i }));
-      // Active mode (Journey) shown as text, inactive modes as buttons
       expect(screen.getByRole("button", { name: "Chill" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Mix" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Rush" })).toBeInTheDocument();

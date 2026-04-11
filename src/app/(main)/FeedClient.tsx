@@ -67,11 +67,6 @@ export function FeedClient({
   const { pendingDelete, initiateRemove, undoRemove } = useTrackDeleteUndo();
 
   const [pressedCurate, setPressedCurate] = useState(false);
-  // Set when an energy-mode generation produces fewer tracks than requested.
-  // Drives the partial/sparse line under the playlist header (50%+ and 1-49%)
-  // and the destructive line under the Curate button when zero tracks matched.
-  // Cleared on the next generation, on session navigation, or when the user
-  // changes any setting that influences the next generation.
   const [shortPlaylistMessage, setShortPlaylistMessage] = useState<ShortPlaylistMessage | null>(
     null,
   );
@@ -111,10 +106,9 @@ export function FeedClient({
     wasGeneratingRef.current = playlist.generating;
   }, [playlist.generating]);
 
-  // Clear the short-playlist message when the active session changes to one
-  // it doesn't belong to. The message is per-generation, not per-session, so
-  // navigating away should retire it for good — re-clicking the same row in
-  // history should not bring it back.
+  // Navigating away from the message's session retires it permanently —
+  // the message is per-generation, not per-session, so re-visiting the row
+  // should not bring it back.
   useEffect(() => {
     if (
       shortPlaylistMessage &&
@@ -126,9 +120,7 @@ export function FeedClient({
     }
   }, [playlist.currentSessionId, shortPlaylistMessage]);
 
-  // Also clear the message when the user changes any generation setting.
-  // The message describes the previous generation against the previous
-  // settings — once the inputs change it's stale.
+  // Any setting change invalidates the previous generation's result.
   useEffect(() => {
     setShortPlaylistMessage(null);
   }, [

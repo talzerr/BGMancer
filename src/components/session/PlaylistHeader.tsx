@@ -198,10 +198,7 @@ export function PlaylistHeader({
           <span className="text-[12px] text-[var(--text-disabled)] tabular-nums">
             {trackCount} tracks · {formatDuration(totalDurationSeconds)}
             {(() => {
-              // Authenticated playlists carry the mode on the session record.
-              // Guests have no session — fall back to the user's currently
-              // selected mode, which (with no history) is the mode that
-              // generated the displayed playlist.
+              // Guests have no session record; current selection is the generation mode.
               const mode = currentSession?.playlist_mode ?? config.playlistMode;
               return mode !== PlaylistMode.Journey ? (
                 <> · {PLAYLIST_MODE_LABELS[mode].name}</>

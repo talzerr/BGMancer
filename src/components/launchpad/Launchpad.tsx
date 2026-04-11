@@ -19,8 +19,7 @@ interface LaunchpadProps {
   pressedCurate: boolean;
   onCurateClick: () => void;
   previewCovers: string[];
-  /** Destructive message rendered below the Curate button when an energy
-   *  mode generation produced zero matching tracks. Cleared by FeedClient. */
+  /** Destructive message for an energy-mode generation that returned zero tracks. */
   emptyModeMessage: string | null;
 }
 

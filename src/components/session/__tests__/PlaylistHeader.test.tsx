@@ -164,7 +164,6 @@ describe("PlaylistHeader", () => {
       const PlaylistHeader = await importComponent();
       const tracks = [makeTrack()];
       const { container } = render(<PlaylistHeader {...defaultProps} tracks={tracks} />);
-      // The metadata span should contain "1 tracks · ..." but no "Journey" text
       const metadata = container.querySelector(".tabular-nums");
       expect(metadata?.textContent).not.toMatch(/Journey/i);
     });
