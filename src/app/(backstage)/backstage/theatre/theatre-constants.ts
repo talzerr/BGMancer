@@ -4,10 +4,7 @@ import {
   SCORE_WEIGHT_ROLE,
   SCORE_WEIGHT_MOOD,
   SCORE_WEIGHT_INSTRUMENT,
-  SCORE_WEIGHT_ROLE_VIEW_BIAS,
-  SCORE_WEIGHT_MOOD_VIEW_BIAS,
   SCORE_WEIGHT_VIEW_BIAS,
-  SCORE_WEIGHT_INSTRUMENT_VIEW_BIAS,
 } from "@/lib/pipeline/generation/director-constants";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -83,27 +80,25 @@ interface ScoringWeightRow {
   method: string;
 }
 
-const w = (a: number, b: number) => `${a.toFixed(2)} / ${b.toFixed(2)}`;
-
 export const SCORING_WEIGHTS: ScoringWeightRow[] = [
   {
     dimension: "Role",
-    weight: w(SCORE_WEIGHT_ROLE, SCORE_WEIGHT_ROLE_VIEW_BIAS),
+    weight: SCORE_WEIGHT_ROLE.toFixed(2),
     method: "Binary -- 1.0 if role matches slot, 0.0 otherwise",
   },
   {
     dimension: "Mood",
-    weight: w(SCORE_WEIGHT_MOOD, SCORE_WEIGHT_MOOD_VIEW_BIAS),
+    weight: SCORE_WEIGHT_MOOD.toFixed(2),
     method: "Jaccard similarity on mood intersection",
   },
   {
     dimension: "Instrumentation",
-    weight: w(SCORE_WEIGHT_INSTRUMENT, SCORE_WEIGHT_INSTRUMENT_VIEW_BIAS),
+    weight: SCORE_WEIGHT_INSTRUMENT.toFixed(2),
     method: "Jaccard similarity on instrumentation intersection",
   },
   {
     dimension: "View Bias",
-    weight: `— / ${SCORE_WEIGHT_VIEW_BIAS.toFixed(2)}`,
+    weight: SCORE_WEIGHT_VIEW_BIAS.toFixed(2),
     method: "YouTube view count popularity (global heat + local stature)",
   },
 ];

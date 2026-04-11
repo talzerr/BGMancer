@@ -62,7 +62,7 @@ export function DirectorReference() {
             <thead>
               <tr className="border-border border-b text-[11px] tracking-wider text-[var(--text-tertiary)] uppercase">
                 <th className="px-3 py-2 text-left">Dimension</th>
-                <th className="px-3 py-2 text-left">Weight (raw vibes / view bias)</th>
+                <th className="px-3 py-2 text-left">Weight</th>
                 <th className="px-3 py-2 text-left">Method</th>
               </tr>
             </thead>

@@ -53,13 +53,11 @@ const mockPlayerContext = {
     antiSpoilerEnabled: false,
     allowLongTracks: false,
     allowShortTracks: true,
-    rawVibes: false,
     setTargetTrackCount: vi.fn(),
     saveTrackCount: vi.fn(),
     saveAllowLongTracks: vi.fn(),
     saveAllowShortTracks: vi.fn(),
     saveAntiSpoiler: vi.fn(),
-    saveRawVibes: vi.fn(),
   },
   gameLibrary: {
     games: [],

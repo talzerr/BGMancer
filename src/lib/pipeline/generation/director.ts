@@ -18,11 +18,8 @@ import {
 import {
   SCORE_WEIGHT_ROLE,
   SCORE_WEIGHT_MOOD,
-  SCORE_WEIGHT_INSTRUMENT,
-  SCORE_WEIGHT_ROLE_VIEW_BIAS,
-  SCORE_WEIGHT_MOOD_VIEW_BIAS,
   SCORE_WEIGHT_VIEW_BIAS,
-  SCORE_WEIGHT_INSTRUMENT_VIEW_BIAS,
+  SCORE_WEIGHT_INSTRUMENT,
   VIEW_BIAS_SCORE_BASELINE,
   VIEW_BIAS_LOG_MIN,
   VIEW_BIAS_LOG_MAX,
@@ -302,7 +299,7 @@ export function scoreTrack(
   track: TaggedTrack,
   slot: ArcSlot,
   rubric: VibeRubric | undefined,
-  viewBiasScores: Map<string, number> | null,
+  viewBiasScores: Map<string, number>,
 ): ScoreBreakdown | null {
   if (!slot.energyPrefs.includes(track.energy)) return null;
 
@@ -319,17 +316,13 @@ export function scoreTrack(
   const targetInst = phaseOverride?.preferredInstrumentation ?? slot.preferredInstrumentation;
   const instScore = jaccard(track.instrumentation, targetInst);
 
-  const viewBiasScore = viewBiasScores?.get(track.videoId) ?? VIEW_BIAS_SCORE_BASELINE;
+  const viewBiasScore = viewBiasScores.get(track.videoId) ?? VIEW_BIAS_SCORE_BASELINE;
 
   const finalScore =
-    viewBiasScores != null
-      ? roleScore * SCORE_WEIGHT_ROLE_VIEW_BIAS +
-        moodScore * SCORE_WEIGHT_MOOD_VIEW_BIAS +
-        viewBiasScore * SCORE_WEIGHT_VIEW_BIAS +
-        instScore * SCORE_WEIGHT_INSTRUMENT_VIEW_BIAS
-      : roleScore * SCORE_WEIGHT_ROLE +
-        moodScore * SCORE_WEIGHT_MOOD +
-        instScore * SCORE_WEIGHT_INSTRUMENT;
+    roleScore * SCORE_WEIGHT_ROLE +
+    moodScore * SCORE_WEIGHT_MOOD +
+    viewBiasScore * SCORE_WEIGHT_VIEW_BIAS +
+    instScore * SCORE_WEIGHT_INSTRUMENT;
 
   let adjustedScore = finalScore;
   const allPenalized = new Set([...slot.penalizedMoods, ...(rubric?.penalizedMoods ?? [])]);
@@ -355,9 +348,8 @@ export function assemblePlaylist(
   games: Game[],
   targetCount: number,
   rubric: VibeRubric | undefined,
-  useViewBias: boolean,
 ): DirectorResult {
-  const viewBiasScores = useViewBias ? computeViewBiasScores(taggedPools) : null;
+  const viewBiasScores = computeViewBiasScores(taggedPools);
   const budgets = computeGameBudgets(games, taggedPools, targetCount);
   const slots = expandArc(targetCount);
 
@@ -394,7 +386,6 @@ export function assemblePlaylist(
       gameBudget: budgets.get(track.gameId) ?? 0,
       gameBudgetUsed: gameUsed.get(track.gameId) ?? 0,
       selectionPass,
-      viewBiasActive: viewBiasScores != null,
     });
   }
 
@@ -557,7 +548,7 @@ export function pickBestTrack(
   slot: ArcSlot,
   used: Set<string>,
   rubric: VibeRubric | undefined,
-  viewBiasScores: Map<string, number> | null,
+  viewBiasScores: Map<string, number>,
 ): PickResult | null {
   const candidates: Array<{ track: TaggedTrack; breakdown: ScoreBreakdown }> = [];
   for (const track of pool) {

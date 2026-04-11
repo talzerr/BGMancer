@@ -176,7 +176,6 @@ export function FeedClient({
       allow_long_tracks: config.allowLongTracks,
       allow_short_tracks: config.allowShortTracks,
       anti_spoiler_enabled: config.antiSpoilerEnabled,
-      raw_vibes: config.rawVibes,
       turnstileToken,
       gameSelections: !isSignedIn
         ? gameLibrary.games.map((g) => ({ gameId: g.id, curation: g.curation }))
@@ -291,8 +290,6 @@ export function FeedClient({
         onToggleLongTracks={config.saveAllowLongTracks}
         allowShortTracks={config.allowShortTracks}
         onToggleShortTracks={config.saveAllowShortTracks}
-        rawVibes={config.rawVibes}
-        onToggleRawVibes={config.saveRawVibes}
       />
     </>
   );

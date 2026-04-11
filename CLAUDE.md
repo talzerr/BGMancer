@@ -90,7 +90,7 @@ When adding a new API route:
 Next.js App Router with three main page areas:
 
 - `/` — main feed (`src/app/(main)/page.tsx` + `src/app/(main)/FeedClient.tsx`). Renders one of two layouts based on derived `mode` state in `FeedClient`:
-  - **Launchpad mode** (`src/components/launchpad/Launchpad.tsx`) — full-width centered onboarding screen shown when there are no tracks, no in-flight generation, and the user has not pressed Curate. Two states: empty library (faint game cover preview row from published catalog, app icon, tagline + subtitle, CTA → catalog) and ready library (cover row + Curate + size presets + `Advanced` reveal with custom size, Long/Short tracks, Raw vibes). The empty state receives `previewCovers` from the server component (`page.tsx` fetches and shuffles published game thumbnails).
+  - **Launchpad mode** (`src/components/launchpad/Launchpad.tsx`) — full-width centered onboarding screen shown when there are no tracks, no in-flight generation, and the user has not pressed Curate. Two states: empty library (faint game cover preview row from published catalog, app icon, tagline + subtitle, CTA → catalog) and ready library (cover row + Curate + size presets + `Advanced` reveal with custom size and Long/Short tracks). The empty state receives `previewCovers` from the server component (`page.tsx` fetches and shuffles published game thumbnails).
   - **Playlist mode** — three-region full-height flexbox layout. Left sidebar (290px, desktop-only: logo, LibraryWidget, GenerateSection, session history, user/auth, footer links). Center (scrollable playlist with sticky header). Right sidebar (80px PlayerPanel, desktop-only). On mobile the layout stacks vertically with a separate header.
   - The transition between modes is a single opacity cross-fade owned by `FeedClient` (timing constants `LAUNCHPAD_FADE_MS`, `LAUNCHPAD_SWAP_DELAY_MS` at the top of the file). Generation runs in the background after the layout swap.
 - `/catalog` — catalog browser + library drawer (`src/app/(main)/catalog/page.tsx` + `src/app/(main)/catalog/CatalogClient.tsx`) — browse published games, add to library with curation modes. Full-height flexbox: center (header + scrollable grid), library drawer (right), and PlayerPanel (right, conditional on active playlist).
@@ -194,13 +194,12 @@ All providers implement `LLMProvider` (`src/lib/llm/provider.ts`): `complete(sys
 
 Config is stored in **localStorage** (not the DB). `useConfig` (`src/hooks/useConfig.ts`) reads/writes via `localStorage` with the following keys:
 
-| Key                        | Type       | Default | Purpose                                                |
-| -------------------------- | ---------- | ------- | ------------------------------------------------------ |
-| `bgm_target_track_count`   | number     | 50      | Target playlist length                                 |
-| `bgm_anti_spoiler_enabled` | "1" \| "0" | "0"     | Blur unplayed track titles                             |
-| `bgm_allow_long_tracks`    | "1" \| "0" | "0"     | Allow tracks >9min                                     |
-| `bgm_allow_short_tracks`   | "1" \| "0" | "1"     | Allow tracks <90s (note: always false in practice)     |
-| `bgm_raw_vibes`            | "1" \| "0" | "0"     | Disable view bias scoring — score on musical tags only |
+| Key                        | Type       | Default | Purpose                                            |
+| -------------------------- | ---------- | ------- | -------------------------------------------------- |
+| `bgm_target_track_count`   | number     | 50      | Target playlist length                             |
+| `bgm_anti_spoiler_enabled` | "1" \| "0" | "0"     | Blur unplayed track titles                         |
+| `bgm_allow_long_tracks`    | "1" \| "0" | "0"     | Allow tracks >9min                                 |
+| `bgm_allow_short_tracks`   | "1" \| "0" | "1"     | Allow tracks <90s (note: always false in practice) |
 
 There is no `/api/config` route. The hook uses `localStorage.getItem()` / `localStorage.setItem()` directly with boolean parsing via `v === "1"`. To add a new config key:
 

@@ -12,8 +12,6 @@ interface GenerateControlsProps {
   onToggleLongTracks: (enabled: boolean) => void;
   allowShortTracks: boolean;
   onToggleShortTracks: (enabled: boolean) => void;
-  rawVibes: boolean;
-  onToggleRawVibes: (enabled: boolean) => void;
 }
 
 export function GenerateControls({
@@ -23,8 +21,6 @@ export function GenerateControls({
   onToggleLongTracks,
   allowShortTracks,
   onToggleShortTracks,
-  rawVibes,
-  onToggleRawVibes,
 }: GenerateControlsProps) {
   const isPresetValue = (PRESETS as readonly number[]).includes(targetTrackCount);
   // Custom is active when the user has explicitly opened it OR when the
@@ -94,12 +90,6 @@ export function GenerateControls({
           description="Allow tracks under 90s"
           on={allowShortTracks}
           onToggle={() => onToggleShortTracks(!allowShortTracks)}
-        />
-        <ToggleRow
-          label="Raw vibes"
-          description="Ignore popularity, score on tags only"
-          on={rawVibes}
-          onToggle={() => onToggleRawVibes(!rawVibes)}
         />
       </div>
     </div>

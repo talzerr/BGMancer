@@ -54,7 +54,6 @@ function makeDecision(
     gameBudget: 10,
     gameBudgetUsed: 3,
     selectionPass: SelectionPass.Scored,
-    viewBiasActive: false,
     ...overrides,
   };
 }
@@ -80,16 +79,6 @@ describe("DirectorDecisions", () => {
       expect(rows[1].position).toBe(1);
       expect(rows[1].arc_phase).toBe("rising");
       expect(rows[1].track_video_id).toBe("vid-002");
-    });
-
-    it("should store boolean fields as integers (0/1)", async () => {
-      await DirectorDecisions.bulkInsert(playlistId, [makeDecision({ viewBiasActive: false })]);
-
-      const row = rawDb
-        .prepare("SELECT view_bias_active FROM playlist_track_decisions WHERE playlist_id = ?")
-        .get(playlistId) as Record<string, unknown>;
-
-      expect(row.view_bias_active).toBe(0);
     });
 
     it("should be a no-op when given an empty array", async () => {
@@ -126,21 +115,6 @@ describe("DirectorDecisions", () => {
       const result = await DirectorDecisions.listByPlaylist("nonexistent");
 
       expect(result).toEqual([]);
-    });
-
-    it("should map viewBiasActive as a boolean, not an integer", async () => {
-      await DirectorDecisions.bulkInsert(playlistId, [
-        makeDecision({ position: 0, viewBiasActive: true }),
-        makeDecision({ position: 1, viewBiasActive: false }),
-      ]);
-
-      const result = await DirectorDecisions.listByPlaylist(playlistId);
-
-      expect(result[0].viewBiasActive).toBe(true);
-      expect(typeof result[0].viewBiasActive).toBe("boolean");
-
-      expect(result[1].viewBiasActive).toBe(false);
-      expect(typeof result[1].viewBiasActive).toBe("boolean");
     });
 
     it("should correctly map all score fields", async () => {

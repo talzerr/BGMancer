@@ -26,16 +26,17 @@ import {
 import {
   SCORE_WEIGHT_ROLE,
   SCORE_WEIGHT_MOOD,
-  SCORE_WEIGHT_INSTRUMENT,
-  SCORE_WEIGHT_ROLE_VIEW_BIAS,
-  SCORE_WEIGHT_MOOD_VIEW_BIAS,
   SCORE_WEIGHT_VIEW_BIAS,
-  SCORE_WEIGHT_INSTRUMENT_VIEW_BIAS,
+  SCORE_WEIGHT_INSTRUMENT,
   VIEW_BIAS_SCORE_BASELINE,
   SCORE_PENALTY_MULTIPLIER,
   SCORE_VOCALS_PENALTY_MULTIPLIER,
   DIRECTOR_TOP_N_POOL,
 } from "../director-constants";
+
+// Default empty view-bias map — view bias is always active; missing entries
+// fall back to VIEW_BIAS_SCORE_BASELINE inside scoreTrack.
+const EMPTY_VB: Map<string, number> = new Map();
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -457,13 +458,13 @@ describe("scoreTrack", () => {
 
   describe("when track energy does not match slot", () => {
     it("should return null", () => {
-      expect(scoreTrack(makeTrack({ energy: 3 }), slot, undefined, null)).toBeNull();
+      expect(scoreTrack(makeTrack({ energy: 3 }), slot, undefined, EMPTY_VB)).toBeNull();
     });
   });
 
   describe("when track energy matches slot", () => {
     it("should return a score breakdown", () => {
-      expect(scoreTrack(makeTrack({ energy: 2 }), slot, undefined, null)).not.toBeNull();
+      expect(scoreTrack(makeTrack({ energy: 2 }), slot, undefined, EMPTY_VB)).not.toBeNull();
     });
   });
 
@@ -474,7 +475,7 @@ describe("scoreTrack", () => {
           makeTrack({ energy: 2, roles: [TrackRole.Ambient] }),
           slot,
           undefined,
-          null,
+          EMPTY_VB,
         )!;
         expect(result.roleScore).toBe(1.0);
       });
@@ -496,7 +497,7 @@ describe("scoreTrack", () => {
           makeTrack({ energy: 2, roles: [TrackRole.Combat] }),
           s,
           rubric,
-          null,
+          EMPTY_VB,
         )!;
         expect(result.roleScore).toBe(1.0);
       });
@@ -509,7 +510,7 @@ describe("scoreTrack", () => {
           makeTrack({ energy: 2, roles: [TrackRole.Combat] }),
           s,
           undefined,
-          null,
+          EMPTY_VB,
         )!;
         expect(result.roleScore).toBe(0.0);
       });
@@ -523,7 +524,7 @@ describe("scoreTrack", () => {
         makeTrack({ energy: 2, moods: [TrackMood.Peaceful, TrackMood.Nostalgic] }),
         s,
         undefined,
-        null,
+        EMPTY_VB,
       )!;
       expect(result.moodScore).toBeCloseTo(1 / 3, 5);
     });
@@ -544,7 +545,7 @@ describe("scoreTrack", () => {
           makeTrack({ energy: 2, moods: [TrackMood.Epic] }),
           s,
           rubric,
-          null,
+          EMPTY_VB,
         )!;
         expect(result.moodScore).toBe(1.0);
       });
@@ -561,21 +562,21 @@ describe("scoreTrack", () => {
         }),
         s,
         undefined,
-        null,
+        EMPTY_VB,
       )!;
       expect(result.instScore).toBeCloseTo(0.5, 5);
     });
   });
 
   describe("when computing viewBiasScore", () => {
-    describe("when viewBiasScores is null", () => {
-      it("should use baseline", () => {
-        const result = scoreTrack(makeTrack({ energy: 2 }), slot, undefined, null)!;
+    describe("when the track's video is not in the map", () => {
+      it("should fall back to the baseline", () => {
+        const result = scoreTrack(makeTrack({ energy: 2 }), slot, undefined, EMPTY_VB)!;
         expect(result.viewBiasScore).toBe(VIEW_BIAS_SCORE_BASELINE);
       });
     });
 
-    describe("when viewBiasScores is provided", () => {
+    describe("when the track's video is in the map", () => {
       it("should use the map value", () => {
         const result = scoreTrack(
           makeTrack({ energy: 2, videoId: "v1" }),
@@ -588,29 +589,16 @@ describe("scoreTrack", () => {
     });
   });
 
-  describe("when computing finalScore weights", () => {
-    describe("when viewBiasScores is null", () => {
-      it("should use standard weights", () => {
-        const result = scoreTrack(makeTrack({ energy: 2 }), slot, undefined, null)!;
-        const expected =
-          result.roleScore * SCORE_WEIGHT_ROLE +
-          result.moodScore * SCORE_WEIGHT_MOOD +
-          result.instScore * SCORE_WEIGHT_INSTRUMENT;
-        expect(result.finalScore).toBeCloseTo(expected, 10);
-      });
-    });
-
-    describe("when viewBiasScores is provided", () => {
-      it("should use view-bias weights", () => {
-        const vbs = new Map([["v1", 0.7]]);
-        const result = scoreTrack(makeTrack({ energy: 2, videoId: "v1" }), slot, undefined, vbs)!;
-        const expected =
-          result.roleScore * SCORE_WEIGHT_ROLE_VIEW_BIAS +
-          result.moodScore * SCORE_WEIGHT_MOOD_VIEW_BIAS +
-          result.viewBiasScore * SCORE_WEIGHT_VIEW_BIAS +
-          result.instScore * SCORE_WEIGHT_INSTRUMENT_VIEW_BIAS;
-        expect(result.finalScore).toBeCloseTo(expected, 10);
-      });
+  describe("when computing finalScore", () => {
+    it("should weight role, mood, view bias, and instrumentation", () => {
+      const vbs = new Map([["v1", 0.7]]);
+      const result = scoreTrack(makeTrack({ energy: 2, videoId: "v1" }), slot, undefined, vbs)!;
+      const expected =
+        result.roleScore * SCORE_WEIGHT_ROLE +
+        result.moodScore * SCORE_WEIGHT_MOOD +
+        result.viewBiasScore * SCORE_WEIGHT_VIEW_BIAS +
+        result.instScore * SCORE_WEIGHT_INSTRUMENT;
+      expect(result.finalScore).toBeCloseTo(expected, 10);
     });
   });
 
@@ -621,7 +609,7 @@ describe("scoreTrack", () => {
           makeTrack({ energy: 2, moods: [TrackMood.Chaotic] }),
           slot,
           undefined,
-          null,
+          EMPTY_VB,
         )!;
         expect(result.adjustedScore).toBeCloseTo(result.finalScore * SCORE_PENALTY_MULTIPLIER, 10);
       });
@@ -636,7 +624,7 @@ describe("scoreTrack", () => {
           makeTrack({ energy: 2, moods: [TrackMood.Dark] }),
           s,
           rubric,
-          null,
+          EMPTY_VB,
         )!;
         expect(result.adjustedScore).toBeCloseTo(result.finalScore * SCORE_PENALTY_MULTIPLIER, 10);
       });
@@ -645,7 +633,12 @@ describe("scoreTrack", () => {
     describe("when rubric disallows vocals and track has vocals", () => {
       it("should apply SCORE_VOCALS_PENALTY_MULTIPLIER", () => {
         const rubric = makeRubric({ allowVocals: false });
-        const result = scoreTrack(makeTrack({ energy: 2, hasVocals: true }), slot, rubric, null)!;
+        const result = scoreTrack(
+          makeTrack({ energy: 2, hasVocals: true }),
+          slot,
+          rubric,
+          EMPTY_VB,
+        )!;
         expect(result.adjustedScore).toBeCloseTo(
           result.finalScore * SCORE_VOCALS_PENALTY_MULTIPLIER,
           10,
@@ -660,7 +653,7 @@ describe("scoreTrack", () => {
           makeTrack({ energy: 2, moods: [TrackMood.Chaotic], hasVocals: true }),
           slot,
           rubric,
-          null,
+          EMPTY_VB,
         )!;
         expect(result.adjustedScore).toBeCloseTo(
           result.finalScore * SCORE_PENALTY_MULTIPLIER * SCORE_VOCALS_PENALTY_MULTIPLIER,
@@ -673,7 +666,7 @@ describe("scoreTrack", () => {
       it("should not apply vocals penalty", () => {
         const rubric = makeRubric({ allowVocals: null });
         const s = makeSlot({ penalizedMoods: [] });
-        const result = scoreTrack(makeTrack({ energy: 2, hasVocals: true }), s, rubric, null)!;
+        const result = scoreTrack(makeTrack({ energy: 2, hasVocals: true }), s, rubric, EMPTY_VB)!;
         expect(result.adjustedScore).toBe(result.finalScore);
       });
     });
@@ -682,7 +675,7 @@ describe("scoreTrack", () => {
       it("should not apply vocals penalty", () => {
         const rubric = makeRubric({ allowVocals: false });
         const s = makeSlot({ penalizedMoods: [] });
-        const result = scoreTrack(makeTrack({ energy: 2, hasVocals: false }), s, rubric, null)!;
+        const result = scoreTrack(makeTrack({ energy: 2, hasVocals: false }), s, rubric, EMPTY_VB)!;
         expect(result.adjustedScore).toBe(result.finalScore);
       });
     });
@@ -780,7 +773,7 @@ describe("pickBestTrack", () => {
         makeSlot(),
         new Set(["v1"]),
         undefined,
-        null,
+        EMPTY_VB,
       );
       expect(result).toBeNull();
     });
@@ -793,7 +786,7 @@ describe("pickBestTrack", () => {
         makeSlot(),
         new Set(["v1"]),
         undefined,
-        null,
+        EMPTY_VB,
       );
       expect(result).toBeNull();
     });
@@ -806,7 +799,7 @@ describe("pickBestTrack", () => {
         makeSlot({ energyPrefs: [1] }),
         new Set(),
         undefined,
-        null,
+        EMPTY_VB,
       );
       expect(result).toBeNull();
     });
@@ -817,7 +810,7 @@ describe("pickBestTrack", () => {
       const tracks = Array.from({ length: 5 }, (_, i) =>
         makeTrack({ energy: 2, videoId: `v${i}` }),
       );
-      expect(pickBestTrack(tracks, makeSlot(), new Set(), undefined, null)!.poolSize).toBe(5);
+      expect(pickBestTrack(tracks, makeSlot(), new Set(), undefined, EMPTY_VB)!.poolSize).toBe(5);
     });
   });
 });
@@ -853,7 +846,6 @@ describe("assemblePlaylist", () => {
         [makeGame({ id: "g1" })],
         10,
         undefined,
-        false,
       );
       expect(result.tracks).toHaveLength(10);
     });
@@ -866,7 +858,6 @@ describe("assemblePlaylist", () => {
         [makeGame({ id: "g1" })],
         50,
         undefined,
-        false,
       );
       expect(result.tracks.length).toBeLessThanOrEqual(3);
     });
@@ -879,7 +870,6 @@ describe("assemblePlaylist", () => {
         [makeGame({ id: "g1" })],
         20,
         undefined,
-        false,
       );
       const videoIds = result.tracks.map((t) => t.videoId);
       expect(new Set(videoIds).size).toBe(videoIds.length);
@@ -893,7 +883,6 @@ describe("assemblePlaylist", () => {
         [makeGame({ id: "g1" })],
         10,
         undefined,
-        false,
       );
       expect(result.decisions.length).toBe(result.tracks.length);
     });
@@ -904,7 +893,6 @@ describe("assemblePlaylist", () => {
         [makeGame({ id: "g1" })],
         10,
         undefined,
-        false,
       );
       const positions = result.decisions.map((d) => d.position).sort((a, b) => a - b);
       for (let i = 0; i < positions.length; i++) {
@@ -920,7 +908,6 @@ describe("assemblePlaylist", () => {
         [makeGame({ id: "g1" })],
         10,
         undefined,
-        false,
       );
       expect(result.gameBudgets).toHaveProperty("g1");
     });
@@ -940,7 +927,6 @@ describe("assemblePlaylist", () => {
         [makeGame({ id: "g1" })],
         5,
         rubric,
-        false,
       );
       expect(result.rubric).toBe(rubric);
     });
@@ -956,24 +942,10 @@ describe("assemblePlaylist", () => {
         [makeGame({ id: "g-focus", curation: CurationMode.Focus }), makeGame({ id: "g-normal" })],
         15,
         undefined,
-        false,
       );
       const focusCount = result.tracks.filter((t) => t.gameId === "g-focus").length;
       const normalCount = result.tracks.filter((t) => t.gameId === "g-normal").length;
       expect(focusCount).toBeGreaterThan(normalCount);
-    });
-  });
-
-  describe("when useViewBias is true", () => {
-    it("should mark all decisions as viewBiasActive", () => {
-      const result = assemblePlaylist(
-        new Map([["g1", makePool("g1", 10, { viewCount: 100_000 })]]),
-        [makeGame({ id: "g1" })],
-        5,
-        undefined,
-        true,
-      );
-      expect(result.decisions.every((d) => d.viewBiasActive)).toBe(true);
     });
   });
 
@@ -984,7 +956,6 @@ describe("assemblePlaylist", () => {
         [makeGame({ id: "g1" })],
         10,
         undefined,
-        false,
       );
       expect(result.tracks).toHaveLength(0);
     });
@@ -1005,7 +976,6 @@ describe("assemblePlaylist", () => {
         ],
         20,
         undefined,
-        false,
       );
       expect(result.tracks.filter((t) => t.gameId === "g3").length).toBeGreaterThanOrEqual(
         result.tracks.filter((t) => t.gameId === "g2").length,
@@ -1023,7 +993,6 @@ describe("assemblePlaylist", () => {
         [makeGame({ id: "g-small" }), makeGame({ id: "g-focus", curation: CurationMode.Focus })],
         15,
         undefined,
-        false,
       );
       expect(result.tracks.length).toBeGreaterThanOrEqual(10);
     });
@@ -1036,7 +1005,6 @@ describe("assemblePlaylist", () => {
         [makeGame({ id: "g1" })],
         10,
         undefined,
-        false,
       );
       const lastResort = result.decisions.filter(
         (d) => d.selectionPass === SelectionPass.LastResort,

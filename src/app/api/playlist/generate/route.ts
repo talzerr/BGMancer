@@ -59,7 +59,6 @@ export async function POST(request: Request) {
     allow_long_tracks: parsed.data.allow_long_tracks ?? false,
     allow_short_tracks: parsed.data.allow_short_tracks ?? false,
     anti_spoiler_enabled: parsed.data.anti_spoiler_enabled ?? false,
-    raw_vibes: parsed.data.raw_vibes ?? false,
   };
 
   const session = await getAuthSession();

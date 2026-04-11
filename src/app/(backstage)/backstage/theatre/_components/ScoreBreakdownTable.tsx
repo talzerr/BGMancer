@@ -42,8 +42,6 @@ export function ScoreBreakdownTable({
     return map;
   }, [tracks]);
 
-  const hasViewBias = decisions.some((d) => d.viewBiasActive);
-
   return (
     <Section title="Score Breakdown">
       <div className="border-border overflow-x-auto rounded-lg border">
@@ -71,12 +69,7 @@ export function ScoreBreakdownTable({
               <TableHead className="w-10 text-[10px] tracking-wider text-[var(--text-tertiary)] uppercase">
                 Inst
               </TableHead>
-              <TableHead
-                className={`w-10 text-[10px] tracking-wider uppercase ${hasViewBias ? "text-[var(--text-tertiary)]" : "text-[var(--text-disabled)]"}`}
-                title={
-                  hasViewBias ? undefined : "View bias was off for this session (raw vibes mode)"
-                }
-              >
+              <TableHead className="w-10 text-[10px] tracking-wider text-[var(--text-tertiary)] uppercase">
                 Views
               </TableHead>
               <TableHead className="w-12 text-[10px] tracking-wider text-[var(--text-tertiary)] uppercase">
@@ -128,11 +121,7 @@ export function ScoreBreakdownTable({
                     <ScoreCell value={d.instScore} />
                   </TableCell>
                   <TableCell className="py-1.5">
-                    {d.viewBiasActive ? (
-                      <ScoreCell value={d.viewBiasScore} />
-                    ) : (
-                      <span className="font-mono text-[10px] text-[var(--text-disabled)]">—</span>
-                    )}
+                    <ScoreCell value={d.viewBiasScore} />
                   </TableCell>
                   <TableCell className="py-1.5">
                     <ScoreCell value={d.finalScore} />

@@ -70,7 +70,6 @@ export const generateSchema = z.object({
   allow_long_tracks: z.boolean().optional(),
   allow_short_tracks: z.boolean().optional(),
   anti_spoiler_enabled: z.boolean().optional(),
-  raw_vibes: z.boolean().optional(),
   gameSelections: z.array(gameSelectionSchema).optional(),
   turnstileToken: z.string().optional(),
 });

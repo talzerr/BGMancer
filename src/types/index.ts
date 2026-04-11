@@ -184,7 +184,6 @@ export interface AppConfig {
   anti_spoiler_enabled: boolean;
   allow_long_tracks: boolean;
   allow_short_tracks: boolean;
-  raw_vibes: boolean;
 }
 
 // ─── Director telemetry ──────────────────────────────────────────────────────
@@ -238,8 +237,6 @@ export interface TrackDecision {
   /** Count of tracks already used from this game *before* this slot was filled. */
   gameBudgetUsed: number;
   selectionPass: SelectionPass;
-  /** True when view bias scoring was active for this session (raw vibes toggle was off). */
-  viewBiasActive: boolean;
 }
 
 /** Full output of assemblePlaylist — tracks + telemetry. */

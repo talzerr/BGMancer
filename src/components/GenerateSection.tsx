@@ -18,8 +18,6 @@ interface GenerateSectionProps {
   onToggleLongTracks: (enabled: boolean) => void;
   allowShortTracks: boolean;
   onToggleShortTracks: (enabled: boolean) => void;
-  rawVibes: boolean;
-  onToggleRawVibes: (enabled: boolean) => void;
 }
 
 export function GenerateSection({
@@ -35,8 +33,6 @@ export function GenerateSection({
   onToggleLongTracks,
   allowShortTracks,
   onToggleShortTracks,
-  rawVibes,
-  onToggleRawVibes,
 }: GenerateSectionProps) {
   const { secsLeft, quip } = useCooldownTimer(cooldownUntil);
 
@@ -81,8 +77,6 @@ export function GenerateSection({
         onToggleLongTracks={onToggleLongTracks}
         allowShortTracks={allowShortTracks}
         onToggleShortTracks={onToggleShortTracks}
-        rawVibes={rawVibes}
-        onToggleRawVibes={onToggleRawVibes}
       />
     </div>
   );

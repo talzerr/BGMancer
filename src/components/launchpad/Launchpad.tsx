@@ -35,11 +35,9 @@ export function Launchpad({ pressedCurate, onCurateClick, previewCovers }: Launc
           targetTrackCount={config.targetTrackCount}
           allowLongTracks={config.allowLongTracks}
           allowShortTracks={config.allowShortTracks}
-          rawVibes={config.rawVibes}
           onSaveTrackCount={config.saveTrackCount}
           onToggleLongTracks={config.saveAllowLongTracks}
           onToggleShortTracks={config.saveAllowShortTracks}
-          onToggleRawVibes={config.saveRawVibes}
           pressedCurate={pressedCurate}
           onCurateClick={onCurateClick}
           secsLeft={secsLeft}
@@ -96,11 +94,9 @@ interface LaunchpadReadyProps {
   targetTrackCount: number;
   allowLongTracks: boolean;
   allowShortTracks: boolean;
-  rawVibes: boolean;
   onSaveTrackCount: (n: number) => void;
   onToggleLongTracks: (enabled: boolean) => void;
   onToggleShortTracks: (enabled: boolean) => void;
-  onToggleRawVibes: (enabled: boolean) => void;
   pressedCurate: boolean;
   onCurateClick: () => void;
   secsLeft: number;
@@ -113,11 +109,9 @@ function LaunchpadReady({
   targetTrackCount,
   allowLongTracks,
   allowShortTracks,
-  rawVibes,
   onSaveTrackCount,
   onToggleLongTracks,
   onToggleShortTracks,
-  onToggleRawVibes,
   pressedCurate,
   onCurateClick,
   secsLeft,
@@ -228,12 +222,6 @@ function LaunchpadReady({
             description="Allow tracks under 90s"
             on={allowShortTracks}
             onToggle={() => onToggleShortTracks(!allowShortTracks)}
-          />
-          <ToggleRow
-            label="Raw vibes"
-            description="Ignore popularity, score on tags only"
-            on={rawVibes}
-            onToggle={() => onToggleRawVibes(!rawVibes)}
           />
         </div>
       </div>

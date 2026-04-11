@@ -1,27 +1,16 @@
-// ─── Resonance scoring weights (raw vibes mode — no view bias) ──────────────
+// ─── Resonance scoring weights ──────────────────────────────────────────────
 
 /** Dimension weight for role match (binary: 1.0 if match, 0.0 if not). */
-export const SCORE_WEIGHT_ROLE = 0.4;
+export const SCORE_WEIGHT_ROLE = 0.3;
 
 /** Dimension weight for mood Jaccard similarity. */
-export const SCORE_WEIGHT_MOOD = 0.35;
+export const SCORE_WEIGHT_MOOD = 0.25;
 
-/** Dimension weight for instrumentation Jaccard similarity. */
-export const SCORE_WEIGHT_INSTRUMENT = 0.25;
-
-// ─── Resonance scoring weights (view bias mode) ─────────────────────────────
-
-/** Dimension weight for role match when view bias scoring is active. */
-export const SCORE_WEIGHT_ROLE_VIEW_BIAS = 0.3;
-
-/** Dimension weight for mood Jaccard similarity when view bias scoring is active. */
-export const SCORE_WEIGHT_MOOD_VIEW_BIAS = 0.25;
-
-/** Dimension weight for the view bias score when view bias scoring is active. */
+/** Dimension weight for the view bias score (YouTube popularity). */
 export const SCORE_WEIGHT_VIEW_BIAS = 0.3;
 
-/** Dimension weight for instrumentation Jaccard similarity when view bias scoring is active. */
-export const SCORE_WEIGHT_INSTRUMENT_VIEW_BIAS = 0.15;
+/** Dimension weight for instrumentation Jaccard similarity. */
+export const SCORE_WEIGHT_INSTRUMENT = 0.15;
 
 // ─── Penalty multipliers ─────────────────────────────────────────────────────
 

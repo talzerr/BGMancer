@@ -85,16 +85,14 @@ $$R = w_{\text{role}} \cdot S_{\text{role}} + w_{\text{mood}} \cdot S_{\text{moo
 
 The four dimensions are ordered by priority. Role carries the most weight: what a track _is for_ matters more than how it feels. Mood follows: emotional fit is the next most important signal. View bias provides a popularity correction — enough to consistently surface iconic tracks without overriding contextual fit. Instrumentation rounds out the score as a textural tiebreaker.
 
-When the **Raw vibes** toggle is active, the view bias dimension is dropped entirely and the remaining three dimensions absorb its weight, preserving the same relative priority ordering.
-
 The current parameterization:
 
-| Dimension       | $w$ (raw vibes) | $w$ (view bias active) | Scoring Method     |
-| --------------- | --------------- | ---------------------- | ------------------ |
-| Role            | highest         | high                   | Binary (1.0 / 0.0) |
-| Mood            | mid             | mid                    | Jaccard similarity |
-| View Bias       | —               | high (= role)          | Log-scaled views   |
-| Instrumentation | lowest          | lowest                 | Jaccard similarity |
+| Dimension       | $w$           | Scoring Method     |
+| --------------- | ------------- | ------------------ |
+| Role            | high          | Binary (1.0 / 0.0) |
+| Mood            | mid           | Jaccard similarity |
+| View Bias       | high (= role) | Log-scaled views   |
+| Instrumentation | lowest        | Jaccard similarity |
 
 #### Why Role Is an Intersection Check, Not Jaccard
 
@@ -342,7 +340,7 @@ The Director embodies a specific thesis: **subjective listening experience can b
 
 The weights encode a deliberate priority hierarchy: _what a track is for_ (role) matters more than _how it feels_ (mood), which matters more than _how it sounds_ (instrumentation). A combat track in a combat slot feels right even if its mood is wrong. A peaceful track in a climax slot feels wrong even if its instrumentation is perfect.
 
-With view bias active, popularity sits at the same level as role — significant enough to consistently surface iconic tracks, but role and mood together still dominate. A well-matched obscure track will often beat a massively popular but misfit one.
+View bias sits at the same weight as role — significant enough to consistently surface iconic tracks, but role and mood together still dominate. A well-matched obscure track will often beat a massively popular but misfit one.
 
 ---
 

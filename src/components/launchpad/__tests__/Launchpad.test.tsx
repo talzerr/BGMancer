@@ -13,11 +13,9 @@ const mockPlayerContext = {
     targetTrackCount: 50,
     allowLongTracks: false,
     allowShortTracks: false,
-    rawVibes: false,
     saveTrackCount: vi.fn(),
     saveAllowLongTracks: vi.fn(),
     saveAllowShortTracks: vi.fn(),
-    saveRawVibes: vi.fn(),
   },
   playlist: {
     cooldownUntil: 0,
@@ -43,7 +41,6 @@ afterEach(() => {
   mockPlayerContext.config.targetTrackCount = 50;
   mockPlayerContext.config.allowLongTracks = false;
   mockPlayerContext.config.allowShortTracks = false;
-  mockPlayerContext.config.rawVibes = false;
   mockPlayerContext.playlist.cooldownUntil = 0;
   mockPlayerContext.playlist.generating = false;
   mockPlayerContext.playlist.genError = null;
@@ -147,7 +144,7 @@ describe("Launchpad", () => {
       expect(customInput?.closest("[aria-hidden]")).toHaveAttribute("aria-hidden", "true");
     });
 
-    it("should reveal Custom + Long/Short/Raw rows when Advanced is clicked", () => {
+    it("should reveal Custom + Long/Short rows when Advanced is clicked", () => {
       mockPlayerContext.gameLibrary.games = [makeGame()];
       render(<Launchpad pressedCurate={false} onCurateClick={vi.fn()} previewCovers={[]} />);
       fireEvent.click(screen.getByRole("button", { name: /advanced/i }));
@@ -155,7 +152,6 @@ describe("Launchpad", () => {
       expect(region).toHaveAttribute("aria-hidden", "false");
       expect(screen.getByRole("button", { name: /long tracks/i })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /short tracks/i })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /raw vibes/i })).toBeInTheDocument();
     });
 
     it("should call saveAllowLongTracks when Long tracks row is clicked", () => {
@@ -172,14 +168,6 @@ describe("Launchpad", () => {
       fireEvent.click(screen.getByRole("button", { name: /advanced/i }));
       fireEvent.click(screen.getByRole("button", { name: /short tracks/i }));
       expect(mockPlayerContext.config.saveAllowShortTracks).toHaveBeenCalledWith(true);
-    });
-
-    it("should call saveRawVibes when Raw vibes row is clicked", () => {
-      mockPlayerContext.gameLibrary.games = [makeGame()];
-      render(<Launchpad pressedCurate={false} onCurateClick={vi.fn()} previewCovers={[]} />);
-      fireEvent.click(screen.getByRole("button", { name: /advanced/i }));
-      fireEvent.click(screen.getByRole("button", { name: /raw vibes/i }));
-      expect(mockPlayerContext.config.saveRawVibes).toHaveBeenCalledWith(true);
     });
 
     it("should call saveTrackCount when the Custom size input is committed on blur", () => {

@@ -25,7 +25,6 @@ export const DirectorDecisions = {
           game_budget: d.gameBudget,
           game_budget_used: d.gameBudgetUsed,
           selection_pass: d.selectionPass,
-          view_bias_active: d.viewBiasActive,
         }),
       ),
     );
@@ -54,7 +53,6 @@ export const DirectorDecisions = {
       gameBudget: r.game_budget,
       gameBudgetUsed: r.game_budget_used,
       selectionPass: r.selection_pass as SelectionPass,
-      viewBiasActive: r.view_bias_active,
     }));
   },
 };

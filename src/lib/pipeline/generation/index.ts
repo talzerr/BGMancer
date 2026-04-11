@@ -92,7 +92,6 @@ function runDirector(
   activeGames: Game[],
   targetCount: number,
   rubric: VibeRubric | undefined,
-  useViewBias: boolean,
 ): {
   pendingTracks: PendingTrack[];
   decisions: TrackDecision[];
@@ -100,7 +99,7 @@ function runDirector(
   gameBudgets: Record<string, number>;
 } {
   const assembleTarget = Math.ceil(targetCount * 1.15);
-  const result = assemblePlaylist(taggedPools, activeGames, assembleTarget, rubric, useViewBias);
+  const result = assemblePlaylist(taggedPools, activeGames, assembleTarget, rubric);
   return {
     pendingTracks: result.tracks.map((t) => taggedTrackToPending(t, t.durationSeconds)),
     decisions: result.decisions,
@@ -187,7 +186,7 @@ export async function generatePlaylistForGuest(
 
   if (filteredPools.size > 0 && targetCount > 0) {
     const activeGames = games.filter((g) => filteredPools.has(g.id));
-    const directorResult = runDirector(filteredPools, activeGames, targetCount, undefined, false);
+    const directorResult = runDirector(filteredPools, activeGames, targetCount, undefined);
     tracks = directorResult.pendingTracks;
   }
 
@@ -262,13 +261,7 @@ export async function generatePlaylist(
     // the deterministic fallback in persistSession().
     const namingPromise = generateSessionName(activeGames);
 
-    const directorResult = runDirector(
-      filteredPools,
-      activeGames,
-      targetCount,
-      rubric,
-      !config.raw_vibes,
-    );
+    const directorResult = runDirector(filteredPools, activeGames, targetCount, rubric);
     individualTracks = directorResult.pendingTracks;
     decisions = directorResult.decisions;
     usedRubric = directorResult.usedRubric;

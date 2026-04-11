@@ -1,0 +1,1 @@
+ALTER TABLE `playlist_track_decisions` DROP COLUMN `view_bias_active`;
