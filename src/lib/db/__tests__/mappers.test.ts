@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   toUser,
-  toPlaylistSession,
   toGame,
   toGames,
   toTrack,
@@ -71,74 +70,6 @@ describe("toUser", () => {
       expect(
         toUser({ id: "u1", email: "a@b.com", username: null, created_at: null }).created_at,
       ).toBe("");
-    });
-  });
-});
-
-// ─── toPlaylistSession ──────────────────────────────────────────────────────
-
-describe("toPlaylistSession", () => {
-  const baseRow = {
-    id: "s1",
-    user_id: "u1",
-    name: "Session 1",
-    description: "A description",
-    is_archived: 1,
-    playlist_mode: "journey",
-    created_at: "2025-01-01",
-  };
-
-  describe("when given a complete row", () => {
-    it("should map all fields", () => {
-      expect(toPlaylistSession(baseRow)).toEqual({
-        id: "s1",
-        user_id: "u1",
-        name: "Session 1",
-        description: "A description",
-        is_archived: true,
-        playlist_mode: "journey",
-        created_at: "2025-01-01",
-      });
-    });
-  });
-
-  describe("when is_archived is 0", () => {
-    it("should coerce to false", () => {
-      expect(toPlaylistSession({ ...baseRow, is_archived: 0 }).is_archived).toBe(false);
-    });
-  });
-
-  describe("when description is null", () => {
-    it("should preserve null", () => {
-      expect(toPlaylistSession({ ...baseRow, description: null }).description).toBeNull();
-    });
-  });
-
-  describe("when created_at is null", () => {
-    it("should default to empty string", () => {
-      expect(toPlaylistSession({ ...baseRow, created_at: null }).created_at).toBe("");
-    });
-  });
-
-  describe("when playlist_mode is missing", () => {
-    it("should default to Journey", () => {
-      const rowWithoutMode = {
-        id: "s1",
-        user_id: "u1",
-        name: "Session 1",
-        description: "A description",
-        is_archived: 1,
-        created_at: "2025-01-01",
-      };
-      expect(toPlaylistSession(rowWithoutMode).playlist_mode).toBe("journey");
-    });
-  });
-
-  describe("when playlist_mode is an unknown value", () => {
-    it("should fall back to Journey", () => {
-      expect(toPlaylistSession({ ...baseRow, playlist_mode: "bogus" }).playlist_mode).toBe(
-        "journey",
-      );
     });
   });
 });

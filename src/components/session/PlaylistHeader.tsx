@@ -197,9 +197,16 @@ export function PlaylistHeader({
         {trackCount > 0 && (
           <span className="text-[12px] text-[var(--text-disabled)] tabular-nums">
             {trackCount} tracks · {formatDuration(totalDurationSeconds)}
-            {currentSession && currentSession.playlist_mode !== PlaylistMode.Journey && (
-              <> · {PLAYLIST_MODE_LABELS[currentSession.playlist_mode].name}</>
-            )}
+            {(() => {
+              // Authenticated playlists carry the mode on the session record.
+              // Guests have no session — fall back to the user's currently
+              // selected mode, which (with no history) is the mode that
+              // generated the displayed playlist.
+              const mode = currentSession?.playlist_mode ?? config.playlistMode;
+              return mode !== PlaylistMode.Journey ? (
+                <> · {PLAYLIST_MODE_LABELS[mode].name}</>
+              ) : null;
+            })()}
           </span>
         )}
 

@@ -9,7 +9,7 @@ import {
 } from "@/lib/db/test-helpers";
 import { TEST_USER_ID } from "@/test/constants";
 import { makeJsonRequest, parseJson } from "@/test/route-helpers";
-import { TrackInstrumentation, TrackMood, TrackRole } from "@/types";
+import { PlaylistMode, TrackInstrumentation, TrackMood, TrackRole } from "@/types";
 import type { TaggedTrack } from "@/types";
 
 let db: DrizzleDB;
@@ -87,7 +87,7 @@ describe("POST /api/playlist/[id]/reroll", () => {
       seedTestGame(rawDb, TEST_USER_ID, { id: "g1" });
       const playlistId = seedTestSession(rawDb, TEST_USER_ID, {
         id: "pl-journey",
-        playlistMode: "journey",
+        playlistMode: PlaylistMode.Journey,
       });
       seedPlaylistTrack(playlistId, "pt-1", "g1", 0);
 
@@ -116,7 +116,7 @@ describe("POST /api/playlist/[id]/reroll", () => {
       seedTestGame(rawDb, TEST_USER_ID, { id: "g1" });
       const playlistId = seedTestSession(rawDb, TEST_USER_ID, {
         id: "pl-chill",
-        playlistMode: "low",
+        playlistMode: PlaylistMode.Chill,
       });
       seedPlaylistTrack(playlistId, "pt-1", "g1", 0);
 
@@ -143,7 +143,7 @@ describe("POST /api/playlist/[id]/reroll", () => {
       seedTestGame(rawDb, TEST_USER_ID, { id: "g1" });
       const playlistId = seedTestSession(rawDb, TEST_USER_ID, {
         id: "pl-chill",
-        playlistMode: "low",
+        playlistMode: PlaylistMode.Chill,
       });
       seedPlaylistTrack(playlistId, "pt-1", "g1", 0);
 
@@ -166,7 +166,7 @@ describe("POST /api/playlist/[id]/reroll", () => {
       seedTestGame(rawDb, TEST_USER_ID, { id: "g1" });
       const playlistId = seedTestSession(rawDb, TEST_USER_ID, {
         id: "pl-rush",
-        playlistMode: "high",
+        playlistMode: PlaylistMode.Rush,
       });
       seedPlaylistTrack(playlistId, "pt-1", "g1", 0);
 

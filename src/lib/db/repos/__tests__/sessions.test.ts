@@ -136,6 +136,17 @@ describe("Sessions", () => {
         expect(found).not.toBeNull();
         expect(found!.name).toBe("Test");
       });
+
+      it("should sanitize an unknown playlist_mode column value to Journey", async () => {
+        const created = await Sessions.create(TEST_USER_ID, "Test", PlaylistMode.Chill);
+        // Simulate corruption / forwards-incompat: write a value the enum doesn't know.
+        rawDb
+          .prepare("UPDATE playlists SET playlist_mode = ? WHERE id = ?")
+          .run("bogus", created.id);
+
+        const found = await Sessions.getById(created.id);
+        expect(found!.playlist_mode).toBe(PlaylistMode.Journey);
+      });
     });
 
     describe("when session does not exist", () => {

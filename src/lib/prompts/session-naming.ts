@@ -1,6 +1,5 @@
 import { SESSION_NAME_MAX_LENGTH } from "@/lib/constants";
-import { PlaylistMode } from "@/types";
-import type { CurationMode } from "@/types";
+import type { CurationMode, PlaylistMode } from "@/types";
 
 export const SESSION_NAMING_SYSTEM_PROMPT = `You name video game soundtrack playlists. Read a short list of games and return ONE short title for the mix.
 
@@ -75,7 +74,7 @@ export interface SessionNamingGame {
 
 export function buildSessionNamingUserPrompt(
   games: SessionNamingGame[],
-  playlistMode: PlaylistMode = PlaylistMode.Journey,
+  playlistMode: PlaylistMode,
 ): string {
   if (games.length === 0) return "No games.";
 

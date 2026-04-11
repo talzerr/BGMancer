@@ -33,15 +33,8 @@ import {
   BUDGET_SOFT_CAP_FRACTION,
 } from "./constants";
 
-// Re-export types + templates so external callers can `from ".../director"`.
 export type { ArcSlot, ArcTemplate, ArcTemplatePhase } from "./types";
-export {
-  JOURNEY_ARC_TEMPLATE,
-  CHILL_ARC_TEMPLATE,
-  MIX_ARC_TEMPLATE,
-  RUSH_ARC_TEMPLATE,
-  getEnergyModeTemplate,
-} from "./arc-templates";
+export { JOURNEY_ARC_TEMPLATE, getEnergyModeTemplate } from "./arc-templates";
 
 const log = createLogger("director");
 

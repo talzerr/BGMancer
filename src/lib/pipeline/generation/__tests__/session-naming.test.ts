@@ -96,7 +96,7 @@ describe("SESSION_NAMING_SYSTEM_PROMPT", () => {
 describe("generateSessionName", () => {
   it("returns null for empty games list and skips LLM call", async () => {
     const provider = mockProvider("Pixel Fog");
-    const result = await generateSessionName([], { provider });
+    const result = await generateSessionName([], { provider, playlistMode: PlaylistMode.Journey });
     expect(result).toBeNull();
     expect(provider.complete).not.toHaveBeenCalled();
   });
@@ -112,25 +112,37 @@ describe("generateSessionName", () => {
 
   it("trims whitespace from the LLM response", async () => {
     const provider = mockProvider("   Neon Save Point   ");
-    const result = await generateSessionName([makeGame("VA-11 Hall-A")], { provider });
+    const result = await generateSessionName([makeGame("VA-11 Hall-A")], {
+      provider,
+      playlistMode: PlaylistMode.Journey,
+    });
     expect(result).toBe("Neon Save Point");
   });
 
   it("returns null when the LLM response is empty", async () => {
     const provider = mockProvider("   ");
-    const result = await generateSessionName([makeGame("Celeste")], { provider });
+    const result = await generateSessionName([makeGame("Celeste")], {
+      provider,
+      playlistMode: PlaylistMode.Journey,
+    });
     expect(result).toBeNull();
   });
 
   it("returns null when the LLM response is too long", async () => {
     const provider = mockProvider("A".repeat(SESSION_NAME_MAX_LENGTH + 1));
-    const result = await generateSessionName([makeGame("Celeste")], { provider });
+    const result = await generateSessionName([makeGame("Celeste")], {
+      provider,
+      playlistMode: PlaylistMode.Journey,
+    });
     expect(result).toBeNull();
   });
 
   it("returns null when the LLM call throws", async () => {
     const provider = failingProvider(new Error("API down"));
-    const result = await generateSessionName([makeGame("Celeste")], { provider });
+    const result = await generateSessionName([makeGame("Celeste")], {
+      provider,
+      playlistMode: PlaylistMode.Journey,
+    });
     expect(result).toBeNull();
   });
 
@@ -138,7 +150,7 @@ describe("generateSessionName", () => {
     const provider = mockProvider("Campfire Loop");
     await generateSessionName(
       [makeGame("Celeste", CurationMode.Focus), makeGame("Stardew Valley", CurationMode.Lite)],
-      { provider },
+      { provider, playlistMode: PlaylistMode.Journey },
     );
     const call = (provider.complete as ReturnType<typeof vi.fn>).mock.calls[0];
     const userPrompt = call[1] as string;
@@ -154,12 +166,5 @@ describe("generateSessionName", () => {
     });
     const userPrompt = (provider.complete as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
     expect(userPrompt).toContain("Playlist mode: high");
-  });
-
-  it("defaults the playlist mode to Journey when not specified", async () => {
-    const provider = mockProvider("Lantern District");
-    await generateSessionName([makeGame("Hollow Knight")], { provider });
-    const userPrompt = (provider.complete as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
-    expect(userPrompt).toContain("Playlist mode: journey");
   });
 });

@@ -5,6 +5,9 @@ interface ModeLabel {
   description: string;
 }
 
+/** Display labels and descriptions for every playlist mode. Insertion order
+ *  is the canonical display order — Journey first, then ascending energy —
+ *  and `PLAYLIST_MODE_ORDER` derives from it so the two cannot drift. */
 export const PLAYLIST_MODE_LABELS: Record<PlaylistMode, ModeLabel> = {
   [PlaylistMode.Journey]: {
     name: "Journey",
@@ -24,10 +27,4 @@ export const PLAYLIST_MODE_LABELS: Record<PlaylistMode, ModeLabel> = {
   },
 };
 
-/** Display order for the mode selector. Journey first, then ascending energy. */
-export const PLAYLIST_MODE_ORDER: readonly PlaylistMode[] = [
-  PlaylistMode.Journey,
-  PlaylistMode.Chill,
-  PlaylistMode.Mix,
-  PlaylistMode.Rush,
-];
+export const PLAYLIST_MODE_ORDER = Object.keys(PLAYLIST_MODE_LABELS) as readonly PlaylistMode[];
