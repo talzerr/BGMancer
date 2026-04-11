@@ -36,6 +36,11 @@ import { LogoLink } from "@/components/layout/LogoLink";
 import { FooterLinks } from "@/components/layout/FooterLinks";
 import { GoogleLogo } from "@/components/Icons";
 import { useGameAccentColors } from "@/hooks/player/useGameAccentColors";
+import {
+  buildShortPlaylistMessage,
+  formatShortPlaylistText,
+  type ShortPlaylistMessage,
+} from "@/lib/short-playlist-message";
 
 const LAUNCHPAD_FADE_MS = 700;
 const LAUNCHPAD_SWAP_DELAY_MS = 800; // fade-out duration + brief held-at-zero pause
@@ -62,13 +67,14 @@ export function FeedClient({
   const { pendingDelete, initiateRemove, undoRemove } = useTrackDeleteUndo();
 
   const [pressedCurate, setPressedCurate] = useState(false);
-  // Set when a generation completes; cleared on the next generation start or
-  // when the user navigates to a different session via history. Drives the
-  // "{actual} of {requested} tracks matched." line under the playlist header.
-  const [shortPlaylistNotice, setShortPlaylistNotice] = useState<{
-    sessionId: string | null;
-    requested: number;
-  } | null>(null);
+  // Set when an energy-mode generation produces fewer tracks than requested.
+  // Drives the partial/sparse line under the playlist header (50%+ and 1-49%)
+  // and the destructive line under the Curate button when zero tracks matched.
+  // Cleared on the next generation, on session navigation, or when the user
+  // changes any setting that influences the next generation.
+  const [shortPlaylistMessage, setShortPlaylistMessage] = useState<ShortPlaylistMessage | null>(
+    null,
+  );
   const [mode, setMode] = useState<"launchpad" | "playlist">(() =>
     playlist.tracks.length > 0 ? "playlist" : "launchpad",
   );
@@ -105,19 +111,32 @@ export function FeedClient({
     wasGeneratingRef.current = playlist.generating;
   }, [playlist.generating]);
 
-  // Clear the short-playlist notice when the active session changes to one
-  // it doesn't belong to. The notice is per-generation, not per-session, so
+  // Clear the short-playlist message when the active session changes to one
+  // it doesn't belong to. The message is per-generation, not per-session, so
   // navigating away should retire it for good — re-clicking the same row in
   // history should not bring it back.
   useEffect(() => {
     if (
-      shortPlaylistNotice &&
+      shortPlaylistMessage &&
+      shortPlaylistMessage.sessionId !== null &&
       playlist.currentSessionId !== null &&
-      shortPlaylistNotice.sessionId !== playlist.currentSessionId
+      shortPlaylistMessage.sessionId !== playlist.currentSessionId
     ) {
-      setShortPlaylistNotice(null);
+      setShortPlaylistMessage(null);
     }
-  }, [playlist.currentSessionId, shortPlaylistNotice]);
+  }, [playlist.currentSessionId, shortPlaylistMessage]);
+
+  // Also clear the message when the user changes any generation setting.
+  // The message describes the previous generation against the previous
+  // settings — once the inputs change it's stale.
+  useEffect(() => {
+    setShortPlaylistMessage(null);
+  }, [
+    config.targetTrackCount,
+    config.allowLongTracks,
+    config.allowShortTracks,
+    config.playlistMode,
+  ]);
 
   useEffect(() => {
     const nextSessionId = playlist.currentSessionId;
@@ -192,14 +211,15 @@ export function FeedClient({
   async function handleGenerate() {
     const turnstileToken = !isSignedIn ? await getTurnstileToken() : undefined;
     const requestedCount = config.targetTrackCount;
-    setShortPlaylistNotice(null);
+    const requestedMode = config.playlistMode;
+    setShortPlaylistMessage(null);
 
     const result = await playlist.handleGenerate(gameLibrary.games, {
       target_track_count: requestedCount,
       allow_long_tracks: config.allowLongTracks,
       allow_short_tracks: config.allowShortTracks,
       anti_spoiler_enabled: config.antiSpoilerEnabled,
-      playlist_mode: config.playlistMode,
+      playlist_mode: requestedMode,
       turnstileToken,
       gameSelections: !isSignedIn
         ? gameLibrary.games.map((g) => ({ gameId: g.id, curation: g.curation }))
@@ -207,8 +227,10 @@ export function FeedClient({
     });
     await fetchSessions();
 
-    if (result.completed && result.sessionId && result.count < requestedCount) {
-      setShortPlaylistNotice({ sessionId: result.sessionId, requested: requestedCount });
+    if (result.completed) {
+      setShortPlaylistMessage(
+        buildShortPlaylistMessage(result.count, requestedCount, requestedMode, result.sessionId),
+      );
     }
   }
 
@@ -357,10 +379,10 @@ export function FeedClient({
           onRename={handleRenameSession}
           onDeleteSession={handleDeleteSession}
           shortPlaylistNotice={
-            shortPlaylistNotice &&
-            shortPlaylistNotice.sessionId === displayedSnapshot.sessionId &&
-            displayedTracks.length < shortPlaylistNotice.requested
-              ? { actual: displayedTracks.length, requested: shortPlaylistNotice.requested }
+            shortPlaylistMessage &&
+            shortPlaylistMessage.tier !== "empty" &&
+            shortPlaylistMessage.sessionId === displayedSnapshot.sessionId
+              ? { text: formatShortPlaylistText(shortPlaylistMessage) }
               : null
           }
         />
@@ -444,6 +466,11 @@ export function FeedClient({
               pressedCurate={pressedCurate}
               onCurateClick={handleLaunchpadCurate}
               previewCovers={previewCovers}
+              emptyModeMessage={
+                shortPlaylistMessage?.tier === "empty"
+                  ? formatShortPlaylistText(shortPlaylistMessage)
+                  : null
+              }
             />
           </>
         ) : (

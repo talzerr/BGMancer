@@ -19,9 +19,17 @@ interface LaunchpadProps {
   pressedCurate: boolean;
   onCurateClick: () => void;
   previewCovers: string[];
+  /** Destructive message rendered below the Curate button when an energy
+   *  mode generation produced zero matching tracks. Cleared by FeedClient. */
+  emptyModeMessage: string | null;
 }
 
-export function Launchpad({ pressedCurate, onCurateClick, previewCovers }: LaunchpadProps) {
+export function Launchpad({
+  pressedCurate,
+  onCurateClick,
+  previewCovers,
+  emptyModeMessage,
+}: LaunchpadProps) {
   const { gameLibrary, config, playlist } = usePlayerContext();
   const games = gameLibrary.games;
   const { secsLeft } = useCooldownTimer(playlist.cooldownUntil ?? 0);
@@ -46,6 +54,7 @@ export function Launchpad({ pressedCurate, onCurateClick, previewCovers }: Launc
           secsLeft={secsLeft}
           generating={playlist.generating}
           genError={playlist.genError}
+          emptyModeMessage={emptyModeMessage}
         />
       )}
     </div>
@@ -107,6 +116,7 @@ interface LaunchpadReadyProps {
   secsLeft: number;
   generating: boolean;
   genError: string | null;
+  emptyModeMessage: string | null;
 }
 
 function LaunchpadReady({
@@ -124,6 +134,7 @@ function LaunchpadReady({
   secsLeft,
   generating,
   genError,
+  emptyModeMessage,
 }: LaunchpadReadyProps) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const isCurating = pressedCurate || generating;
@@ -239,6 +250,10 @@ function LaunchpadReady({
 
       {genError && secsLeft === 0 && (
         <p className="text-destructive mt-3 text-[12px]">{genError}</p>
+      )}
+
+      {emptyModeMessage && !genError && (
+        <p className="text-destructive mt-3 text-[13px]">{emptyModeMessage}</p>
       )}
     </div>
   );

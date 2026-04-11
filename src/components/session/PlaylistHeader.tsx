@@ -16,7 +16,7 @@ interface PlaylistHeaderProps {
   isDev: boolean;
   onRename: (id: string, name: string) => Promise<void>;
   onDeleteSession: (id: string) => Promise<void>;
-  shortPlaylistNotice: { actual: number; requested: number } | null;
+  shortPlaylistNotice: { text: string } | null;
 }
 
 function formatDuration(seconds: number): string {
@@ -204,8 +204,8 @@ export function PlaylistHeader({
         )}
 
         {shortPlaylistNotice && (
-          <span className="text-[12px] text-[var(--text-disabled)] tabular-nums">
-            {shortPlaylistNotice.actual} of {shortPlaylistNotice.requested} tracks matched.
+          <span className="text-[13px] text-[var(--text-disabled)]">
+            {shortPlaylistNotice.text}
           </span>
         )}
       </div>

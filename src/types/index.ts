@@ -11,7 +11,18 @@ export interface User {
 
 // ─── Playlist sessions ────────────────────────────────────────────────────────
 
-/** Playlist-level assembly mode. Distinct from the per-game `CurationMode`. */
+/** Playlist-level assembly mode. Distinct from the per-game `CurationMode`.
+ *
+ *  Enum *values* (`journey`/`low`/`mid`/`high`) are the stable internal/wire
+ *  format — stored in `playlists.playlist_mode`, sent on the API, and read by
+ *  the session-naming LLM prompt. They follow the energy-band convention so a
+ *  future "vlow" or "vhigh" mode could slot in cleanly.
+ *
+ *  Enum *keys* are TypeScript identifiers chosen for readability at the call
+ *  site. They happen to match today's display labels but they are NOT the
+ *  user-facing names — those live in `PLAYLIST_MODE_LABELS` and can change
+ *  without touching this enum, the database, or any other consumer.
+ */
 export enum PlaylistMode {
   Journey = "journey",
   Chill = "low",
