@@ -10,10 +10,10 @@ import {
   weightedTopN,
   pickBestTrack,
   assemblePlaylist,
-  ARC_TEMPLATE,
   ZERO_BREAKDOWN,
-} from "../director";
-import type { ArcSlot } from "../director";
+  JOURNEY_ARC_TEMPLATE,
+} from "..";
+import type { ArcSlot } from "..";
 import type { TaggedTrack, Game, VibeRubric } from "@/types";
 import {
   ArcPhase,
@@ -32,7 +32,7 @@ import {
   SCORE_PENALTY_MULTIPLIER,
   SCORE_VOCALS_PENALTY_MULTIPLIER,
   DIRECTOR_TOP_N_POOL,
-} from "../director-constants";
+} from "../constants";
 
 // Default empty view-bias map — view bias is always active; missing entries
 // fall back to VIEW_BIAS_SCORE_BASELINE inside scoreTrack.
@@ -176,52 +176,54 @@ describe("expandArc", () => {
   describe("when generating slots for various target counts", () => {
     it("should return exactly targetCount slots", () => {
       for (const count of [6, 10, 20, 50, 100]) {
-        expect(expandArc(count)).toHaveLength(count);
+        expect(expandArc(count, JOURNEY_ARC_TEMPLATE)).toHaveLength(count);
       }
     });
   });
 
   describe("when examining phase ordering", () => {
     it("should start with Intro", () => {
-      expect(expandArc(50)[0].phase).toBe(ArcPhase.Intro);
+      expect(expandArc(50, JOURNEY_ARC_TEMPLATE)[0].phase).toBe(ArcPhase.Intro);
     });
 
     it("should end with Outro", () => {
-      const slots = expandArc(50);
+      const slots = expandArc(50, JOURNEY_ARC_TEMPLATE);
       expect(slots[slots.length - 1].phase).toBe(ArcPhase.Outro);
     });
 
     it("should contain all 6 phases", () => {
-      const phases = new Set(expandArc(50).map((s) => s.phase));
+      const phases = new Set(expandArc(50, JOURNEY_ARC_TEMPLATE).map((s) => s.phase));
       expect(phases.size).toBe(6);
     });
   });
 
   describe("when checking template fraction distribution", () => {
-    it("should approximately match the ARC_TEMPLATE fractions", () => {
-      const slots = expandArc(100);
+    it("should approximately match the JOURNEY_ARC_TEMPLATE fractions", () => {
+      const slots = expandArc(100, JOURNEY_ARC_TEMPLATE);
       const counts = new Map<ArcPhase, number>();
       for (const slot of slots) {
         counts.set(slot.phase, (counts.get(slot.phase) ?? 0) + 1);
       }
-      for (const template of ARC_TEMPLATE) {
-        const count = counts.get(template.phase) ?? 0;
-        expect(count).toBeGreaterThanOrEqual(Math.floor(100 * template.fraction) - 5);
-        expect(count).toBeLessThanOrEqual(Math.ceil(100 * template.fraction) + 5);
+      for (const phase of JOURNEY_ARC_TEMPLATE) {
+        const count = counts.get(phase.phase) ?? 0;
+        expect(count).toBeGreaterThanOrEqual(Math.floor(100 * phase.fraction) - 5);
+        expect(count).toBeLessThanOrEqual(Math.ceil(100 * phase.fraction) + 5);
       }
     });
   });
 
   describe("when targetCount equals number of phases (6)", () => {
     it("should produce one slot per phase", () => {
-      const phases = new Set(expandArc(6).map((s) => s.phase));
+      const phases = new Set(expandArc(6, JOURNEY_ARC_TEMPLATE).map((s) => s.phase));
       expect(phases.size).toBe(6);
     });
   });
 
   describe("when examining slot preferences", () => {
     it("should carry energy and role preferences from template", () => {
-      const introSlot = expandArc(10).find((s) => s.phase === ArcPhase.Intro)!;
+      const introSlot = expandArc(10, JOURNEY_ARC_TEMPLATE).find(
+        (s) => s.phase === ArcPhase.Intro,
+      )!;
       expect(introSlot.energyPrefs).toEqual([1, 2]);
       expect(introSlot.rolePrefs).toContain(TrackRole.Opener);
     });
@@ -846,6 +848,7 @@ describe("assemblePlaylist", () => {
         [makeGame({ id: "g1" })],
         10,
         undefined,
+        JOURNEY_ARC_TEMPLATE,
       );
       expect(result.tracks).toHaveLength(10);
     });
@@ -858,6 +861,7 @@ describe("assemblePlaylist", () => {
         [makeGame({ id: "g1" })],
         50,
         undefined,
+        JOURNEY_ARC_TEMPLATE,
       );
       expect(result.tracks.length).toBeLessThanOrEqual(3);
     });
@@ -870,6 +874,7 @@ describe("assemblePlaylist", () => {
         [makeGame({ id: "g1" })],
         20,
         undefined,
+        JOURNEY_ARC_TEMPLATE,
       );
       const videoIds = result.tracks.map((t) => t.videoId);
       expect(new Set(videoIds).size).toBe(videoIds.length);
@@ -883,6 +888,7 @@ describe("assemblePlaylist", () => {
         [makeGame({ id: "g1" })],
         10,
         undefined,
+        JOURNEY_ARC_TEMPLATE,
       );
       expect(result.decisions.length).toBe(result.tracks.length);
     });
@@ -893,6 +899,7 @@ describe("assemblePlaylist", () => {
         [makeGame({ id: "g1" })],
         10,
         undefined,
+        JOURNEY_ARC_TEMPLATE,
       );
       const positions = result.decisions.map((d) => d.position).sort((a, b) => a - b);
       for (let i = 0; i < positions.length; i++) {
@@ -908,6 +915,7 @@ describe("assemblePlaylist", () => {
         [makeGame({ id: "g1" })],
         10,
         undefined,
+        JOURNEY_ARC_TEMPLATE,
       );
       expect(result.gameBudgets).toHaveProperty("g1");
     });
@@ -927,6 +935,7 @@ describe("assemblePlaylist", () => {
         [makeGame({ id: "g1" })],
         5,
         rubric,
+        JOURNEY_ARC_TEMPLATE,
       );
       expect(result.rubric).toBe(rubric);
     });
@@ -942,6 +951,7 @@ describe("assemblePlaylist", () => {
         [makeGame({ id: "g-focus", curation: CurationMode.Focus }), makeGame({ id: "g-normal" })],
         15,
         undefined,
+        JOURNEY_ARC_TEMPLATE,
       );
       const focusCount = result.tracks.filter((t) => t.gameId === "g-focus").length;
       const normalCount = result.tracks.filter((t) => t.gameId === "g-normal").length;
@@ -956,6 +966,7 @@ describe("assemblePlaylist", () => {
         [makeGame({ id: "g1" })],
         10,
         undefined,
+        JOURNEY_ARC_TEMPLATE,
       );
       expect(result.tracks).toHaveLength(0);
     });
@@ -976,6 +987,7 @@ describe("assemblePlaylist", () => {
         ],
         20,
         undefined,
+        JOURNEY_ARC_TEMPLATE,
       );
       expect(result.tracks.filter((t) => t.gameId === "g3").length).toBeGreaterThanOrEqual(
         result.tracks.filter((t) => t.gameId === "g2").length,
@@ -993,6 +1005,7 @@ describe("assemblePlaylist", () => {
         [makeGame({ id: "g-small" }), makeGame({ id: "g-focus", curation: CurationMode.Focus })],
         15,
         undefined,
+        JOURNEY_ARC_TEMPLATE,
       );
       expect(result.tracks.length).toBeGreaterThanOrEqual(10);
     });
@@ -1005,6 +1018,7 @@ describe("assemblePlaylist", () => {
         [makeGame({ id: "g1" })],
         10,
         undefined,
+        JOURNEY_ARC_TEMPLATE,
       );
       const lastResort = result.decisions.filter(
         (d) => d.selectionPass === SelectionPass.LastResort,

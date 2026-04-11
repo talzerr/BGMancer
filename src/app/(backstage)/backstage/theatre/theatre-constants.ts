@@ -5,7 +5,7 @@ import {
   SCORE_WEIGHT_MOOD,
   SCORE_WEIGHT_INSTRUMENT,
   SCORE_WEIGHT_VIEW_BIAS,
-} from "@/lib/pipeline/generation/director-constants";
+} from "@/lib/pipeline/generation/director/constants";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 

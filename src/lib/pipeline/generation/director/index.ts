@@ -7,14 +7,8 @@ import type {
   TrackDecision,
   DirectorResult,
 } from "@/types";
-import {
-  ArcPhase,
-  CurationMode,
-  SelectionPass,
-  TrackRole,
-  TrackMood,
-  TrackInstrumentation,
-} from "@/types";
+import { CurationMode, SelectionPass } from "@/types";
+import type { ArcSlot, ArcTemplate } from "./types";
 import {
   SCORE_WEIGHT_ROLE,
   SCORE_WEIGHT_MOOD,
@@ -37,126 +31,37 @@ import {
   BUDGET_WEIGHT_LITE,
   BUDGET_WEIGHT_INCLUDE,
   BUDGET_SOFT_CAP_FRACTION,
-} from "./director-constants";
+} from "./constants";
+
+// Re-export types + templates so external callers can `from ".../director"`.
+export type { ArcSlot, ArcTemplate, ArcTemplatePhase } from "./types";
+export { JOURNEY_ARC_TEMPLATE } from "./arc-templates";
 
 const log = createLogger("director");
 
-export interface ArcSlot {
-  phase: ArcPhase;
-  energyPrefs: Array<1 | 2 | 3>;
-  rolePrefs: TrackRole[];
-  preferredMoods: TrackMood[];
-  penalizedMoods: TrackMood[];
-  preferredInstrumentation: TrackInstrumentation[];
-}
-
-export const ARC_TEMPLATE: Array<{
-  phase: ArcPhase;
-  fraction: number;
-  energyPrefs: Array<1 | 2 | 3>;
-  rolePrefs: TrackRole[];
-  preferredMoods: TrackMood[];
-  penalizedMoods: TrackMood[];
-  preferredInstrumentation: TrackInstrumentation[];
-}> = [
-  {
-    phase: ArcPhase.Intro,
-    fraction: 0.15,
-    energyPrefs: [1, 2],
-    rolePrefs: [TrackRole.Opener, TrackRole.Menu, TrackRole.Ambient],
-    preferredMoods: [TrackMood.Peaceful, TrackMood.Mysterious, TrackMood.Nostalgic],
-    penalizedMoods: [TrackMood.Chaotic, TrackMood.Epic],
-    preferredInstrumentation: [
-      TrackInstrumentation.Piano,
-      TrackInstrumentation.Ambient,
-      TrackInstrumentation.Strings,
-    ],
-  },
-  {
-    phase: ArcPhase.Rising,
-    fraction: 0.25,
-    energyPrefs: [2],
-    rolePrefs: [TrackRole.Build, TrackRole.Ambient, TrackRole.Cinematic],
-    preferredMoods: [TrackMood.Mysterious, TrackMood.Tense, TrackMood.Melancholic],
-    penalizedMoods: [TrackMood.Playful, TrackMood.Whimsical],
-    preferredInstrumentation: [
-      TrackInstrumentation.Orchestral,
-      TrackInstrumentation.Strings,
-      TrackInstrumentation.Synth,
-    ],
-  },
-  {
-    phase: ArcPhase.Peak,
-    fraction: 0.25,
-    energyPrefs: [2, 3],
-    rolePrefs: [TrackRole.Combat, TrackRole.Build, TrackRole.Cinematic],
-    preferredMoods: [TrackMood.Epic, TrackMood.Tense, TrackMood.Heroic],
-    penalizedMoods: [TrackMood.Peaceful, TrackMood.Serene, TrackMood.Whimsical],
-    preferredInstrumentation: [
-      TrackInstrumentation.Orchestral,
-      TrackInstrumentation.Rock,
-      TrackInstrumentation.Metal,
-    ],
-  },
-  {
-    phase: ArcPhase.Valley,
-    fraction: 0.15,
-    energyPrefs: [1, 2],
-    rolePrefs: [TrackRole.Ambient, TrackRole.Cinematic],
-    preferredMoods: [TrackMood.Peaceful, TrackMood.Serene, TrackMood.Melancholic],
-    penalizedMoods: [TrackMood.Epic, TrackMood.Chaotic, TrackMood.Heroic],
-    preferredInstrumentation: [
-      TrackInstrumentation.Ambient,
-      TrackInstrumentation.Piano,
-      TrackInstrumentation.Acoustic,
-    ],
-  },
-  {
-    phase: ArcPhase.Climax,
-    fraction: 0.1,
-    energyPrefs: [3],
-    rolePrefs: [TrackRole.Combat, TrackRole.Cinematic],
-    preferredMoods: [TrackMood.Epic, TrackMood.Heroic, TrackMood.Triumphant, TrackMood.Chaotic],
-    penalizedMoods: [TrackMood.Peaceful, TrackMood.Playful],
-    preferredInstrumentation: [
-      TrackInstrumentation.Orchestral,
-      TrackInstrumentation.Metal,
-      TrackInstrumentation.Choir,
-    ],
-  },
-  {
-    phase: ArcPhase.Outro,
-    fraction: 0.1,
-    energyPrefs: [1],
-    rolePrefs: [TrackRole.Closer, TrackRole.Ambient, TrackRole.Menu],
-    preferredMoods: [TrackMood.Melancholic, TrackMood.Nostalgic, TrackMood.Peaceful],
-    penalizedMoods: [TrackMood.Chaotic, TrackMood.Tense],
-    preferredInstrumentation: [
-      TrackInstrumentation.Piano,
-      TrackInstrumentation.Acoustic,
-      TrackInstrumentation.Strings,
-    ],
-  },
-];
-
-export function expandArc(targetCount: number): ArcSlot[] {
+/**
+ * Expand an arc template into a sequence of per-slot constraints. Each phase
+ * claims a `fraction` of the target count; the final phase absorbs any
+ * rounding remainder so the slot total always equals `targetCount`.
+ */
+export function expandArc(targetCount: number, template: ArcTemplate): ArcSlot[] {
   const slots: ArcSlot[] = [];
   let remaining = targetCount;
 
-  for (let i = 0; i < ARC_TEMPLATE.length; i++) {
-    const template = ARC_TEMPLATE[i];
-    const isLast = i === ARC_TEMPLATE.length - 1;
-    const count = isLast ? remaining : Math.max(1, Math.floor(targetCount * template.fraction));
+  for (let i = 0; i < template.length; i++) {
+    const phase = template[i];
+    const isLast = i === template.length - 1;
+    const count = isLast ? remaining : Math.max(1, Math.floor(targetCount * phase.fraction));
     remaining -= count;
 
     for (let j = 0; j < count; j++) {
       slots.push({
-        phase: template.phase,
-        energyPrefs: template.energyPrefs,
-        rolePrefs: template.rolePrefs,
-        preferredMoods: template.preferredMoods,
-        penalizedMoods: template.penalizedMoods,
-        preferredInstrumentation: template.preferredInstrumentation,
+        phase: phase.phase,
+        energyPrefs: phase.energyPrefs,
+        rolePrefs: phase.rolePrefs,
+        preferredMoods: phase.preferredMoods,
+        penalizedMoods: phase.penalizedMoods,
+        preferredInstrumentation: phase.preferredInstrumentation,
       });
     }
   }
@@ -341,17 +246,19 @@ interface PickResult {
 
 /**
  * Pure TypeScript playlist assembler. Replaces the LLM-based Phase 3 curation.
- * Builds a playlist with a natural energy arc, game diversity, and respects curation modes.
+ * Builds a playlist against the given `arcTemplate`, respecting game budgets,
+ * curation weights, and rubric overrides.
  */
 export function assemblePlaylist(
   taggedPools: Map<string, TaggedTrack[]>,
   games: Game[],
   targetCount: number,
   rubric: VibeRubric | undefined,
+  arcTemplate: ArcTemplate,
 ): DirectorResult {
   const viewBiasScores = computeViewBiasScores(taggedPools);
   const budgets = computeGameBudgets(games, taggedPools, targetCount);
-  const slots = expandArc(targetCount);
+  const slots = expandArc(targetCount, arcTemplate);
 
   const shuffledPools = new Map<string, TaggedTrack[]>();
   for (const [gameId, tracks] of taggedPools) {

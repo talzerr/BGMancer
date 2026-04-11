@@ -1,6 +1,6 @@
 "use client";
 
-import { ARC_TEMPLATE } from "@/lib/pipeline/generation/director";
+import { JOURNEY_ARC_TEMPLATE } from "@/lib/pipeline/generation/director";
 import {
   SCORING_WEIGHTS,
   BUDGET_RULES,
@@ -21,7 +21,7 @@ export function DirectorReference() {
           count with specific energy, role, and mood preferences.
         </p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {ARC_TEMPLATE.map((t) => (
+          {JOURNEY_ARC_TEMPLATE.map((t) => (
             <div
               key={t.phase}
               className="border-border bg-secondary/60 space-y-2 rounded-lg border p-3"

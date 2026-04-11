@@ -4,7 +4,7 @@ import { GameProgressStatus } from "@/types";
 import type { CurationMode, TrackDecision } from "@/types";
 import { fetchGameCandidates } from "@/lib/pipeline/generation/candidates";
 import { toInsertable, taggedTrackToPending } from "@/lib/pipeline/generation/assembly";
-import { assemblePlaylist } from "@/lib/pipeline/generation/director";
+import { assemblePlaylist, JOURNEY_ARC_TEMPLATE } from "@/lib/pipeline/generation/director";
 import {
   generateRubric,
   buildGameProfiles,
@@ -99,7 +99,13 @@ function runDirector(
   gameBudgets: Record<string, number>;
 } {
   const assembleTarget = Math.ceil(targetCount * 1.15);
-  const result = assemblePlaylist(taggedPools, activeGames, assembleTarget, rubric);
+  const result = assemblePlaylist(
+    taggedPools,
+    activeGames,
+    assembleTarget,
+    rubric,
+    JOURNEY_ARC_TEMPLATE,
+  );
   return {
     pendingTracks: result.tracks.map((t) => taggedTrackToPending(t, t.durationSeconds)),
     decisions: result.decisions,
