@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { PLAYLIST_MODE_LABELS } from "@/lib/playlist-mode-labels";
 import type { PlaylistTelemetry } from "../theatre-constants";
 import { ArcTimeline } from "./ArcTimeline";
 import { DiagnosticsPanel } from "./DiagnosticsPanel";
@@ -23,7 +24,12 @@ export function PlaylistInspector({ telemetry }: { telemetry: PlaylistTelemetry 
       {/* Session header */}
       <div className="flex items-baseline justify-between">
         <div>
-          <h3 className="text-foreground text-sm font-medium">{session.name}</h3>
+          <h3 className="text-foreground flex items-center gap-2 text-sm font-medium">
+            {session.name}
+            <span className="text-[10px] text-[var(--text-tertiary)]">
+              [{PLAYLIST_MODE_LABELS[session.playlist_mode].name}]
+            </span>
+          </h3>
           <span className="font-mono text-[10px] text-[var(--text-disabled)]">
             {session.id} -- {session.created_at.slice(0, 16).replace("T", " ")}
           </span>

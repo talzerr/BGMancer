@@ -1,4 +1,10 @@
-import type { PlaylistTrack, TrackDecision, VibeRubric, PlaylistSession } from "@/types";
+import type {
+  PlaylistMode,
+  PlaylistTrack,
+  TrackDecision,
+  VibeRubric,
+  PlaylistSession,
+} from "@/types";
 import { ArcPhase, SelectionPass } from "@/types";
 import {
   SCORE_WEIGHT_ROLE,
@@ -14,7 +20,7 @@ export interface SessionSummary extends PlaylistSession {
 }
 
 export interface PlaylistTelemetry {
-  session: { id: string; name: string; created_at: string };
+  session: { id: string; name: string; playlist_mode: PlaylistMode; created_at: string };
   tracks: PlaylistTrack[];
   decisions: TrackDecision[];
   gameBudgets: Record<string, number> | null;

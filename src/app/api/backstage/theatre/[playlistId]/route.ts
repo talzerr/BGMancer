@@ -20,6 +20,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ playlis
       session: {
         id: session.id,
         name: session.name,
+        playlist_mode: session.playlist_mode,
         created_at: session.created_at,
       },
       tracks,
