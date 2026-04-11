@@ -37,10 +37,6 @@ export const renameSessionSchema = z.object({
   name: z.string().trim().min(1).max(SESSION_NAME_MAX_LENGTH),
 });
 
-export const reorderSchema = z.object({
-  orderedIds: z.array(z.string().min(1)),
-});
-
 // Delegates URL-shape validation to parseSteamInput so schema and service agree.
 export const steamSyncSchema = z.object({
   steamUrl: z

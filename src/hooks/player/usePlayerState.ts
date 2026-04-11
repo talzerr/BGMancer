@@ -12,8 +12,6 @@ import {
 export function usePlayerState() {
   const [currentTrackIndex, setCurrentTrackIndex] = useState<number | null>(null);
   const [isPlayerPlaying, setIsPlayerPlaying] = useState(false);
-  const [shuffleMode, setShuffleMode] = useState(false);
-  const [shuffleOrder, setShuffleOrder] = useState<number[]>([]);
   const [playedTrackIds, setPlayedTrackIds] = useState<Set<string>>(new Set());
   /** Snapshot of tracks when playback started — decoupled from viewed playlist */
   const [playingTracks, setPlayingTracks] = useState<PlaylistTrack[]>([]);
@@ -28,14 +26,10 @@ export function usePlayerState() {
     setPlayingTracks(tracks);
     setPlayingSessionId(sessionId);
     setCurrentTrackIndex(index);
-    setShuffleMode(false);
-    setShuffleOrder([]);
   }
 
   function reset() {
     setCurrentTrackIndex(null);
-    setShuffleMode(false);
-    setShuffleOrder([]);
     setPlayedTrackIds(new Set());
     setPlayingTracks([]);
     setPlayingSessionId(null);
@@ -45,8 +39,6 @@ export function usePlayerState() {
   /** Stop playback without clearing localStorage cache (used after generation). */
   function resetPlayback() {
     setCurrentTrackIndex(null);
-    setShuffleMode(false);
-    setShuffleOrder([]);
     setPlayedTrackIds(new Set());
     setPlayingTracks([]);
     setPlayingSessionId(null);
@@ -57,8 +49,6 @@ export function usePlayerState() {
     setPlayingTracks(tracks);
     setPlayingSessionId(sessionId);
     setCurrentTrackIndex(index);
-    setShuffleMode(false);
-    setShuffleOrder([]);
     setPlayedTrackIds(revealed);
   }
 
@@ -74,47 +64,20 @@ export function usePlayerState() {
     }
   }, []);
 
-  function handleToggleShuffle() {
-    const cur = currentTrackIndex ?? 0;
-    if (shuffleMode) {
-      const actualIdx = shuffleOrder[cur] ?? 0;
-      setShuffleMode(false);
-      setShuffleOrder([]);
-      setCurrentTrackIndex(actualIdx);
-    } else {
-      // Fisher-Yates shuffle; keep current track at position 0
-      const indices = Array.from({ length: playingTracks.length }, (_, i) => i);
-      for (let i = indices.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [indices[i], indices[j]] = [indices[j], indices[i]];
-      }
-      const curPos = indices.indexOf(cur);
-      [indices[0], indices[curPos]] = [indices[curPos], indices[0]];
-      setShuffleOrder(indices);
-      setShuffleMode(true);
-      setCurrentTrackIndex(0);
-    }
-  }
-
-  const effectiveFoundTracks =
-    shuffleMode && shuffleOrder.length === playingTracks.length
-      ? shuffleOrder.map((i) => playingTracks[i]).filter(Boolean)
-      : playingTracks;
-
   const playingTrackId =
-    currentTrackIndex !== null ? (effectiveFoundTracks[currentTrackIndex]?.id ?? null) : null;
+    currentTrackIndex !== null ? (playingTracks[currentTrackIndex]?.id ?? null) : null;
   const playingTrackIdRef = useRef(playingTrackId);
   useEffect(() => {
     playingTrackIdRef.current = playingTrackId;
   }, [playingTrackId]);
 
   const activeGameId =
-    currentTrackIndex !== null ? (effectiveFoundTracks[currentTrackIndex]?.game_id ?? null) : null;
+    currentTrackIndex !== null ? (playingTracks[currentTrackIndex]?.game_id ?? null) : null;
 
-  // Mark current track as played whenever the index changes (must be after effectiveFoundTracks)
+  // Mark current track as played whenever the index changes
   useEffect(() => {
     if (currentTrackIndex !== null) {
-      const track = effectiveFoundTracks[currentTrackIndex];
+      const track = playingTracks[currentTrackIndex];
       if (track) {
         setPlayedTrackIds((prev) => {
           if (prev.has(track.id)) return prev;
@@ -133,14 +96,12 @@ export function usePlayerState() {
     setCurrentTrackIndex,
     isPlayerPlaying,
     setIsPlayerPlaying,
-    shuffleMode,
-    handleToggleShuffle,
     reset,
     resetPlayback,
     startPlaying,
     restorePlayback,
     clearPlayedTracks,
-    effectiveFoundTracks,
+    playingTracks,
     playingTrackId,
     playingSessionId,
     activeGameId,

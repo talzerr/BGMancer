@@ -10,7 +10,6 @@ import {
   XIcon,
   RefreshIcon,
   Spinner,
-  GripIcon,
 } from "@/components/Icons";
 
 interface PlaylistTrackCardProps {
@@ -27,10 +26,6 @@ interface PlaylistTrackCardProps {
   onReroll?: () => void;
   /** true while an AI reroll is in flight for this track */
   isRerolling?: boolean;
-  /** Props to spread onto the drag handle element (from @dnd-kit useSortable) */
-  dragHandleProps?: React.HTMLAttributes<HTMLElement>;
-  /** true while this card is being dragged */
-  isDragging?: boolean;
   /** Raw RGB triplet (e.g. "120, 80, 60") for subtle row background tint */
   accentColor?: string;
 }
@@ -51,8 +46,6 @@ export function PlaylistTrackCard({
   onRemove,
   onReroll,
   isRerolling = false,
-  dragHandleProps,
-  isDragging = false,
   accentColor,
 }: PlaylistTrackCardProps) {
   const hasVideo = !!track.video_id;
@@ -71,7 +64,7 @@ export function PlaylistTrackCard({
       onClick={isPlayable ? onPlay : undefined}
       className={`group border-border relative flex items-center gap-4 border-b px-3 py-2 transition-all duration-150 ${
         isPlayable ? "cursor-pointer" : ""
-      } ${isDragging ? "opacity-50" : ""} bg-[var(--row-tint)] hover:bg-white/[0.04]`}
+      } bg-[var(--row-tint)] hover:bg-white/[0.04]`}
       style={
         {
           "--row-tint": accentColor ? `rgba(${accentColor}, 0.04)` : "rgba(255, 255, 255, 0.02)",
@@ -80,16 +73,6 @@ export function PlaylistTrackCard({
     >
       {isPlaying && (
         <div className="bg-primary absolute top-0 bottom-0 left-0 w-[3px] rounded-r-sm" />
-      )}
-
-      {dragHandleProps && (
-        <div
-          {...dragHandleProps}
-          onClick={(e) => e.stopPropagation()}
-          className="shrink-0 cursor-grab touch-none opacity-0 transition-opacity group-hover:opacity-40 hover:!opacity-100 active:cursor-grabbing"
-        >
-          <GripIcon className="text-muted-foreground h-3.5 w-3.5" />
-        </div>
       )}
 
       <div className="bg-secondary relative h-[44px] w-16 shrink-0 overflow-hidden rounded-[6px] ring-1 ring-white/[0.06]">

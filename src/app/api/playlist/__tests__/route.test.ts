@@ -57,7 +57,7 @@ vi.mock("@/lib/services/auth/auth-helpers", async () => {
   };
 });
 
-const { GET, DELETE: DELETE_HANDLER, PATCH } = await import("../route");
+const { GET, DELETE: DELETE_HANDLER } = await import("../route");
 
 beforeEach(() => {
   ({ db, rawDb } = createTestDrizzleDB());
@@ -169,51 +169,6 @@ describe("DELETE /api/playlist", () => {
         .prepare("SELECT COUNT(*) AS cnt FROM playlist_tracks WHERE playlist_id = ?")
         .get(sessionId) as { cnt: number };
       expect(remaining.cnt).toBe(0);
-    });
-  });
-});
-
-describe("PATCH /api/playlist", () => {
-  describe("when given orderedIds", () => {
-    it("should update positions", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
-      const sessionId = seedTestSession(rawDb, TEST_USER_ID, { id: "s1" });
-
-      insertPlaylistTrack("pt1", sessionId, TEST_GAME_ID, { position: 0 });
-      insertPlaylistTrack("pt2", sessionId, TEST_GAME_ID, { position: 1 });
-      insertPlaylistTrack("pt3", sessionId, TEST_GAME_ID, { position: 2 });
-
-      // Reverse the order
-      const res = await PATCH(
-        makeNextRequest("/api/playlist", {
-          method: "PATCH",
-          body: { orderedIds: ["pt3", "pt2", "pt1"] },
-        }),
-      );
-      expect(res.status).toBe(200);
-
-      // Verify new positions
-      const rows = rawDb
-        .prepare("SELECT id, position FROM playlist_tracks ORDER BY position ASC")
-        .all() as Array<{ id: string; position: number }>;
-      expect(rows[0]).toEqual({ id: "pt3", position: 0 });
-      expect(rows[1]).toEqual({ id: "pt2", position: 1 });
-      expect(rows[2]).toEqual({ id: "pt1", position: 2 });
-    });
-  });
-
-  describe("when orderedIds is not an array", () => {
-    it("should return 400", async () => {
-      const res = await PATCH(
-        makeNextRequest("/api/playlist", {
-          method: "PATCH",
-          body: { orderedIds: "not-an-array" },
-        }),
-      );
-      expect(res.status).toBe(400);
-
-      const body = await parseJson<{ error: string }>(res);
-      expect(body.error).toMatch(/array/i);
     });
   });
 });

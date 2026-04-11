@@ -118,7 +118,7 @@ All non-backstage pages are wrapped by `PlayerProvider` (in `src/app/layout.tsx`
 `PlayerProvider` (rendered in `src/app/(main)/layout.tsx`) composes four hooks, manages the YouTube player, and shares their state app-wide. It receives `isSignedIn` from the server layout (via `auth()`) and exposes it on the context:
 
 - `usePlaylist` — playlist tracks + session management, fetches from `/api/playlist`
-- `usePlayerState` — playback state (current track, shuffle, play/pause, revealed tracks for anti-spoiler). Two reset functions: `reset()` clears runtime state AND localStorage cache; `resetPlayback()` clears runtime state only (used after generation to preserve guest cache).
+- `usePlayerState` — playback state (current track, play/pause, revealed tracks for anti-spoiler). Two reset functions: `reset()` clears runtime state AND localStorage cache; `resetPlayback()` clears runtime state only (used after generation to preserve guest cache).
 - `useConfig` — app config (track count, anti-spoiler, etc.) stored in localStorage
 - `useGameLibrary(isSignedIn)` — game library; authenticated users fetch from `/api/games`, guests use localStorage (key `bgm_guest_library`) hydrated against `/api/games/catalog`
 - `useYouTubePlayer` — YouTube IFrame API wrapper, managed by the context (not by any component). Exposes playback controls via the `MediaState` interface.
@@ -292,7 +292,6 @@ All under `src/app/api/`. Auth levels are defined in `src/lib/route-config.ts`. 
 - `POST /api/games/request` — register a game request (Public). Body: `{ igdbId, name, coverUrl, turnstileToken }`. Verified server-side via Turnstile (rejects with 403 on failure), then IP-rate-limited 5/hr via `game-request:${ip}`. Always returns `{ success: true }` regardless of internal state (new row, increment, or no-op on already-acknowledged) — the client never learns whether the request was new
 - `GET /api/playlist` — fetch tracks (Optional — guests get `[]`). Response includes `arc_phase` per track via a left-join on `playlist_track_decisions`; null for guest playlists or tracks without decision data
 - `DELETE /api/playlist` — clear playlist (Required)
-- `PATCH /api/playlist` — reorder tracks (Optional — guests get silent 200)
 - `DELETE /api/playlist/[id]` — remove a track (Required + ownership)
 - `POST /api/playlist/[id]/reroll` — reroll a single track (Required + ownership). For energy-mode playlists the candidate pool is filtered by the mode's energy template so rerolls stay within the mode
 - `GET /api/sessions` — session list (Optional — guests get `[]`). Each row carries `playlist_mode` for header / history display
