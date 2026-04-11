@@ -194,7 +194,7 @@ director/
 └── __tests__/
 ```
 
-`assemblePlaylist(taggedPools, games, targetCount, rubric, arcTemplate, options?)` is the only public entry. View bias scoring is always active (raw vibes was retired). Adding a new mode is two steps: write a new `ArcTemplate` file and add a case to `getEnergyModeTemplate`.
+`assemblePlaylist(taggedPools, games, targetCount, rubric, arcTemplate, options?)` is the only public entry. View bias scoring is always active. Adding a new mode is two steps: write a new `ArcTemplate` file and add a case to `getEnergyModeTemplate`.
 
 **Game onboarding** (`onboarding.ts`): backstage-driven process that prepares a game for playlist generation. Three phases:
 

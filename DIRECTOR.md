@@ -22,9 +22,9 @@ The Director applies four layers of logic in sequence. Each layer narrows the ca
 
 ### I. The Arc Weaver — Narrative Energy
 
-Before a single track is evaluated, the Director expands a fixed **Arc Template** into a sequence of `ArcSlot` objects — one per position in the final playlist. Each slot encodes the emotional and sonic expectations for that position in the arc.
+Before a single track is evaluated, the Director expands an **Arc Template** into a sequence of `ArcSlot` objects — one per position in the final playlist. Each slot encodes the emotional and sonic expectations for that position in the arc. The template is an input to the algorithm, not a constant: a different sequence of phases produces a different shape of playlist while reusing every other piece of the heuristic. The canonical six-phase arc described below is one such template, but a single-phase arc that holds the listener at a constant energy band is just as valid an input.
 
-The arc is divided into six named phases:
+The canonical arc is divided into six named phases:
 
 | Phase  | Share | Energy   | Emotional Character                              |
 | ------ | ----- | -------- | ------------------------------------------------ |

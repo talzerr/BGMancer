@@ -9,12 +9,32 @@ afterEach(() => {
   cleanup();
 });
 
+// All four descriptions render in a stacked grid cell so the row height
+// stays constant across mode switches; only the active one is visible.
+// Tests must check `aria-hidden` rather than DOM presence to verify visibility.
+function expectActiveDescription(text: RegExp): void {
+  const node = screen.getByText(text);
+  expect(node).toHaveAttribute("aria-hidden", "false");
+}
+
+function expectHiddenDescription(text: RegExp): void {
+  const node = screen.getByText(text);
+  expect(node).toHaveAttribute("aria-hidden", "true");
+}
+
 describe("ModeSelector", () => {
   describe("when mode is Journey (default)", () => {
-    it("shows Journey as the active mode with its description", () => {
+    it("shows Journey's description as the visible one", () => {
       render(<ModeSelector mode={PlaylistMode.Journey} onModeChange={vi.fn()} />);
       expect(screen.getByText("Journey")).toBeInTheDocument();
-      expect(screen.getByText(/full bgmancer experience/i)).toBeInTheDocument();
+      expectActiveDescription(/full bgmancer experience/i);
+    });
+
+    it("hides the other modes' descriptions", () => {
+      render(<ModeSelector mode={PlaylistMode.Journey} onModeChange={vi.fn()} />);
+      expectHiddenDescription(/background music for work/i);
+      expectHiddenDescription(/steady mix for long sessions/i);
+      expectHiddenDescription(/high energy for workouts/i);
     });
 
     it("renders Chill, Mix, Rush as inactive options", () => {
@@ -31,10 +51,17 @@ describe("ModeSelector", () => {
   });
 
   describe("when mode is Chill", () => {
-    it("shows Chill as the active mode with its description", () => {
+    it("shows Chill's description as the visible one", () => {
       render(<ModeSelector mode={PlaylistMode.Chill} onModeChange={vi.fn()} />);
       expect(screen.getByText("Chill")).toBeInTheDocument();
-      expect(screen.getByText(/background music for work/i)).toBeInTheDocument();
+      expectActiveDescription(/background music for work/i);
+    });
+
+    it("hides the other modes' descriptions", () => {
+      render(<ModeSelector mode={PlaylistMode.Chill} onModeChange={vi.fn()} />);
+      expectHiddenDescription(/full bgmancer experience/i);
+      expectHiddenDescription(/steady mix for long sessions/i);
+      expectHiddenDescription(/high energy for workouts/i);
     });
 
     it("renders Journey, Mix, Rush as inactive options", () => {

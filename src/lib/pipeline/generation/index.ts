@@ -198,9 +198,16 @@ export async function generatePlaylistForGuest(
   if (filteredPools.size > 0 && targetCount > 0) {
     const activeGames = games.filter((g) => filteredPools.has(g.id));
     const energyTemplate = getEnergyModeTemplate(config.playlist_mode);
-    const directorResult = energyTemplate
-      ? runDirector(filteredPools, activeGames, targetCount, undefined, energyTemplate, false)
-      : runDirector(filteredPools, activeGames, targetCount, undefined, JOURNEY_ARC_TEMPLATE, true);
+    const arcTemplate = energyTemplate ?? JOURNEY_ARC_TEMPLATE;
+    const allowLastResort = energyTemplate === null;
+    const directorResult = runDirector(
+      filteredPools,
+      activeGames,
+      targetCount,
+      undefined,
+      arcTemplate,
+      allowLastResort,
+    );
     tracks = directorResult.pendingTracks;
   }
 
@@ -265,14 +272,10 @@ export async function generatePlaylist(
       playlistMode: config.playlist_mode,
     });
 
+    // Energy modes skip the Vibe Profiler entirely; Journey resolves a rubric
+    // from cache or LLM (silently capped on miss).
     let rubric: VibeRubric | undefined;
-    let arcTemplate: ArcTemplate;
-    let allowLastResort: boolean;
-
-    if (energyTemplate) {
-      arcTemplate = energyTemplate;
-      allowLastResort = false;
-    } else {
+    if (energyTemplate === null) {
       rubric =
         (await findCachedRubric(
           userId,
@@ -284,10 +287,10 @@ export async function generatePlaylist(
           rubric = await profileVibe(activeGames, filteredPools);
         }
       }
-      arcTemplate = JOURNEY_ARC_TEMPLATE;
-      allowLastResort = true;
     }
 
+    const arcTemplate = energyTemplate ?? JOURNEY_ARC_TEMPLATE;
+    const allowLastResort = energyTemplate === null;
     const directorResult = runDirector(
       filteredPools,
       activeGames,
