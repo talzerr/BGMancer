@@ -12,14 +12,6 @@ interface YouTubeSyncDialogProps {
   onConfirm: () => void | Promise<void>;
 }
 
-/**
- * Confirmation dialog for sync-to-YouTube.
- *
- * The dialog itself never closes on success — the parent (`PlaylistHeader`)
- * watches the status transition to "synced" and flips `open` to false. This
- * avoids coupling the dialog to the hook's state machine and keeps the
- * "success" signal in one place: the hook.
- */
 export function YouTubeSyncDialog({
   open,
   onOpenChange,

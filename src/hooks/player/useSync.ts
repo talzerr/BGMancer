@@ -29,14 +29,10 @@ function playlistUrlFor(id: string): string {
   return `https://www.youtube.com/playlist?list=${id}`;
 }
 
-/** Join track IDs into a stable fingerprint so we can detect reroll/remove
- *  without prop-drilling the mutation paths. */
 function fingerprintTracks(tracks: PlaylistTrack[]): string {
   return tracks.map((t) => t.id).join("|");
 }
 
-/** The full YouTube scope required for incremental auth. Matches the scope
- *  already established by the NextAuth Google provider. */
 const YOUTUBE_SIGNIN_SCOPE = "openid email https://www.googleapis.com/auth/youtube";
 
 interface InternalState {
@@ -47,22 +43,6 @@ interface InternalState {
   baselineFingerprint: string;
 }
 
-/**
- * Manages sync-to-YouTube state for the current playlist session.
- *
- * - Initial status is "synced" if the session already has a YouTube playlist
- *   ID on the server; otherwise "idle".
- * - Resets to "idle" when the current session changes, or when the track set
- *   within the same session changes (reroll, remove). Implemented via the
- *   "store-prior-props" pattern — comparing during render instead of in an
- *   effect — because the project's lint rules forbid setState-in-effect.
- *   The DB-side `youtube_playlist_id` is deliberately NOT cleared on
- *   modification (per the task spec). On next page load the initial state
- *   returns to "synced" because the DB still has the ID.
- * - On 401 the hook triggers NextAuth's `signIn` with the YouTube scope
- *   appended (incremental authorization). The caller never sees a 401-shaped
- *   error state — that path redirects instead.
- */
 export function useSync({
   currentSessionId,
   tracks,
@@ -78,17 +58,16 @@ export function useSync({
     baselineFingerprint: trackFingerprint,
   }));
 
-  // Derive-from-props: when the session or track set changes, reset to
-  // "idle" during render. This is the documented React pattern for
-  // responding to prop changes without useEffect.
   if (
     state.baselineSessionId !== currentSessionId ||
     state.baselineFingerprint !== trackFingerprint
   ) {
+    const sessionChanged = state.baselineSessionId !== currentSessionId;
+    const restoreSynced = sessionChanged && !!initialYoutubePlaylistId;
     setState({
-      status: "idle",
+      status: restoreSynced ? "synced" : "idle",
       error: null,
-      playlistUrl: null,
+      playlistUrl: restoreSynced ? playlistUrlFor(initialYoutubePlaylistId) : null,
       baselineSessionId: currentSessionId,
       baselineFingerprint: trackFingerprint,
     });
@@ -145,15 +124,14 @@ export function useSync({
       return false;
     }
 
-    setState({
+    setState((prev) => ({
+      ...prev,
       status: "synced",
       error: null,
       playlistUrl: data.playlistUrl,
-      baselineSessionId: currentSessionId,
-      baselineFingerprint: trackFingerprint,
-    });
+    }));
     return true;
-  }, [currentSessionId, trackFingerprint]);
+  }, [currentSessionId]);
 
   return {
     status: state.status,

@@ -166,7 +166,6 @@ function makeTrack(overrides: Partial<PlaylistTrack> = {}): PlaylistTrack {
     duration_seconds: TEST_DURATION_SECONDS,
     position: 0,
     created_at: new Date().toISOString(),
-    synced_at: null,
     ...overrides,
   };
 }

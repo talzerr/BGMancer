@@ -43,7 +43,6 @@ function makeTrack(overrides: Partial<PlaylistTrack> = {}): PlaylistTrack {
     duration_seconds: TEST_DURATION_SECONDS,
     position: 0,
     created_at: "2025-01-01",
-    synced_at: null,
     ...overrides,
   };
 }

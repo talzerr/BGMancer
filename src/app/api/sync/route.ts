@@ -34,23 +34,15 @@ const log = createLogger("sync");
  * behind `env.youtubeSyncEnabled` and returns 503 when disabled.
  */
 export async function POST(request: Request): Promise<Response> {
-  // 1. Feature gate (pre-verification). Runs before any auth or DB work so
-  //    the feature is cleanly dark in every environment where the flag is
-  //    unset.
   if (!env.youtubeSyncEnabled) {
     return NextResponse.json({ error: "Feature not yet available" }, { status: 503 });
   }
 
-  // 2. Dev guard. The Credentials dev provider has no Google OAuth token, so
-  //    sync would fail downstream anyway — short-circuit with a clear error.
   if (env.isDev) {
     return NextResponse.json({ error: "Sync is not available in development." }, { status: 400 });
   }
 
   try {
-    // 3. Auth. Missing user, missing access token, or a refresh-failure
-    //    marker all funnel into the same 401 so the client can trigger
-    //    incremental re-consent.
     const session = await auth();
     if (
       !session?.user?.id ||
@@ -66,7 +58,6 @@ export async function POST(request: Request): Promise<Response> {
     const userId = session.user.id;
     const accessToken = session.access_token;
 
-    // 4. Input validation.
     const body = (await request.json().catch(() => null)) as unknown;
     const parsed = syncRequestSchema.safeParse(body);
     if (!parsed.success) {
@@ -74,15 +65,11 @@ export async function POST(request: Request): Promise<Response> {
     }
     const { sessionId } = parsed.data;
 
-    // 5. Ownership + existence. Return 404 for both missing and not-owned
-    //    sessions to avoid ID enumeration.
     const playlistSession = await Sessions.getById(sessionId);
     if (!playlistSession || playlistSession.user_id !== userId) {
       return NextResponse.json({ error: "Session not found." }, { status: 404 });
     }
 
-    // 6. Non-empty tracks check. Sessions with no playable tracks are a
-    //    validation error, not a YouTube error.
     const syncable = await Playlist.listSyncableVideos(sessionId);
     if (syncable.length === 0) {
       return NextResponse.json(
@@ -91,8 +78,6 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
 
-    // 7. Rate limit. Placed here so failed validation/ownership attempts
-    //    don't burn quota.
     const rl = await checkRateLimit(
       `youtube-sync:${userId}`,
       YOUTUBE_SYNC_MAX_PER_HOUR,
@@ -105,24 +90,14 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
 
-    // 8. Create the YouTube playlist. Unlisted by default — users who want
-    //    it public can change it on YouTube.
     const youtubePlaylistId = await createYoutubePlaylist(accessToken, {
       title: `BGMancer: ${playlistSession.name}`,
       description: "Created with BGMancer — bgmancer.com",
       privacy: "unlisted",
     });
 
-    // 9. Persist the ID immediately. If a later step fails, the partially
-    //    populated playlist is still reachable via the saved ID — preventing
-    //    orphaned YouTube playlists on retry.
     await Sessions.setYoutubePlaylistId(sessionId, youtubePlaylistId);
 
-    // 10. Insert tracks concurrently. YouTube accepts an explicit `position`
-    //     in the insert body so concurrent calls don't lose ordering. We map
-    //     the syncable rows to the dense YouTube insert index (0..N-1) —
-    //     the DB `position` is sparse because it comes from the source
-    //     playlist, which can include tracks without a video_id.
     const inserts = syncable.map((row, i) => ({ videoId: row.video_id, insertIndex: i }));
     let failed = 0;
     await runConcurrent(inserts, YOUTUBE_SYNC_CONCURRENCY, async (item) => {

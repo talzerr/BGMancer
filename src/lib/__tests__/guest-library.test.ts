@@ -5,7 +5,6 @@ import type { Game } from "@/types";
 import {
   readGuestLibrary,
   writeGuestLibrary,
-  readGuestLibraryHydrated,
   writeGuestLibraryHydrated,
   clearGuestLibrary,
 } from "../guest-library";
@@ -78,37 +77,6 @@ describe("writeGuestLibrary", () => {
     ];
     writeGuestLibrary(entries);
     expect(JSON.parse(localStorage.getItem("bgm_guest_library")!)).toEqual(entries);
-  });
-});
-
-describe("readGuestLibraryHydrated", () => {
-  it("should return empty array when nothing stored", () => {
-    expect(readGuestLibraryHydrated()).toEqual([]);
-  });
-
-  it("should return stored games", () => {
-    const games = [makeGame("g1", "Celeste"), makeGame("g2", "Hollow Knight")];
-    localStorage.setItem("bgm_guest_library_hydrated", JSON.stringify(games));
-    expect(readGuestLibraryHydrated()).toEqual(games);
-  });
-
-  it("should return empty array for invalid JSON", () => {
-    localStorage.setItem("bgm_guest_library_hydrated", "not-json");
-    expect(readGuestLibraryHydrated()).toEqual([]);
-  });
-
-  it("should return empty array for non-array JSON", () => {
-    localStorage.setItem("bgm_guest_library_hydrated", '{"foo":"bar"}');
-    expect(readGuestLibraryHydrated()).toEqual([]);
-  });
-
-  it("should filter out malformed entries", () => {
-    const valid = makeGame("g1", "Celeste");
-    localStorage.setItem(
-      "bgm_guest_library_hydrated",
-      JSON.stringify([valid, { bad: true }, "string", null, { id: "g2" }]),
-    );
-    expect(readGuestLibraryHydrated()).toEqual([valid]);
   });
 });
 

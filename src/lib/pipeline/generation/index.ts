@@ -157,7 +157,6 @@ async function persistSession(
     playlist_id: session.id,
     position,
     created_at: new Date().toISOString(),
-    synced_at: null,
   }));
 
   return { session, inserted };
@@ -222,7 +221,6 @@ export async function generatePlaylistForGuest(
       playlist_id: GUEST_SESSION_ID,
       position,
       created_at: new Date().toISOString(),
-      synced_at: null,
       ...(g ? { game_thumbnail_url: g.thumbnail_url } : {}),
     };
   });

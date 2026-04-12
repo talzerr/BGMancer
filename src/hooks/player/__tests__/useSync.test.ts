@@ -23,7 +23,6 @@ function makeTrack(id: string): PlaylistTrack {
     duration_seconds: 0,
     position: 0,
     created_at: "2026-04-11T00:00:00Z",
-    synced_at: null,
   };
 }
 
@@ -205,6 +204,21 @@ describe("useSync", () => {
 
       rerender({ ...defaultArgs, initialYoutubePlaylistId: "PL_stable" });
       expect(result.current.status).toBe("synced");
+    });
+
+    it("restores synced state when switching to a previously-synced session", () => {
+      const { result, rerender } = renderHook((args: typeof defaultArgs) => useSync(args), {
+        initialProps: defaultArgs,
+      });
+      expect(result.current.status).toBe("idle");
+
+      rerender({
+        ...defaultArgs,
+        currentSessionId: "session-2",
+        initialYoutubePlaylistId: "PL_existing",
+      });
+      expect(result.current.status).toBe("synced");
+      expect(result.current.playlistUrl).toBe("https://www.youtube.com/playlist?list=PL_existing");
     });
   });
 
