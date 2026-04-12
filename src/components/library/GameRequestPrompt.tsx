@@ -3,7 +3,7 @@
 import { type FocusEvent } from "react";
 import Image from "next/image";
 import Script from "next/script";
-import { SearchIcon, Spinner } from "@/components/Icons";
+import { SearchIcon, Spinner } from "@/components/ui/Icons";
 import { useGameRequest, type IgdbSearchResult } from "@/hooks/library/useGameRequest";
 import { useTurnstileToken } from "@/hooks/shared/useTurnstileToken";
 

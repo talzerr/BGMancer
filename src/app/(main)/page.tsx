@@ -1,12 +1,12 @@
 import { auth } from "@/lib/services/auth/auth";
 import { env } from "@/lib/env";
-import { BackstageGames } from "@/lib/db/repos/backstage-games";
+import { Games } from "@/lib/db/repos/games";
 import { FeedClient } from "./FeedClient";
 
 export default async function HomePage() {
   const session = await auth();
 
-  const allPublished = await BackstageGames.listPublished();
+  const allPublished = await Games.listPublished();
   // Shuffle and take 8 covers for the empty-library launchpad preview.
   // Fisher-Yates shuffle via crypto.getRandomValues to satisfy the purity lint rule.
   const coverUrls = allPublished

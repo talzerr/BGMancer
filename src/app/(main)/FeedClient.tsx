@@ -20,7 +20,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { usePlayerContext } from "@/context/player-context";
-import { useSessionManager } from "@/hooks/library/useSessionManager";
+import { useSessionManager } from "@/hooks/player/useSessionManager";
 import { useTrackDeleteUndo } from "@/hooks/player/useTrackDeleteUndo";
 import { useTurnstileToken } from "@/hooks/shared/useTurnstileToken";
 import { GenerateSection } from "@/components/generate/GenerateSection";
@@ -31,10 +31,10 @@ import { SortableTrackItem } from "@/components/player/SortableTrackItem";
 import { Launchpad } from "@/components/launchpad/Launchpad";
 import { UndoToast } from "@/components/player/UndoToast";
 import { PlayerPanel } from "@/components/player/PlayerPanel";
-import { AuthButtons, performSignOut } from "@/components/AuthButtons";
+import { AuthButtons, performSignOut } from "@/components/layout/AuthButtons";
 import { LogoLink } from "@/components/layout/LogoLink";
 import { FooterLinks } from "@/components/layout/FooterLinks";
-import { GoogleLogo } from "@/components/Icons";
+import { GoogleLogo } from "@/components/ui/Icons";
 import { useGameAccentColors } from "@/hooks/player/useGameAccentColors";
 import {
   buildShortPlaylistMessage,

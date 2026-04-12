@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MusicNote } from "@/components/Icons";
+import { MusicNote } from "@/components/ui/Icons";
 import { outlineAmberCtaClass } from "@/components/ui/button";
 
 export function LaunchpadEmpty({ previewCovers }: { previewCovers: string[] }) {

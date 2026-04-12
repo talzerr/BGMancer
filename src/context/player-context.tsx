@@ -21,7 +21,7 @@ import {
   clearPlaybackState,
   savePlaybackState,
   savePlaybackTracks,
-} from "@/hooks/player/playback-state";
+} from "@/lib/playback-state";
 import { clearGuestLibrary } from "@/lib/guest-library";
 import { GUEST_SESSION_ID } from "@/lib/constants";
 

@@ -1,10 +1,10 @@
 "use client";
 
 import { signIn, signOut } from "next-auth/react";
-import { clearPlaybackState } from "@/hooks/player/playback-state";
+import { clearPlaybackState } from "@/lib/playback-state";
 import { clearGuestLibrary } from "@/lib/guest-library";
 import { useLoginPromptDismissed } from "@/hooks/shared/useLoginPromptDismissed";
-import { GoogleLogo } from "@/components/Icons";
+import { GoogleLogo } from "@/components/ui/Icons";
 
 export function performSignOut(callbackUrl = "/") {
   clearPlaybackState();

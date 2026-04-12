@@ -12,7 +12,7 @@ import {
   addVideoToPlaylist,
   YouTubeQuotaError,
   YouTubeInvalidKeyError,
-} from "../../external/youtube";
+} from "../youtube";
 import { TEST_GAME_TITLE, TEST_CHANNEL_TITLE } from "@/test/constants";
 
 describe("parseDuration", () => {

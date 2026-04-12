@@ -16,7 +16,7 @@ import { Search } from "lucide-react";
 import { EnergyBadge } from "@/components/backstage/EnergyBadge";
 import { TagBadgeList } from "@/components/backstage/TagBadgeList";
 import { TrackEditSheet } from "@/components/backstage/TrackEditSheet";
-import { BulkActionBar } from "@/components/backstage/BulkActionBar";
+import { BulkActionBar } from "./_components/BulkActionBar";
 import { ConfirmModal } from "@/components/backstage/ConfirmModal";
 import { QuickViewTabs } from "@/components/backstage/QuickViewTabs";
 import { FilterChipBar } from "@/components/backstage/FilterChipBar";

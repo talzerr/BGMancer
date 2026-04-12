@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { PlaylistTrack } from "@/types";
-import { patchPausedState } from "@/hooks/player/playback-state";
+import { patchPausedState } from "@/lib/playback-state";
 
 // ─── Minimal YT IFrame API types ─────────────────────────────────────────────
 

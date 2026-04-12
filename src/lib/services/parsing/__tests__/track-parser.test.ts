@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseTracklist } from "../../parsing/track-parser";
+import { parseTracklist } from "../track-parser";
 
 describe("parseTracklist", () => {
   describe("when given plain track names", () => {

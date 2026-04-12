@@ -1,7 +1,7 @@
 import { getDB, batch } from "@/lib/db";
 import { eq, sql } from "drizzle-orm";
 import { games, playlistTrackDecisions } from "@/lib/db/drizzle-schema";
-import { toGames } from "@/lib/db/mappers";
+
 import type { OnboardingPhase } from "@/types";
 import type { Game } from "@/types";
 import { newId } from "@/lib/uuid";
@@ -91,20 +91,7 @@ export const BackstageGames = {
   },
 
   async listPublished(search?: string, limit = 500): Promise<Game[]> {
-    const db = getDB();
-    if (search?.trim()) {
-      return toGames(
-        await db.all(sql`
-          SELECT * FROM games WHERE published = 1 AND title LIKE ${`%${search.trim()}%`}
-          ORDER BY title ASC LIMIT ${limit}
-        `),
-      );
-    }
-    return toGames(
-      await db.all(sql`
-        SELECT * FROM games WHERE published = 1 ORDER BY title ASC LIMIT ${limit}
-      `),
-    );
+    return Games.listPublished(search, limit);
   },
 
   async update(id: string, fields: GameUpdateFields): Promise<Game | null> {

@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { signIn } from "next-auth/react";
 import { usePlayerContext } from "@/context/player-context";
-import { EyeIcon, EyeOffIcon } from "@/components/Icons";
+import { EyeIcon, EyeOffIcon } from "@/components/ui/Icons";
 import { SESSION_NAME_MAX_LENGTH, buildSessionName } from "@/lib/constants";
 import { formatSessionName } from "@/components/session/SessionList";
 import { PLAYLIST_MODE_LABELS } from "@/lib/playlist-mode";

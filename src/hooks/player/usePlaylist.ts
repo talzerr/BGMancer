@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import type { Game, PlaylistMode, PlaylistTrack } from "@/types";
 import { GENERATION_COOLDOWN_MS } from "@/lib/constants";
-import { clearPlaybackState } from "@/hooks/player/playback-state";
+import { clearPlaybackState } from "@/lib/playback-state";
 
 export interface GenerateConfig {
   target_track_count: number;

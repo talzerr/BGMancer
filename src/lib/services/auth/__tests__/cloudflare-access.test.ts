@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { hasCloudflareAccessToken } from "../../auth/cloudflare-access";
+import { hasCloudflareAccessToken } from "../cloudflare-access";
 
 function makeRequest(cookie?: string): Request {
   const headers: Record<string, string> = {};

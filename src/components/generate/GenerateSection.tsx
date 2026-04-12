@@ -1,6 +1,6 @@
 "use client";
 
-import { ErrorCircle, MusicNote } from "@/components/Icons";
+import { ErrorCircle, MusicNote } from "@/components/ui/Icons";
 import { useCooldownTimer } from "@/hooks/shared/useCooldownTimer";
 import { GenerateControls } from "./GenerateControls";
 import { GenerateProgressLine } from "./GenerateProgressLine";

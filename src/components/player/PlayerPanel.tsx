@@ -11,7 +11,7 @@ import {
   PrevTrackIcon,
   NextTrackIcon,
   VolumeHigh,
-} from "@/components/Icons";
+} from "@/components/ui/Icons";
 
 export function PlayerPanel() {
   const { player, playlist, media, gameThumbnailByGameId } = usePlayerContext();

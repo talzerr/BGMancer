@@ -5,7 +5,7 @@ import type { Game } from "@/types";
 import { LIBRARY_MAX_GAMES } from "@/lib/constants";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { outlineAmberCtaClass } from "@/components/ui/button";
-import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, GoogleLogo } from "@/components/Icons";
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, GoogleLogo } from "@/components/ui/Icons";
 import { FooterLinks } from "@/components/layout/FooterLinks";
 import { useState } from "react";
 

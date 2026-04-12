@@ -1,4 +1,4 @@
-import { BackstageGames } from "@/lib/db/repo";
+import { Games } from "@/lib/db/repo";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
 
@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const search = url.searchParams.get("q") ?? undefined;
-    const games = await BackstageGames.listPublished(search);
+    const games = await Games.listPublished(search);
     const response = NextResponse.json(games);
     response.headers.set("Cache-Control", "public, s-maxage=300");
     return response;

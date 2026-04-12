@@ -146,6 +146,23 @@ export const Games = {
     `);
   },
 
+  async listPublished(search?: string, limit = 500): Promise<Game[]> {
+    const db = getDB();
+    if (search?.trim()) {
+      return toGames(
+        await db.all(sql`
+          SELECT * FROM games WHERE published = 1 AND title LIKE ${`%${search.trim()}%`}
+          ORDER BY title ASC LIMIT ${limit}
+        `),
+      );
+    }
+    return toGames(
+      await db.all(sql`
+        SELECT * FROM games WHERE published = 1 ORDER BY title ASC LIMIT ${limit}
+      `),
+    );
+  },
+
   async ensureExists(userId: string, id: string, title: string): Promise<void> {
     const exists = await getDB().get(sql`SELECT id FROM games WHERE id = ${id}`);
     if (!exists) {

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { KV } from "../../infra/kv";
+import { KV } from "../kv";
 
 beforeEach(() => {
   vi.useFakeTimers();

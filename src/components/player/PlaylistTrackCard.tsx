@@ -11,7 +11,7 @@ import {
   RefreshIcon,
   Spinner,
   GripIcon,
-} from "@/components/Icons";
+} from "@/components/ui/Icons";
 
 interface PlaylistTrackCardProps {
   track: PlaylistTrack;

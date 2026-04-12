@@ -1,7 +1,7 @@
 "use client";
 
-import { TracklistSourceField } from "@/components/backstage/TracklistSourceField";
-import { MetadataField } from "@/components/backstage/MetadataField";
+import { TracklistSourceField } from "./TracklistSourceField";
+import { MetadataField } from "./MetadataField";
 import type { Game } from "@/types";
 
 export function MetadataEditor({

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { usePlayerContext } from "@/context/player-context";
-import { performSignOut } from "@/components/AuthButtons";
+import { performSignOut } from "@/components/layout/AuthButtons";
 import { useSteamLibrary } from "@/hooks/library/useSteamLibrary";
 import { CatalogBrowser } from "@/components/library/CatalogBrowser";
 import { CatalogHeaderBar } from "@/components/library/CatalogHeaderBar";

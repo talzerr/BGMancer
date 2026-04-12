@@ -7,7 +7,7 @@ import {
   saveRevealedTracks,
   readRevealedTracks,
   clearRevealedTracks,
-} from "@/hooks/player/playback-state";
+} from "@/lib/playback-state";
 
 export function usePlayerState() {
   const [currentTrackIndex, setCurrentTrackIndex] = useState<number | null>(null);

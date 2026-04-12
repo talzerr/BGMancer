@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { CheckIcon, Spinner } from "@/components/Icons";
+import { CheckIcon, Spinner } from "@/components/ui/Icons";
 import { GameRequestPrompt } from "@/components/library/GameRequestPrompt";
 import { LIBRARY_MAX_GAMES } from "@/lib/constants";
 import { CurationMode } from "@/types";

@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { SSEDialog } from "@/components/backstage/SSEDialog";
+import { SSEDialog } from "./SSEDialog";
 import { ConfirmModal } from "@/components/backstage/ConfirmModal";
 import { parseTracklist, type ParsedTrack } from "@/lib/services/parsing/track-parser";
 import { BackstageModal, DiscoveredStatus } from "@/types";

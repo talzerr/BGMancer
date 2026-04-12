@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { SSEProgress } from "@/components/backstage/SSEProgress";
+import { SSEProgress } from "./SSEProgress";
 
 type SSEEvent = Record<string, unknown>;
 

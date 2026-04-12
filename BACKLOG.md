@@ -20,13 +20,6 @@ Claude Code session can implement them.
 
 Items that must be done before removing Zero Trust and going public.
 
-- **[feature] YouTube sync implementation** — sync-to-YouTube is currently a
-  placeholder, not implemented. Full implementation needed before launch.
-- **[feature] Curation modes** — needs PM session. Journey (full Director arc),
-  Focus (filtered low-energy shuffle), Hype (filtered high-energy shuffle). Journey
-  uses the full pipeline; other modes bypass the profiler and Director entirely,
-  using energy/mood filters on the tagged pool. All modes available to all users
-  including guests.
 - **[infra] Verify admin route protection** — `/api/steam/*` routes are
   `AuthLevel.Admin` but not under the `/backstage*` path. Confirm these return 404
   to unauthenticated users after Cloudflare Access policy is narrowed.

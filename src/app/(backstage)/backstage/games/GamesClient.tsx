@@ -17,7 +17,7 @@ import { Search } from "lucide-react";
 import { StatusBadge } from "@/components/backstage/StatusBadge";
 import { QuickViewTabs } from "@/components/backstage/QuickViewTabs";
 import { FilterChipBar } from "@/components/backstage/FilterChipBar";
-import { AddGameDialog } from "@/components/backstage/AddGameDialog";
+import { AddGameDialog } from "./_components/AddGameDialog";
 import { useFilteredList } from "@/hooks/backstage/useFilteredList";
 import type { TabPreset } from "@/hooks/backstage/useFilteredList";
 import type { FilterDef } from "@/components/backstage/FilterChipBar";
