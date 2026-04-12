@@ -2,13 +2,11 @@ import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { createLogger } from "@/lib/logger";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { IGDB_SEARCH_MAX, IGDB_SEARCH_WINDOW_MS } from "@/lib/constants";
 import { igdbSearchQuerySchema, zodErrorResponse } from "@/lib/validation";
 import { searchGames } from "@/lib/services/external/igdb";
 
 const log = createLogger("search-igdb");
-
-const RATE_LIMIT_MAX = 30;
-const RATE_LIMIT_WINDOW_MS = 60_000;
 
 /** GET /api/games/search-igdb?q=... — IGDB proxy. 404 when creds unset. */
 export async function GET(request: Request) {
@@ -21,7 +19,7 @@ export async function GET(request: Request) {
   if (!parsed.success) return zodErrorResponse(parsed.error);
 
   const ip = getClientIp(request);
-  const limit = await checkRateLimit(`igdb-search:${ip}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
+  const limit = await checkRateLimit(`igdb-search:${ip}`, IGDB_SEARCH_MAX, IGDB_SEARCH_WINDOW_MS);
   if (!limit.allowed) {
     return NextResponse.json({ error: "Too many requests. Try again shortly." }, { status: 429 });
   }

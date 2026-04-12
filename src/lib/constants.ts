@@ -101,6 +101,30 @@ export const GUEST_MAX_REQUESTS = 10;
 /** Guest rate limit window in milliseconds (10 minutes). */
 export const GUEST_WINDOW_MS = 10 * 60 * 1000;
 
+/** Maximum game request submissions per IP per hour. */
+export const GAME_REQUEST_MAX = 5;
+
+/** Game request rate limit window in milliseconds (1 hour). */
+export const GAME_REQUEST_WINDOW_MS = 60 * 60 * 1000;
+
+/** Maximum IGDB search requests per IP per minute. */
+export const IGDB_SEARCH_MAX = 30;
+
+/** IGDB search rate limit window in milliseconds (1 minute). */
+export const IGDB_SEARCH_WINDOW_MS = 60_000;
+
+/** Maximum YouTube sync requests per user per hour. */
+export const SYNC_MAX = 5;
+
+/** YouTube sync rate limit window in milliseconds (1 hour). */
+export const SYNC_WINDOW_MS = 60 * 60 * 1000;
+
+/** Maximum track reroll requests per user per minute. */
+export const REROLL_MAX = 30;
+
+/** Track reroll rate limit window in milliseconds (1 minute). */
+export const REROLL_WINDOW_MS = 60_000;
+
 // ─── YouTube search tuning ──────────────────────────────────────────────────
 
 /** Maximum video duration (seconds) for a single track. Longer videos are likely compilations. */

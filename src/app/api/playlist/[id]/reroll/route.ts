@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { Playlist, Games, Sessions } from "@/lib/db/repo";
-import { MIN_TRACK_DURATION_SECONDS, MAX_TRACK_DURATION_SECONDS } from "@/lib/constants";
+import {
+  MIN_TRACK_DURATION_SECONDS,
+  MAX_TRACK_DURATION_SECONDS,
+  REROLL_MAX,
+  REROLL_WINDOW_MS,
+} from "@/lib/constants";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { withRequiredAuth } from "@/lib/services/auth/route-wrappers";
 import { rerollSchema, zodErrorResponse } from "@/lib/validation";
 import { getTaggedPool } from "@/lib/pipeline/generation/candidates";
@@ -9,6 +15,14 @@ import { getEnergyModeTemplate } from "@/lib/pipeline/generation/director";
 /** POST /api/playlist/:id/reroll — Replace a track with a different one from the same game's curated pool. */
 export const POST = withRequiredAuth(
   async (userId, req: Request, { params }: { params: Promise<{ id: string }> }) => {
+    const limit = await checkRateLimit(`reroll:${userId}`, REROLL_MAX, REROLL_WINDOW_MS);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: "Too many reroll requests. Try again shortly." },
+        { status: 429 },
+      );
+    }
+
     const { id } = await params;
 
     let body: Record<string, unknown> = {};

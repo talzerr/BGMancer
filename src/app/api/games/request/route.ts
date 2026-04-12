@@ -2,13 +2,11 @@ import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
 import { GameRequests } from "@/lib/db/repo";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { GAME_REQUEST_MAX, GAME_REQUEST_WINDOW_MS } from "@/lib/constants";
 import { gameRequestSchema, zodErrorResponse } from "@/lib/validation";
 import { verifyTurnstileToken } from "@/lib/services/external/turnstile";
 
 const log = createLogger("game-request");
-
-const RATE_LIMIT_MAX = 5;
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
 /** POST /api/games/request — Turnstile-gated. Always returns `{ success: true }`. */
 export async function POST(request: Request) {
@@ -25,7 +23,11 @@ export async function POST(request: Request) {
   const ip = getClientIp(request);
 
   // Rate-limit first (cheap KV lookup) so floods don't pay for upstream siteverify.
-  const limit = await checkRateLimit(`game-request:${ip}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
+  const limit = await checkRateLimit(
+    `game-request:${ip}`,
+    GAME_REQUEST_MAX,
+    GAME_REQUEST_WINDOW_MS,
+  );
   if (!limit.allowed) {
     return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
   }

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/services/auth/auth";
 import { Playlist } from "@/lib/db/repo";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { SYNC_MAX, SYNC_WINDOW_MS } from "@/lib/constants";
 import { createLogger } from "@/lib/logger";
 import {
   findBGMancerPlaylist,
@@ -35,6 +37,15 @@ export async function POST() {
 
     const userId = session.user.id;
     const accessToken = session.access_token;
+
+    const limit = await checkRateLimit(`sync:${userId}`, SYNC_MAX, SYNC_WINDOW_MS);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: "Too many sync requests. Try again later." },
+        { status: 429 },
+      );
+    }
+
     const trackRows = await Playlist.listUnsyncedFound(userId);
 
     if (trackRows.length === 0) {

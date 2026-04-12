@@ -20,14 +20,6 @@ Claude Code session can implement them.
 
 Items that must be done before removing Zero Trust and going public.
 
-- **[infra] Verify admin route protection** — `/api/steam/*` routes are
-  `AuthLevel.Admin` but not under the `/backstage*` path. Confirm these return 404
-  to unauthenticated users after Cloudflare Access policy is narrowed.
-- **[infra] Rate limiting baseline** — no unified rate limiting strategy exists.
-  Known gap: `POST /api/sync` has no rate limit for authenticated users and could
-  hammer YouTube API quota. Needs PM session.
-- **[infra] App/backstage shared code boundary** — currently clean but informal.
-  Needs explicit documentation or enforcement before the codebase grows further.
 - **[infra] Data retention policy** — needs PM session. What happens to inactive
   user data? No automatic cleanup exists. Decision needed before finalizing legal
   pages. Sequence: this decision first, then legal page review.
@@ -47,17 +39,6 @@ Items that must be done before removing Zero Trust and going public.
 - **[polish] Production seed data verification** — one-time check before launch: all
   published games have tagged tracks and resolved videos, no orphaned or
   half-onboarded games in the catalog.
-
----
-
-## Needs PM Session
-
-Ideas with merit that need discussion and scoping before implementation. Cannot go
-to a Claude Code session directly.
-
-- **[player] Revisit playlist manipulation features** — shuffle, reorder, remove,
-  reroll. The arc changes what makes sense here. Some of these may conflict with the
-  Director's sequencing. Needs a principled decision on which controls exist.
 
 ---
 
