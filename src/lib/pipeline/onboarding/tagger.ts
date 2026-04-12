@@ -159,6 +159,15 @@ export async function tagTracks(
       continue;
     }
 
+    const tagUpdates: Array<{
+      name: string;
+      energy: number;
+      roles: string;
+      moods: string;
+      instrumentation: string;
+      hasVocals: boolean;
+    }> = [];
+
     for (const item of parsed) {
       const track = batch[item.index - 1];
       if (!track) continue;
@@ -177,7 +186,8 @@ export async function tagTracks(
         await ReviewFlags.markAsNeedsReview(gameId, ReviewReason.LowConfidence, track.name);
       }
 
-      await Tracks.updateTags(gameId, track.name, {
+      tagUpdates.push({
+        name: track.name,
         energy: tag.energy,
         roles: JSON.stringify(tag.roles),
         moods: JSON.stringify(tag.moods),
@@ -185,6 +195,8 @@ export async function tagTracks(
         hasVocals: tag.hasVocals,
       });
     }
+
+    await Tracks.updateTagsBatch(gameId, tagUpdates);
   }
 }
 

@@ -24,6 +24,11 @@ function lsSet(key: string, value: string): void {
   if (typeof window !== "undefined") localStorage.setItem(key, value);
 }
 
+function parseTrackCount(raw: string): number {
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_TRACK_COUNT;
+}
+
 function parsePlaylistMode(raw: string): PlaylistMode {
   return VALID_PLAYLIST_MODES.has(raw) ? (raw as PlaylistMode) : PlaylistMode.Journey;
 }
@@ -37,7 +42,7 @@ export function useConfig() {
 
   useEffect(() => {
     Promise.resolve().then(() => {
-      setTargetTrackCount(lsGet(KEYS.targetTrackCount, DEFAULT_TRACK_COUNT, Number));
+      setTargetTrackCount(lsGet(KEYS.targetTrackCount, DEFAULT_TRACK_COUNT, parseTrackCount));
       setAntiSpoilerEnabled(lsGet(KEYS.antiSpoilerEnabled, false, (v) => v === "1"));
       setAllowLongTracks(lsGet(KEYS.allowLongTracks, false, (v) => v === "1"));
       setAllowShortTracks(lsGet(KEYS.allowShortTracks, false, (v) => v === "1"));

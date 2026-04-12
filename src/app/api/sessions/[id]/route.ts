@@ -8,7 +8,14 @@ export const PATCH = withRequiredAuth(
   async (userId, req: Request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
 
-    const parsed = renameSessionSchema.safeParse(await req.json());
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+    }
+
+    const parsed = renameSessionSchema.safeParse(body);
     if (!parsed.success) return zodErrorResponse(parsed.error);
 
     const session = await Sessions.getById(id);

@@ -117,9 +117,10 @@ export async function tagGameTracks(
   await tagTracks(game.id, game.title, taggable, provider, signal, onBatchProgress);
   await BackstageGames.setPhase(game.id, OnboardingPhase.Tagged);
 
-  const afterTracks = await Tracks.getByGame(game.id);
-  const tagged = afterTracks.filter((t) => t.taggedAt !== null).length;
-  const updatedGame = await Games.getById(game.id);
+  const [tagged, updatedGame] = await Promise.all([
+    Tracks.countTagged(game.id),
+    Games.getById(game.id),
+  ]);
 
   return { tagged, needsReview: !!updatedGame?.needs_review };
 }
@@ -168,13 +169,15 @@ export async function resolveVideos(
 
   // Fetch metadata for ALL resolved video IDs (including auto-discovered inactive tracks)
   onProgress?.("Fetching video metadata…");
-  const allVideoIds = [...(await VideoTracks.getTrackToVideo(game.id)).values()];
+  const trackToVideo = await VideoTracks.getTrackToVideo(game.id);
+  const allVideoIds = [...trackToVideo.values()];
   await ensureVideoMetadata(allVideoIds, game.id);
 
   // Auto-deactivate unresolved tracks (no video) and SFX (< threshold)
-  const trackToVideo = await VideoTracks.getTrackToVideo(game.id);
-  const videoMeta = await VideoTracks.getByGame(game.id);
-  const activeTracks = (await Tracks.getByGame(game.id)).filter((t) => t.active);
+  const [videoMeta, activeTracks] = await Promise.all([
+    VideoTracks.getByGame(game.id),
+    Tracks.getByGame(game.id).then((all) => all.filter((t) => t.active)),
+  ]);
 
   const toDeactivate: string[] = [];
   for (const t of activeTracks) {

@@ -58,6 +58,8 @@ export function usePlaylist(init: UsePlaylistInit = {}) {
         } else if (sessionId) {
           setCurrentSessionId(sessionId);
         }
+      } else {
+        setFetchError("Failed to load playlist");
       }
     } catch (err) {
       console.error("Failed to fetch playlist:", err);
@@ -107,8 +109,12 @@ export function usePlaylist(init: UsePlaylistInit = {}) {
   async function removeTrack(id: string) {
     setFetchError(null);
     try {
-      await fetch(`/api/playlist/${id}`, { method: "DELETE" });
-      setTracks((prev) => prev.filter((t) => t.id !== id));
+      const res = await fetch(`/api/playlist/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setTracks((prev) => prev.filter((t) => t.id !== id));
+      } else {
+        setFetchError("Failed to remove track");
+      }
     } catch (err) {
       console.error("Failed to remove track:", err);
       setFetchError("Failed to remove track");
@@ -149,10 +155,14 @@ export function usePlaylist(init: UsePlaylistInit = {}) {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ orderedIds }),
-    }).catch((err) => {
-      console.error("Failed to persist track order:", err);
-      setFetchError("Failed to save track order");
-    });
+    })
+      .then((res) => {
+        if (!res.ok) setFetchError("Failed to save track order");
+      })
+      .catch((err) => {
+        console.error("Failed to persist track order:", err);
+        setFetchError("Failed to save track order");
+      });
   }
 
   async function handleGenerate(games: Game[], config?: GenerateConfig): Promise<GenerateResult> {

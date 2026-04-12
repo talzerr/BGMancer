@@ -45,20 +45,22 @@ type Send = (event: GenerateEvent) => void;
 async function gatherCandidates(games: Game[], send: Send): Promise<Map<string, TaggedTrack[]>> {
   const taggedPools = new Map<string, TaggedTrack[]>();
 
-  for (const game of games) {
-    try {
-      const tracks = await fetchGameCandidates(game, send);
-      if (tracks.length > 0) taggedPools.set(game.id, tracks);
-    } catch (err) {
-      log.error("failed to load candidates", { gameTitle: game.title }, err);
-      send({
-        type: "progress",
-        gameId: game.id,
-        title: game.title,
-        status: GameProgressStatus.Error,
-      });
-    }
-  }
+  await Promise.all(
+    games.map(async (game) => {
+      try {
+        const tracks = await fetchGameCandidates(game, send);
+        if (tracks.length > 0) taggedPools.set(game.id, tracks);
+      } catch (err) {
+        log.error("failed to load candidates", { gameTitle: game.title }, err);
+        send({
+          type: "progress",
+          gameId: game.id,
+          title: game.title,
+          status: GameProgressStatus.Error,
+        });
+      }
+    }),
+  );
 
   return taggedPools;
 }

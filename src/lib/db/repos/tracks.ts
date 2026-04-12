@@ -147,6 +147,36 @@ export const Tracks = {
     `);
   },
 
+  async updateTagsBatch(
+    gameId: string,
+    updates: Array<{
+      name: string;
+      energy: number;
+      roles: string;
+      moods: string;
+      instrumentation: string;
+      hasVocals: boolean;
+    }>,
+  ): Promise<void> {
+    if (updates.length === 0) return;
+    await batch(
+      updates.map((tags) =>
+        getDB()
+          .update(tracks)
+          .set({
+            energy: tags.energy,
+            roles: tags.roles,
+            moods: tags.moods,
+            instrumentation: tags.instrumentation,
+            has_vocals: tags.hasVocals ? 1 : 0,
+            tagged_at: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
+            active: sql`CASE WHEN discovered = 'approved' THEN 1 ELSE active END`,
+          })
+          .where(and(eq(tracks.game_id, gameId), eq(tracks.name, tags.name))),
+      ),
+    );
+  },
+
   async insertDiscovered(gameId: string, name: string): Promise<void> {
     await getDB().run(sql`
       INSERT OR IGNORE INTO tracks (game_id, name, position, active, discovered)
@@ -281,11 +311,10 @@ export const Tracks = {
   async listAllWithVideoIds(): Promise<BackstageTrackRow[]> {
     const rows = await getDB().all(sql`
       SELECT t.*, g.title AS game_title,
-        (SELECT vt.video_id FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS video_id,
-        (SELECT vt.duration_seconds FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS duration_seconds,
-        (SELECT vt.view_count FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS view_count
+        vt.video_id, vt.duration_seconds, vt.view_count
       FROM tracks t
       JOIN games g ON g.id = t.game_id
+      LEFT JOIN video_tracks vt ON vt.game_id = t.game_id AND vt.track_name = t.name
       ORDER BY g.title ASC, t.position ASC
     `);
     return (rows as Record<string, unknown>[]).map(toBackstageTrackRow);
@@ -313,11 +342,10 @@ export const Tracks = {
 
     const rows = await getDB().all(sql`
       SELECT t.*, g.title AS game_title,
-        (SELECT vt.video_id FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS video_id,
-        (SELECT vt.duration_seconds FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS duration_seconds,
-        (SELECT vt.view_count FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS view_count
+        vt.video_id, vt.duration_seconds, vt.view_count
       FROM tracks t
       JOIN games g ON g.id = t.game_id
+      LEFT JOIN video_tracks vt ON vt.game_id = t.game_id AND vt.track_name = t.name
       ${whereClause}
       ORDER BY g.title ASC, t.position ASC
       LIMIT 200

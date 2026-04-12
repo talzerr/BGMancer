@@ -38,7 +38,7 @@ export const renameSessionSchema = z.object({
 });
 
 export const reorderSchema = z.object({
-  orderedIds: z.array(z.string().min(1)),
+  orderedIds: z.array(z.string().min(1)).min(1),
 });
 
 // Delegates URL-shape validation to parseSteamInput so schema and service agree.

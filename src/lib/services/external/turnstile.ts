@@ -47,7 +47,7 @@ export async function verifyTurnstileToken(
 
     return { success: true };
   } catch (err) {
-    log.error("siteverify request failed, allowing through", {}, err);
-    return { success: true };
+    log.error("siteverify request failed", {}, err);
+    return { success: false, error: "Verification unavailable. Please try again." };
   }
 }

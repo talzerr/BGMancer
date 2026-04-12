@@ -99,11 +99,12 @@ describe("verifyTurnstileToken", () => {
   });
 
   describe("when the siteverify API is unreachable", () => {
-    it("should fail open and return success", async () => {
+    it("should fail closed and return failure", async () => {
       fetchSpy.mockRejectedValue(new Error("network error"));
 
       const result = await verifyTurnstileToken("some-token");
-      expect(result).toEqual({ success: true });
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Verification unavailable");
     });
   });
 });
