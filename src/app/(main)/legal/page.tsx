@@ -100,20 +100,29 @@ export default function LegalPage() {
 
         <Section title="Google OAuth & user data">
           <P>
-            If you sign in with Google, BGMancer requests your email address for authentication. No
-            profile name or picture is requested or stored.
+            If you sign in with Google, BGMancer requests and stores your email address for
+            authentication. A display name is derived from that email. No profile picture is
+            requested or stored.
           </P>
           <P>
-            If you use the &quot;Sync to YouTube&quot; feature, BGMancer requests additional
-            permission to manage your YouTube playlists. This access is used solely to create and
-            update the &quot;BGMancer Journey&quot; playlist on your account. YouTube permissions
-            are only requested when you click Sync — not at initial sign-in.
+            BGMancer does not sell or share your Google account data. OAuth tokens are stored in
+            encrypted session cookies and are not persisted to the database.
           </P>
           <P>
-            BGMancer does not sell, share, or store your Google account data beyond what is needed
-            to authenticate your session. OAuth tokens are stored in encrypted session cookies and
-            are not persisted to the database.
+            You can revoke BGMancer&apos;s access to your Google account at any time from{" "}
+            <ExtLink href="https://security.google.com/settings/security/permissions">
+              your Google security settings
+            </ExtLink>
+            .
           </P>
+          <P>
+            For privacy questions or data-deletion requests, contact{" "}
+            <ExtLink href="mailto:legal@bgmancer.com">legal@bgmancer.com</ExtLink>.
+          </P>
+        </Section>
+
+        <Section title="Age">
+          <P>BGMancer is not intended for users under 13.</P>
         </Section>
 
         <Section title="Fair use">

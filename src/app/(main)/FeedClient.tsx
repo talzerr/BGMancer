@@ -435,7 +435,7 @@ export function FeedClient({
             </header>
 
             <div className="flex flex-col lg:h-screen lg:flex-row lg:overflow-hidden">
-              <aside className="lg:border-border flex flex-col gap-4 p-4 lg:w-[290px] lg:shrink-0 lg:border-r lg:p-5 lg:pb-16">
+              <aside className="playlist-scroll lg:border-border flex flex-col gap-4 overflow-x-hidden p-4 lg:w-[290px] lg:shrink-0 lg:overflow-y-auto lg:border-r lg:px-5 lg:pt-5 lg:pb-1.5">
                 <div className="mb-3 hidden lg:block">
                   <LogoLink />
                 </div>
