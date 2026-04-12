@@ -25,6 +25,7 @@ export default async function HomePage() {
       <FeedClient
         isSignedIn={!!session?.user}
         isDev={env.isDev}
+        youtubeSyncEnabled={env.youtubeSyncEnabled}
         turnstileSiteKey={env.turnstileSiteKey}
         user={session?.user ?? null}
         previewCovers={previewCovers}

@@ -40,7 +40,6 @@ function makeTrack(overrides: Partial<PlaylistTrack> = {}): PlaylistTrack {
     duration_seconds: TEST_DURATION_SECONDS,
     position: 0,
     created_at: "2025-01-01",
-    synced_at: null,
     ...overrides,
   };
 }
@@ -60,7 +59,7 @@ function mockContextWith(overrides: {
   vi.doMock("@/context/player-context", () => ({
     usePlayerContext: () => ({
       player: {
-        effectiveFoundTracks: tracks,
+        playingTracks: tracks,
         currentTrackIndex: overrides.currentTrackIndex ?? null,
         setCurrentTrackIndex: mockSetCurrentTrackIndex,
         startPlaying: mockStartPlaying,

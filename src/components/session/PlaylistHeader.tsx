@@ -1,12 +1,13 @@
 import { useRef, useState } from "react";
-import { signIn } from "next-auth/react";
 import { usePlayerContext } from "@/context/player-context";
-import { EyeIcon, EyeOffIcon } from "@/components/Icons";
+import { CheckIcon, EyeIcon, EyeOffIcon } from "@/components/Icons";
 import { SESSION_NAME_MAX_LENGTH, buildSessionName } from "@/lib/constants";
 import { formatSessionName } from "@/components/session/SessionList";
 import { PLAYLIST_MODE_LABELS } from "@/lib/playlist-mode";
 import { PlaylistMode } from "@/types";
 import type { PlaylistSessionWithCount, PlaylistTrack } from "@/types";
+import { useSync } from "@/hooks/player/useSync";
+import { YouTubeSyncDialog } from "@/components/session/YouTubeSyncDialog";
 
 interface PlaylistHeaderProps {
   sessions: PlaylistSessionWithCount[];
@@ -14,6 +15,7 @@ interface PlaylistHeaderProps {
   tracks: PlaylistTrack[];
   isSignedIn: boolean;
   isDev: boolean;
+  youtubeSyncEnabled: boolean;
   onRename: (id: string, name: string) => Promise<void>;
   onDeleteSession: (id: string) => Promise<void>;
   shortPlaylistNotice: { text: string } | null;
@@ -26,14 +28,13 @@ function formatDuration(seconds: number): string {
   return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
 
-const YOUTUBE_SCOPE = "https://www.googleapis.com/auth/youtube";
-
 export function PlaylistHeader({
   sessions,
   currentSessionId,
   tracks,
   isSignedIn,
   isDev,
+  youtubeSyncEnabled,
   onRename,
   onDeleteSession,
   shortPlaylistNotice,
@@ -42,9 +43,15 @@ export function PlaylistHeader({
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleEditValue, setTitleEditValue] = useState("");
   const titleInputRef = useRef<HTMLInputElement>(null);
-  const [syncing, setSyncing] = useState(false);
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
 
   const currentSession = sessions.find((s) => s.id === currentSessionId);
+
+  const sync = useSync({
+    currentSessionId,
+    tracks,
+    initialYoutubePlaylistId: currentSession?.youtube_playlist_id ?? null,
+  });
 
   // For guests (no session), derive a deterministic title from game names
   const displayTitle = currentSession
@@ -55,27 +62,24 @@ export function PlaylistHeader({
 
   const trackCount = tracks.length;
   const totalDurationSeconds = tracks.reduce((sum, t) => sum + (t.duration_seconds ?? 0), 0);
+  const showSyncLink = isSignedIn && !isDev && youtubeSyncEnabled;
 
-  async function handleSync() {
-    setSyncing(true);
-    try {
-      const res = await fetch("/api/sync", { method: "POST" });
-      if (res.status === 401) {
-        signIn(
-          "google",
-          { callbackUrl: window.location.pathname },
-          { scope: `openid email ${YOUTUBE_SCOPE}` },
-        );
-        return;
-      }
-      const data = (await res.json()) as { playlist_url?: string; error?: string };
-      if (!res.ok) throw new Error(data.error ?? "Sync failed");
-      if (data.playlist_url) {
-        window.open(data.playlist_url, "_blank", "noopener,noreferrer");
-      }
-    } finally {
-      setSyncing(false);
+  function handleSyncLinkClick() {
+    if (sync.status === "synced" && sync.playlistUrl) {
+      window.open(sync.playlistUrl, "_blank", "noopener,noreferrer");
+      return;
     }
+    setSyncDialogOpen(true);
+  }
+
+  function handleDialogOpenChange(open: boolean) {
+    if (!open) sync.resetSync();
+    setSyncDialogOpen(open);
+  }
+
+  async function handleSyncConfirm() {
+    const success = await sync.sync();
+    if (success) setSyncDialogOpen(false);
   }
 
   return (
@@ -134,15 +138,24 @@ export function PlaylistHeader({
                 Play All
               </button>
 
-              {isSignedIn && !isDev && (
-                <button
-                  onClick={() => void handleSync()}
-                  disabled={syncing}
-                  className="cursor-pointer text-[13px] text-[var(--text-tertiary)] transition-colors hover:text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {syncing ? "Syncing…" : "Sync"}
-                </button>
-              )}
+              {showSyncLink &&
+                (sync.status === "synced" ? (
+                  <button
+                    onClick={handleSyncLinkClick}
+                    className="flex cursor-pointer items-center gap-1 text-[13px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
+                  >
+                    <CheckIcon className="h-3 w-3" />
+                    Synced
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleSyncLinkClick}
+                    disabled={sync.status === "syncing"}
+                    className="cursor-pointer text-[13px] text-[var(--text-tertiary)] transition-colors hover:text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {sync.status === "syncing" ? "Syncing…" : "Sync"}
+                  </button>
+                ))}
 
               <button
                 onClick={toggleAntiSpoiler}
@@ -214,6 +227,15 @@ export function PlaylistHeader({
         )}
       </div>
       <div className="mb-5 h-px bg-[rgba(255,255,255,0.06)]" />
+      {showSyncLink && (
+        <YouTubeSyncDialog
+          open={syncDialogOpen}
+          onOpenChange={handleDialogOpenChange}
+          status={sync.status}
+          error={sync.error}
+          onConfirm={handleSyncConfirm}
+        />
+      )}
     </div>
   );
 }

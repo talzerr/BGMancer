@@ -1,6 +1,6 @@
 import { getDB, batch } from "@/lib/db";
-import { eq, sql, and, inArray } from "drizzle-orm";
-import { playlistTracks, playlists } from "@/lib/db/drizzle-schema";
+import { eq, sql } from "drizzle-orm";
+import { playlistTracks } from "@/lib/db/drizzle-schema";
 import { toPlaylistTracks } from "@/lib/db/mappers";
 import type { PlaylistTrack } from "@/types";
 
@@ -16,7 +16,6 @@ export interface InsertableTrack {
 }
 
 export interface SyncableTrackRow {
-  id: string;
   video_id: string;
   position: number;
 }
@@ -52,24 +51,17 @@ export const Playlist = {
     );
   },
 
-  async listUnsyncedFound(userId: string): Promise<SyncableTrackRow[]> {
+  /** Returns an ordered list of YouTube video IDs for a session, used by the
+   *  sync route to populate a new YouTube playlist. Only tracks with a
+   *  non-null video_id are included. */
+  async listSyncableVideos(sessionId: string): Promise<SyncableTrackRow[]> {
     return await getDB().all<SyncableTrackRow>(sql`
-      SELECT id, video_id, position
+      SELECT video_id, position
       FROM playlist_tracks
-      WHERE video_id IS NOT NULL
-        AND synced_at IS NULL
-        AND playlist_id = (SELECT id FROM playlists WHERE user_id = ${userId} AND is_archived = 0 ORDER BY created_at DESC LIMIT 1)
+      WHERE playlist_id = ${sessionId}
+        AND video_id IS NOT NULL
       ORDER BY position ASC
     `);
-  },
-
-  async countSynced(userId: string): Promise<number> {
-    const row = (await getDB().get<{ cnt: number }>(sql`
-      SELECT COUNT(*) AS cnt FROM playlist_tracks
-      WHERE synced_at IS NOT NULL
-        AND playlist_id = (SELECT id FROM playlists WHERE user_id = ${userId} AND is_archived = 0 ORDER BY created_at DESC LIMIT 1)
-    `))!;
-    return row.cnt;
   },
 
   async replaceAll(playlistId: string, tracks: InsertableTrack[]): Promise<void> {
@@ -124,14 +116,6 @@ export const Playlist = {
       .run();
   },
 
-  async markSynced(id: string): Promise<void> {
-    await getDB()
-      .update(playlistTracks)
-      .set({ synced_at: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')` })
-      .where(eq(playlistTracks.id, id))
-      .run();
-  },
-
   /** Returns the userId who owns the playlist containing this track, or null. */
   async getTrackOwnerId(trackId: string): Promise<string | null> {
     const row = await getDB().get<{ user_id: string }>(sql`
@@ -140,18 +124,6 @@ export const Playlist = {
       WHERE pt.id = ${trackId}
     `);
     return row?.user_id ?? null;
-  },
-
-  /** Verifies all track IDs belong to the given user. Returns false if any don't. */
-  async verifyTrackOwnership(userId: string, trackIds: string[]): Promise<boolean> {
-    if (trackIds.length === 0) return true;
-    const rows = await getDB()
-      .select({ id: playlistTracks.id })
-      .from(playlistTracks)
-      .innerJoin(playlists, eq(playlists.id, playlistTracks.playlist_id))
-      .where(and(eq(playlists.user_id, userId), inArray(playlistTracks.id, trackIds)))
-      .all();
-    return rows.length === trackIds.length;
   },
 
   async removeOne(id: string): Promise<void> {
@@ -182,13 +154,5 @@ export const Playlist = {
     return rows
       .filter((r): r is typeof r & { video_id: string } => r.video_id != null)
       .map((r) => r.video_id);
-  },
-
-  async reorder(orderedIds: string[]): Promise<void> {
-    await batch(
-      orderedIds.map((id, i) =>
-        getDB().update(playlistTracks).set({ position: i }).where(eq(playlistTracks.id, id)),
-      ),
-    );
   },
 };

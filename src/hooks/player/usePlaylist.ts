@@ -140,21 +140,6 @@ export function usePlaylist(init: UsePlaylistInit = {}) {
     }
   }
 
-  function reorderTracks(orderedIds: string[]) {
-    setTracks((prev) => {
-      const trackMap = new Map(prev.map((t) => [t.id, t]));
-      return orderedIds.map((id) => trackMap.get(id)).filter((t): t is PlaylistTrack => !!t);
-    });
-    fetch("/api/playlist", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderedIds }),
-    }).catch((err) => {
-      console.error("Failed to persist track order:", err);
-      setFetchError("Failed to save track order");
-    });
-  }
-
   async function handleGenerate(games: Game[], config?: GenerateConfig): Promise<GenerateResult> {
     if (games.length === 0) return NOT_COMPLETED;
 
@@ -280,7 +265,6 @@ export function usePlaylist(init: UsePlaylistInit = {}) {
     restoreTrackLocal,
     removeTrack,
     rerollTrack,
-    reorderTracks,
     handleGenerate,
     handleClearPlaylist,
   };

@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "a71117e8-a0d4-403b-9336-9ae52cc97c47",
-  "prevId": "0021b07f-22b4-4a48-a6fc-4c2a1ad88e5f",
+  "id": "d7f1f7bb-a047-439f-b0a3-7f1d75ed2e9c",
+  "prevId": "a71117e8-a0d4-403b-9336-9ae52cc97c47",
   "tables": {
     "game_requests": {
       "name": "game_requests",
@@ -704,6 +704,13 @@
         },
         "game_budgets": {
           "name": "game_budgets",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "youtube_playlist_id": {
+          "name": "youtube_playlist_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

@@ -120,14 +120,6 @@ export function NextTrackIcon({ className = "w-4 h-4" }: IconProps) {
   );
 }
 
-export function ShuffleIcon({ className = "w-3.5 h-3.5" }: IconProps) {
-  return (
-    <svg className={className} fill="currentColor" viewBox="0 0 24 24">
-      <path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z" />
-    </svg>
-  );
-}
-
 export function VolumeLow({ className = "w-3.5 h-3.5" }: IconProps) {
   return (
     <svg className={className} fill="currentColor" viewBox="0 0 24 24">
@@ -285,19 +277,6 @@ export function GoogleLogo({ className = "h-4 w-4" }: IconProps) {
         d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
         fill="#EA4335"
       />
-    </svg>
-  );
-}
-
-export function GripIcon({ className = "w-3.5 h-3.5" }: IconProps) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-      <circle cx="9" cy="5" r="1.5" />
-      <circle cx="15" cy="5" r="1.5" />
-      <circle cx="9" cy="12" r="1.5" />
-      <circle cx="15" cy="12" r="1.5" />
-      <circle cx="9" cy="19" r="1.5" />
-      <circle cx="15" cy="19" r="1.5" />
     </svg>
   );
 }

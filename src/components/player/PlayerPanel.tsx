@@ -16,7 +16,7 @@ import {
 export function PlayerPanel() {
   const { player, playlist, media, gameThumbnailByGameId } = usePlayerContext();
 
-  const tracks = player.effectiveFoundTracks;
+  const tracks = player.playingTracks;
   const currentIndex = player.currentTrackIndex;
   const currentTrack = currentIndex !== null ? (tracks[currentIndex] ?? null) : null;
   const hasTrack = !!currentTrack;

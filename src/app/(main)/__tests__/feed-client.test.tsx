@@ -30,19 +30,16 @@ const mockPlayerContext = {
     loadForSession: vi.fn(),
     fetchTracks: vi.fn(),
     removeTrackLocal: vi.fn(),
-    reorderTracks: vi.fn(),
     rerollTrack: vi.fn(),
   },
   player: {
     currentTrackIndex: 0,
-    effectiveFoundTracks: [] as PlaylistTrack[],
+    playingTracks: [] as PlaylistTrack[],
     isPlayerPlaying: false,
     playingTrackId: null as string | null,
     playedTrackIds: new Set<string>(),
-    shuffleMode: false,
     setCurrentTrackIndex: vi.fn(),
     setIsPlayerPlaying: vi.fn(),
-    handleToggleShuffle: vi.fn(),
     clearPlayedTracks: vi.fn(),
     reset: vi.fn(),
     startPlaying: vi.fn(),
@@ -117,8 +114,8 @@ vi.mock("@/components/launchpad/Launchpad", () => ({
   Launchpad: () => <div data-testid="launchpad" />,
 }));
 
-vi.mock("@/components/player/SortableTrackItem", () => ({
-  SortableTrackItem: ({ track }: { track: PlaylistTrack }) => (
+vi.mock("@/components/player/PlaylistTrackCard", () => ({
+  PlaylistTrackCard: ({ track }: { track: PlaylistTrack }) => (
     <div data-testid={`track-${track.id}`}>{track.track_name ?? track.video_title}</div>
   ),
 }));
@@ -138,22 +135,6 @@ vi.mock("@/components/AuthButtons", () => ({
 
 vi.mock("next-auth/react", () => ({
   signOut: vi.fn(),
-}));
-
-vi.mock("@dnd-kit/core", () => ({
-  DndContext: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  closestCenter: vi.fn(),
-  PointerSensor: vi.fn(),
-  KeyboardSensor: vi.fn(),
-  useSensor: vi.fn(),
-  useSensors: vi.fn(() => []),
-}));
-
-vi.mock("@dnd-kit/sortable", () => ({
-  SortableContext: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  sortableKeyboardCoordinates: vi.fn(),
-  verticalListSortingStrategy: vi.fn(),
-  arrayMove: vi.fn(),
 }));
 
 import { FeedClient } from "../FeedClient";
@@ -185,14 +166,21 @@ function makeTrack(overrides: Partial<PlaylistTrack> = {}): PlaylistTrack {
     duration_seconds: TEST_DURATION_SECONDS,
     position: 0,
     created_at: new Date().toISOString(),
-    synced_at: null,
     ...overrides,
   };
 }
 
-function renderFeedClient(props: Partial<{ isSignedIn: boolean; isDev: boolean }> = {}) {
+function renderFeedClient(
+  props: Partial<{ isSignedIn: boolean; isDev: boolean; youtubeSyncEnabled: boolean }> = {},
+) {
   return render(
-    <FeedClient isSignedIn={props.isSignedIn ?? false} isDev={props.isDev ?? false} user={null} />,
+    <FeedClient
+      isSignedIn={props.isSignedIn ?? false}
+      isDev={props.isDev ?? false}
+      youtubeSyncEnabled={props.youtubeSyncEnabled ?? false}
+      user={null}
+      previewCovers={[]}
+    />,
   );
 }
 

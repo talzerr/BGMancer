@@ -51,6 +51,10 @@ interface Env {
   igdbClientId: string | undefined;
   igdbClientSecret: string | undefined;
 
+  /** Feature gate for YouTube Sync while Google OAuth verification is pending.
+   *  When false, the Sync link is hidden and POST /api/sync returns 503. */
+  youtubeSyncEnabled: boolean;
+
   /** Current NODE_ENV. */
   nodeEnv: string;
 
@@ -109,6 +113,9 @@ function loadEnv(): Env {
 
     igdbClientId: process.env.IGDB_CLIENT_ID || undefined,
     igdbClientSecret: process.env.IGDB_CLIENT_SECRET || undefined,
+
+    youtubeSyncEnabled:
+      process.env.YOUTUBE_SYNC_ENABLED === "1" || process.env.YOUTUBE_SYNC_ENABLED === "true",
 
     nodeEnv,
 

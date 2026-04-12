@@ -29,7 +29,6 @@ function makeTrack(id: string, overrides: Partial<PlaylistTrack> = {}): Playlist
     duration_seconds: TEST_DURATION_SECONDS,
     position: 0,
     created_at: "2026-01-01T00:00:00Z",
-    synced_at: null,
     ...overrides,
   };
 }
@@ -42,8 +41,7 @@ describe("usePlayerState", () => {
       expect(result.current.playingTrackId).toBeNull();
       expect(result.current.playingSessionId).toBeNull();
       expect(result.current.isPlayerPlaying).toBe(false);
-      expect(result.current.shuffleMode).toBe(false);
-      expect(result.current.effectiveFoundTracks).toEqual([]);
+      expect(result.current.playingTracks).toEqual([]);
       expect(result.current.playedTrackIds.size).toBe(0);
     });
   });
@@ -60,7 +58,7 @@ describe("usePlayerState", () => {
       expect(result.current.currentTrackIndex).toBe(1);
       expect(result.current.playingTrackId).toBe("t2");
       expect(result.current.playingSessionId).toBe("session-1");
-      expect(result.current.effectiveFoundTracks).toEqual(tracks);
+      expect(result.current.playingTracks).toEqual(tracks);
     });
 
     it("should preserve playedTrackIds across startPlaying calls", () => {
@@ -92,26 +90,6 @@ describe("usePlayerState", () => {
       expect(result.current.playedTrackIds.has("t1")).toBe(false);
       expect(result.current.playedTrackIds.has("t2")).toBe(false);
     });
-
-    it("should disable shuffle mode when starting new playback", () => {
-      const { result } = renderHook(() => usePlayerState());
-      const tracks = [makeTrack("t1"), makeTrack("t2"), makeTrack("t3")];
-
-      // Start playing and enable shuffle
-      act(() => {
-        result.current.startPlaying(tracks, 0, "session-1");
-      });
-      act(() => {
-        result.current.handleToggleShuffle();
-      });
-      expect(result.current.shuffleMode).toBe(true);
-
-      // Start new playback — shuffle should be off
-      act(() => {
-        result.current.startPlaying(tracks, 1, "session-2");
-      });
-      expect(result.current.shuffleMode).toBe(false);
-    });
   });
 
   describe("reset", () => {
@@ -131,50 +109,8 @@ describe("usePlayerState", () => {
       expect(result.current.currentTrackIndex).toBeNull();
       expect(result.current.playingTrackId).toBeNull();
       expect(result.current.playingSessionId).toBeNull();
-      expect(result.current.effectiveFoundTracks).toEqual([]);
+      expect(result.current.playingTracks).toEqual([]);
       expect(result.current.playedTrackIds.size).toBe(0);
-      expect(result.current.shuffleMode).toBe(false);
-    });
-  });
-
-  describe("shuffle", () => {
-    it("should toggle shuffle mode on", () => {
-      const { result } = renderHook(() => usePlayerState());
-      const tracks = [makeTrack("t1"), makeTrack("t2"), makeTrack("t3")];
-
-      act(() => {
-        result.current.startPlaying(tracks, 0, "session-1");
-      });
-      act(() => {
-        result.current.handleToggleShuffle();
-      });
-
-      expect(result.current.shuffleMode).toBe(true);
-      // The effective tracks should still contain the same set of tracks
-      expect(result.current.effectiveFoundTracks).toHaveLength(3);
-      // Current track should be at position 0 after shuffle
-      expect(result.current.currentTrackIndex).toBe(0);
-      // The first track in the shuffled order should be the one that was playing
-      expect(result.current.effectiveFoundTracks[0].id).toBe("t1");
-    });
-
-    it("should toggle shuffle mode off and restore position", () => {
-      const { result } = renderHook(() => usePlayerState());
-      const tracks = [makeTrack("t1"), makeTrack("t2"), makeTrack("t3")];
-
-      act(() => {
-        result.current.startPlaying(tracks, 1, "session-1");
-      });
-      act(() => {
-        result.current.handleToggleShuffle();
-      });
-      act(() => {
-        result.current.handleToggleShuffle();
-      });
-
-      expect(result.current.shuffleMode).toBe(false);
-      // Should be back in original order
-      expect(result.current.effectiveFoundTracks).toEqual(tracks);
     });
   });
 

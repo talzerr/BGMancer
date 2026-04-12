@@ -145,77 +145,26 @@ describe("Playlist", () => {
     });
   });
 
-  describe("reorder", () => {
-    describe("when reordering tracks", () => {
-      it("should update position fields correctly", async () => {
+  describe("listSyncableVideos", () => {
+    describe("when session has tracks with video IDs", () => {
+      it("should return only tracks with video_id, ordered by position", async () => {
         await Playlist.replaceAll(sessionId, [
-          makeTrack({ id: "r1" }),
-          makeTrack({ id: "r2" }),
-          makeTrack({ id: "r3" }),
+          makeTrack({ id: "sv1", video_id: "v1" }),
+          makeTrack({ id: "sv2", video_id: null }),
+          makeTrack({ id: "sv3", video_id: "v2" }),
         ]);
 
-        // Reverse the order
-        await Playlist.reorder(["r3", "r1", "r2"]);
-
-        const rows = rawDb
-          .prepare(
-            "SELECT id, position FROM playlist_tracks WHERE playlist_id = ? ORDER BY position",
-          )
-          .all(sessionId) as Array<{ id: string; position: number }>;
-        expect(rows[0]).toEqual({ id: "r3", position: 0 });
-        expect(rows[1]).toEqual({ id: "r1", position: 1 });
-        expect(rows[2]).toEqual({ id: "r2", position: 2 });
-      });
-    });
-  });
-
-  describe("listUnsyncedFound", () => {
-    describe("when unsynced tracks with video_id exist", () => {
-      it("should return only tracks with video_id and no synced_at", async () => {
-        await Playlist.replaceAll(sessionId, [
-          makeTrack({ id: "uf1", video_id: "v1" }),
-          makeTrack({ id: "uf2", video_id: null }),
-          makeTrack({ id: "uf3", video_id: "v2" }),
-        ]);
-        // Sync one of them
-        await Playlist.markSynced("uf1");
-
-        const unsynced = await Playlist.listUnsyncedFound(userId);
-        expect(unsynced).toHaveLength(1);
-        expect(unsynced[0].id).toBe("uf3");
-        expect(unsynced[0].video_id).toBe("v2");
+        const rows = await Playlist.listSyncableVideos(sessionId);
+        expect(rows).toHaveLength(2);
+        expect(rows[0]).toEqual({ video_id: "v1", position: 0 });
+        expect(rows[1]).toEqual({ video_id: "v2", position: 2 });
       });
     });
 
-    describe("when tracks have no video_id", () => {
-      it("should not include them", async () => {
+    describe("when session has no tracks with video_id", () => {
+      it("should return empty array", async () => {
         await Playlist.replaceAll(sessionId, [makeTrack({ id: "nv1", video_id: null })]);
-
-        const unsynced = await Playlist.listUnsyncedFound(userId);
-        expect(unsynced).toHaveLength(0);
-      });
-    });
-  });
-
-  describe("countSynced", () => {
-    describe("when some tracks are synced", () => {
-      it("should return the count of synced tracks", async () => {
-        await Playlist.replaceAll(sessionId, [
-          makeTrack({ id: "cs1", video_id: "v1" }),
-          makeTrack({ id: "cs2", video_id: "v2" }),
-          makeTrack({ id: "cs3", video_id: "v3" }),
-        ]);
-        await Playlist.markSynced("cs1");
-        await Playlist.markSynced("cs2");
-
-        expect(await Playlist.countSynced(userId)).toBe(2);
-      });
-    });
-
-    describe("when no tracks are synced", () => {
-      it("should return 0", async () => {
-        await Playlist.replaceAll(sessionId, [makeTrack({ id: "ns1", video_id: "v1" })]);
-        expect(await Playlist.countSynced(userId)).toBe(0);
+        expect(await Playlist.listSyncableVideos(sessionId)).toEqual([]);
       });
     });
   });

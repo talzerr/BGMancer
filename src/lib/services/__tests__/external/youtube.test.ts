@@ -7,9 +7,9 @@ import {
   searchOSTPlaylist,
   fetchPlaylistMetadata,
   fetchPlaylistItems,
-  findBGMancerPlaylist,
-  createBGMancerPlaylist,
+  createYoutubePlaylist,
   addVideoToPlaylist,
+  YouTubeOAuthError,
   YouTubeQuotaError,
   YouTubeInvalidKeyError,
 } from "../../external/youtube";
@@ -699,73 +699,87 @@ describe("fetchPlaylistItems", () => {
   });
 });
 
-describe("findBGMancerPlaylist", () => {
-  describe("when the playlist exists", () => {
-    beforeEach(() => {
-      mockFetch(async () =>
-        jsonResponse({
-          items: [
-            { id: "PL_other", snippet: { title: "Other" } },
-            { id: "PL_bgm", snippet: { title: "BGMancer Journey" } },
-          ],
-        }),
-      );
-    });
-
-    it("should return its ID", async () => {
-      expect(await findBGMancerPlaylist("token")).toBe("PL_bgm");
-    });
-  });
-
-  describe("when the playlist does not exist", () => {
-    beforeEach(() => {
-      mockFetch(async () =>
-        jsonResponse({
-          items: [{ id: "PL_other", snippet: { title: "Other" } }],
-        }),
-      );
-    });
-
-    it("should return null", async () => {
-      expect(await findBGMancerPlaylist("token")).toBeNull();
-    });
-  });
-
-  describe("when the API call fails", () => {
-    beforeEach(() => {
-      mockFetch(async () => jsonResponse({}, false, 401));
-    });
-
-    it("should throw", async () => {
-      await expect(findBGMancerPlaylist("bad-token")).rejects.toThrow();
-    });
-  });
-});
-
-describe("createBGMancerPlaylist", () => {
+describe("createYoutubePlaylist", () => {
   describe("when successful", () => {
     beforeEach(() => {
       mockFetch(async () => jsonResponse({ id: "PL_new" }));
     });
 
     it("should return the new playlist ID", async () => {
-      expect(await createBGMancerPlaylist("token")).toBe("PL_new");
+      const id = await createYoutubePlaylist("token", {
+        title: "BGMancer: Session",
+        description: "desc",
+        privacy: "unlisted",
+      });
+      expect(id).toBe("PL_new");
     });
   });
 
-  describe("when the API fails", () => {
+  describe("when unauthorized", () => {
     beforeEach(() => {
-      mockFetch(async () => jsonResponse({}, false, 403));
+      mockFetch(async () =>
+        jsonResponse(
+          {
+            error: {
+              errors: [{ reason: "authError" }],
+            },
+          },
+          false,
+          401,
+        ),
+      );
     });
 
-    it("should throw", async () => {
-      await expect(createBGMancerPlaylist("token")).rejects.toThrow("Failed to create playlist");
+    it("should throw a YouTubeOAuthError with status 401", async () => {
+      await expect(
+        createYoutubePlaylist("bad-token", {
+          title: "t",
+          description: "d",
+          privacy: "unlisted",
+        }),
+      ).rejects.toMatchObject({
+        name: "YouTubeOAuthError",
+        status: 401,
+      });
+    });
+  });
+
+  describe("when the body is not JSON", () => {
+    beforeEach(() => {
+      // Mock a non-JSON error body — the typed error should still carry
+      // status and a null reason.
+      mockFetch(
+        async () =>
+          ({
+            ok: false,
+            status: 403,
+            statusText: "Forbidden",
+            url: "https://www.googleapis.com/youtube/v3/playlists?part=snippet,status",
+            headers: new Headers(),
+            json: async () => ({}),
+            text: async () => "Forbidden",
+          }) as unknown as Response,
+      );
+    });
+
+    it("should still throw a YouTubeOAuthError with null reason", async () => {
+      await expect(
+        createYoutubePlaylist("token", {
+          title: "t",
+          description: "d",
+          privacy: "unlisted",
+        }),
+      ).rejects.toMatchObject({
+        name: "YouTubeOAuthError",
+        status: 403,
+        reason: null,
+      });
     });
   });
 });
 
 describe("addVideoToPlaylist", () => {
-  describe("when successful", () => {
+  describe("when successful without position", () => {
     beforeEach(() => {
       mockFetch(async () => jsonResponse({ id: "item-123" }));
     });
@@ -775,15 +789,99 @@ describe("addVideoToPlaylist", () => {
     });
   });
 
-  describe("when the API fails", () => {
+  describe("when position is provided", () => {
+    let capturedBody: string | null = null;
     beforeEach(() => {
-      mockFetch(async () => jsonResponse({}, false, 403));
+      capturedBody = null;
+      mockFetch(async (...args: unknown[]) => {
+        const init = args[1] as RequestInit | undefined;
+        capturedBody = typeof init?.body === "string" ? init.body : null;
+        return jsonResponse({ id: "item-position" });
+      });
     });
 
-    it("should throw", async () => {
-      await expect(addVideoToPlaylist("token", "PL_1", "vid_1")).rejects.toThrow(
-        "Failed to add video",
+    it("should include the position in the insert body", async () => {
+      await addVideoToPlaylist("token", "PL_1", "vid_1", 4);
+      expect(capturedBody).not.toBeNull();
+      const parsed = JSON.parse(capturedBody!);
+      expect(parsed.snippet.position).toBe(4);
+    });
+  });
+
+  describe("when the insufficient permissions error is returned", () => {
+    beforeEach(() => {
+      mockFetch(async () =>
+        jsonResponse(
+          {
+            error: {
+              errors: [{ reason: "insufficientPermissions" }],
+            },
+          },
+          false,
+          403,
+        ),
       );
+    });
+
+    it("should throw a YouTubeOAuthError with parsed reason", async () => {
+      await expect(addVideoToPlaylist("token", "PL_1", "vid_1")).rejects.toMatchObject({
+        name: "YouTubeOAuthError",
+        status: 403,
+        reason: "insufficientPermissions",
+      });
+    });
+  });
+});
+
+describe("YouTubeOAuthError", () => {
+  it("exposes status and reason and a descriptive message", () => {
+    const err = new YouTubeOAuthError(403, "quotaExceeded", "quota body");
+    expect(err.status).toBe(403);
+    expect(err.reason).toBe("quotaExceeded");
+    expect(err.message).toContain("quotaExceeded");
+    expect(err.message).toContain("403");
+  });
+
+  it("omits the reason from the message when null", () => {
+    const err = new YouTubeOAuthError(500, null, "oops");
+    expect(err.reason).toBeNull();
+    expect(err.message).toContain("500");
+    expect(err.message).not.toContain("null");
+  });
+});
+
+describe("createYoutubePlaylist — body stream unavailable", () => {
+  // Covers the `res.text().catch(() => "")` fallback arrow in
+  // throwYoutubeOAuthError. We can't hit this branch via a normal mocked
+  // Response, so we hand-craft one whose `.text()` throws.
+  beforeEach(() => {
+    mockFetch(
+      async () =>
+        ({
+          ok: false,
+          status: 500,
+          statusText: "Internal Server Error",
+          url: "https://www.googleapis.com/youtube/v3/playlists?part=snippet,status",
+          headers: new Headers(),
+          json: async () => ({}),
+          text: async () => {
+            throw new Error("body stream already consumed");
+          },
+        }) as unknown as Response,
+    );
+  });
+
+  it("still throws a YouTubeOAuthError with empty body and null reason", async () => {
+    await expect(
+      createYoutubePlaylist("token", {
+        title: "t",
+        description: "d",
+        privacy: "unlisted",
+      }),
+    ).rejects.toMatchObject({
+      name: "YouTubeOAuthError",
+      status: 500,
+      reason: null,
     });
   });
 });

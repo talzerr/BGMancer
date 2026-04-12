@@ -4,21 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PlaylistTrack } from "@/types";
 import Script from "next/script";
 import { signIn } from "next-auth/react";
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  KeyboardSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-  arrayMove,
-} from "@dnd-kit/sortable";
 import { usePlayerContext } from "@/context/player-context";
 import { useSessionManager } from "@/hooks/library/useSessionManager";
 import { useTrackDeleteUndo } from "@/hooks/player/useTrackDeleteUndo";
@@ -27,7 +12,7 @@ import { GenerateSection } from "@/components/generate/GenerateSection";
 import { SessionList } from "@/components/session/SessionList";
 import { LibraryWidget } from "@/components/library/LibraryWidget";
 import { PlaylistHeader } from "@/components/session/PlaylistHeader";
-import { SortableTrackItem } from "@/components/player/SortableTrackItem";
+import { PlaylistTrackCard } from "@/components/player/PlaylistTrackCard";
 import { Launchpad } from "@/components/launchpad/Launchpad";
 import { UndoToast } from "@/components/player/UndoToast";
 import { PlayerPanel } from "@/components/player/PlayerPanel";
@@ -49,6 +34,7 @@ const PLAYLIST_FADE_MS = 300;
 interface FeedClientProps {
   isSignedIn: boolean;
   isDev: boolean;
+  youtubeSyncEnabled: boolean;
   turnstileSiteKey?: string;
   user: { name?: string | null; email?: string | null; image?: string | null } | null;
   previewCovers: string[];
@@ -57,6 +43,7 @@ interface FeedClientProps {
 export function FeedClient({
   isSignedIn,
   isDev,
+  youtubeSyncEnabled,
   turnstileSiteKey,
   user,
   previewCovers,
@@ -134,7 +121,7 @@ export function FeedClient({
     const nextSessionId = playlist.currentSessionId;
     const nextTracks = playlist.tracks;
 
-    // Same session — keep tracks in sync (reorder, reroll, in-place removal).
+    // Same session — keep tracks in sync (reroll, in-place removal).
     if (nextSessionId === displayedSnapshot.sessionId) {
       if (nextTracks !== displayedSnapshot.tracks) {
         setDisplayedSnapshot({ sessionId: nextSessionId, tracks: nextTracks });
@@ -244,11 +231,6 @@ export function FeedClient({
     }
   }, [playlist.generating, fetchSessions]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
-
   const displayedTracks = displayedSnapshot.tracks;
 
   const accentGameInputs = useMemo(() => {
@@ -262,17 +244,8 @@ export function FeedClient({
   }, [playlist.tracks]);
 
   const accentColors = useGameAccentColors(accentGameInputs);
-  const trackIds = useMemo(() => displayedTracks.map((t) => t.id), [displayedTracks]);
 
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldIndex = displayedTracks.findIndex((t) => t.id === active.id);
-    const newIndex = displayedTracks.findIndex((t) => t.id === over.id);
-    playlist.reorderTracks(arrayMove(displayedTracks, oldIndex, newIndex).map((t) => t.id));
-  }
-
-  // Stable callbacks for memo'd SortableTrackItem. The hook/context functions
+  // Stable callbacks for the playlist rows. The hook/context functions
   // aren't memoized, so we pin current values via refs to keep callback
   // identity stable across renders.
   const trackCallbackRefs = useRef({
@@ -368,6 +341,7 @@ export function FeedClient({
           tracks={displayedTracks}
           isSignedIn={isSignedIn}
           isDev={isDev}
+          youtubeSyncEnabled={youtubeSyncEnabled}
           onRename={handleRenameSession}
           onDeleteSession={handleDeleteSession}
           shortPlaylistNotice={
@@ -378,54 +352,42 @@ export function FeedClient({
               : null
           }
         />
-        <DndContext
-          id="playlist-dnd"
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext items={trackIds} strategy={verticalListSortingStrategy}>
-            <div className="flex flex-col gap-0 pb-4">
-              {(() => {
-                const viewingPlayingSession =
-                  player.playingSessionId === displayedSnapshot.sessionId;
-                return displayedTracks.map((track, i) => {
-                  const isCurrentTrack =
-                    viewingPlayingSession && track.id === player.playingTrackId;
-                  const spoilerHidden =
-                    config.antiSpoilerEnabled &&
-                    !player.playedTrackIds.has(track.id) &&
-                    track.id !== player.playingTrackId;
+        <div className="flex flex-col gap-0 pb-4">
+          {(() => {
+            const viewingPlayingSession = player.playingSessionId === displayedSnapshot.sessionId;
+            return displayedTracks.map((track, i) => {
+              const isCurrentTrack = viewingPlayingSession && track.id === player.playingTrackId;
+              const spoilerHidden =
+                config.antiSpoilerEnabled &&
+                !player.playedTrackIds.has(track.id) &&
+                track.id !== player.playingTrackId;
 
-                  const prevTrack = i > 0 ? displayedTracks[i - 1] : null;
-                  const phaseGap =
-                    i > 0 &&
-                    track.arc_phase != null &&
-                    prevTrack?.arc_phase != null &&
-                    track.arc_phase !== prevTrack.arc_phase;
+              const prevTrack = i > 0 ? displayedTracks[i - 1] : null;
+              const phaseGap =
+                i > 0 &&
+                track.arc_phase != null &&
+                prevTrack?.arc_phase != null &&
+                track.arc_phase !== prevTrack.arc_phase;
 
-                  return (
-                    <SortableTrackItem
-                      key={track.id}
-                      track={track}
-                      index={i}
-                      gameThumbnail={gameThumbnailByGameId.get(track.game_id)}
-                      accentColor={accentColors.get(track.game_id)}
-                      phaseGap={phaseGap}
-                      isPlaying={isCurrentTrack}
-                      isActivelyPlaying={isCurrentTrack && player.isPlayerPlaying}
-                      spoilerHidden={spoilerHidden}
-                      isRerolling={playlist.rerollingIds.has(track.id)}
-                      onPlay={handleTrackPlay}
-                      onRemove={handleTrackRemove}
-                      onReroll={handleTrackReroll}
-                    />
-                  );
-                });
-              })()}
-            </div>
-          </SortableContext>
-        </DndContext>
+              return (
+                <div key={track.id} className={phaseGap ? "mt-[10px]" : undefined}>
+                  <PlaylistTrackCard
+                    track={track}
+                    gameThumbnail={gameThumbnailByGameId.get(track.game_id)}
+                    accentColor={accentColors.get(track.game_id)}
+                    isPlaying={isCurrentTrack}
+                    isActivelyPlaying={isCurrentTrack && player.isPlayerPlaying}
+                    spoilerHidden={spoilerHidden}
+                    isRerolling={playlist.rerollingIds.has(track.id)}
+                    onPlay={() => handleTrackPlay(track.id, i)}
+                    onRemove={() => handleTrackRemove(track)}
+                    onReroll={() => handleTrackReroll(track.id)}
+                  />
+                </div>
+              );
+            });
+          })()}
+        </div>
       </div>
     );
 
@@ -473,7 +435,7 @@ export function FeedClient({
             </header>
 
             <div className="flex flex-col lg:h-screen lg:flex-row lg:overflow-hidden">
-              <aside className="lg:border-border flex flex-col gap-4 p-4 lg:w-[290px] lg:shrink-0 lg:border-r lg:p-5 lg:pb-16">
+              <aside className="playlist-scroll lg:border-border flex flex-col gap-4 overflow-x-hidden p-4 lg:w-[290px] lg:shrink-0 lg:overflow-y-auto lg:border-r lg:px-5 lg:pt-5 lg:pb-1.5">
                 <div className="mb-3 hidden lg:block">
                   <LogoLink />
                 </div>

@@ -39,6 +39,7 @@ Requires a `.env.local` (copy from `.env.local.example`) with:
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — required in production for Google OAuth sign-in. In local dev, a Credentials provider is used instead
 - `IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` — optional; powers the catalog "Request a game" empty state. Twitch dev console credentials. When unset (or `TURNSTILE_SITE_KEY` is unset), the request form is hidden server-side and the empty state shows only "No games found"
 - `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` — Cloudflare Turnstile credentials. Used for guest playlist generation and game requests. In dev (`env.isDev`) or when the secret is unset, server-side verification is short-circuited
+- `YOUTUBE_SYNC_ENABLED` — optional; set to `1` or `true` to enable the "Sync to YouTube" feature. When unset, the Sync link is hidden and `POST /api/sync` returns 503. Gated while Google OAuth verification is pending
 - Backstage (`/backstage/*`) is open in local dev. In production, it's gated by Cloudflare Access on `bgmancer.com/backstage*`
 
 Schema is managed by Drizzle ORM with migrations stored in `drizzle/migrations/`. Locally, apply with `pnpm db:migrate`. In production, apply with `wrangler d1 migrations apply bgmancer-prod --remote`.
@@ -49,7 +50,7 @@ This section describes the current codebase. For prescriptive rules and patterns
 
 ### Authentication & Security
 
-**Auth system:** NextAuth v5 (beta) as the sole auth provider. In dev, a Credentials provider allows sign-in with any name. In production, Google OAuth.
+**Auth system:** NextAuth v5 (beta) as the sole auth provider. In dev, a Credentials provider allows sign-in with any name. In production, Google OAuth. The JWT callback handles Google access token refresh — when a token is within 60s of expiry, it exchanges the refresh token for a new one. Refresh failures set `session.error = "RefreshAccessTokenError"`, which route handlers treat as a 401 (triggering client-side re-auth).
 
 **User model:** Two modes — Guest (unauthenticated) and Logged-in (Google OAuth). No tier column; the distinction is purely session-based. Users are created in the DB on first OAuth sign-in via `Users.createFromOAuth()`.
 
@@ -105,7 +106,7 @@ All non-backstage pages are wrapped by `PlayerProvider` (in `src/app/layout.tsx`
 **Page-owned layouts:** Each page owns its full layout including header, navigation, and footer. There is no shared `Header` component — FeedClient and CatalogClient each render their own header inline. Shared layout pieces live in `src/components/layout/`:
 
 - `LogoLink` — logo + wordmark link to home, used by both pages
-- `FooterLinks` — Source/Legal/Discord links, used in the feed sidebar and the catalog library drawer
+- `FooterLinks` — Source/Legal/Discord links + "Developed with YouTube" badge, used in the feed sidebar and the catalog library drawer
 
 **Sign-out cleanup:** `performSignOut()` (exported from `src/components/AuthButtons.tsx`) centralizes the sign-out flow: clears playback state, clears guest library, then calls `signOut()`. All sign-out call sites use this function.
 
@@ -118,7 +119,7 @@ All non-backstage pages are wrapped by `PlayerProvider` (in `src/app/layout.tsx`
 `PlayerProvider` (rendered in `src/app/(main)/layout.tsx`) composes four hooks, manages the YouTube player, and shares their state app-wide. It receives `isSignedIn` from the server layout (via `auth()`) and exposes it on the context:
 
 - `usePlaylist` — playlist tracks + session management, fetches from `/api/playlist`
-- `usePlayerState` — playback state (current track, shuffle, play/pause, revealed tracks for anti-spoiler). Two reset functions: `reset()` clears runtime state AND localStorage cache; `resetPlayback()` clears runtime state only (used after generation to preserve guest cache).
+- `usePlayerState` — playback state (current track, play/pause, revealed tracks for anti-spoiler). Two reset functions: `reset()` clears runtime state AND localStorage cache; `resetPlayback()` clears runtime state only (used after generation to preserve guest cache).
 - `useConfig` — app config (track count, anti-spoiler, etc.) stored in localStorage
 - `useGameLibrary(isSignedIn)` — game library; authenticated users fetch from `/api/games`, guests use localStorage (key `bgm_guest_library`) hydrated against `/api/games/catalog`
 - `useYouTubePlayer` — YouTube IFrame API wrapper, managed by the context (not by any component). Exposes playback controls via the `MediaState` interface.
@@ -261,6 +262,26 @@ Authenticated-only discovery feature: users link a Steam profile, the backend fe
 
 **Backstage Steam routes** (`/api/backstage/steam/*`) are a separate, admin-only surface used during game onboarding to look up Steam game metadata (store search, owned-games lookup for testing). They share `parseSteamInput`/`resolveVanityUrl`/`fetchOwnedGames` helpers via the same service module.
 
+### YouTube service (`src/lib/services/external/youtube/`)
+
+The YouTube Data API client is modularized by responsibility:
+
+- `core.ts` — shared primitives: API base URL, key accessor, error classes (`YouTubeQuotaError`, `YouTubeInvalidKeyError`), ISO 8601 duration parser, title/description rejection filter
+- `search.ts` — track-level search + video metadata (used by the onboarding resolver)
+- `ost-playlists.ts` — OST playlist discovery + item enumeration (used by onboarding)
+- `sync.ts` — user-OAuth write operations (`createYoutubePlaylist`, `addVideoToPlaylist`). Failures throw typed `YouTubeOAuthError` with `status` + `reason` so the sync route can map to user-facing error categories
+- `index.ts` — barrel re-export
+
+### YouTube sync (`src/hooks/player/useSync.ts`)
+
+Authenticated-only feature: creates an unlisted YouTube playlist from a BGMancer session's tracks. Feature-gated via `env.youtubeSyncEnabled` (server prop → UI hide + route 503).
+
+**Data model:** `playlists.youtube_playlist_id` (text, nullable) — persisted after a successful `createYoutubePlaylist` call. Used to restore "Synced" state across page loads.
+
+**Client hook** (`useSync`) manages the sync state machine (`idle` → `syncing` → `synced` | `error`). Resets to `idle` when tracks change within a session (reroll/remove makes the YouTube playlist stale). On session switch, restores `synced` if the new session has a `youtube_playlist_id`. On 401, triggers NextAuth incremental auth with the YouTube scope.
+
+**UI:** PlaylistHeader shows a "Sync" link (authenticated + non-dev + feature enabled). Clicking opens `YouTubeSyncDialog` for confirmation. After success, the link changes to "Synced" (checkmark) and clicking opens the YouTube playlist.
+
 ### Game requests (`src/lib/services/external/igdb.ts`)
 
 The catalog empty state lets any user (guest or logged-in) request a game that isn't in the catalog yet. The flow is:
@@ -292,12 +313,11 @@ All under `src/app/api/`. Auth levels are defined in `src/lib/route-config.ts`. 
 - `POST /api/games/request` — register a game request (Public). Body: `{ igdbId, name, coverUrl, turnstileToken }`. Verified server-side via Turnstile (rejects with 403 on failure), then IP-rate-limited 5/hr via `game-request:${ip}`. Always returns `{ success: true }` regardless of internal state (new row, increment, or no-op on already-acknowledged) — the client never learns whether the request was new
 - `GET /api/playlist` — fetch tracks (Optional — guests get `[]`). Response includes `arc_phase` per track via a left-join on `playlist_track_decisions`; null for guest playlists or tracks without decision data
 - `DELETE /api/playlist` — clear playlist (Required)
-- `PATCH /api/playlist` — reorder tracks (Optional — guests get silent 200)
 - `DELETE /api/playlist/[id]` — remove a track (Required + ownership)
 - `POST /api/playlist/[id]/reroll` — reroll a single track (Required + ownership). For energy-mode playlists the candidate pool is filtered by the mode's energy template so rerolls stay within the mode
 - `GET /api/sessions` — session list (Optional — guests get `[]`). Each row carries `playlist_mode` for header / history display
 - `PATCH/DELETE /api/sessions/[id]` — session management (Required + ownership)
-- `POST /api/sync` — sync playlist to YouTube account (Required + OAuth access token)
+- `POST /api/sync` — create an unlisted YouTube playlist from a session's tracks (Required + OAuth access token). Body: `{ sessionId }`. Feature-gated via `env.youtubeSyncEnabled` (returns 503 when disabled). Persists the YouTube playlist ID on the session row. Rate-limited per user (5/hr). Does not use `withRequiredAuth` because it needs the full NextAuth session (OAuth `access_token`)
 - `POST /api/steam/sync` — link and/or re-sync the user's Steam library (Required). Body: `{ steamUrl? }`. Returns `{ totalSynced, catalogMatches, steamSyncedAt }`. On 429 cooldown the body also carries `cooldownMinutes: number`.
 - `GET /api/steam/library` — returns `{ linked: false }` or `{ linked: true, steamSyncedAt, matchedGameIds: string[] }` (Required)
 - `DELETE /api/steam/link` — unlink Steam account; atomically nulls `users.steam_id`/`steam_synced_at` and drops all `user_steam_games` rows for the user (Required)

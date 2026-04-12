@@ -22,11 +22,6 @@ Items that must be done before removing Zero Trust and going public.
 
 - **[feature] YouTube sync implementation** — sync-to-YouTube is currently a
   placeholder, not implemented. Full implementation needed before launch.
-- **[feature] Curation modes** — needs PM session. Journey (full Director arc),
-  Focus (filtered low-energy shuffle), Hype (filtered high-energy shuffle). Journey
-  uses the full pipeline; other modes bypass the profiler and Director entirely,
-  using energy/mood filters on the tagged pool. All modes available to all users
-  including guests.
 - **[infra] Verify admin route protection** — `/api/steam/*` routes are
   `AuthLevel.Admin` but not under the `/backstage*` path. Confirm these return 404
   to unauthenticated users after Cloudflare Access policy is narrowed.
@@ -54,17 +49,6 @@ Items that must be done before removing Zero Trust and going public.
 - **[polish] Production seed data verification** — one-time check before launch: all
   published games have tagged tracks and resolved videos, no orphaned or
   half-onboarded games in the catalog.
-
----
-
-## Needs PM Session
-
-Ideas with merit that need discussion and scoping before implementation. Cannot go
-to a Claude Code session directly.
-
-- **[player] Revisit playlist manipulation features** — shuffle, reorder, remove,
-  reroll. The arc changes what makes sense here. Some of these may conflict with the
-  Director's sequencing. Needs a principled decision on which controls exist.
 
 ---
 
@@ -101,6 +85,13 @@ Future work. No urgency, no commitment.
   in, should localStorage state (game library, config) transfer to their account?
 - **[ux] Shareable playlist seeds** — encode playlists as compact strings,
   `/share/[seed]` read-only view.
+- **[ux] Mode discoverability** — if telemetry shows low engagement with energy modes,
+  PM decision needed on whether to promote the mode selector above the Advanced fold.
+- **[ux] Mode visual theming** — design pass to give each mode a distinct color accent
+  or icon. Currently text-only labels everywhere.
+- **[engine] Director test playground** — standalone runnable script that lets people
+  clone the repo and see the scoring pipeline step by step with sample tracks.
+  Companion to DIRECTOR.md for open-source education.
 - **[catalog] Full "request a game" flow** — expand the pre-launch IGDB-based request
   system into a proper pipeline: status tracking, user notifications, automatic
   onboarding. The lean version is already live.
@@ -119,6 +110,11 @@ Future work. No urgency, no commitment.
   establishing visual separation from the main app.
 - **[backstage] Bug fixes** — unresolved track re-resolution and track rename state
   reset issues to be addressed post-launch.
+- **[backstage] Theatre data export** — one-click export of full Theatre telemetry
+  for a session (track decisions, scores, arc phases, budgets, rubric) to CSV or
+  JSON. For feeding to LLM or scripts for analysis.
+- **[backstage] Theatre flat-phase rendering** — more compact single-row visualization
+  for Steady-phase energy-mode playlists in Theatre view.
 - **[ux] Natural auth incentive** — non-intrusive sign-in encouragement after first
   completed playlist generation (DEC-018). Needs design pass for trigger, placement,
   and copy.
