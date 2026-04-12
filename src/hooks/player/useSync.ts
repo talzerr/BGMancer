@@ -128,7 +128,7 @@ export function useSync({
       ...prev,
       status: "synced",
       error: null,
-      playlistUrl: data.playlistUrl,
+      playlistUrl: data.playlistUrl ?? null,
     }));
     return true;
   }, [currentSessionId]);
