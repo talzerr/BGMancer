@@ -1,0 +1,214 @@
+# External Integrations
+
+**Analysis Date:** 2026-04-17
+
+## APIs & External Services
+
+**YouTube Data API v3:**
+
+- Purpose: Fetch video metadata, search for music tracks, retrieve playlist items
+- SDK/Client: Native `fetch()`, typed wrapper in `src/lib/services/external/youtube.ts`
+- Auth: `YOUTUBE_API_KEY` (required for all playlist generation)
+- Quota: Free tier quota resets daily; monitored and thrown as `YouTubeQuotaError`
+- Endpoints used:
+  - `https://www.googleapis.com/youtube/v3/search` - Search for videos by track name
+  - `https://www.googleapis.com/youtube/v3/videos` - Fetch video metadata (duration, title, etc.)
+  - `https://www.youtube.com/playlist?list={playlistId}` - Extract playlist IDs from game pages
+
+**Steam Web API:**
+
+- Purpose: Resolve Steam vanity URLs, fetch user owned games library for catalog discovery
+- SDK/Client: Native `fetch()`, typed functions in `src/lib/services/external/steam-sync.ts`
+- Auth: `STEAM_API_KEY` (required for authenticated users, optional for guests)
+- Endpoints:
+  - `https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/` - Convert profile URL to 64-bit Steam ID
+  - `https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/` - Fetch user library with playtime
+- Error Handling: Typed errors (`PrivateProfileError`, `VanityNotFoundError`, `CooldownError`, `MissingSteamUrlError`) mapped to HTTP responses
+- Cooldown: 1 hour per user (`STEAM_SYNC_COOLDOWN_MS`), enforced in SQL via `users.steam_synced_at`
+
+**Anthropic Claude API:**
+
+- Purpose: Track tagging (energy, roles, moods), vibe profiling (journey mode), session naming
+- SDK/Client: `@anthropic-ai/sdk` via `AnthropicProvider` in `src/lib/llm/anthropic.ts`
+- Auth: `ANTHROPIC_API_KEY` (required)
+- Models:
+  - Default: `claude-haiku-4-5-20251001` (set in `src/lib/constants.ts` as `DEFAULT_LLM_MODEL`)
+  - Tagging: Override via `ANTHROPIC_TAGGING_MODEL`, falls back to default
+  - Vibe Profiler: Override via `ANTHROPIC_VIBE_MODEL`, falls back to default
+  - Session Naming: Override via `ANTHROPIC_NAMING_MODEL`, falls back to default
+- Caps & Limits:
+  - Vibe Profiler: Gated by `USER_DAILY_LLM_CAP` (10 per day), enforced in `src/lib/rate-limit.ts` via KV
+  - Session Naming: **NOT** gated by daily cap, runs on every authenticated generation
+  - Cached Rubric: Vibe Profiler checks for cached rubric matching same game set; cache hit skips LLM call
+- Cache Control: Vibe Profiler system prompt uses Anthropic cache_control (ephemeral) to reduce prompt overhead
+
+**IGDB (Twitch API):**
+
+- Purpose: Game search and metadata for catalog "Request a game" feature
+- SDK/Client: Twitch OAuth credentials with native `fetch()` in `src/lib/services/external/igdb.ts`
+- Auth: `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET` (optional — feature disabled if unset)
+- Token Management: Per-isolate token cache with 60-day expiry; auto-refreshed on expiry + 60s buffer
+- Endpoints:
+  - `https://id.twitch.tv/oauth2/token` - Get OAuth token
+  - `https://api.igdb.com/v4/games` - Search games by name (Apicalypse query syntax)
+- Filtering: Client-side post-filtering to exclude DLC, bundles, mods, episodes, forks, packs, updates
+- Feature Flag: `requestFormEnabled` computed in `src/app/(main)/catalog/page.tsx` as `Boolean(env.igdbClientId && env.igdbClientSecret && env.turnstileSiteKey)`
+
+**Discogs API:**
+
+- Purpose: Tracklist loading for game soundtracks
+- SDK/Client: Native `fetch()` in `src/lib/services/external/discogs.ts`
+- Auth: `DISCOGS_TOKEN` (optional — improves rate limit from 25 req/min to 60 req/min)
+- User-Agent: `BGMancer/1.0 +https://github.com/talzerr/bgmancer`
+- Endpoints:
+  - `https://api.discogs.com/database/search` - Search releases and masters
+  - `https://api.discogs.com/releases/{id}` - Fetch full release tracklist
+  - `https://api.discogs.com/masters/{id}` - Fetch master release tracklist
+- Rate Limiting: Adaptive throttle via response headers; sleeps 61s if remaining <= 2
+
+**Cloudflare Turnstile:**
+
+- Purpose: Bot verification for guest playlist generation and game requests
+- SDK/Client: Turnstile script (loaded client-side), server-side verification in `src/lib/services/external/turnstile.ts`
+- Auth: `TURNSTILE_SITE_KEY` (public, client-side), `TURNSTILE_SECRET_KEY` (server-side)
+- Verification: `https://challenges.cloudflare.com/turnstile/v0/siteverify` (POST)
+- Bypass: Verification skipped in dev mode (`env.isDev`) or when secret is unset
+- CSP: Requires `script-src https://challenges.cloudflare.com`, `frame-src https://challenges.cloudflare.com`
+
+## Data Storage
+
+**Databases:**
+
+- Type/Provider: SQLite via Cloudflare D1
+- Connection: Cloudflare Workers binding `DB` in `wrangler.jsonc`
+- Client: Drizzle ORM (`src/lib/db/index.ts` exports `getDB()`)
+- Dev: Local SQLite emulation via miniflare (initialized in `next.config.ts`)
+- Tests: In-memory better-sqlite3 with D1-compat wrapper in `src/lib/db/test-helpers.ts`
+- Migrations: Auto-generated by Drizzle Kit, stored in `drizzle/migrations/`
+
+**File Storage:**
+
+- Method: Local filesystem only
+- Images: Served from external CDNs (YouTube, Steam, IGDB, SteamGridDB) via CSP `img-src` allowlist
+- No image upload feature; all game covers are sourced from external providers
+
+**Caching:**
+
+- Service: Cloudflare KV (`CACHE` namespace binding in `wrangler.jsonc`)
+- Client: `KV` service in `src/lib/services/infra/kv.ts`
+- Dev/Tests: In-memory Map with manual expiry
+- Use Cases:
+  - Rate limiting (guest requests, IGDB search, game requests, YouTube sync, track reroll)
+  - LLM daily cap tracking (per-user, per-day)
+  - IGDB Twitch OAuth token cache (per-isolate)
+
+## Authentication & Identity
+
+**Auth Provider:**
+
+- Service: NextAuth v5 (beta) with JWT session strategy
+- Implementation: Two-provider setup in `src/lib/services/auth/auth.ts`
+  - Production: Google OAuth 2.0 via `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
+  - Dev: Credentials provider (sign in with any email)
+- Session Storage: JWT signed with `NEXTAUTH_SECRET` (required)
+- Callback Configuration: User record created on first OAuth sign-in via `Users.createFromOAuth(email)` in `src/lib/db/repos/users.ts`
+
+**User Model:**
+
+- Two modes: Guest (unauthenticated, session ID = `GUEST_SESSION_ID` = `"guest"`) and Logged-in (Google OAuth, UUID session ID)
+- Database: Single `users` table, no "tier" column; auth level is session-based
+- Ownership Checks: All mutation routes verify resource belongs to requesting user (403 on mismatch)
+
+**Route Auth Levels:**
+
+- Defined in `src/lib/route-config.ts` (single source of truth, allowlist-based)
+- Enforced via middleware (404 for unregistered routes) + route wrappers (`withRequiredAuth`, `withOptionalAuth`)
+- Levels: `Public` (no auth), `Optional` (guest or logged-in), `Required` (logged-in only), `Admin` (production-only, CF Access)
+
+**Backstage Admin Access:**
+
+- Routes: All `/api/backstage/*` and `/backstage/*` pages
+- Dev: Open to all (no auth required)
+- Production: Gated by Cloudflare Access via `CF_Authorization` cookie (set by CF Access)
+
+## Monitoring & Observability
+
+**Error Tracking:**
+
+- Service: None integrated
+- Logging: Custom logger (`src/lib/logger.ts`) with context fields; logs to stdout
+
+**Logs:**
+
+- Approach: Structured JSON logs via `createLogger()` utility
+- Storage: Cloudflare Worker logs (accessible via `wrangler tail`)
+- Error Handling: Domain-specific error types thrown and logged with context
+
+## CI/CD & Deployment
+
+**Hosting:**
+
+- Platform: Cloudflare Workers (compute) + D1 (database) + KV (cache) + Turnstile (security)
+
+**Deployment Targets:**
+
+- Production: `bgmancer.com` (via `wrangler deploy`)
+- Staging: `staging.bgmancer.com` (via `wrangler deploy --env staging`)
+- Database: `bgmancer-prod` and `bgmancer-staging` D1 instances (with separate migrations)
+
+**Build Pipeline:**
+
+- Dev: `pnpm dev` (Turbopack on port 6959 with local miniflare D1 + KV)
+- Production: `pnpm opennextjs-cloudflare build && wrangler deploy`
+- Migrations: Applied per-environment via `wrangler d1 migrations apply bgmancer-prod --remote` (prod) or `--env staging` (staging)
+
+**CI System:**
+
+- Service: GitHub Actions (workflows in `.github/workflows/`)
+- Pre-commit: Husky + lint-staged (ESLint + Prettier on staged `.ts`/`.tsx` files)
+
+**Secrets Management:**
+
+- Storage: Cloudflare Worker secrets (set via `wrangler secret put`)
+- Env Vars: Non-secret config in `wrangler.jsonc` `vars` section
+- Required Secrets: `NEXTAUTH_SECRET`, `YOUTUBE_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_CLIENT_ID/SECRET` (prod), `TURNSTILE_SECRET_KEY`
+
+## Environment Configuration
+
+**Required env vars:**
+
+- `NEXTAUTH_SECRET` - Session signing key (generated with `openssl rand -base64 32`)
+- `YOUTUBE_API_KEY` - Google Cloud YouTube Data API v3 key
+- `ANTHROPIC_API_KEY` - Anthropic Claude API key
+
+**Optional env vars:**
+
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` - Google OAuth (production only; dev uses Credentials provider)
+- `STEAM_API_KEY` - Steam Web API key (for library sync feature)
+- `DISCOGS_TOKEN` - Discogs personal access token (higher rate limit)
+- `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET` - Twitch OAuth (for game request feature)
+- `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` - Cloudflare Turnstile (bot verification)
+- `ANTHROPIC_TAGGING_MODEL`, `ANTHROPIC_VIBE_MODEL`, `ANTHROPIC_NAMING_MODEL` - LLM overrides (fall back to `ANTHROPIC_MODEL`)
+
+**Secrets location:**
+
+- Local dev: `.env.local` (copy from `.env.local.example`, `.env` files are never committed)
+- Production: Cloudflare Worker secrets (set via `wrangler secret put`)
+- Staging: Same secrets as production, separate database (`bgmancer-staging`)
+
+## Webhooks & Callbacks
+
+**Incoming:**
+
+- `POST /api/auth/[...nextauth]/route.ts` - NextAuth callback endpoint (session + user creation)
+- None other (no Stripe, Slack, Discord integrations)
+
+**Outgoing:**
+
+- `POST /api/sync` - YouTube sync (authenticated users only, no webhooks — pulls data on-demand)
+- `POST /api/games/request` - Game request submission to internal table (no external callback)
+- `POST /api/backstage/requests/acknowledge` - Mark game request as reviewed (no external callback)
+
+---
+
+_Integration audit: 2026-04-17_
