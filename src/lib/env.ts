@@ -82,6 +82,13 @@ function loadEnv(): Env {
           "Generate a real secret with: openssl rand -base64 32",
       );
     }
+    const MIN_SECRET_LENGTH = 32;
+    if (nextAuthSecret.length < MIN_SECRET_LENGTH) {
+      throw new Error(
+        `NEXTAUTH_SECRET is too short (${nextAuthSecret.length} chars, minimum ${MIN_SECRET_LENGTH}). ` +
+          "Generate a strong secret with: openssl rand -base64 32",
+      );
+    }
   }
 
   const googleClientId = process.env.GOOGLE_CLIENT_ID || undefined;

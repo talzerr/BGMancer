@@ -35,13 +35,21 @@ describe("verifyTurnstileToken", () => {
       expect(result).toEqual({ success: true });
       expect(fetchSpy).not.toHaveBeenCalled();
     });
-  });
 
-  describe("when secret key is not configured", () => {
-    it("should skip verification and return success", async () => {
+    it("should skip verification even without secret key", async () => {
+      mockIsDev = true;
       mockSecretKey = undefined;
       const result = await verifyTurnstileToken("any-token");
       expect(result).toEqual({ success: true });
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("when secret key is not configured", () => {
+    it("should fail closed in production", async () => {
+      mockSecretKey = undefined;
+      const result = await verifyTurnstileToken("any-token");
+      expect(result.success).toBe(false);
       expect(fetchSpy).not.toHaveBeenCalled();
     });
   });
