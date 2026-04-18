@@ -30,7 +30,6 @@ const mockPlayerContext = {
     loadForSession: vi.fn(),
     fetchTracks: vi.fn(),
     removeTrackLocal: vi.fn(),
-    reorderTracks: vi.fn(),
     rerollTrack: vi.fn(),
   },
   player: {
@@ -117,8 +116,8 @@ vi.mock("@/components/launchpad/Launchpad", () => ({
   Launchpad: () => <div data-testid="launchpad" />,
 }));
 
-vi.mock("@/components/player/SortableTrackItem", () => ({
-  SortableTrackItem: ({ track }: { track: PlaylistTrack }) => (
+vi.mock("@/components/player/PlaylistTrackCard", () => ({
+  PlaylistTrackCard: ({ track }: { track: PlaylistTrack }) => (
     <div data-testid={`track-${track.id}`}>{track.track_name ?? track.video_title}</div>
   ),
 }));
@@ -138,22 +137,6 @@ vi.mock("@/components/AuthButtons", () => ({
 
 vi.mock("next-auth/react", () => ({
   signOut: vi.fn(),
-}));
-
-vi.mock("@dnd-kit/core", () => ({
-  DndContext: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  closestCenter: vi.fn(),
-  PointerSensor: vi.fn(),
-  KeyboardSensor: vi.fn(),
-  useSensor: vi.fn(),
-  useSensors: vi.fn(() => []),
-}));
-
-vi.mock("@dnd-kit/sortable", () => ({
-  SortableContext: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  sortableKeyboardCoordinates: vi.fn(),
-  verticalListSortingStrategy: vi.fn(),
-  arrayMove: vi.fn(),
 }));
 
 import { FeedClient } from "../FeedClient";

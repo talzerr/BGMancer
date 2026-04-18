@@ -387,3 +387,339 @@ wrangler tail                                            # live-stream Worker lo
 ```
 
 The Cloudflare dashboard build command is: `pnpm cf-typegen && pnpm opennextjs-cloudflare build`
+
+<!-- GSD:project-start source:PROJECT.md -->
+## Project
+
+**BGMancer**
+
+BGMancer is a video game soundtrack playlist generator. Users build a library of games, then generate curated playlists of background music from those games' soundtracks, played via YouTube. It supports multiple playlist modes (Journey, Chill, Mix, Rush), guest and authenticated flows, and includes a backstage admin for game onboarding and metadata curation.
+
+**Core Value:** Generate high-quality, mood-aware playlists from video game soundtracks that feel intentionally curated, not random.
+
+### Constraints
+
+- **Tech stack**: Existing stack is fixed (Next.js 16, Cloudflare Workers, Drizzle, D1)
+- **No behavior changes**: Review must not alter user-facing functionality
+- **Test philosophy**: 100% coverage target, no dead code, tests adapt to production code (never the reverse)
+<!-- GSD:project-end -->
+
+<!-- GSD:stack-start source:codebase/STACK.md -->
+## Technology Stack
+
+## Languages
+- TypeScript 5.9.3 - All application code, both server and client
+- JSX (React 19.2.4) - UI components
+- JavaScript/MHTML - CSS and configuration files
+- SQL - SQLite database queries via Drizzle ORM
+## Runtime
+- Node.js 22+ (required, see `package.json` engines)
+- Cloudflare Workers (deployment target via @opennextjs/cloudflare)
+- pnpm 10.33.0
+- Lockfile: `pnpm-lock.yaml` (present)
+## Frameworks
+- Next.js 16.2.1 - Full-stack framework with App Router
+- React 19.2.4 - UI library
+- Tailwind CSS 4.2.1 - Utility-first CSS framework
+- Drizzle ORM 0.45.2 - TypeScript ORM for SQLite
+- Drizzle Kit 0.31.10 - Migration generation and schema management
+- Cloudflare D1 - SQLite database service (local dev via miniflare, production via Workers binding)
+- NextAuth 5.0.0-beta.30 - Session management with JWT strategy
+- Google OAuth 2.0 (production) / Credentials provider (dev)
+- Vitest 4.1.2 - Unit and integration test runner
+- @testing-library/react 16.3.2 - Component testing utilities
+- jsdom 29.0.1 - DOM environment for tests
+- better-sqlite3 12.8.0 - In-memory SQLite for test databases
+- @vitest/coverage-v8 4.1.2 - Code coverage (targets 100% for `src/lib/**/*.ts`)
+- Turbopack - Fast build and dev mode (via `next dev --turbopack`)
+- OpenNext 1.18.0 (@opennextjs/cloudflare) - Next.js to Cloudflare Workers adapter
+- TypeScript Compiler - Type checking (strict mode)
+- ESLint 9.39.4 - Code linting
+- Prettier 3.8.1 - Code formatting
+- Husky 9.1.7 - Git hooks for pre-commit lint + format
+- @base-ui/react 1.3.0 - Unstyled component primitives (popover, menu)
+- @dnd-kit/core 6.3.1, @dnd-kit/sortable 10.0.0 - Drag-and-drop for playlist reordering
+- lucide-react 0.577.0 - Icon library
+- class-variance-authority 0.7.1 - CSS class composition
+- clsx 2.1.1 - Conditional className utilities
+- tailwind-merge 3.5.0 - Tailwind class merging
+- tw-animate-css 1.4.0 - Tailwind animation utilities
+- Zod 4.3.6 - Schema validation for API inputs
+- jose 6.2.2 - JWT token handling (NextAuth compatibility)
+- uuidv7 1.2.1 - UUID v7 generation for entity IDs
+- @anthropic-ai/sdk 0.82.0 - Anthropic Claude API client
+## Key Dependencies
+- drizzle-orm, drizzle-kit - Required for database schema management and queries
+- next-auth - Centralized authentication for all auth levels (Public/Optional/Required/Admin)
+- @anthropic-ai/sdk - Powers all LLM calls: track tagging, vibe profiling, session naming
+- zod - Input validation for all POST/PATCH/DELETE routes
+- @opennextjs/cloudflare - Cloudflare Workers adapter (production deployment)
+- better-sqlite3 - In-memory test databases with D1 compatibility wrapper
+- None as npm packages; all external APIs (YouTube, Steam, IGDB, Discogs) use native fetch()
+## Configuration
+- Centralized in `src/lib/env.ts` - Single source of truth for all environment variables
+- Lazy-loaded singleton pattern - Read on first access (required for Cloudflare Workers)
+- Required env vars: `NEXTAUTH_SECRET`, `YOUTUBE_API_KEY`, `ANTHROPIC_API_KEY`
+- Optional: `GOOGLE_CLIENT_ID/SECRET` (prod), `STEAM_API_KEY`, `DISCOGS_TOKEN`, `IGDB_CLIENT_ID/SECRET`, `TURNSTILE_SITE_KEY/SECRET_KEY`
+- `tsconfig.json` - TypeScript strict mode, @/\* path alias
+- `next.config.ts - Image optimization disabled (unoptimized), CSP headers, development setup
+- `vitest.config.ts` - Separate projects for node and jsdom environments, 100% coverage targets
+- `.prettierrc` - 100-char print width, trailing commas, no semicolons (singleQuote: false but uses "")
+- `eslint.config.mjs` - Next.js ESLint configuration
+- `drizzle.config.ts` - Points to `src/lib/db/drizzle-schema.ts` and `drizzle/migrations/`
+- Migrations stored in `drizzle/migrations/` - Applied via `pnpm db:migrate` (local) or `wrangler d1 migrations apply` (production)
+## Platform Requirements
+- Node.js 22+
+- pnpm 10.33.0
+- `.env.local` file (copy from `.env.local.example`) with required API keys
+- OpenSSL (for generating NEXTAUTH_SECRET)
+- Cloudflare Workers (compute)
+- Cloudflare D1 (SQLite database)
+- Cloudflare KV (rate limiting and caching)
+- Cloudflare Turnstile (bot verification)
+- Cloudflare Access (backstage route protection)
+- Google Cloud Project (YouTube Data API v3, Google OAuth)
+- Steam API (for library import)
+- Anthropic Claude API (for LLM calls)
+- Twitch Developer Console (IGDB credentials)
+- Cloudflare (Turnstile, KV, D1, Workers, Assets)
+- Discogs API (optional, for tracklist loading with higher rate limit)
+<!-- GSD:stack-end -->
+
+<!-- GSD:conventions-start source:CONVENTIONS.md -->
+## Conventions
+
+## Naming Patterns
+- React components: PascalCase (e.g., `LogoLink.tsx`, `FeedClient.tsx`)
+- Utilities and services: camelCase (e.g., `useConfig.ts`, `steam-sync.ts`)
+- Constants/configs: camelCase or UPPER_CASE (e.g., `route-config.ts`, `constants.ts`)
+- Tests: `*.test.ts` for Node, `*.test.tsx` for jsdom (e.g., `useConfig.test.ts`)
+- Directories: kebab-case (e.g., `arc-templates`, `game-requests`)
+- Type files: `*.ts` (may contain enums, interfaces, types)
+- Regular functions: camelCase (e.g., `getAuthUserId`, `createTestDrizzleDB`)
+- React hook functions: `use` prefix, camelCase (e.g., `useConfig`, `usePlayerContext`)
+- Handler/resolver functions: descriptive verbs (e.g., `assemblePlaylist`, `parseTagItem`)
+- Private/internal functions: `_` prefix optional when truly internal (e.g., `_extractTagArray`)
+- camelCase for all local variables and state (e.g., `targetTrackCount`, `allowLongTracks`)
+- Constants (file-level): UPPER_SNAKE_CASE (e.g., `DEFAULT_TRACK_COUNT`, `MAX_TRACK_COUNT`)
+- Object keys in `const` objects: camelCase (e.g., `targetTrackCount` in `KEYS` object)
+- Underscore prefix to suppress unused-vars warnings (e.g., `_err`, `_unused`)
+- Interfaces: PascalCase, no `I` prefix (e.g., `User`, `PlaylistSession`, `TrackDecision`)
+- Enums: PascalCase, values are fully lowercase strings/identifiers (e.g., `enum PlaylistMode { Journey = "journey", Chill = "low" }`)
+- Enum values: match API/database format (lowercase, kebab-case for compound names; e.g., `focus_pre`, `last_resort`)
+- Type unions: PascalCase or inherit naming (e.g., `AuthResult = { authenticated: true; userId: string } | { authenticated: false }`)
+## Code Style
+- Tool: Prettier (configured in `.prettierrc`)
+- Print width: 100 characters
+- Tab width: 2 spaces
+- Trailing commas: all
+- Semicolons: required
+- String quotes: double quotes (not single)
+- Tailwind CSS plugin: sorts class attributes
+- Tool: ESLint with Next.js and TypeScript support (configured in `eslint.config.mjs`)
+- Automatically run on staged files via Husky pre-commit hook (`.ts`, `.tsx` only)
+- Manual run: `pnpm lint` (check), `pnpm lint:fix` (auto-fix)
+- No `var`, only `const` and `let`
+- Prefer `const`; use `let` only when the variable is reassigned
+- Strict equality (`===`, `==`) except `== null` allowed (catches both null and undefined)
+- No `console.log` (banned); allow `console.warn` and `console.error` for server-side logging
+- No unused variables (leading `_` suppresses the rule)
+- `import type` required for type-only imports (keeps JS bundle clean)
+- No non-null assertions (`!`) except in DB repos and tests
+- Object shorthand required (e.g., `{ foo }` not `{ foo: foo }`)
+- Template literals over string concatenation
+- Specific relaxations:
+## Import Organization
+- Single alias: `@/*` → `./src/*` (configured in `tsconfig.json`)
+- All imports use `@` prefix (e.g., `@/lib/db`, `@/hooks/useConfig`, `@/types`)
+- Never use relative imports like `../../../` — use `@` instead
+## Error Handling
+- Inherit from `Error` with explicit `name` property assignment (e.g., `this.name = "AuthRequiredError"`)
+- Define in a single file alongside their usage (e.g., `src/lib/services/auth/auth-helpers.ts`)
+- Established custom errors: `AuthRequiredError`, `YouTubeQuotaError`, `YouTubeInvalidKeyError`, `SteamApiError`, `PrivateProfileError`, `VanityNotFoundError`, `CooldownError`, `InvalidSteamUrlError`, `MissingSteamUrlError`
+- Route handlers wrap errors in `NextResponse.json({ error: ... }, { status: 4xx|5xx })`
+- Zod validation errors use `zodErrorResponse(error)` helper in `src/lib/validation.ts` (returns structured error with 400 status)
+- Database/service errors are caught and re-thrown as domain-specific errors (e.g., `SteamApiError` from Steam sync service)
+- Async generators (SSE streams) emit `SSEEventType.Error` messages instead of throwing
+- Use optional chaining (`?.`) and nullish coalescing (`??`) throughout
+- Explicit null checks before usage: `if (!session?.user?.id) { ... }`
+- Return union types for fallible operations: `{ authenticated: true; userId: string } | { authenticated: false }`
+## Logging
+- Warn-level: use `console.warn()` for recoverable errors or important state transitions
+- Error-level: use `console.error()` for unrecoverable failures or stack traces
+- Never use `console.log()` for debugging (removed via linting)
+- Structured logging: log objects as JSON when context helps (e.g., error details, decision telemetry)
+## Comments
+- No narration comments (e.g., "increment counter" is obvious from `count++`)
+- Section dividers: use horizontal-rule comments for grouping logical blocks
+- Explain "why", not "what": comment non-obvious algorithmic choices or business rules
+- Public functions and exported types: always include docstrings
+- Format: standard JSDoc (leading `/**`, one param per line if >1, return type optional)
+- Private/internal functions: only if algorithm is non-obvious
+- Example:
+## Function Design
+- Hook functions in `src/hooks/` often handle state setup and are longer (acceptable)
+- Service functions in `src/lib/services/` should be concise and single-purpose
+- Large orchestrators (pipeline stages) are explicitly excluded from coverage, accepted as-is
+- Positional: 1–3 parameters (if >3, use an object parameter)
+- Object parameters: destructure inline (e.g., `{ userId, gameId }`)
+- Optional parameters: use `?` in types, default to `undefined`
+- No boolean trap (passing `true`/`false` without context) — use named parameters or enums
+- Simple data: return the value directly
+- Fallible operations: return a union type (`T | null`, or `Success | Failure` object)
+- Async operations: always `Promise<T>`, never void (allows awaiting side effects)
+- SSE streams: return `ReadableStream<Uint8Array>` (managed by `makeSSEStream` factory)
+## Module Design
+- Named exports only (no default exports) except:
+- Barrel files (`index.ts`) re-export public APIs from sibling files
+- Internal files (prefixed `_` or in `__internal/`) are not re-exported
+- Location: `index.ts` in each feature directory
+- Purpose: single entry point for related exports
+- Pattern: `export { X } from "./x"; export { Y } from "./y";` (no circular deps)
+- Used in: `src/lib/db/repos/` (→ `repo.ts`), `src/lib/pipeline/generation/director/arc-templates/` (→ `index.ts`)
+- File per entity: `games.ts`, `sessions.ts`, `tracks.ts`, etc. in `src/lib/db/repos/`
+- Each export a single object with static methods (e.g., `Games.listAll()`, `Sessions.create()`)
+- Signature: `async methodName(params): Promise<T>`
+- Row-to-type conversion: use mappers from `src/lib/db/mappers.ts` (e.g., `toGame(row)`)
+- SQL queries: use Drizzle ORM builders or tagged template `sql` helpers, never raw SQL strings
+## Key Constraints
+- **Never use `process.env` directly** — import typed `env` singleton from `@/lib/env`
+- **Enum values are stable** — stored in database and sent on API wire; the display labels (`PLAYLIST_MODE_LABELS`) can change without touching enum values
+- **CurationMode (per-game) and PlaylistMode (per-playlist) are distinct concepts** — do not conflate them
+- **Type-only imports** must use `import type` to keep the JavaScript bundle clean
+- **useEffect temporal dead zone** — define all `const` variables before `useEffect` that references them
+- **Guest sessions use `GUEST_SESSION_ID`** constant (`"guest"`) — never hardcode the string
+- **Sessions are FIFO-evicted** — at most 3 per user; oldest automatically deleted
+- **YouTube OST playlist IDs** cached on `games.yt_playlist_id` to minimize API quota usage
+<!-- GSD:conventions-end -->
+
+<!-- GSD:architecture-start source:ARCHITECTURE.md -->
+## Architecture
+
+## Pattern Overview
+- Server-side route validation via allowlist (`src/lib/route-config.ts`)
+- Client-side global state composition via `PlayerProvider` context (`src/context/player-context.tsx`)
+- Stateless playlist generation with LLM-driven Vibe Profiler and deterministic Director algorithm
+- SQLite database (Drizzle ORM) backed by Cloudflare D1
+- Two distinct user modes: authenticated (Google OAuth) and guest (localStorage-backed)
+- Hierarchical role-based access: Public → Optional → Required → Admin (Cloudflare Access gated)
+## Layers
+- Purpose: Render UI pages and interactive components
+- Location: `src/app/(main)/`, `src/app/(main)/catalog/`, `src/app/(backstage)/backstage/`, `src/components/`
+- Contains: Pages (`*.tsx` files in `src/app/`), page-owned layouts (FeedClient, CatalogClient), React components
+- Depends on: Context (PlayerProvider), Hooks, API routes
+- Used by: HTTP requests from browser
+- Purpose: Expose endpoints following Next.js App Router conventions, enforce auth via route-config allowlist, delegate to services
+- Location: `src/app/api/*/route.ts`
+- Contains: Request parsing, validation via Zod, auth enforcement, SSE streaming, service delegation
+- Depends on: Auth helpers, validation schemas, services (db/llm/external), rate limiting
+- Used by: Client components, external services (YouTube sync)
+- Purpose: Encapsulate business logic, database queries, external API calls, LLM coordination
+- Location: `src/lib/services/`, `src/lib/db/repos/`, `src/lib/pipeline/`, `src/lib/llm/`
+- Contains: Game management, playlist generation, Steam sync, IGDB search, Turnstile verification, YouTube operations
+- Depends on: Database (Drizzle), external APIs, constants
+- Used by: API routes, hooks
+- Purpose: Manage schema, queries, and persistence
+- Location: `src/lib/db/drizzle-schema.ts`, `src/lib/db/repos/`, `src/lib/db/mappers.ts`, `src/lib/db/queries.ts`
+- Contains: SQLite schema definitions, repository methods for all domain objects
+- Depends on: Cloudflare D1 environment binding
+- Used by: Services, repos
+- Purpose: Manage client-side state composition and derived data
+- Location: `src/context/player-context.tsx`, `src/hooks/`
+- Contains: Global state providers, custom hooks for playlist/player/config/library/games
+- Depends on: API routes (for data fetching), localStorage (for persistence), YouTube IFrame API
+- Used by: Components
+- Purpose: Interface with third-party services
+- Location: `src/lib/services/external/` (YouTube, Steam, IGDB, Turnstile)
+- Contains: API clients, token caching, error types, domain-specific logic (steam-sync.ts, igdb.ts, youtube-resolve.ts, turnstile.ts)
+- Depends on: Typed env (env.ts), rate limiting, Drizzle
+- Used by: Services, API routes
+- Purpose: Cross-cutting concerns and helpers
+- Location: `src/lib/` (env.ts, route-config.ts, rate-limit.ts, sse.ts, logger.ts, concurrency.ts, validation.ts)
+- Contains: Typed environment configuration, logging, rate limiting, SSE stream factory, Zod schemas
+- Depends on: Standard library
+- Used by: All layers
+## Data Flow
+## Key Abstractions
+- Purpose: Unified playback interface abstracting YouTube API
+- Examples: `src/hooks/player/useYouTubePlayer.ts`, `src/context/player-context.tsx`
+- Pattern: Module-level singleton `ytPlayer` reference, exposes `MediaState` interface (isPlaying, currentTime, volume, seekTo, etc.)
+- Mounted by `PlayerProvider`, consumed by components via `usePlayerContext().media`
+- Purpose: Represent a single selected track, carry decision score components and arc phase
+- Examples: `PlaylistTrack` type with `arc_phase` left-join from `playlist_track_decisions`
+- Pattern: Query result includes decision data; UI uses arc_phase for subtle spacing (no labels shown)
+- Energy modes always tag with `arc_phase = "steady"` so spacing is absent
+- Purpose: Parameterize Director arc template per session based on game mood/energy distribution
+- Examples: `src/lib/pipeline/generation/vibe-profiler.ts`, cached in `playlists.rubric` (JSON)
+- Pattern: LLM generates per-game mood profiles → aggregates to game-set rubric → Director uses to sharpen arc template
+- Cache hit key: sorted game IDs; cache misses consume daily LLM cap
+- Purpose: Define playlist structure (phases, slot budgets, energy targets)
+- Examples: `JOURNEY_ARC_TEMPLATE` (six phases), `CHILL_ARC_TEMPLATE` (single Steady phase), energy mode templates
+- Pattern: Phases contain ArcSlots (mood/instrument constraints); Director fills slots deterministically
+- Energy modes pass `allowLastResort: false` so unmatched slots compact out (shorter playlists)
+- Purpose: Assemble final ordered track list from candidate pool
+- Examples: `src/lib/pipeline/generation/director/index.ts`, scoring in `constants.ts`
+- Pattern: Scores each track (energy match, cross-game balance, view bias, arc phase precedence) → fills arc slots deterministically
+- No randomness; same inputs always produce same output; produces `TrackDecision` records for telemetry
+- Entry point: `assemblePlaylist(taggedPools, games, targetCount, rubric, arcTemplate, options?)`
+- Purpose: Mark games needing manual review when onboarding encounters bad data
+- Examples: `src/lib/db/repos/review-flags.ts`, set by pipeline when no usable tracks or fetch fails
+- Pattern: `ReviewFlags.markAsNeedsReview(gameId, reason, detail?)` sets `games.needs_review = 1` + inserts row
+- Backstage displays flagged games; operators correct metadata + clear flags via `DELETE /api/backstage/review-flags`
+- Purpose: Prevent concurrent playlist generations per user, enforce cooldown
+- Examples: `Users.tryAcquireGenerationLock(userId, cooldownMs)`, `Users.releaseGenerationLock(userId)`
+- Pattern: DB-backed atomic lock using `users.is_generating` flag + `users.last_generated_at` timestamp
+- Route handler acquires before pipeline; releases in finally block
+- Returns structured error with retry-after if cooldown active
+## Entry Points
+- Location: `src/app/(main)/page.tsx` + `src/app/(main)/FeedClient.tsx`
+- Triggers: HTTP GET `/`
+- Responsibilities: Server component fetches initial games/tracks, passes to PlayerProvider; client component renders Launchpad or Playlist layout
+- Location: `src/app/(main)/catalog/page.tsx` + `src/app/(main)/catalog/CatalogClient.tsx`
+- Triggers: HTTP GET `/catalog`
+- Responsibilities: Server component fetches published game catalog; client component renders grid + library drawer + Steam sync integration
+- Location: `src/app/(backstage)/backstage/` (games, tracks, theatre, requests pages)
+- Triggers: HTTP GET `/backstage/*` (Admin auth required)
+- Responsibilities: Page-per-view (games list, track editor, Director telemetry, game request queue)
+- Location: `src/app/api/playlist/generate/route.ts`
+- Triggers: `POST /api/playlist/generate` with optional body (`target_track_count`, `playlist_mode`, `allow_long_tracks`, `allow_short_tracks`)
+- Responsibilities: Validate input, enforce auth/rate limits, run pipeline, stream SSE events
+- Location: `src/app/api/auth/[...nextauth]/route.ts`
+- Triggers: `POST /api/auth/signin`, `GET /api/auth/callback/google`, etc.
+- Responsibilities: NextAuth v5 routes; sign-in with Google (prod) or Credentials (dev)
+## Error Handling
+- **External API failures:** Return SSE error event or 500 JSON; client receives structured error with reason (YouTube quota, Steam profile private, IGDB down, etc.)
+- **Auth failures:** Return 401 for Required routes (via `AuthRequiredError`), 404 for unregistered routes or Cloudflare Access failures (identity opaque)
+- **Validation failures:** Return 400 with Zod error details (auth=Public) or 401 (auth=Required, validate after auth enforcement)
+- **Database failures:** Log error, return generic 500 (never expose DB schema/constraint details)
+- **Rate limit breaches:** Return 429 with `Retry-After` header (guest IP limit) or structured `{ cooldownMinutes }` response (generation cooldown)
+- **LLM cap exceeded:** Silently continue with fallback (default arc template for Vibe Profiler, concatenated name for session naming)
+- **SSE stream errors:** Send `{ type: "error", message }` event; stream closes after
+## Cross-Cutting Concerns
+<!-- GSD:architecture-end -->
+
+<!-- GSD:skills-start source:skills/ -->
+## Project Skills
+
+No project skills found. Add skills to any of: `.claude/skills/`, `.agents/skills/`, `.cursor/skills/`, or `.github/skills/` with a `SKILL.md` index file.
+<!-- GSD:skills-end -->
+
+<!-- GSD:workflow-start source:GSD defaults -->
+## GSD Workflow Enforcement
+
+Before using Edit, Write, or other file-changing tools, start work through a GSD command so planning artifacts and execution context stay in sync.
+
+Use these entry points:
+- `/gsd-quick` for small fixes, doc updates, and ad-hoc tasks
+- `/gsd-debug` for investigation and bug fixing
+- `/gsd-execute-phase` for planned phase work
+
+Do not make direct repo edits outside a GSD workflow unless the user explicitly asks to bypass it.
+<!-- GSD:workflow-end -->
+
+<!-- GSD:profile-start -->
+## Developer Profile
+
+> Profile not yet configured. Run `/gsd-profile-user` to generate your developer profile.
+> This section is managed by `generate-claude-profile` -- do not edit manually.
+<!-- GSD:profile-end -->

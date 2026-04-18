@@ -145,30 +145,6 @@ describe("Playlist", () => {
     });
   });
 
-  describe("reorder", () => {
-    describe("when reordering tracks", () => {
-      it("should update position fields correctly", async () => {
-        await Playlist.replaceAll(sessionId, [
-          makeTrack({ id: "r1" }),
-          makeTrack({ id: "r2" }),
-          makeTrack({ id: "r3" }),
-        ]);
-
-        // Reverse the order
-        await Playlist.reorder(["r3", "r1", "r2"]);
-
-        const rows = rawDb
-          .prepare(
-            "SELECT id, position FROM playlist_tracks WHERE playlist_id = ? ORDER BY position",
-          )
-          .all(sessionId) as Array<{ id: string; position: number }>;
-        expect(rows[0]).toEqual({ id: "r3", position: 0 });
-        expect(rows[1]).toEqual({ id: "r1", position: 1 });
-        expect(rows[2]).toEqual({ id: "r2", position: 2 });
-      });
-    });
-  });
-
   describe("listUnsyncedFound", () => {
     describe("when unsynced tracks with video_id exist", () => {
       it("should return only tracks with video_id and no synced_at", async () => {

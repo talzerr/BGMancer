@@ -51,7 +51,6 @@ export const routeConfig: Record<string, RouteEntry> = {
   // ── API: Playlist ──────────────────────────────────────────
   "GET /api/playlist": { auth: AuthLevel.Optional },
   "DELETE /api/playlist": { auth: AuthLevel.Required },
-  "PATCH /api/playlist": { auth: AuthLevel.Optional },
   "POST /api/playlist/generate": { auth: AuthLevel.Optional },
   "DELETE /api/playlist/[id]": { auth: AuthLevel.Required },
   "POST /api/playlist/[id]/reroll": { auth: AuthLevel.Required },

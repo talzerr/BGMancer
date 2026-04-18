@@ -288,16 +288,3 @@ export function GoogleLogo({ className = "h-4 w-4" }: IconProps) {
     </svg>
   );
 }
-
-export function GripIcon({ className = "w-3.5 h-3.5" }: IconProps) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-      <circle cx="9" cy="5" r="1.5" />
-      <circle cx="15" cy="5" r="1.5" />
-      <circle cx="9" cy="12" r="1.5" />
-      <circle cx="15" cy="12" r="1.5" />
-      <circle cx="9" cy="19" r="1.5" />
-      <circle cx="15" cy="19" r="1.5" />
-    </svg>
-  );
-}
