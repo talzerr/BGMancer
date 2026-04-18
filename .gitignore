@@ -32,6 +32,7 @@
 # claude code worktrees
 .claude/
 docs/claude/
+.planning/
 
 # claude superpowers
 .superpowers/
@@ -61,4 +62,3 @@ next-env.d.ts
 
 # cloudflare generated types (regenerate with: pnpm cf-typegen)
 cloudflare-env.d.ts
-.planning/
