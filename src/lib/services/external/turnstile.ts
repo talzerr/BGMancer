@@ -10,7 +10,7 @@ interface VerifyResult {
 
 /**
  * Verify a Turnstile token against Cloudflare's siteverify API.
- * In dev mode or when no secret is configured, verification is skipped.
+ * In dev mode, verification is skipped. In production without a secret, verification fails closed.
  */
 export async function verifyTurnstileToken(
   token: string,
@@ -20,8 +20,8 @@ export async function verifyTurnstileToken(
 
   const secret = env.turnstileSecretKey;
   if (!secret) {
-    log.warn("secret key not configured, skipping verification");
-    return { success: true };
+    log.error("TURNSTILE_SECRET_KEY not configured in production");
+    return { success: false, error: "Verification unavailable. Please try again." };
   }
 
   if (!token) {
