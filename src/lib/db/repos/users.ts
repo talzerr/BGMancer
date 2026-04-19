@@ -59,6 +59,20 @@ export const Users = {
     cooldownMs: number,
   ): Promise<{ acquired: boolean; reason?: string }> {
     const db = getDB();
+    const cooldownThresholdIso = new Date(Date.now() - cooldownMs).toISOString();
+
+    // Atomic compare-and-set: only one concurrent caller can flip is_generating 0→1.
+    const acquired = await db.get<{ id: string }>(sql`
+      UPDATE users
+      SET is_generating = 1
+      WHERE id = ${id}
+        AND is_generating = 0
+        AND (last_generated_at IS NULL OR last_generated_at < ${cooldownThresholdIso})
+      RETURNING id
+    `);
+
+    if (acquired) return { acquired: true };
+
     const row = await db
       .select({ is_generating: users.is_generating, last_generated_at: users.last_generated_at })
       .from(users)
@@ -66,25 +80,18 @@ export const Users = {
       .get();
 
     if (!row) return { acquired: false, reason: "User not found" };
-
     if (row.is_generating) {
       return {
         acquired: false,
         reason: "A generation is already in progress. Please wait for it to finish.",
       };
     }
-
     const lastGenTime = row.last_generated_at ? new Date(row.last_generated_at).getTime() : 0;
     const cooldownRemaining = cooldownMs - (Date.now() - lastGenTime);
-    if (cooldownRemaining > 0) {
-      return {
-        acquired: false,
-        reason: `Please wait ${Math.ceil(cooldownRemaining / 1000)}s before generating again.`,
-      };
-    }
-
-    await db.update(users).set({ is_generating: true }).where(eq(users.id, id)).run();
-    return { acquired: true };
+    return {
+      acquired: false,
+      reason: `Please wait ${Math.ceil(cooldownRemaining / 1000)}s before generating again.`,
+    };
   },
 
   async releaseGenerationLock(id: string): Promise<void> {

@@ -150,6 +150,18 @@ describe("Users", () => {
         expect(result.reason).toContain("not found");
       });
     });
+
+    describe("when two callers race for the lock (TOCTOU regression)", () => {
+      it("should let only one caller acquire", async () => {
+        const results = await Promise.all([
+          Users.tryAcquireGenerationLock(TEST_USER_ID, 0),
+          Users.tryAcquireGenerationLock(TEST_USER_ID, 0),
+        ]);
+        const winners = results.filter((r) => r.acquired);
+        expect(winners).toHaveLength(1);
+        expect(results.find((r) => !r.acquired)?.reason).toContain("already in progress");
+      });
+    });
   });
 
   describe("releaseGenerationLock", () => {
