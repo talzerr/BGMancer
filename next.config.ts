@@ -11,6 +11,16 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // Next.js fingerprints every file under /_next/static with a content
+        // hash, so these bundles are safe to cache for a year. OpenNext on
+        // Cloudflare Workers sometimes masks the default immutable header;
+        // be explicit so downstream caches (and browsers) can skip revalidation.
+        source: "/_next/static/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+      {
         source: "/(.*)",
         headers: [
           // HTTPS only — browsers will refuse HTTP for 1 year after first visit
