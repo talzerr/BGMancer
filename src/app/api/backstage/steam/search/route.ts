@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withAdminAuth } from "@/lib/services/auth/admin-wrapper";
 import { createLogger } from "@/lib/logger";
 import { sanitizeGameTitle } from "@/lib/utils";
 
@@ -11,7 +12,7 @@ export interface SteamSearchResult {
 }
 
 /** GET /api/backstage/steam/search?q=<query> — Search the Steam store for games by name. Returns up to 8 results. */
-export async function GET(request: Request) {
+export const GET = withAdminAuth(async (request: Request) => {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q")?.trim();
 
@@ -50,4 +51,4 @@ export async function GET(request: Request) {
     log.error("handler failed", {}, err);
     return NextResponse.json({ results: [] });
   }
-}
+}, "backstage-steam-search");

@@ -1,4 +1,5 @@
 import { BackstageGames } from "@/lib/db/repo";
+import { withAdminAuth } from "@/lib/services/auth/admin-wrapper";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
 import { gameTitleSchema } from "@/lib/validation";
@@ -6,7 +7,7 @@ import { gameTitleSchema } from "@/lib/validation";
 const log = createLogger("backstage-games");
 
 /** GET /api/backstage/games — search games with optional filters */
-export async function GET(req: Request) {
+export const GET = withAdminAuth(async (req: Request) => {
   try {
     const url = new URL(req.url);
     const title = url.searchParams.get("title") ?? undefined;
@@ -23,10 +24,10 @@ export async function GET(req: Request) {
     log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to query games" }, { status: 500 });
   }
-}
+}, "backstage-games");
 
 /** POST /api/backstage/games — create a new draft game */
-export async function POST(req: Request) {
+export const POST = withAdminAuth(async (req: Request) => {
   try {
     const body = (await req.json()) as { title?: string; steamAppid?: number };
     const parsed = gameTitleSchema.safeParse(body.title);
@@ -41,4 +42,4 @@ export async function POST(req: Request) {
     log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to create game" }, { status: 500 });
   }
-}
+}, "backstage-games");

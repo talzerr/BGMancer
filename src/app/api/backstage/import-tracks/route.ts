@@ -1,4 +1,5 @@
 import { BackstageGames, Games, Tracks } from "@/lib/db/repo";
+import { withAdminAuth } from "@/lib/services/auth/admin-wrapper";
 import { GAME_MAX_TRACKS } from "@/lib/constants";
 import { TracklistSource } from "@/types";
 import { NextResponse } from "next/server";
@@ -22,7 +23,7 @@ const importTracksSchema = z.object({
 });
 
 /** POST /api/backstage/import-tracks — bulk-import tracks from any source (paste, etc.) */
-export async function POST(req: Request) {
+export const POST = withAdminAuth(async (req: Request) => {
   const body = await req.json();
   const parsed = importTracksSchema.safeParse(body);
   if (!parsed.success) return zodErrorResponse(parsed.error);
@@ -52,4 +53,4 @@ export async function POST(req: Request) {
     log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to import tracks" }, { status: 500 });
   }
-}
+}, "backstage-import-tracks");

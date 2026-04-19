@@ -1,11 +1,12 @@
 import { Games, Tracks, ReviewFlags } from "@/lib/db/repo";
+import { withAdminAuth } from "@/lib/services/auth/admin-wrapper";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("backstage-games");
 
 /** GET /api/backstage/games/[gameId]/tracks */
-export async function GET(_req: Request, { params }: { params: Promise<{ gameId: string }> }) {
+export const GET = withAdminAuth(async (_req: Request, { params }: { params: Promise<{ gameId: string }> }) => {
   try {
     const { gameId } = await params;
     const game = await Games.getById(gameId);
@@ -19,4 +20,4 @@ export async function GET(_req: Request, { params }: { params: Promise<{ gameId:
     log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to load game data" }, { status: 500 });
   }
-}
+}, "backstage-games-tracks");

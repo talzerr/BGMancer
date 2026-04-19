@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withAdminAuth } from "@/lib/services/auth/admin-wrapper";
 import { env } from "@/lib/env";
 import { createLogger } from "@/lib/logger";
 import { sanitizeGameTitle } from "@/lib/utils";
@@ -55,7 +56,7 @@ async function resolveSteamId(vanity: string, apiKey: string): Promise<string | 
  * Fetches a Steam user's owned game library sorted by playtime.
  * Accepts a SteamID64, vanity name, or steamcommunity.com profile URL.
  */
-export async function GET(request: Request) {
+export const GET = withAdminAuth(async (request: Request) => {
   const apiKey = env.steamApiKey;
   if (!apiKey) {
     return NextResponse.json({ error: "missing_key" }, { status: 500 });
@@ -112,4 +113,4 @@ export async function GET(request: Request) {
     log.error("handler failed", {}, err);
     return NextResponse.json({ error: "internal" }, { status: 500 });
   }
-}
+}, "backstage-steam-games");

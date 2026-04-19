@@ -1,11 +1,12 @@
 import { ReviewFlags } from "@/lib/db/repo";
+import { withAdminAuth } from "@/lib/services/auth/admin-wrapper";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("backstage-review-flags");
 
 /** DELETE /api/backstage/review-flags — dismiss a single flag or clear all for a game */
-export async function DELETE(req: Request) {
+export const DELETE = withAdminAuth(async (req: Request) => {
   try {
     const { gameId, flagId } = (await req.json()) as { gameId: string; flagId?: number };
     if (!gameId) {
@@ -23,4 +24,4 @@ export async function DELETE(req: Request) {
     log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to clear review flags" }, { status: 500 });
   }
-}
+}, "backstage-review-flags");

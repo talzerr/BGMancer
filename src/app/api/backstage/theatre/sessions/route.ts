@@ -1,11 +1,12 @@
 import { Sessions } from "@/lib/db/repo";
+import { withAdminAuth } from "@/lib/services/auth/admin-wrapper";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("backstage-theatre");
 
 /** GET /api/backstage/theatre/sessions — recent sessions across all users */
-export async function GET(req: Request) {
+export const GET = withAdminAuth(async (req: Request) => {
   try {
     const url = new URL(req.url);
     const limit = Math.min(Number(url.searchParams.get("limit") ?? 20), 50);
@@ -15,4 +16,4 @@ export async function GET(req: Request) {
     log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to load sessions" }, { status: 500 });
   }
-}
+}, "backstage-theatre-sessions");

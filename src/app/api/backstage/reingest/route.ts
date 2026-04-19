@@ -1,4 +1,5 @@
 import { BackstageGames, Games, Tracks, ReviewFlags } from "@/lib/db/repo";
+import { withAdminAuth } from "@/lib/services/auth/admin-wrapper";
 import { makeSSEStream, SSE_HEADERS, sanitizeErrorMessage } from "@/lib/sse";
 import { loadTracks, resolveVideos, tagGameTracks } from "@/lib/pipeline/onboarding";
 import { OnboardingPhase, ReviewReason, SSEEventType } from "@/types";
@@ -18,7 +19,7 @@ type ReingestEvent =
   | { type: SSEEventType.Error; message: string };
 
 /** POST /api/backstage/reingest — clear all tracks and re-fetch from Discogs */
-export async function POST(req: Request) {
+export const POST = withAdminAuth(async (req: Request) => {
   const { gameId } = (await req.json()) as { gameId: string };
 
   if (!gameId) {
@@ -101,4 +102,4 @@ export async function POST(req: Request) {
   })();
 
   return new Response(stream, { headers: SSE_HEADERS });
-}
+}, "backstage-reingest");

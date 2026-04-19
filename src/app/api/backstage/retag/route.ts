@@ -1,4 +1,5 @@
 import { BackstageGames, Games, Tracks } from "@/lib/db/repo";
+import { withAdminAuth } from "@/lib/services/auth/admin-wrapper";
 import { tagTracks } from "@/lib/pipeline/onboarding/tagger";
 import { getTaggingProvider } from "@/lib/llm";
 import { makeSSEStream, SSE_HEADERS, sanitizeErrorMessage } from "@/lib/sse";
@@ -13,7 +14,7 @@ type RetagEvent =
   | { type: SSEEventType.Error; message: string };
 
 /** POST /api/backstage/retag — clear tags and re-run LLM tagger for a game */
-export async function POST(req: Request) {
+export const POST = withAdminAuth(async (req: Request) => {
   const { gameId } = (await req.json()) as { gameId: string };
 
   if (!gameId) {
@@ -76,4 +77,4 @@ export async function POST(req: Request) {
   })();
 
   return new Response(stream, { headers: SSE_HEADERS });
-}
+}, "backstage-retag");

@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
+import { withAdminAuth } from "@/lib/services/auth/admin-wrapper";
 import { createLogger } from "@/lib/logger";
 import { GameRequests } from "@/lib/db/repo";
 
 const log = createLogger("backstage-requests");
 
 /** GET /api/backstage/requests — defaults to unacknowledged only; pass `?all=1` for everything. */
-export async function GET(request: Request) {
+export const GET = withAdminAuth(async (request: Request) => {
   try {
     const { searchParams } = new URL(request.url);
     const showAll = searchParams.get("all") === "1";
@@ -17,4 +18,4 @@ export async function GET(request: Request) {
     log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to load requests" }, { status: 500 });
   }
-}
+}, "backstage-requests");

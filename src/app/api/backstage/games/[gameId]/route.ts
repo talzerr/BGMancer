@@ -1,4 +1,5 @@
 import { BackstageGames, Games } from "@/lib/db/repo";
+import { withAdminAuth } from "@/lib/services/auth/admin-wrapper";
 import type { GameUpdateFields } from "@/lib/db/repos/backstage-games";
 import { extractPlaylistId } from "@/lib/pipeline/onboarding/youtube-resolve";
 import { NextResponse } from "next/server";
@@ -8,7 +9,7 @@ import { gameTitleSchema } from "@/lib/validation";
 const log = createLogger("backstage-games");
 
 /** PATCH /api/backstage/games/[gameId] — update game metadata */
-export async function PATCH(req: Request, { params }: { params: Promise<{ gameId: string }> }) {
+export const PATCH = withAdminAuth(async (req: Request, { params }: { params: Promise<{ gameId: string }> }) => {
   const { gameId } = await params;
 
   try {
@@ -47,10 +48,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ gameId
     log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to update game" }, { status: 500 });
   }
-}
+}, "backstage-games");
 
 /** DELETE /api/backstage/games/[gameId] — permanently delete a game and all associated data */
-export async function DELETE(_req: Request, { params }: { params: Promise<{ gameId: string }> }) {
+export const DELETE = withAdminAuth(async (_req: Request, { params }: { params: Promise<{ gameId: string }> }) => {
   const { gameId } = await params;
 
   try {
@@ -71,4 +72,4 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ game
     log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to delete game" }, { status: 500 });
   }
-}
+}, "backstage-games");

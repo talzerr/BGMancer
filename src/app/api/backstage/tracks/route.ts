@@ -1,4 +1,5 @@
 import { Tracks, VideoTracks } from "@/lib/db/repo";
+import { withAdminAuth } from "@/lib/services/auth/admin-wrapper";
 import { ensureVideoMetadata } from "@/lib/pipeline/onboarding/youtube-resolve";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
@@ -6,7 +7,7 @@ import { createLogger } from "@/lib/logger";
 const log = createLogger("backstage-tracks");
 
 /** GET /api/backstage/tracks — search tracks with optional filters */
-export async function GET(req: Request) {
+export const GET = withAdminAuth(async (req: Request) => {
   try {
     const url = new URL(req.url);
     const gameId = url.searchParams.get("gameId") ?? undefined;
@@ -29,7 +30,7 @@ export async function GET(req: Request) {
     log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to query tracks" }, { status: 500 });
   }
-}
+}, "backstage-tracks");
 
 interface TrackPatch {
   gameId: string;
@@ -51,7 +52,7 @@ interface TrackPatch {
 }
 
 /** PATCH /api/backstage/tracks — update one or many tracks */
-export async function PATCH(req: Request) {
+export const PATCH = withAdminAuth(async (req: Request) => {
   try {
     const body = (await req.json()) as TrackPatch | TrackPatch[];
     const patches = Array.isArray(body) ? body : [body];
@@ -99,10 +100,10 @@ export async function PATCH(req: Request) {
     log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to update tracks" }, { status: 500 });
   }
-}
+}, "backstage-tracks");
 
 /** POST /api/backstage/tracks — create a manual track */
-export async function POST(req: Request) {
+export const POST = withAdminAuth(async (req: Request) => {
   try {
     const { gameId, name, position } = (await req.json()) as {
       gameId: string;
@@ -120,10 +121,10 @@ export async function POST(req: Request) {
     log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to create track" }, { status: 500 });
   }
-}
+}, "backstage-tracks");
 
 /** DELETE /api/backstage/tracks — delete tracks by composite PK */
-export async function DELETE(req: Request) {
+export const DELETE = withAdminAuth(async (req: Request) => {
   try {
     const body = (await req.json()) as
       | { gameId: string; names: string[] }
@@ -142,4 +143,4 @@ export async function DELETE(req: Request) {
     log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to delete tracks" }, { status: 500 });
   }
-}
+}, "backstage-tracks");

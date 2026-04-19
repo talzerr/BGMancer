@@ -1,4 +1,5 @@
 import { Games, Tracks, VideoTracks } from "@/lib/db/repo";
+import { withAdminAuth } from "@/lib/services/auth/admin-wrapper";
 import { makeSSEStream, SSE_HEADERS, sanitizeErrorMessage } from "@/lib/sse";
 import { resolveTracksToVideos } from "@/lib/pipeline/onboarding/resolver";
 import {
@@ -18,7 +19,7 @@ type ResolveSelectedEvent =
   | { type: SSEEventType.Error; message: string };
 
 /** POST /api/backstage/resolve-selected — resolve only the specified tracks to YouTube videos */
-export async function POST(req: Request) {
+export const POST = withAdminAuth(async (req: Request) => {
   const { gameId, trackNames } = (await req.json()) as {
     gameId: string;
     trackNames: string[];
@@ -101,4 +102,4 @@ export async function POST(req: Request) {
   })();
 
   return new Response(stream, { headers: SSE_HEADERS });
-}
+}, "backstage-resolve-selected");

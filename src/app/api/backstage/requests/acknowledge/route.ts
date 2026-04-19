@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withAdminAuth } from "@/lib/services/auth/admin-wrapper";
 import { createLogger } from "@/lib/logger";
 import { GameRequests } from "@/lib/db/repo";
 import { acknowledgeGameRequestSchema, zodErrorResponse } from "@/lib/validation";
@@ -6,7 +7,7 @@ import { acknowledgeGameRequestSchema, zodErrorResponse } from "@/lib/validation
 const log = createLogger("backstage-requests-ack");
 
 /** POST /api/backstage/requests/acknowledge — mark a request as acknowledged. */
-export async function POST(request: Request) {
+export const POST = withAdminAuth(async (request: Request) => {
   let body: unknown;
   try {
     body = await request.json();
@@ -24,4 +25,4 @@ export async function POST(request: Request) {
     log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to acknowledge request" }, { status: 500 });
   }
-}
+}, "backstage-requests-acknowledge");

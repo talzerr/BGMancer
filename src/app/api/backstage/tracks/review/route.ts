@@ -1,11 +1,12 @@
 import { Tracks } from "@/lib/db/repo";
+import { withAdminAuth } from "@/lib/services/auth/admin-wrapper";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("backstage-review");
 
 /** POST /api/backstage/tracks/review — batch approve/reject discovered tracks */
-export async function POST(req: Request) {
+export const POST = withAdminAuth(async (req: Request) => {
   try {
     const body = (await req.json()) as {
       gameId: string;
@@ -29,4 +30,4 @@ export async function POST(req: Request) {
     log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to review tracks" }, { status: 500 });
   }
-}
+}, "backstage-tracks-review");

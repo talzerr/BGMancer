@@ -54,7 +54,7 @@ describe("GET /api/backstage/dashboard", () => {
         published: false,
       });
 
-      const res = await GET();
+      const res = await GET(new Request("http://test/api/backstage/dashboard"));
       expect(res.status).toBe(200);
 
       const rows = await parseJson<DashboardRow[]>(res);
@@ -74,7 +74,7 @@ describe("GET /api/backstage/dashboard", () => {
 
   describe("when no games exist", () => {
     it("should return empty array", async () => {
-      const res = await GET();
+      const res = await GET(new Request("http://test/api/backstage/dashboard"));
       expect(res.status).toBe(200);
 
       const rows = await parseJson<DashboardRow[]>(res);

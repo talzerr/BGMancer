@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getAuthUserId } from "./auth-helpers";
 import { createLogger } from "@/lib/logger";
 
+export { withAdminAuth } from "./admin-wrapper";
+
 type RouteArgs = [Request, ...unknown[]];
 
 /**
@@ -44,3 +46,4 @@ export function withOptionalAuth<A extends RouteArgs>(
     }
   };
 }
+

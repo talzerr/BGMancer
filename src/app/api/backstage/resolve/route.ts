@@ -1,4 +1,5 @@
 import { BackstageGames, Games, Tracks } from "@/lib/db/repo";
+import { withAdminAuth } from "@/lib/services/auth/admin-wrapper";
 import { makeSSEStream, SSE_HEADERS, sanitizeErrorMessage } from "@/lib/sse";
 import { resolveVideos } from "@/lib/pipeline/onboarding";
 import { OnboardingPhase, SSEEventType } from "@/types";
@@ -12,7 +13,7 @@ type ResolveEvent =
   | { type: SSEEventType.Error; message: string };
 
 /** POST /api/backstage/resolve — discover YouTube playlist and map tracks to video IDs */
-export async function POST(req: Request) {
+export const POST = withAdminAuth(async (req: Request) => {
   const { gameId } = (await req.json()) as { gameId: string };
 
   if (!gameId) {
@@ -67,4 +68,4 @@ export async function POST(req: Request) {
   })();
 
   return new Response(stream, { headers: SSE_HEADERS });
-}
+}, "backstage-resolve");

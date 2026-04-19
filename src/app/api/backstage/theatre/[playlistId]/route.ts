@@ -1,11 +1,12 @@
 import { Sessions, Playlist, DirectorDecisions } from "@/lib/db/repo";
+import { withAdminAuth } from "@/lib/services/auth/admin-wrapper";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("backstage-theatre");
 
 /** GET /api/backstage/theatre/[playlistId] — full telemetry for a playlist */
-export async function GET(_req: Request, { params }: { params: Promise<{ playlistId: string }> }) {
+export const GET = withAdminAuth(async (_req: Request, { params }: { params: Promise<{ playlistId: string }> }) => {
   try {
     const { playlistId } = await params;
     const session = await Sessions.getByIdWithTelemetry(playlistId);
@@ -32,4 +33,4 @@ export async function GET(_req: Request, { params }: { params: Promise<{ playlis
     log.error("handler failed", {}, err);
     return NextResponse.json({ error: "Failed to load session telemetry" }, { status: 500 });
   }
-}
+}, "backstage-theatre");
