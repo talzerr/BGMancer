@@ -5,19 +5,12 @@ import type { CurationMode, Game } from "@/types";
 import { LIBRARY_MAX_GAMES } from "@/lib/constants";
 import {
   readGuestLibrary,
-  readGuestLibraryHydrated,
   writeGuestLibrary,
   writeGuestLibraryHydrated,
 } from "@/lib/guest-library";
 
 export function useGameLibrary(isSignedIn: boolean, initialGames: Game[] = []) {
-  const [games, setGames] = useState<Game[]>(() => {
-    if (initialGames.length > 0) return initialGames;
-    if (!isSignedIn && typeof window !== "undefined") {
-      return readGuestLibraryHydrated();
-    }
-    return [];
-  });
+  const [games, setGames] = useState<Game[]>(initialGames);
   const [isLoading, setIsLoading] = useState(games.length === 0);
   const [error, setError] = useState<string | null>(null);
   // Cache catalog for guest hydration so we don't re-fetch every time.

@@ -37,6 +37,7 @@ function makeSession(
     description: null,
     is_archived: false,
     playlist_mode: playlistMode,
+    youtube_playlist_id: null,
     track_count: trackCount,
     created_at: new Date().toISOString(),
   };

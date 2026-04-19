@@ -34,14 +34,12 @@ const mockPlayerContext = {
   },
   player: {
     currentTrackIndex: 0,
-    effectiveTracks: [] as PlaylistTrack[],
+    playingTracks: [] as PlaylistTrack[],
     isPlayerPlaying: false,
     playingTrackId: null as string | null,
     playedTrackIds: new Set<string>(),
-    shuffleMode: false,
     setCurrentTrackIndex: vi.fn(),
     setIsPlayerPlaying: vi.fn(),
-    handleToggleShuffle: vi.fn(),
     clearPlayedTracks: vi.fn(),
     reset: vi.fn(),
     startPlaying: vi.fn(),
@@ -168,16 +166,18 @@ function makeTrack(overrides: Partial<PlaylistTrack> = {}): PlaylistTrack {
     duration_seconds: TEST_DURATION_SECONDS,
     position: 0,
     created_at: new Date().toISOString(),
-    synced_at: null,
     ...overrides,
   };
 }
 
-function renderFeedClient(props: Partial<{ isSignedIn: boolean; isDev: boolean }> = {}) {
+function renderFeedClient(
+  props: Partial<{ isSignedIn: boolean; isDev: boolean; youtubeSyncEnabled: boolean }> = {},
+) {
   return render(
     <FeedClient
       isSignedIn={props.isSignedIn ?? false}
       isDev={props.isDev ?? false}
+      youtubeSyncEnabled={props.youtubeSyncEnabled ?? false}
       user={null}
       previewCovers={[]}
     />,

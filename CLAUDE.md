@@ -40,6 +40,7 @@ All env vars flow through the typed lazy singleton at `src/lib/env.ts`. **Never 
 | `STEAM_API_KEY` | Optional | Steam library sync |
 | `IGDB_CLIENT_ID` / `_SECRET` + `TURNSTILE_*` | Optional | Together gate the catalog "Request a game" form |
 | `DISCOGS_TOKEN` | Optional | Higher-rate tracklist loading |
+| `YOUTUBE_SYNC_ENABLED` | Optional | `1`/`true` enables Sync to YouTube; otherwise the link is hidden and `/api/sync` returns 503 |
 
 Backstage (`/backstage/*`) is open in dev. In production it's gated by Cloudflare Access.
 
@@ -168,6 +169,7 @@ src/lib/db/
 
 Users are created via `Users.createFromOAuth()` on first Google sign-in; dev's Credentials provider creates them on the fly.
 
+
 ### Review flags
 
 `ReviewFlags.markAsNeedsReview(gameId, reason, detail?)` sets `games.needs_review = 1` and inserts into `game_review_flags`. Pipeline flags raise when the generation encounters bad data (no usable tracks, playlist missing). Backstage surfaces them; operators clear them via `DELETE /api/backstage/review-flags`.
@@ -196,6 +198,8 @@ Shared across all users of a browser (independent of identity).
 
 ### External services
 
+- **YouTube API** (`src/lib/services/external/youtube/`) — split by responsibility: `core.ts` (shared primitives, error classes, duration parsing), `search.ts` (onboarding track search + video metadata), `ost-playlists.ts` (OST playlist discovery), `sync.ts` (user-OAuth writes). Barrel re-export from `index.ts`.
+- **YouTube sync** (`src/hooks/player/useSync.ts` + `POST /api/sync`) — authed-only, gated by `env.youtubeSyncEnabled` (route returns 503 when off). Creates an unlisted YouTube playlist per session, populates concurrently via `YOUTUBE_SYNC_CONCURRENCY`, persists the new playlist ID on `playlists.youtube_playlist_id`. Client hook owns the state machine (`idle` → `syncing` → `synced`/`error`); resets when session tracks change. On 401, triggers NextAuth incremental auth with the YouTube scope.
 - **Steam sync** (`src/lib/services/external/steam-sync.ts`) — authed-only *discovery aid*, not auto-import. Links Steam ID, pulls public library top-N by playtime (`STEAM_SYNC_MAX_GAMES = 500`), matches against catalog via JOIN on `games.steam_appid`. Cooldown (`STEAM_SYNC_COOLDOWN_MS = 1h`) is enforced in SQL via `users.steam_synced_at` because that column is also the "Last synced X ago" UI display. 429 responses carry a structured `cooldownMinutes: number` field — **never parse server error strings on the client** for data; see `useSteamLibrary` for the right pattern.
 - **Game requests** (`src/lib/services/external/igdb.ts`) — catalog empty-state search hits IGDB via Twitch OAuth (module-level token cache, ~60d lifetime). `searchGames` filters client-side (IGDB's `where` + `search` combo is unreliable): drops `version_parent`, `parent_game`, category blacklist, name dedupe, slice 10. Errors return `[]` (soft feature). `GameRequests.upsertRequest` is atomic via `INSERT ... ON CONFLICT DO UPDATE WHERE acknowledged = 0`.
 - **IGDB/Turnstile feature flag** — `requestFormEnabled` is computed server-side from `env.igdbClientId && env.igdbClientSecret && env.turnstileSiteKey`. When off, empty state degrades to "No games found" with no input. The `/api/games/search-igdb` route returns 404 when creds are missing so the client can degrade at runtime too.

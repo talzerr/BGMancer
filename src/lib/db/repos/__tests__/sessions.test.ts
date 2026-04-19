@@ -215,6 +215,33 @@ describe("Sessions", () => {
     });
   });
 
+  describe("setYoutubePlaylistId", () => {
+    describe("when storing a YouTube playlist ID", () => {
+      it("should persist the value and return it on getById", async () => {
+        const session = await Sessions.create(TEST_USER_ID, "Sync me", PlaylistMode.Journey);
+        expect(session.youtube_playlist_id).toBeNull();
+
+        await Sessions.setYoutubePlaylistId(session.id, "PL_youtube_123");
+
+        const reloaded = await Sessions.getById(session.id);
+        expect(reloaded!.youtube_playlist_id).toBe("PL_youtube_123");
+      });
+
+      it("should be readable via listAllWithCounts", async () => {
+        const session = await Sessions.create(
+          TEST_USER_ID,
+          "Sync me via list",
+          PlaylistMode.Journey,
+        );
+        await Sessions.setYoutubePlaylistId(session.id, "PL_list_456");
+
+        const rows = await Sessions.listAllWithCounts(TEST_USER_ID);
+        const row = rows.find((r) => r.id === session.id);
+        expect(row?.youtube_playlist_id).toBe("PL_list_456");
+      });
+    });
+  });
+
   describe("updateTelemetry + getByIdWithTelemetry", () => {
     describe("when storing rubric and game budgets", () => {
       it("should roundtrip JSON data correctly", async () => {

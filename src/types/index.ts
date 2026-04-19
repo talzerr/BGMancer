@@ -37,6 +37,7 @@ export interface PlaylistSession {
   description: string | null;
   is_archived: boolean;
   playlist_mode: PlaylistMode;
+  youtube_playlist_id: string | null;
   created_at: string;
 }
 
@@ -193,7 +194,6 @@ export interface PlaylistTrack {
   duration_seconds: number | null;
   position: number;
   created_at: string;
-  synced_at: string | null;
   arc_phase?: string | null;
 }
 

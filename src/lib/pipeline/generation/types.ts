@@ -15,7 +15,4 @@ export type GenerateEvent =
     }
   | { type: "error"; message: string; detail?: string };
 
-export type PendingTrack = Omit<
-  PlaylistTrack,
-  "playlist_id" | "position" | "created_at" | "synced_at"
->;
+export type PendingTrack = Omit<PlaylistTrack, "playlist_id" | "position" | "created_at">;

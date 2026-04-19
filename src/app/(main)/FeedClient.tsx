@@ -34,6 +34,7 @@ const PLAYLIST_FADE_MS = 300;
 interface FeedClientProps {
   isSignedIn: boolean;
   isDev: boolean;
+  youtubeSyncEnabled: boolean;
   turnstileSiteKey?: string;
   user: { name?: string | null; email?: string | null; image?: string | null } | null;
   previewCovers: string[];
@@ -42,6 +43,7 @@ interface FeedClientProps {
 export function FeedClient({
   isSignedIn,
   isDev,
+  youtubeSyncEnabled,
   turnstileSiteKey,
   user,
   previewCovers,
@@ -119,7 +121,7 @@ export function FeedClient({
     const nextSessionId = playlist.currentSessionId;
     const nextTracks = playlist.tracks;
 
-    // Same session — keep tracks in sync (reorder, reroll, in-place removal).
+    // Same session — keep tracks in sync (reroll, in-place removal).
     if (nextSessionId === displayedSnapshot.sessionId) {
       if (nextTracks !== displayedSnapshot.tracks) {
         setDisplayedSnapshot({ sessionId: nextSessionId, tracks: nextTracks });
@@ -253,7 +255,7 @@ export function FeedClient({
 
   const accentColors = useGameAccentColors(accentGameInputs);
 
-  // Stable callbacks for PlaylistTrackCard. The hook/context functions
+  // Stable callbacks for the playlist rows. The hook/context functions
   // aren't memoized, so we pin current values via refs to keep callback
   // identity stable across renders.
   const trackCallbackRefs = useRef({
@@ -349,6 +351,7 @@ export function FeedClient({
           tracks={displayedTracks}
           isSignedIn={isSignedIn}
           isDev={isDev}
+          youtubeSyncEnabled={youtubeSyncEnabled}
           onRename={handleRenameSession}
           onDeleteSession={handleDeleteSession}
           shortPlaylistNotice={
@@ -442,7 +445,7 @@ export function FeedClient({
             </header>
 
             <div className="flex flex-col lg:h-screen lg:flex-row lg:overflow-hidden">
-              <aside className="lg:border-border flex flex-col gap-4 p-4 lg:w-[290px] lg:shrink-0 lg:border-r lg:p-5 lg:pb-16">
+              <aside className="playlist-scroll lg:border-border flex flex-col gap-4 overflow-x-hidden p-4 lg:w-[290px] lg:shrink-0 lg:overflow-y-auto lg:border-r lg:px-5 lg:pt-5 lg:pb-1.5">
                 <div className="mb-3 hidden lg:block">
                   <LogoLink />
                 </div>

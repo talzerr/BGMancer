@@ -449,8 +449,9 @@ describe("findCachedRubric", () => {
       name,
       description: null,
       is_archived: false,
-      created_at: "2026-04-06T00:00:00Z",
       playlist_mode: PlaylistMode.Journey,
+      youtube_playlist_id: null,
+      created_at: "2026-04-06T00:00:00Z",
       track_count: 10,
     };
   }
@@ -481,8 +482,9 @@ describe("findCachedRubric", () => {
       name,
       description: null,
       is_archived: false,
-      created_at: "2026-04-06T00:00:00Z",
       playlist_mode: PlaylistMode.Journey,
+      youtube_playlist_id: null,
+      created_at: "2026-04-06T00:00:00Z",
       rubric,
       gameBudgets,
     };

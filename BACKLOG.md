@@ -73,6 +73,13 @@ Future work. No urgency, no commitment.
   in, should localStorage state (game library, config) transfer to their account?
 - **[ux] Shareable playlist seeds** — encode playlists as compact strings,
   `/share/[seed]` read-only view.
+- **[ux] Mode discoverability** — if telemetry shows low engagement with energy modes,
+  PM decision needed on whether to promote the mode selector above the Advanced fold.
+- **[ux] Mode visual theming** — design pass to give each mode a distinct color accent
+  or icon. Currently text-only labels everywhere.
+- **[engine] Director test playground** — standalone runnable script that lets people
+  clone the repo and see the scoring pipeline step by step with sample tracks.
+  Companion to DIRECTOR.md for open-source education.
 - **[catalog] Full "request a game" flow** — expand the pre-launch IGDB-based request
   system into a proper pipeline: status tracking, user notifications, automatic
   onboarding. The lean version is already live.
@@ -91,6 +98,11 @@ Future work. No urgency, no commitment.
   establishing visual separation from the main app.
 - **[backstage] Bug fixes** — unresolved track re-resolution and track rename state
   reset issues to be addressed post-launch.
+- **[backstage] Theatre data export** — one-click export of full Theatre telemetry
+  for a session (track decisions, scores, arc phases, budgets, rubric) to CSV or
+  JSON. For feeding to LLM or scripts for analysis.
+- **[backstage] Theatre flat-phase rendering** — more compact single-row visualization
+  for Steady-phase energy-mode playlists in Theatre view.
 - **[ux] Natural auth incentive** — non-intrusive sign-in encouragement after first
   completed playlist generation (DEC-018). Needs design pass for trigger, placement,
   and copy.

@@ -67,7 +67,6 @@ export function toPlaylistTrack(row: Record<string, unknown>): PlaylistTrack {
     duration_seconds: row.duration_seconds != null ? Number(row.duration_seconds) : null,
     position: Number(row.position ?? 0),
     created_at: String(row.created_at ?? ""),
-    synced_at: row.synced_at != null ? String(row.synced_at) : null,
     arc_phase: row.arc_phase != null ? String(row.arc_phase) : null,
   };
 }

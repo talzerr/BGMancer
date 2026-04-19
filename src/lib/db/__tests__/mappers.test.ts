@@ -349,7 +349,6 @@ describe("toPlaylistTrack", () => {
     duration_seconds: 240,
     position: 0,
     created_at: "2025-01-01",
-    synced_at: null,
     arc_phase: null,
   };
 
@@ -376,7 +375,6 @@ describe("toPlaylistTrack", () => {
         channel_title: null,
         thumbnail: null,
         duration_seconds: null,
-        synced_at: null,
       });
       expect(pt.game_title).toBeUndefined();
       expect(pt.track_name).toBeNull();
@@ -385,7 +383,6 @@ describe("toPlaylistTrack", () => {
       expect(pt.channel_title).toBeNull();
       expect(pt.thumbnail).toBeNull();
       expect(pt.duration_seconds).toBeNull();
-      expect(pt.synced_at).toBeNull();
     });
   });
 
@@ -393,10 +390,8 @@ describe("toPlaylistTrack", () => {
     it("should map them correctly", () => {
       const pt = toPlaylistTrack({
         ...baseRow,
-        synced_at: "2025-06-01",
         game_thumbnail_url: "https://cdn.steam.com/header.jpg",
       });
-      expect(pt.synced_at).toBe("2025-06-01");
       expect(pt.game_thumbnail_url).toBe("https://cdn.steam.com/header.jpg");
     });
 

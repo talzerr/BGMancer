@@ -119,6 +119,7 @@ export const playlists = sqliteTable(
     playlist_mode: text("playlist_mode").notNull().default("journey"),
     rubric: text("rubric"),
     game_budgets: text("game_budgets"),
+    youtube_playlist_id: text("youtube_playlist_id"),
     created_at: text("created_at").notNull().default(timestampDefault),
   },
   (table) => [
