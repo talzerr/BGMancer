@@ -1,5 +1,6 @@
 import { Games, Tracks, VideoTracks } from "@/lib/db/repo";
 import { withAdminAuth } from "@/lib/services/auth/admin-wrapper";
+import { selectedTrackNamesSchema } from "@/lib/validation";
 import { makeSSEStream, SSE_HEADERS, sanitizeErrorMessage } from "@/lib/sse";
 import { resolveTracksToVideos } from "@/lib/pipeline/onboarding/resolver";
 import {
@@ -20,17 +21,14 @@ type ResolveSelectedEvent =
 
 /** POST /api/backstage/resolve-selected — resolve only the specified tracks to YouTube videos */
 export const POST = withAdminAuth(async (req: Request) => {
-  const { gameId, trackNames } = (await req.json()) as {
-    gameId: string;
-    trackNames: string[];
-  };
-
-  if (!gameId || !trackNames?.length) {
+  const parsed = selectedTrackNamesSchema.safeParse(await req.json());
+  if (!parsed.success) {
     return new Response(
       `data: ${JSON.stringify({ type: SSEEventType.Error, message: "gameId and trackNames are required" })}\n\n`,
       { headers: SSE_HEADERS },
     );
   }
+  const { gameId, trackNames } = parsed.data;
 
   const game = await Games.getById(gameId);
   if (!game) {

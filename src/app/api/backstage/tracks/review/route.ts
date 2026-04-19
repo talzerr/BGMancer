@@ -1,5 +1,6 @@
 import { Tracks } from "@/lib/db/repo";
 import { withAdminAuth } from "@/lib/services/auth/admin-wrapper";
+import { tracksReviewSchema, zodErrorResponse } from "@/lib/validation";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
 
@@ -7,17 +8,11 @@ const log = createLogger("backstage-review");
 
 /** POST /api/backstage/tracks/review — batch approve/reject discovered tracks */
 export const POST = withAdminAuth(async (req: Request) => {
+  const parsed = tracksReviewSchema.safeParse(await req.json());
+  if (!parsed.success) return zodErrorResponse(parsed.error);
+  const body = parsed.data;
+
   try {
-    const body = (await req.json()) as {
-      gameId: string;
-      approve?: string[];
-      reject?: string[];
-    };
-
-    if (!body.gameId) {
-      return NextResponse.json({ error: "gameId is required" }, { status: 400 });
-    }
-
     if (body.approve?.length) {
       await Tracks.approveDiscovered(body.gameId, body.approve);
     }

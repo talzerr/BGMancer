@@ -2,7 +2,7 @@ import { BackstageGames } from "@/lib/db/repo";
 import { withAdminAuth } from "@/lib/services/auth/admin-wrapper";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
-import { gameTitleSchema } from "@/lib/validation";
+import { createGameSchema, zodErrorResponse } from "@/lib/validation";
 
 const log = createLogger("backstage-games");
 
@@ -28,15 +28,12 @@ export const GET = withAdminAuth(async (req: Request) => {
 
 /** POST /api/backstage/games — create a new draft game */
 export const POST = withAdminAuth(async (req: Request) => {
+  const parsed = createGameSchema.safeParse(await req.json());
+  if (!parsed.success) return zodErrorResponse(parsed.error);
+  const { title, steamAppid } = parsed.data;
+
   try {
-    const body = (await req.json()) as { title?: string; steamAppid?: number };
-    const parsed = gameTitleSchema.safeParse(body.title);
-    if (!parsed.success) {
-      return NextResponse.json({ error: "title is required" }, { status: 400 });
-    }
-    const title = parsed.data;
-    const steamAppid = typeof body.steamAppid === "number" ? body.steamAppid : null;
-    const game = await BackstageGames.createDraft(title, steamAppid);
+    const game = await BackstageGames.createDraft(title, steamAppid ?? null);
     return NextResponse.json(game, { status: 201 });
   } catch (err) {
     log.error("handler failed", {}, err);

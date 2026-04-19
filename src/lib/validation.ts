@@ -99,3 +99,85 @@ export const gameRequestSchema = z.object({
 export const acknowledgeGameRequestSchema = z.object({
   igdbId: z.number().int().positive(),
 });
+
+// ─── Backstage / admin schemas ──────────────────────────────────────────────
+
+export const gameIdBodySchema = z.object({
+  gameId: z.string().min(1),
+});
+
+export const reviewFlagsDeleteSchema = z.object({
+  gameId: z.string().min(1),
+  flagId: z.number().int().positive().optional(),
+});
+
+export const publishSchema = z.object({
+  gameId: z.string().min(1),
+  published: z.boolean(),
+});
+
+export const bulkPublishSchema = z.object({
+  gameIds: z.array(z.string().min(1)).min(1),
+  published: z.boolean(),
+});
+
+export const tracksPostSchema = z.object({
+  gameId: z.string().min(1),
+  name: z.string().min(1),
+  position: z.number().int().nonnegative().optional(),
+});
+
+const trackPatchSchema = z.object({
+  gameId: z.string().min(1),
+  name: z.string().min(1),
+  updates: z.object({
+    name: z.string().optional(),
+    active: z.boolean().optional(),
+    energy: z.number().int().nullable().optional(),
+    roles: z.string().nullable().optional(),
+    moods: z.string().nullable().optional(),
+    instrumentation: z.string().nullable().optional(),
+    hasVocals: z.boolean().nullable().optional(),
+  }),
+  videoUpdates: z
+    .object({
+      videoId: z.string().min(1),
+      durationSeconds: z.number().int().nullable().optional(),
+      viewCount: z.number().int().nullable().optional(),
+    })
+    .optional(),
+});
+
+export const tracksPatchSchema = z.union([trackPatchSchema, z.array(trackPatchSchema)]);
+
+export const tracksDeleteSchema = z.union([
+  z.object({
+    keys: z.array(z.object({ gameId: z.string().min(1), name: z.string().min(1) })).min(1),
+  }),
+  z.object({ gameId: z.string().min(1), names: z.array(z.string().min(1)).min(1) }),
+]);
+
+export const tracksReviewSchema = z.object({
+  gameId: z.string().min(1),
+  approve: z.array(z.string().min(1)).optional(),
+  reject: z.array(z.string().min(1)).optional(),
+});
+
+export const selectedTrackNamesSchema = z.object({
+  gameId: z.string().min(1),
+  trackNames: z.array(z.string().min(1)).min(1),
+});
+
+export const createGameSchema = z.object({
+  title: gameTitleSchema,
+  steamAppid: z.number().int().positive().nullable().optional(),
+});
+
+export const updateGameSchema = z.object({
+  title: gameTitleSchema.optional(),
+  steam_appid: z.number().int().positive().nullable().optional(),
+  tracklist_source: z.string().nullable().optional(),
+  yt_playlist_id: z.string().nullable().optional(),
+  thumbnail_url: z.string().nullable().optional(),
+  onboarding_phase: z.string().optional(),
+});

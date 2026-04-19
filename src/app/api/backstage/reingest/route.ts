@@ -1,4 +1,5 @@
 import { BackstageGames, Games, Tracks, ReviewFlags } from "@/lib/db/repo";
+import { gameIdBodySchema } from "@/lib/validation";
 import { withAdminAuth } from "@/lib/services/auth/admin-wrapper";
 import { makeSSEStream, SSE_HEADERS, sanitizeErrorMessage } from "@/lib/sse";
 import { loadTracks, resolveVideos, tagGameTracks } from "@/lib/pipeline/onboarding";
@@ -20,14 +21,14 @@ type ReingestEvent =
 
 /** POST /api/backstage/reingest — clear all tracks and re-fetch from Discogs */
 export const POST = withAdminAuth(async (req: Request) => {
-  const { gameId } = (await req.json()) as { gameId: string };
-
-  if (!gameId) {
+  const parsed = gameIdBodySchema.safeParse(await req.json());
+  if (!parsed.success) {
     return new Response(
       `data: ${JSON.stringify({ type: SSEEventType.Error, message: "gameId is required" })}\n\n`,
       { headers: SSE_HEADERS },
     );
   }
+  const { gameId } = parsed.data;
 
   const game = await Games.getById(gameId);
   if (!game) {

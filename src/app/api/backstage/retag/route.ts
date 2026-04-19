@@ -1,4 +1,5 @@
 import { BackstageGames, Games, Tracks } from "@/lib/db/repo";
+import { gameIdBodySchema } from "@/lib/validation";
 import { withAdminAuth } from "@/lib/services/auth/admin-wrapper";
 import { tagTracks } from "@/lib/pipeline/onboarding/tagger";
 import { getTaggingProvider } from "@/lib/llm";
@@ -15,14 +16,14 @@ type RetagEvent =
 
 /** POST /api/backstage/retag — clear tags and re-run LLM tagger for a game */
 export const POST = withAdminAuth(async (req: Request) => {
-  const { gameId } = (await req.json()) as { gameId: string };
-
-  if (!gameId) {
+  const parsed = gameIdBodySchema.safeParse(await req.json());
+  if (!parsed.success) {
     return new Response(
       `data: ${JSON.stringify({ type: SSEEventType.Error, message: "gameId is required" })}\n\n`,
       { headers: SSE_HEADERS },
     );
   }
+  const { gameId } = parsed.data;
 
   const game = await Games.getById(gameId);
   if (!game) {

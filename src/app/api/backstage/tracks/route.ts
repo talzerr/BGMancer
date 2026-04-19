@@ -1,5 +1,11 @@
 import { Tracks, VideoTracks } from "@/lib/db/repo";
 import { withAdminAuth } from "@/lib/services/auth/admin-wrapper";
+import {
+  tracksPatchSchema,
+  tracksPostSchema,
+  tracksDeleteSchema,
+  zodErrorResponse,
+} from "@/lib/validation";
 import { ensureVideoMetadata } from "@/lib/pipeline/onboarding/youtube-resolve";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
@@ -53,8 +59,11 @@ interface TrackPatch {
 
 /** PATCH /api/backstage/tracks — update one or many tracks */
 export const PATCH = withAdminAuth(async (req: Request) => {
+  const parsed = tracksPatchSchema.safeParse(await req.json());
+  if (!parsed.success) return zodErrorResponse(parsed.error);
+  const body = parsed.data as TrackPatch | TrackPatch[];
+
   try {
-    const body = (await req.json()) as TrackPatch | TrackPatch[];
     const patches = Array.isArray(body) ? body : [body];
 
     // Fast path: uniform active-only updates for one game → single bulk query
@@ -104,17 +113,11 @@ export const PATCH = withAdminAuth(async (req: Request) => {
 
 /** POST /api/backstage/tracks — create a manual track */
 export const POST = withAdminAuth(async (req: Request) => {
+  const parsed = tracksPostSchema.safeParse(await req.json());
+  if (!parsed.success) return zodErrorResponse(parsed.error);
+  const { gameId, name, position } = parsed.data;
+
   try {
-    const { gameId, name, position } = (await req.json()) as {
-      gameId: string;
-      name: string;
-      position?: number;
-    };
-
-    if (!gameId || !name) {
-      return NextResponse.json({ error: "gameId and name are required" }, { status: 400 });
-    }
-
     await Tracks.upsertBatch([{ gameId, name, position: position ?? 0 }]);
     return NextResponse.json({ ok: true }, { status: 201 });
   } catch (err) {
@@ -125,19 +128,16 @@ export const POST = withAdminAuth(async (req: Request) => {
 
 /** DELETE /api/backstage/tracks — delete tracks by composite PK */
 export const DELETE = withAdminAuth(async (req: Request) => {
-  try {
-    const body = (await req.json()) as
-      | { gameId: string; names: string[] }
-      | { keys: { gameId: string; name: string }[] };
+  const parsed = tracksDeleteSchema.safeParse(await req.json());
+  if (!parsed.success) return zodErrorResponse(parsed.error);
+  const body = parsed.data;
 
+  try {
     if ("keys" in body) {
       await Tracks.deleteByKeys(body.keys);
-    } else if (body.gameId && Array.isArray(body.names)) {
-      await Tracks.deleteByKeys(body.names.map((name) => ({ gameId: body.gameId, name })));
     } else {
-      return NextResponse.json({ error: "Provide {keys} or {gameId, names}" }, { status: 400 });
+      await Tracks.deleteByKeys(body.names.map((name) => ({ gameId: body.gameId, name })));
     }
-
     return NextResponse.json({ ok: true });
   } catch (err) {
     log.error("handler failed", {}, err);

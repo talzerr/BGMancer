@@ -1,5 +1,6 @@
 import { BackstageGames, Games, Tracks, VideoTracks } from "@/lib/db/repo";
 import { withAdminAuth } from "@/lib/services/auth/admin-wrapper";
+import { selectedTrackNamesSchema } from "@/lib/validation";
 import { tagTracks } from "@/lib/pipeline/onboarding/tagger";
 import { getTaggingProvider } from "@/lib/llm";
 import { makeSSEStream, SSE_HEADERS, sanitizeErrorMessage } from "@/lib/sse";
@@ -15,17 +16,14 @@ type TagSelectedEvent =
 
 /** POST /api/backstage/tag-selected — tag only the specified tracks (no clearing) */
 export const POST = withAdminAuth(async (req: Request) => {
-  const { gameId, trackNames } = (await req.json()) as {
-    gameId: string;
-    trackNames: string[];
-  };
-
-  if (!gameId || !trackNames?.length) {
+  const parsed = selectedTrackNamesSchema.safeParse(await req.json());
+  if (!parsed.success) {
     return new Response(
       `data: ${JSON.stringify({ type: SSEEventType.Error, message: "gameId and trackNames are required" })}\n\n`,
       { headers: SSE_HEADERS },
     );
   }
+  const { gameId, trackNames } = parsed.data;
 
   const game = await Games.getById(gameId);
   if (!game) {

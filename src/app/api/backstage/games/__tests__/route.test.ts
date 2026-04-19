@@ -99,7 +99,7 @@ describe("POST /api/backstage/games", () => {
       expect(res.status).toBe(400);
 
       const body = await parseJson<{ error: string }>(res);
-      expect(body.error).toMatch(/title/i);
+      expect(body.error).toMatch(/invalid request body/i);
     });
   });
 
@@ -109,7 +109,7 @@ describe("POST /api/backstage/games", () => {
       expect(res.status).toBe(400);
 
       const body = await parseJson<{ error: string }>(res);
-      expect(body.error).toMatch(/title/i);
+      expect(body.error).toMatch(/invalid request body/i);
     });
   });
 });

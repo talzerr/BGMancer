@@ -109,7 +109,7 @@ describe("POST /api/backstage/publish", () => {
       expect(res.status).toBe(400);
 
       const body = await parseJson<{ error: string }>(res);
-      expect(body.error).toMatch(/gameId/i);
+      expect(body.error).toMatch(/invalid request body/i);
     });
   });
 
@@ -125,7 +125,7 @@ describe("POST /api/backstage/publish", () => {
       expect(res.status).toBe(400);
 
       const body = await parseJson<{ error: string }>(res);
-      expect(body.error).toMatch(/published/i);
+      expect(body.error).toMatch(/invalid request body/i);
     });
   });
 });

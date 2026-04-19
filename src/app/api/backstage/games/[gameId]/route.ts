@@ -4,7 +4,7 @@ import type { GameUpdateFields } from "@/lib/db/repos/backstage-games";
 import { extractPlaylistId } from "@/lib/pipeline/onboarding/youtube-resolve";
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logger";
-import { gameTitleSchema } from "@/lib/validation";
+import { updateGameSchema, zodErrorResponse } from "@/lib/validation";
 
 const log = createLogger("backstage-games");
 
@@ -18,22 +18,20 @@ export const PATCH = withAdminAuth(async (req: Request, { params }: { params: Pr
       return NextResponse.json({ error: "Game not found" }, { status: 404 });
     }
 
-    const body = (await req.json()) as Partial<GameUpdateFields>;
+    const parsed = updateGameSchema.safeParse(await req.json());
+    if (!parsed.success) return zodErrorResponse(parsed.error);
+    const body = parsed.data;
 
     const fields: GameUpdateFields = {};
-    if (body.title !== undefined) {
-      const parsed = gameTitleSchema.safeParse(body.title);
-      if (!parsed.success) {
-        return NextResponse.json({ error: "Invalid title" }, { status: 400 });
-      }
-      fields.title = parsed.data;
-    }
-    if (body.steam_appid !== undefined) fields.steam_appid = body.steam_appid;
-    if (body.tracklist_source !== undefined) fields.tracklist_source = body.tracklist_source;
+    if (body.title !== undefined) fields.title = body.title;
+    if (body.steam_appid !== undefined) fields.steam_appid = body.steam_appid ?? null;
+    if (body.tracklist_source !== undefined)
+      fields.tracklist_source = body.tracklist_source ?? null;
     if (body.yt_playlist_id !== undefined)
       fields.yt_playlist_id = body.yt_playlist_id ? extractPlaylistId(body.yt_playlist_id) : null;
-    if (body.thumbnail_url !== undefined) fields.thumbnail_url = body.thumbnail_url;
-    if (body.onboarding_phase !== undefined) fields.onboarding_phase = body.onboarding_phase;
+    if (body.thumbnail_url !== undefined) fields.thumbnail_url = body.thumbnail_url ?? null;
+    if (body.onboarding_phase !== undefined)
+      fields.onboarding_phase = body.onboarding_phase as GameUpdateFields["onboarding_phase"];
 
     if (Object.keys(fields).length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });
