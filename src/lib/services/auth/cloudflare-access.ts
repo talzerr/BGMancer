@@ -7,6 +7,12 @@
 
 const CF_AUTH_COOKIE = "CF_Authorization";
 
+function decodeBase64Url(input: string): string {
+  const b64 = input.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+  return atob(padded);
+}
+
 /**
  * Returns true if the request carries a structurally valid, non-expired
  * CF Access JWT. This is defense-in-depth behind Cloudflare Access --
@@ -27,7 +33,7 @@ export function hasCloudflareAccessToken(request: Request): boolean {
   if (parts.length !== 3) return false;
 
   try {
-    const payload = JSON.parse(atob(parts[1]));
+    const payload = JSON.parse(decodeBase64Url(parts[1]));
     if (typeof payload.exp !== "number") return false;
     return payload.exp > Date.now() / 1000;
   } catch {

@@ -7,9 +7,13 @@ function makeRequest(cookie?: string): Request {
   return new Request("http://localhost/test", { headers });
 }
 
+function base64url(input: string): string {
+  return btoa(input).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
 function makeValidToken(): string {
-  const header = btoa(JSON.stringify({ alg: "RS256" }));
-  const payload = btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 }));
+  const header = base64url(JSON.stringify({ alg: "RS256" }));
+  const payload = base64url(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 }));
   return `${header}.${payload}.fakesig`;
 }
 
@@ -64,9 +68,19 @@ describe("hasCloudflareAccessToken", () => {
   });
 
   it("returns false when payload has no exp field", () => {
-    const header = btoa(JSON.stringify({ alg: "RS256" }));
-    const payload = btoa(JSON.stringify({ sub: "test" }));
+    const header = base64url(JSON.stringify({ alg: "RS256" }));
+    const payload = base64url(JSON.stringify({ sub: "test" }));
     const token = `${header}.${payload}.fakesig`;
     expect(hasCloudflareAccessToken(makeRequest(`CF_Authorization=${token}`))).toBe(false);
+  });
+
+  it("decodes base64url-encoded payload containing - or _", () => {
+    const header = base64url(JSON.stringify({ alg: "RS256" }));
+    const payload = base64url(
+      JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600, email: "admin>>>test" }),
+    );
+    expect(payload).toMatch(/[-_]/);
+    const token = `${header}.${payload}.fakesig`;
+    expect(hasCloudflareAccessToken(makeRequest(`CF_Authorization=${token}`))).toBe(true);
   });
 });
