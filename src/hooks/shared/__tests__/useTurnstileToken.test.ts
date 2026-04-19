@@ -86,4 +86,35 @@ describe("useTurnstileToken", () => {
       expect(token).toBe("");
     });
   });
+
+  describe("when the widget silently stalls (privacy browser / headless UA)", () => {
+    it("resolves to null after RENDER_TIMEOUT_MS so the caller can surface an error", async () => {
+      vi.useFakeTimers();
+      // Install a mock that renders but never fires any callback — simulating
+      // a widget that Cloudflare silently blocks.
+      const mock: MockTurnstile = {
+        render: vi.fn(),
+      };
+      (window as unknown as { turnstile: MockTurnstile }).turnstile = mock;
+
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      const { result } = renderHook(() => useTurnstileToken("site-key"));
+      const div = document.createElement("div");
+      result.current.containerRef.current = div;
+      act(() => result.current.scriptOnReady());
+
+      const tokenPromise = result.current.getToken();
+
+      await act(async () => {
+        // Advance past READY_TIMEOUT_MS (5s) + RENDER_TIMEOUT_MS (15s).
+        await vi.advanceTimersByTimeAsync(20_100);
+      });
+
+      const token = await tokenPromise;
+      expect(token).toBeNull();
+      expect(warnSpy).toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
+  });
 });

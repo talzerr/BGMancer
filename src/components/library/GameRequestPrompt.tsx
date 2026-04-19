@@ -50,6 +50,13 @@ export function GameRequestPrompt({
 
   async function handleSelect(result: IgdbSearchResult) {
     const token = await getTurnstileToken();
+    if (token === null) {
+      // Widget timed out — treat like any other submit failure via the hook's
+      // error path. Empty-string tokens still fall through to the server,
+      // which rejects with a typed error the hook surfaces.
+      await submitRequest(result, "");
+      return;
+    }
     await submitRequest(result, token);
   }
 

@@ -262,6 +262,7 @@ export function usePlaylist(init: UsePlaylistInit = {}) {
     rerollingIds,
     fetchError,
     error,
+    setGenError,
     fetchTracks,
     loadForSession,
     hydrateFromCache,

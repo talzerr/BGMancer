@@ -186,7 +186,19 @@ export function FeedClient({
   } = useTurnstileToken(turnstileSiteKey);
 
   async function handleGenerate() {
-    const turnstileToken = !isSignedIn ? await getTurnstileToken() : undefined;
+    let turnstileToken: string | undefined;
+    if (!isSignedIn) {
+      const token = await getTurnstileToken();
+      if (token === null) {
+        // Widget timed out — surface a user-facing error instead of hanging in
+        // the "Curating…" state. See `useTurnstileToken` docstring.
+        playlist.setGenError(
+          "Couldn't verify you're human. Please reload and try again.",
+        );
+        return;
+      }
+      turnstileToken = token;
+    }
     const requestedCount = config.targetTrackCount;
     const requestedMode = config.playlistMode;
     setShortPlaylistMessage(null);

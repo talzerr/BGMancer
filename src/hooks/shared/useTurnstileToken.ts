@@ -14,13 +14,22 @@ interface UseTurnstileTokenResult {
   scriptOnReady: () => void;
   /**
    * Resolve a fresh token. Waits up to `timeoutMs` for the script to load,
-   * then renders the widget. Resolves with `""` on any failure — caller is
-   * responsible for handling an empty token (the server will reject it).
+   * then renders the widget. Resolves with `null` if the widget never
+   * completes its challenge within `RENDER_TIMEOUT_MS` (covers privacy
+   * browsers, blocked third-party cookies, headless UAs). Resolves with
+   * `""` for synchronous failure paths (missing sitekey / script / container).
+   * Caller should treat both `null` and `""` as "no token" and surface a
+   * user-facing error instead of hanging the UI.
    */
-  getToken: () => Promise<string>;
+  getToken: () => Promise<string | null>;
 }
 
 const READY_TIMEOUT_MS = 5000;
+// Hard cap on waiting for the Turnstile widget to produce a token. If the
+// widget never fires its callback within this window (silent failure in
+// privacy browsers, blocked third-party cookies, headless UA) we give up and
+// surface an error rather than let the caller's generation promise dangle.
+const RENDER_TIMEOUT_MS = 15000;
 
 /**
  * Cloudflare Turnstile widget plumbing. Both guest playlist generation and
@@ -44,7 +53,7 @@ export function useTurnstileToken(siteKey: string | undefined): UseTurnstileToke
     readyRef.current?.resolve();
   }, []);
 
-  const getToken = useCallback(async (): Promise<string> => {
+  const getToken = useCallback(async (): Promise<string | null> => {
     if (!siteKey) return "";
 
     const ready = readyRef.current;
@@ -58,7 +67,10 @@ export function useTurnstileToken(siteKey: string | undefined): UseTurnstileToke
     const container = containerRef.current;
     if (!container) return "";
 
-    return new Promise<string>((resolve) => {
+    // Race the widget callbacks against a hard timeout. Privacy browsers and
+    // headless UAs can silently stall the challenge without firing any of
+    // Turnstile's callbacks — without this race, `getToken` never resolves.
+    const tokenPromise = new Promise<string>((resolve) => {
       turnstile.render(container, {
         sitekey: siteKey,
         callback: resolve,
@@ -66,6 +78,16 @@ export function useTurnstileToken(siteKey: string | undefined): UseTurnstileToke
         "expired-callback": () => resolve(""),
       });
     });
+
+    const timeoutPromise = new Promise<null>((resolve) =>
+      setTimeout(() => resolve(null), RENDER_TIMEOUT_MS),
+    );
+
+    const result = await Promise.race([tokenPromise, timeoutPromise]);
+    if (result === null) {
+      console.warn("[useTurnstileToken] widget did not resolve within timeout");
+    }
+    return result;
   }, [siteKey]);
 
   return { containerRef, scriptOnReady, getToken };
