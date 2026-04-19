@@ -88,7 +88,7 @@ export function SteamFilterToggle({
               }`}
             >
               {isSyncing
-                ? "Syncing..."
+                ? "Syncing…"
                 : cooldownMinutes !== null
                   ? `Synced recently. Try again in ${cooldownMinutes} minutes`
                   : "Sync now"}

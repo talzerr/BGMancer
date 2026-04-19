@@ -73,10 +73,14 @@ export function RequestsClient() {
         </label>
       </div>
 
-      {error && <p className="text-destructive text-xs">{error}</p>}
+      {error && (
+        <p role="alert" aria-live="polite" className="text-destructive text-xs">
+          {error}
+        </p>
+      )}
 
       {isLoading ? (
-        <p className="text-xs text-[var(--text-disabled)]">Loading...</p>
+        <p className="text-xs text-[var(--text-disabled)]">Loading…</p>
       ) : requests.length === 0 ? (
         <p className="text-xs text-[var(--text-disabled)]">No requests.</p>
       ) : (

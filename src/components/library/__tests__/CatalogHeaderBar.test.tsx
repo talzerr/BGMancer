@@ -14,7 +14,7 @@ describe("CatalogHeaderBar", () => {
   describe("search input", () => {
     it("should render with the provided search value", () => {
       render(<CatalogHeaderBar search="hollow" onSearchChange={vi.fn()} />);
-      expect(screen.getByPlaceholderText("Filter games...")).toHaveValue("hollow");
+      expect(screen.getByPlaceholderText("Filter games…")).toHaveValue("hollow");
     });
 
     it("should call onSearchChange when the user types", async () => {
@@ -22,7 +22,7 @@ describe("CatalogHeaderBar", () => {
       const onSearchChange = vi.fn();
       render(<CatalogHeaderBar search="" onSearchChange={onSearchChange} />);
 
-      await user.type(screen.getByPlaceholderText("Filter games..."), "cel");
+      await user.type(screen.getByPlaceholderText("Filter games…"), "cel");
 
       expect(onSearchChange).toHaveBeenCalledTimes(3);
       expect(onSearchChange).toHaveBeenNthCalledWith(1, "c");

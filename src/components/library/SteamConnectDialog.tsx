@@ -56,10 +56,14 @@ export function SteamConnectDialog({
             disabled={isSyncing}
             autoFocus
           />
-          {error && <p className="text-destructive text-[13px]">{error}</p>}
+          {error && (
+            <p role="alert" aria-live="polite" className="text-destructive text-[13px]">
+              {error}
+            </p>
+          )}
           <div className="flex justify-end">
             <Button type="submit" disabled={isSyncing || !url.trim()}>
-              {isSyncing ? "Syncing..." : "Sync"}
+              {isSyncing ? "Syncing…" : "Sync"}
             </Button>
           </div>
         </form>

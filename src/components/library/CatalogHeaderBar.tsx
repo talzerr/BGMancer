@@ -15,7 +15,8 @@ export function CatalogHeaderBar({ search, onSearchChange, children }: CatalogHe
         type="text"
         value={search}
         onChange={(e) => onSearchChange(e.target.value)}
-        placeholder="Filter games..."
+        placeholder="Filter games…"
+        aria-label="Filter catalog games"
         className="border-border bg-secondary/60 text-foreground w-[160px] rounded-md border px-2.5 py-1 text-xs placeholder-[var(--text-disabled)] outline-none focus:border-[var(--border-emphasis)]"
       />
       {children}

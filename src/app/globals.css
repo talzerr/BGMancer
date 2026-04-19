@@ -22,9 +22,34 @@ body {
   min-height: 100vh;
 }
 
-/* Custom scrollbar */
+html {
+  color-scheme: dark;
+}
+
+/* Balance wrapping on all headings so phrases like "Playlists from the games
+   you've played" don't break mid-word on a narrow viewport. */
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+/* Respect users who prefer less motion: collapse all transitions and animations
+   to near-instant, but keep the final state (opacity/transform) correct. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Custom scrollbar — 8px per DESIGN_SYSTEM.md */
 ::-webkit-scrollbar {
-  width: 5px;
+  width: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -34,7 +59,7 @@ body {
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* Smooth transitions for interactive elements */

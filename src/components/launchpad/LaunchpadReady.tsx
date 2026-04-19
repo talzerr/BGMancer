@@ -160,11 +160,15 @@ export function LaunchpadReady({
       </div>
 
       {genError && secsLeft === 0 && (
-        <p className="text-destructive mt-3 text-[12px]">{genError}</p>
+        <p role="alert" aria-live="polite" className="text-destructive mt-3 text-[12px]">
+          {genError}
+        </p>
       )}
 
       {emptyModeMessage && !genError && (
-        <p className="text-destructive mt-3 text-[13px]">{emptyModeMessage}</p>
+        <p role="alert" aria-live="polite" className="text-destructive mt-3 text-[13px]">
+          {emptyModeMessage}
+        </p>
       )}
     </div>
   );

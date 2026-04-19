@@ -121,10 +121,16 @@ export function GameRequestPrompt({
               {isLoading ? (
                 <div className="flex items-center gap-2 px-3 py-2">
                   <Spinner className="h-3 w-3 text-[var(--text-disabled)]" />
-                  <span className="text-xs text-[var(--text-disabled)]">Searching...</span>
+                  <span className="text-xs text-[var(--text-disabled)]">Searching…</span>
                 </div>
               ) : error ? (
-                <p className="text-destructive px-3 py-2 text-xs">{error}</p>
+                <p
+                  role="alert"
+                  aria-live="polite"
+                  className="text-destructive px-3 py-2 text-xs"
+                >
+                  {error}
+                </p>
               ) : results && results.length === 0 ? (
                 <p className="px-3 py-2 text-xs text-[var(--text-tertiary)]">No matches</p>
               ) : results && results.length > 0 ? (
