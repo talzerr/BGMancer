@@ -147,8 +147,14 @@ async function persistSession(
 
   if (decisions.length > 0 || usedRubric || gameBudgets) {
     try {
-      await Sessions.updateTelemetry(session.id, usedRubric, gameBudgets);
-      await DirectorDecisions.bulkInsert(session.id, decisions);
+      // These writes touch different tables (`playlists` vs
+      // `playlist_track_decisions`) and don't depend on each other's result,
+      // so fan them out in parallel to shave round-trip latency off the
+      // generation cold path.
+      await Promise.all([
+        Sessions.updateTelemetry(session.id, usedRubric, gameBudgets),
+        DirectorDecisions.bulkInsert(session.id, decisions),
+      ]);
     } catch (err) {
       log.error("telemetry failed, session preserved", {}, err);
     }
