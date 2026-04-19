@@ -72,18 +72,21 @@ describe("parseSessionName", () => {
 
 describe("buildSessionNamingUserPrompt", () => {
   it("formats game list with curation tags", () => {
-    const out = buildSessionNamingUserPrompt([
-      { title: "Celeste", curation: CurationMode.Focus },
-      { title: "Hollow Knight", curation: CurationMode.Include },
-      { title: "Stardew Valley", curation: CurationMode.Lite },
-    ]);
+    const out = buildSessionNamingUserPrompt(
+      [
+        { title: "Celeste", curation: CurationMode.Focus },
+        { title: "Hollow Knight", curation: CurationMode.Include },
+        { title: "Stardew Valley", curation: CurationMode.Lite },
+      ],
+      PlaylistMode.Journey,
+    );
     expect(out).toContain("- Celeste [focus]");
     expect(out).toContain("- Hollow Knight [include]");
     expect(out).toContain("- Stardew Valley [lite]");
   });
 
   it("handles empty list", () => {
-    expect(buildSessionNamingUserPrompt([])).toBe("No games.");
+    expect(buildSessionNamingUserPrompt([], PlaylistMode.Journey)).toBe("No games.");
   });
 });
 
@@ -105,6 +108,7 @@ describe("generateSessionName", () => {
     const provider = mockProvider("Boss Room Haze");
     const result = await generateSessionName([makeGame("Dark Souls", CurationMode.Focus)], {
       provider,
+      playlistMode: PlaylistMode.Journey,
     });
     expect(result).toBe("Boss Room Haze");
     expect(provider.complete).toHaveBeenCalledTimes(1);

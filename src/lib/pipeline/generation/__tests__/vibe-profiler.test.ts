@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { generateRubric, buildGameProfiles, findCachedRubric } from "../vibe-profiler";
 import type { GameProfile } from "../vibe-profiler";
 import type { LLMProvider } from "@/lib/llm/provider";
-import { ArcPhase, TrackMood, TrackInstrumentation, TrackRole } from "@/types";
+import { ArcPhase, PlaylistMode, TrackMood, TrackInstrumentation, TrackRole } from "@/types";
 import type { VibeRubric, PlaylistSession } from "@/types";
 import { Sessions } from "@/lib/db/repo";
 import type { SessionWithTelemetry } from "@/lib/db/repos/sessions";
@@ -450,6 +450,7 @@ describe("findCachedRubric", () => {
       description: null,
       is_archived: false,
       created_at: "2026-04-06T00:00:00Z",
+      playlist_mode: PlaylistMode.Journey,
       track_count: 10,
     };
   }
@@ -481,6 +482,7 @@ describe("findCachedRubric", () => {
       description: null,
       is_archived: false,
       created_at: "2026-04-06T00:00:00Z",
+      playlist_mode: PlaylistMode.Journey,
       rubric,
       gameBudgets,
     };
