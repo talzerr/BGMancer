@@ -73,7 +73,7 @@ describe("PATCH /api/sessions/[id]", () => {
       expect(res.status).toBe(400);
 
       const body = await parseJson<{ error: string }>(res);
-      expect(body.error).toMatch(/name/i);
+      expect(body.error).toBe("Invalid request body");
     });
   });
 

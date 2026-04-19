@@ -87,7 +87,7 @@ describe("POST /api/games", () => {
       expect(res.status).toBe(400);
 
       const body = await parseJson<{ error: string }>(res);
-      expect(body.error).toMatch(/gameId/i);
+      expect(body.error).toBe("Invalid request body");
     });
   });
 

@@ -8,7 +8,12 @@ import { parseSteamInput } from "@/lib/services/external/steam-input";
 // ─── Shared helpers ──────────────────────────────────────────────────────────
 
 export function zodErrorResponse(error: z.ZodError): NextResponse {
-  return NextResponse.json({ error: z.prettifyError(error) }, { status: 400 });
+  // Keep the full Zod detail server-side (helpful for debugging) but don't
+  // leak it to the client — the raw output contains glyphs and dotted paths
+  // like "✖ Invalid URL\n  → at coverUrl" which is confusing to users and
+  // exposes internal field names.
+  console.warn("[validation] request body failed schema", z.prettifyError(error));
+  return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
 }
 
 // ─── Game title ─────────────────────────────────────────────────────────────
