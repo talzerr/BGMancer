@@ -34,6 +34,7 @@ export const Playlist = {
           LEFT JOIN playlist_track_decisions d
             ON d.playlist_id = pt.playlist_id AND d.position = pt.position
           WHERE pt.playlist_id = ${sessionId}
+            AND pt.playlist_id IN (SELECT id FROM playlists WHERE user_id = ${userId})
           ORDER BY pt.position ASC
         `),
       );

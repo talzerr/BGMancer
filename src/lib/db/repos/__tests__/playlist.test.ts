@@ -314,6 +314,19 @@ describe("Playlist", () => {
         expect(tracks[0].arc_phase).toBeNull();
       });
     });
+
+    describe("when sessionId belongs to a different user (IDOR regression)", () => {
+      it("should return [] and not leak the other user's tracks", async () => {
+        await Playlist.replaceAll(sessionId, [
+          makeTrack({ id: "victim-1", track_name: "Victim Track" }),
+        ]);
+
+        const { userId: attackerId } = seedTestUser(rawDb, "attacker-user");
+
+        const tracks = await Playlist.listAllWithGameTitle(attackerId, sessionId);
+        expect(tracks).toEqual([]);
+      });
+    });
   });
 
   describe("getVideoIdsForSession", () => {
