@@ -1,5 +1,5 @@
 import { getDB } from "@/lib/db";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { gameRequests } from "@/lib/db/drizzle-schema";
 
 export interface GameRequest {
@@ -25,51 +25,26 @@ function rowToRequest(row: typeof gameRequests.$inferSelect): GameRequest {
 }
 
 export const GameRequests = {
-  /** New → insert; existing & unacknowledged → increment; acknowledged → no-op. */
+  /**
+   * New → insert; existing & unacknowledged → increment; acknowledged → no-op.
+   *
+   * Atomic: single INSERT ... ON CONFLICT DO UPDATE so concurrent callers for the
+   * same igdbId can't race into two INSERTs (UNIQUE violation → 500) or lose
+   * a count update. Acknowledged rows are preserved via the WHERE clause.
+   */
   async upsertRequest(igdbId: number, name: string, coverUrl: string | null): Promise<GameRequest> {
     const db = getDB();
     const now = new Date().toISOString();
-    const existing = await db
-      .select()
-      .from(gameRequests)
-      .where(eq(gameRequests.igdb_id, igdbId))
-      .get();
-
-    if (!existing) {
-      await db
-        .insert(gameRequests)
-        .values({
-          igdb_id: igdbId,
-          name,
-          cover_url: coverUrl,
-          request_count: 1,
-          acknowledged: false,
-          created_at: now,
-          updated_at: now,
-        })
-        .run();
-      const inserted = await db
-        .select()
-        .from(gameRequests)
-        .where(eq(gameRequests.igdb_id, igdbId))
-        .get();
-      return rowToRequest(inserted!);
-    }
-
-    if (!existing.acknowledged) {
-      await db
-        .update(gameRequests)
-        .set({ request_count: existing.request_count + 1, updated_at: now })
-        .where(eq(gameRequests.igdb_id, igdbId))
-        .run();
-      return rowToRequest({
-        ...existing,
-        request_count: existing.request_count + 1,
-        updated_at: now,
-      });
-    }
-
-    return rowToRequest(existing);
+    await db.run(sql`
+      INSERT INTO game_requests (igdb_id, name, cover_url, request_count, acknowledged, created_at, updated_at)
+      VALUES (${igdbId}, ${name}, ${coverUrl}, 1, 0, ${now}, ${now})
+      ON CONFLICT(igdb_id) DO UPDATE SET
+        request_count = request_count + 1,
+        updated_at = ${now}
+      WHERE acknowledged = 0
+    `);
+    const row = await db.select().from(gameRequests).where(eq(gameRequests.igdb_id, igdbId)).get();
+    return rowToRequest(row!);
   },
 
   async getUnacknowledged(): Promise<GameRequest[]> {

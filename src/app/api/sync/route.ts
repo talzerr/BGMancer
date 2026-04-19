@@ -8,6 +8,7 @@ import {
   findBGMancerPlaylist,
   createBGMancerPlaylist,
   addVideoToPlaylist,
+  YouTubeOAuthError,
 } from "@/lib/services/external/youtube";
 import { runConcurrent } from "@/lib/concurrency";
 
@@ -68,15 +69,19 @@ export async function POST() {
     await runConcurrent(trackRows, SYNC_CONCURRENCY, async (track) => {
       try {
         await addVideoToPlaylist(accessToken, playlistId, track.video_id);
-        await Playlist.markSynced(track.id);
         syncedIds.push(track.id);
       } catch (err) {
+        // Bubble up OAuth errors so the outer catch can prompt re-auth
+        if (err instanceof YouTubeOAuthError) throw err;
         errors.push({
           track_id: track.id,
           error: err instanceof Error ? err.message : String(err),
         });
       }
     });
+
+    // Single bulk UPDATE beats N individual writes (one D1 round-trip vs N).
+    await Playlist.markManySynced(syncedIds);
 
     return NextResponse.json({
       message: `Synced ${syncedIds.length} track(s) to "BGMancer Journey".`,
@@ -86,8 +91,8 @@ export async function POST() {
       playlist_url: `https://www.youtube.com/playlist?list=${playlistId}`,
     });
   } catch (err) {
-    // YouTube 403 means the token lacks playlist scope — prompt re-auth
-    if (err instanceof Error && err.message.includes("403")) {
+    // YouTube 401/403 means the token lacks playlist scope — prompt re-auth
+    if (err instanceof YouTubeOAuthError) {
       return NextResponse.json(
         { error: "YouTube access not granted. Please re-authenticate with YouTube permissions." },
         { status: 401 },

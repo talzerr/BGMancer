@@ -189,4 +189,28 @@ describe("POST /api/playlist/[id]/reroll", () => {
       expect(body.track.video_id).not.toBe("vid-low");
     });
   });
+
+  describe("ownership enforcement (IDOR regression)", () => {
+    it("should return 403 when the track belongs to another user", async () => {
+      seedTestUser(rawDb, "other-user");
+      seedTestGame(rawDb, "other-user", { id: "g-other" });
+      const playlistId = seedTestSession(rawDb, "other-user", { id: "pl-other" });
+      seedPlaylistTrack(playlistId, "pt-other", "g-other", 0);
+
+      const res = await POST(makeJsonRequest("/api/playlist/pt-other/reroll", "POST", {}), {
+        params: Promise.resolve({ id: "pt-other" }),
+      });
+
+      expect(res.status).toBe(403);
+      const body = await parseJson<{ error: string }>(res);
+      expect(body.error).toBe("Forbidden");
+    });
+
+    it("should return 404 when the track does not exist", async () => {
+      const res = await POST(makeJsonRequest("/api/playlist/nope/reroll", "POST", {}), {
+        params: Promise.resolve({ id: "nope" }),
+      });
+      expect(res.status).toBe(404);
+    });
+  });
 });

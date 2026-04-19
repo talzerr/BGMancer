@@ -192,9 +192,7 @@ export function FeedClient({
       if (token === null) {
         // Widget timed out — surface a user-facing error instead of hanging in
         // the "Curating…" state. See `useTurnstileToken` docstring.
-        playlist.setGenError(
-          "Couldn't verify you're human. Please reload and try again.",
-        );
+        playlist.setGenError("Couldn't verify you're human. Please reload and try again.");
         return;
       }
       turnstileToken = token;
@@ -363,11 +361,9 @@ export function FeedClient({
         />
         <div className="flex flex-col gap-0 pb-4">
           {(() => {
-            const viewingPlayingSession =
-              player.playingSessionId === displayedSnapshot.sessionId;
+            const viewingPlayingSession = player.playingSessionId === displayedSnapshot.sessionId;
             return displayedTracks.map((track, i) => {
-              const isCurrentTrack =
-                viewingPlayingSession && track.id === player.playingTrackId;
+              const isCurrentTrack = viewingPlayingSession && track.id === player.playingTrackId;
               const spoilerHidden =
                 config.antiSpoilerEnabled &&
                 !player.playedTrackIds.has(track.id) &&

@@ -16,9 +16,7 @@ const nextConfig: NextConfig = {
         // Cloudflare Workers sometimes masks the default immutable header;
         // be explicit so downstream caches (and browsers) can skip revalidation.
         source: "/_next/static/:path*",
-        headers: [
-          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
-        ],
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
       },
       {
         source: "/(.*)",

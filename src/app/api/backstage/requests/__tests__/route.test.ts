@@ -114,4 +114,16 @@ describe("POST /api/backstage/requests/acknowledge", () => {
       expect(res.status).toBe(500);
     });
   });
+
+  describe("when the body is not valid JSON", () => {
+    it("returns 400 with a masked error", async () => {
+      const req = new Request("http://localhost/api/backstage/requests/acknowledge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "not-json{",
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(400);
+    });
+  });
 });

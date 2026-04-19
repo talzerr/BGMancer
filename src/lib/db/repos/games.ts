@@ -146,6 +146,20 @@ export const Games = {
     `);
   },
 
+  /**
+   * Narrow projection for the home page preview row. Pulls only thumbnail_url
+   * (not full Game rows) and caps at a small limit to keep D1 reads cheap on
+   * what is the hottest guest-read path in the app.
+   */
+  async listPublishedCoverUrls(limit = 24): Promise<string[]> {
+    const rows = await getDB().all<{ thumbnail_url: string | null }>(sql`
+      SELECT thumbnail_url FROM games
+      WHERE published = 1 AND thumbnail_url IS NOT NULL
+      LIMIT ${limit}
+    `);
+    return rows.map((r) => r.thumbnail_url).filter((u): u is string => u != null);
+  },
+
   async listPublished(search?: string, limit = 500): Promise<Game[]> {
     const db = getDB();
     if (search?.trim()) {

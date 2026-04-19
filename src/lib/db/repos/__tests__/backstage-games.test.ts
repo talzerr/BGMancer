@@ -232,49 +232,6 @@ describe("BackstageGames", () => {
     });
   });
 
-  describe("listPublished", () => {
-    beforeEach(() => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: "pub-a", title: "Alpha Game", published: true });
-      seedTestGame(rawDb, TEST_USER_ID, { id: "pub-b", title: "Beta Game", published: true });
-      seedTestGame(rawDb, TEST_USER_ID, { id: "draft-c", title: "Draft Game", published: false });
-    });
-
-    describe("when listing without filters", () => {
-      it("should return only published games", async () => {
-        const games = await BackstageGames.listPublished();
-        const ids = games.map((g) => g.id);
-        expect(ids).toContain("pub-a");
-        expect(ids).toContain("pub-b");
-      });
-
-      it("should NOT return unpublished games", async () => {
-        const games = await BackstageGames.listPublished();
-        const ids = games.map((g) => g.id);
-        expect(ids).not.toContain("draft-c");
-      });
-    });
-
-    describe("when searching by title", () => {
-      it("should filter games by LIKE match", async () => {
-        const games = await BackstageGames.listPublished("Alpha");
-        expect(games).toHaveLength(1);
-        expect(games[0].title).toBe("Alpha Game");
-      });
-
-      it("should return empty array when search matches nothing", async () => {
-        const games = await BackstageGames.listPublished("Nonexistent");
-        expect(games).toHaveLength(0);
-      });
-    });
-
-    describe("when limit is specified", () => {
-      it("should respect the limit", async () => {
-        const games = await BackstageGames.listPublished(undefined, 1);
-        expect(games).toHaveLength(1);
-      });
-    });
-  });
-
   describe("listWithTrackStats", () => {
     describe("when games have tracks and review flags", () => {
       let gameId: string;

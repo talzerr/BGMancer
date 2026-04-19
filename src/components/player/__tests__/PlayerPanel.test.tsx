@@ -60,7 +60,7 @@ function mockContextWith(overrides: {
   vi.doMock("@/context/player-context", () => ({
     usePlayerContext: () => ({
       player: {
-        effectiveFoundTracks: tracks,
+        effectiveTracks: tracks,
         currentTrackIndex: overrides.currentTrackIndex ?? null,
         setCurrentTrackIndex: mockSetCurrentTrackIndex,
         startPlaying: mockStartPlaying,

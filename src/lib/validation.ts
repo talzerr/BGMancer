@@ -1,6 +1,6 @@
 import { z } from "zod/v4";
 import { NextResponse } from "next/server";
-import { CurationMode, PlaylistMode } from "@/types";
+import { CurationMode, OnboardingPhase, PlaylistMode } from "@/types";
 import { MAX_TRACK_COUNT, SESSION_NAME_MAX_LENGTH, GAME_TITLE_MAX_LENGTH } from "@/lib/constants";
 import { sanitizeGameTitle } from "@/lib/utils";
 import { parseSteamInput } from "@/lib/services/external/steam-input";
@@ -89,10 +89,28 @@ export const igdbSearchQuerySchema = z.object({
   q: z.string().trim().min(1).max(100),
 });
 
+const IGDB_COVER_HOST = "images.igdb.com";
+
 export const gameRequestSchema = z.object({
   igdbId: z.number().int().positive(),
   name: z.string().trim().min(1).max(200),
-  coverUrl: z.string().url().nullable(),
+  // Enforce the IGDB cover CDN at validation time; the CSP img-src also allows
+  // images.igdb.com but tightening here prevents storing attacker-controlled
+  // URLs in the DB and defends against future CSP relaxations.
+  coverUrl: z
+    .string()
+    .url()
+    .refine(
+      (v) => {
+        try {
+          return new URL(v).hostname === IGDB_COVER_HOST;
+        } catch {
+          return false;
+        }
+      },
+      { message: `Cover URL must point to ${IGDB_COVER_HOST}` },
+    )
+    .nullable(),
   turnstileToken: z.string(),
 });
 
@@ -179,5 +197,5 @@ export const updateGameSchema = z.object({
   tracklist_source: z.string().nullable().optional(),
   yt_playlist_id: z.string().nullable().optional(),
   thumbnail_url: z.string().nullable().optional(),
-  onboarding_phase: z.string().optional(),
+  onboarding_phase: z.nativeEnum(OnboardingPhase).optional(),
 });

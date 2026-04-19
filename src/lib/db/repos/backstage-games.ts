@@ -90,10 +90,6 @@ export const BackstageGames = {
       .run();
   },
 
-  async listPublished(search?: string, limit = 500): Promise<Game[]> {
-    return Games.listPublished(search, limit);
-  },
-
   async update(id: string, fields: GameUpdateFields): Promise<Game | null> {
     const setParts: ReturnType<typeof sql>[] = [];
 

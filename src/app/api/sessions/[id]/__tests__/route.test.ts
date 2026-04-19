@@ -73,7 +73,7 @@ describe("PATCH /api/sessions/[id]", () => {
       expect(res.status).toBe(400);
 
       const body = await parseJson<{ error: string }>(res);
-      expect(body.error).toBe("Invalid request body");
+      expect(body.error).toMatch(/invalid.*request.*body/i);
     });
   });
 
@@ -115,5 +115,41 @@ describe("DELETE /api/sessions/[id]", () => {
       );
       expect(res.status).toBe(404);
     });
+  });
+});
+
+describe("ownership enforcement (IDOR regression)", () => {
+  it("PATCH returns 403 when the session belongs to another user", async () => {
+    seedTestUser(rawDb, "other-user");
+    seedTestSession(rawDb, "other-user", { id: "sess-other", name: "Theirs" });
+
+    const res = await PATCH(
+      makeJsonRequest("/api/sessions/sess-other", "PATCH", { name: "Hijacked" }),
+      makeParams("sess-other"),
+    );
+    expect(res.status).toBe(403);
+    const body = await parseJson<{ error: string }>(res);
+    expect(body.error).toBe("Forbidden");
+
+    const row = rawDb.prepare("SELECT name FROM playlists WHERE id = ?").get("sess-other") as {
+      name: string;
+    };
+    expect(row.name).toBe("Theirs");
+  });
+
+  it("DELETE returns 403 when the session belongs to another user", async () => {
+    seedTestUser(rawDb, "other-user");
+    seedTestSession(rawDb, "other-user", { id: "sess-other" });
+
+    const res = await DELETE_HANDLER(
+      makeJsonRequest("/api/sessions/sess-other", "DELETE"),
+      makeParams("sess-other"),
+    );
+    expect(res.status).toBe(403);
+    const body = await parseJson<{ error: string }>(res);
+    expect(body.error).toBe("Forbidden");
+
+    const row = rawDb.prepare("SELECT id FROM playlists WHERE id = ?").get("sess-other");
+    expect(row).toBeDefined();
   });
 });

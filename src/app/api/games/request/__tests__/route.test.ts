@@ -24,7 +24,7 @@ const { POST } = await import("../route");
 const validBody = {
   igdbId: 123,
   name: "Celeste",
-  coverUrl: "https://img/c.jpg",
+  coverUrl: "https://images.igdb.com/igdb/image/upload/t_cover_big/c.jpg",
   turnstileToken: "tok-xyz",
 };
 
@@ -37,7 +37,7 @@ beforeEach(() => {
   vi.mocked(GameRequests.upsertRequest).mockResolvedValue({
     igdbId: 123,
     name: "Celeste",
-    coverUrl: "https://img/c.jpg",
+    coverUrl: "https://images.igdb.com/igdb/image/upload/t_cover_big/c.jpg",
     requestCount: 1,
     acknowledged: false,
     createdAt: "2026-04-08T12:00:00Z",
@@ -101,7 +101,11 @@ describe("POST /api/games/request", () => {
       expect(res.status).toBe(200);
       const body = await parseJson<{ success: boolean }>(res);
       expect(body.success).toBe(true);
-      expect(GameRequests.upsertRequest).toHaveBeenCalledWith(123, "Celeste", "https://img/c.jpg");
+      expect(GameRequests.upsertRequest).toHaveBeenCalledWith(
+        123,
+        "Celeste",
+        "https://images.igdb.com/igdb/image/upload/t_cover_big/c.jpg",
+      );
     });
   });
 

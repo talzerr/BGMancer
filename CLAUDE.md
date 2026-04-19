@@ -1,716 +1,294 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code working in this repo. Describes invariants and non-obvious decisions — the code itself is the source of truth for APIs and data shapes.
+
+## Project
+
+**BGMancer** is a video game soundtrack playlist generator. Users build a library of games and generate curated background music playlists played via YouTube. Four playlist modes (Journey / Chill / Mix / Rush). Guest and authenticated flows. Backstage admin for onboarding + metadata curation.
+
+**Core value:** playlists feel intentionally curated, not random. The algorithmic layer (deterministic Director + LLM Vibe Profiler) is the craft moat.
+
+**Stack (fixed):** Next.js 16 App Router · React 19 · TypeScript strict · Tailwind 4 · Drizzle ORM on Cloudflare D1 · NextAuth v5 · Anthropic SDK · Vitest · `@opennextjs/cloudflare`.
 
 ## Commands
 
 ```bash
-pnpm dev          # Start dev server (Turbopack, port 6959)
-pnpm build        # Production build
-pnpm lint         # ESLint
-pnpm lint:fix     # ESLint with auto-fix
-pnpm format       # Prettier (write)
-pnpm format:check # Prettier (check only)
-pnpm test         # Run all tests (Vitest)
-pnpm test:watch   # Tests in watch mode
-pnpm test:coverage # Tests with coverage report
-pnpm db:generate  # Generate migration from schema diff
-pnpm db:migrate   # Apply pending migrations to local D1
-pnpm db:studio    # Open Drizzle Studio (browser DB inspector)
-pnpm db:reset     # Wipe local D1 state (run db:migrate after)
-pnpm preview      # Build + preview in Cloudflare Workers runtime
+pnpm dev            # port 6959, Turbopack
+pnpm build          # production build
+pnpm lint           # ESLint (lint:fix for auto-fix)
+pnpm format         # Prettier (format:check to verify)
+pnpm test           # Vitest (test:watch, test:coverage)
+pnpm db:generate    # diff schema → new migration
+pnpm db:migrate     # apply migrations to local D1
+pnpm db:reset       # wipe local D1 (then db:migrate)
+pnpm preview        # build + run in Workers runtime
 ```
 
-Tests run via Vitest. Lint and format run automatically via husky pre-commit on staged `.ts`/`.tsx` files.
+Husky pre-commit runs lint + format on staged `.ts`/`.tsx`.
 
 ## Environment
 
-All env vars are centralized in `src/lib/env.ts` — a typed lazy-loaded singleton. Never use `process.env` directly; import `env` from `@/lib/env` instead. In Cloudflare Workers, `env` is initialized on first access (not at module load time) because secrets are available per-request.
+All env vars flow through the typed lazy singleton at `src/lib/env.ts`. **Never use `process.env` directly** — in Cloudflare Workers, secrets only exist per-request, so `env` must be read lazily. `.env.local` is copied from `.env.local.example`.
 
-Requires a `.env.local` (copy from `.env.local.example`) with:
+| Var | Required | Notes |
+|-----|----------|-------|
+| `NEXTAUTH_SECRET` | Prod + dev | ≥32 chars, not a known placeholder; `openssl rand -base64 32` |
+| `YOUTUBE_API_KEY` | Yes | All generation |
+| `ANTHROPIC_API_KEY` | Yes | Tagging, Vibe Profiler, session naming |
+| `GOOGLE_CLIENT_ID` / `_SECRET` | Prod | Dev uses a Credentials provider |
+| `ANTHROPIC_TAGGING_MODEL` / `_VIBE_MODEL` / `_NAMING_MODEL` | Optional | Per-use-case model overrides |
+| `STEAM_API_KEY` | Optional | Steam library sync |
+| `IGDB_CLIENT_ID` / `_SECRET` + `TURNSTILE_*` | Optional | Together gate the catalog "Request a game" form |
+| `DISCOGS_TOKEN` | Optional | Higher-rate tracklist loading |
 
-- `NEXTAUTH_SECRET` — **required**; signs NextAuth sessions. Must not be a known insecure value. Generate with `openssl rand -base64 32`
-- `YOUTUBE_API_KEY` — required for all playlist generation
-- `STEAM_API_KEY` — required for Steam import
-- `ANTHROPIC_API_KEY` — required; powers all LLM calls (tagging, vibe profiling)
-- `ANTHROPIC_TAGGING_MODEL` — optional; override Anthropic model for Phase 2 tagging (defaults to `ANTHROPIC_MODEL`)
-- `ANTHROPIC_VIBE_MODEL` — optional; override Anthropic model for Vibe Profiler (defaults to `ANTHROPIC_MODEL`)
-- `ANTHROPIC_NAMING_MODEL` — optional; override Anthropic model for the session-naming LLM call (defaults to `ANTHROPIC_MODEL`)
-- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — required in production for Google OAuth sign-in. In local dev, a Credentials provider is used instead
-- `IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` — optional; powers the catalog "Request a game" empty state. Twitch dev console credentials. When unset (or `TURNSTILE_SITE_KEY` is unset), the request form is hidden server-side and the empty state shows only "No games found"
-- `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` — Cloudflare Turnstile credentials. Used for guest playlist generation and game requests. In dev (`env.isDev`) or when the secret is unset, server-side verification is short-circuited
-- Backstage (`/backstage/*`) is open in local dev. In production, it's gated by Cloudflare Access on `bgmancer.com/backstage*`
-
-Schema is managed by Drizzle ORM with migrations stored in `drizzle/migrations/`. Locally, apply with `pnpm db:migrate`. In production, apply with `wrangler d1 migrations apply bgmancer-prod --remote`.
+Backstage (`/backstage/*`) is open in dev. In production it's gated by Cloudflare Access.
 
 ## Architecture
 
-This section describes the current codebase. For prescriptive rules and patterns, `docs/claude/ARCHITECTURE.md` and `docs/claude/DESIGN_SYSTEM.md` are authoritative and take precedence over descriptions here.
+### Auth model
 
-### Authentication & Security
+- **Two user modes:** guest (unauthenticated, localStorage) and logged-in (Google OAuth). No tier column — guestness is purely session-based.
+- **Route allowlist:** every accessible route (page or API) must be registered in `src/lib/route-config.ts` with an `AuthLevel` (`Public` / `Optional` / `Required` / `Admin`). Unregistered routes 404 via middleware. One entry per `METHOD /path`, no wildcards — the only exception is NextAuth's `/api/auth/*` catch-all.
+- **Enforcement layers:**
+  - `src/middleware.ts` — allowlist 404 + CF Access cookie check for Admin in prod (signature verified by CF Access edge before reaching the Worker; the in-Worker check is structural only — see `cloudflare-access.ts`).
+  - `withRequiredAuth` / `withOptionalAuth` / `withAdminAuth` wrappers — handler-layer enforcement (middleware can't call NextAuth's `auth()`).
+  - Mutation routes on user-owned resources (sessions, playlist tracks) do an ownership check and return 403 on mismatch.
+- **Input validation:** every POST/PATCH/DELETE body goes through a Zod schema in `src/lib/validation.ts`; errors return 400 via `zodErrorResponse` with a generic message (never leaks schema/field paths).
+- **Rate limiting:** KV-backed sliding window for guest IPs (`src/lib/rate-limit.ts`); DB-backed atomic lock for authenticated generation (`Users.tryAcquireGenerationLock` — single UPDATE...RETURNING).
 
-**Auth system:** NextAuth v5 (beta) as the sole auth provider. In dev, a Credentials provider allows sign-in with any name. In production, Google OAuth.
+Adding a new API route: (1) register in `route-config.ts`, (2) wrap with the right auth wrapper, (3) add a Zod schema if it accepts a body, (4) ownership-check if it operates on user-specific resources.
 
-**User model:** Two modes — Guest (unauthenticated) and Logged-in (Google OAuth). No tier column; the distinction is purely session-based. Users are created in the DB on first OAuth sign-in via `Users.createFromOAuth()`.
+### Guest vs authenticated
 
-**Route auth config (`src/lib/route-config.ts`):** Single source of truth — every accessible route (pages and API) must be registered here. Unregistered routes return 404. Each entry declares its auth level: `Public`, `Optional`, `Required`, or `Admin`.
+| Feature | Guest | Logged-in |
+|---------|-------|-----------|
+| Browse catalog | Yes | Yes |
+| Generate playlist | Director only, no persistence | Full pipeline (Vibe Profiler + Director), persisted |
+| Game library | `localStorage` (`bgm_guest_library`) | DB (`library_games`) |
+| Session history | No | DB, FIFO-capped to 3 per user |
+| Reroll / YT sync | No | Yes |
+| Request a game | Yes (Turnstile) | Yes (Turnstile) |
 
-**Middleware (`src/middleware.ts`):** Runs on all non-static requests. Reads the route config and enforces: (1) allowlist — unregistered routes get 404, (2) admin routes — in production, requires `CF_Authorization` cookie (set by Cloudflare Access) as defense in depth. Uses the deprecated `middleware.ts` convention (not Next.js 16's `proxy.ts`) for `@opennextjs/cloudflare` compatibility.
+Guest sessions use the `GUEST_SESSION_ID` constant (`"guest"`). Never hardcode the string.
 
-**Route wrappers (`src/lib/services/auth/route-wrappers.ts`):** `withRequiredAuth(handler, label)` and `withOptionalAuth(handler, label)` enforce user auth at the handler level. Middleware can't call `auth()` (NextAuth doesn't work in the middleware layer), so user auth is enforced here.
+### Pages
 
-**Auth helpers (`src/lib/services/auth/auth-helpers.ts`):** `getAuthSession()`, `getAuthUserId()`, `AuthRequiredError`. Used by route wrappers and custom handlers (generate, sync).
+- `/` — `src/app/(main)/page.tsx` + `FeedClient.tsx`. Two modes driven by derived state:
+  - **Launchpad** — onboarding screen when no tracks and not generating. Empty-library state shows shuffled covers from a small narrow projection (`Games.listPublishedCoverUrls`). Ready-library state has Curate CTA + size presets + `Advanced` toggle.
+  - **Playlist** — three-region layout (sidebar / scrolling playlist / 80px PlayerPanel). Mobile stacks vertically with a separate header.
+  - Transition is a single opacity cross-fade owned by FeedClient (timing constants at top of file).
+- `/catalog` — browse published games, add to library with curation modes, right-side library drawer + PlayerPanel.
+- `/backstage/{games,tracks,theatre,requests}` — admin control plane. Own `BackstageLayout`; **not** wrapped by `PlayerProvider`.
 
-**Ownership checks:** Mutation routes for sessions and playlist tracks verify the resource belongs to the requesting user (403 on mismatch).
+Each page owns its header/footer (no shared Header). Shared bits live in `src/components/layout/`.
 
-**Input validation:** All POST/PATCH/DELETE routes validate bodies with Zod schemas defined in `src/lib/validation.ts`.
+### Client state: `PlayerProvider`
 
-**Rate limiting:** Guest generation is IP-rate-limited via `src/lib/rate-limit.ts` (KV-backed sliding window in production, in-memory in dev). Authenticated users have a DB-backed generation cooldown lock.
+Composes hooks, owns the YouTube IFrame singleton, exposes everything via `usePlayerContext()`. Rendered in `src/app/(main)/layout.tsx`.
 
-**Guest vs Logged-in behavior:**
+- `usePlaylist` — tracks + session management, fetches `/api/playlist`.
+- `usePlayerState` — playback runtime (current track, shuffle, play/pause, revealed tracks for anti-spoiler). `reset()` clears runtime + cache; `resetPlayback()` only clears runtime (used post-generation to preserve guest cache).
+- `useConfig` — app config in localStorage (track count, anti-spoiler, long/short toggles, playlist mode).
+- `useGameLibrary(isSignedIn)` — DB for authed, localStorage for guests; same API both paths.
+- `useYouTubePlayer` — module-level singleton with DOM element created off-screen **outside** the React tree so it survives App Router transitions.
+- `media: MediaState | null` — unified playback interface; components read through this, never the YT player directly.
+- `useSteamLibrary(isSignedIn)` — authenticated-only, used by catalog page; not composed into the provider.
 
-| Feature                  | Guest                         | Logged-in                                           |
-| ------------------------ | ----------------------------- | --------------------------------------------------- |
-| Browse catalog           | Yes                           | Yes                                                 |
-| Generate playlist        | Director-only, no persistence | Full pipeline (Vibe Profiler + Director), persisted |
-| Game library             | localStorage-backed           | DB-backed                                           |
-| Session history          | No                            | DB-backed                                           |
-| Reroll / Sync to YouTube | No                            | Yes                                                 |
-| Request a game (catalog) | Yes (Turnstile-gated)         | Yes (Turnstile-gated)                               |
+**Persistence:** `bgm_playback_state` (position/track) + `bgm_playback_tracks` (playlist) + `bgm_revealed_tracks` — read via a unified `restoreData` memo on mount. Authed users clear guest artifacts and validate session ownership before hydrating; guests always restore tracks and verify video-ID match before restoring position. Position polls every ~5s. Pause state is persisted immediately (avoids stale closures).
 
-When adding a new API route:
+**Known limitation:** YouTube IFrame auto-plays on restore — `startPaused` isn't reliably honored. Accepted as-is.
 
-1. Add it to `src/lib/route-config.ts` with the correct `AuthLevel`. Register routes **explicitly** — one entry per `METHOD /path`. Do not introduce new wildcards; they obscure what's exposed and make the allowlist less useful as a security review surface. Dynamic segments like `[gameId]` are fine (and required).
-2. Use `withRequiredAuth` or `withOptionalAuth` wrapper
-3. Add a Zod schema in `src/lib/validation.ts` if it accepts a body
-4. Add ownership checks if it operates on user-specific resources
+### Generation pipeline (`src/lib/pipeline/`)
 
-### Pages and routing
+Two entry points in `index.ts`:
+- `generatePlaylist(send, userId, config)` — full pipeline + DB persistence.
+- `generatePlaylistForGuest(send, gameSelections, config)` — Director only.
 
-Next.js App Router with three main page areas:
+Both invoked from `POST /api/playlist/generate` wrapped in SSE via `makeSSEStream`. All candidate data is pre-cached during backstage onboarding (no YT or LLM calls at generation time for candidate loading).
 
-- `/` — main feed (`src/app/(main)/page.tsx` + `src/app/(main)/FeedClient.tsx`). Renders one of two layouts based on derived `mode` state in `FeedClient`:
-  - **Launchpad mode** (`src/components/launchpad/Launchpad.tsx`) — full-width centered onboarding screen shown when there are no tracks, no in-flight generation, and the user has not pressed Curate. Two states: empty library (faint game cover preview row from published catalog, app icon, tagline + subtitle, CTA → catalog) and ready library (cover row + Curate + size presets + `Advanced` reveal with custom size and Long/Short tracks). The empty state receives `previewCovers` from the server component (`page.tsx` fetches and shuffles published game thumbnails).
-  - **Playlist mode** — three-region full-height flexbox layout. Left sidebar (290px, desktop-only: logo, LibraryWidget, GenerateSection, session history, user/auth, footer links). Center (scrollable playlist with sticky header). Right sidebar (80px PlayerPanel, desktop-only). On mobile the layout stacks vertically with a separate header.
-  - The transition between modes is a single opacity cross-fade owned by `FeedClient` (timing constants `LAUNCHPAD_FADE_MS`, `LAUNCHPAD_SWAP_DELAY_MS` at the top of the file). Generation runs in the background after the layout swap.
-- `/catalog` — catalog browser + library drawer (`src/app/(main)/catalog/page.tsx` + `src/app/(main)/catalog/CatalogClient.tsx`) — browse published games, add to library with curation modes. Full-height flexbox: center (header + scrollable grid), library drawer (right), and PlayerPanel (right, conditional on active playlist).
-- `/backstage` — admin control plane (`src/app/(backstage)/backstage/`) — inspect/correct track metadata, review flags, Director telemetry, and the game request queue. Four views:
-  - `/backstage/games` — game list with needs-review badges, re-ingest / retag actions
-  - `/backstage/tracks` — track lab: full tag table with inline editing via `TrackEditSheet`, bulk actions, re-tag trigger
-  - `/backstage/theatre` — Director telemetry: per-session score breakdown and arc-phase audit trail
-  - `/backstage/requests` — IGDB-backed game request queue. Defaults to unacknowledged rows ordered by `request_count` desc; toggle "Show all" to include acknowledged. Acknowledge button is per-row
+Three phases:
 
-All non-backstage pages are wrapped by `PlayerProvider` (in `src/app/layout.tsx`), which manages global state via `src/context/player-context.tsx`. Backstage has its own layout (`BackstageLayout`) and does not use `PlayerProvider`.
+1. **Candidates** (`candidates.ts`): `getTaggedPool()` reads active + tagged tracks with resolved videos.
+2. **Rubric:** Journey mode hits `vibe-profiler.ts` LLM. Checks `findCachedRubric` (keyed on sorted game IDs) first; cache hit skips the call and doesn't consume the daily cap. Cache miss checks `USER_DAILY_LLM_CAP = 10`; if exceeded, falls back to `JOURNEY_ARC_TEMPLATE` with no rubric. Energy modes (`low`/`mid`/`high`) skip this entirely and use a static single-phase template from `director/arc-templates/`.
+3. **Assembly + session naming:** TypeScript `assemblePlaylist` in `director/index.ts` — fully deterministic, no LLM. Produces `TrackDecision` records in `playlist_track_decisions` (the Theatre view's data). Energy modes pass `allowLastResort: false` so unmatched slots compact out. Concurrently, `generateSessionName()` runs a short LLM call (authed only, **not** gated by the daily cap) — runs on every generation including cached-rubric reruns. On failure, falls back to `"Game A, Game B, Game C"`.
 
-**Page-owned layouts:** Each page owns its full layout including header, navigation, and footer. There is no shared `Header` component — FeedClient and CatalogClient each render their own header inline. Shared layout pieces live in `src/components/layout/`:
+**Reroll:** picks a random replacement from `getTaggedPool`, excluding in-session videos. For energy-mode playlists, the handler reads `playlist_mode` and applies the same energy filter as the original generation — no cross-mode bleed.
 
-- `LogoLink` — logo + wordmark link to home, used by both pages
-- `FooterLinks` — Source/Legal/Discord links, used in the feed sidebar and the catalog library drawer
+### The two "modes" (don't conflate them)
 
-**Sign-out cleanup:** `performSignOut()` (exported from `src/components/AuthButtons.tsx`) centralizes the sign-out flow: clears playback state, clears guest library, then calls `signOut()`. All sign-out call sites use this function.
+Both are enums in `src/types/index.ts`. Values are stable (stored in DB, sent on wire); display labels can change.
 
-**Sign-in prompt:** `AuthButtons` renders a `LoginPrompt` popover for guest users (dismissible, persisted via localStorage). The `hidePrompt` prop suppresses it — used on the launchpad to avoid showing the prompt before the user has experienced any value. The timing/trigger for sign-in nudges elsewhere is a PM decision.
-
-**Player UI:** The `PlayerPanel` (`src/components/player/PlayerPanel.tsx`) is a compact 80px vertical sidebar shown on desktop. Elements are clustered into two zones: a top block (cover art as clickable YouTube link, track name + game name text, progress bar, transport controls) and a bottom-anchored volume slider, with a single flex spacer between them. It reads all state from `usePlayerContext().media`. On mobile, the PlayerPanel is hidden (`hidden lg:flex`).
-
-### Global state (PlayerContext)
-
-`PlayerProvider` (rendered in `src/app/(main)/layout.tsx`) composes four hooks, manages the YouTube player, and shares their state app-wide. It receives `isSignedIn` from the server layout (via `auth()`) and exposes it on the context:
-
-- `usePlaylist` — playlist tracks + session management, fetches from `/api/playlist`
-- `usePlayerState` — playback state (current track, shuffle, play/pause, revealed tracks for anti-spoiler). Two reset functions: `reset()` clears runtime state AND localStorage cache; `resetPlayback()` clears runtime state only (used after generation to preserve guest cache).
-- `useConfig` — app config (track count, anti-spoiler, etc.) stored in localStorage
-- `useGameLibrary(isSignedIn)` — game library; authenticated users fetch from `/api/games`, guests use localStorage (key `bgm_guest_library`) hydrated against `/api/games/catalog`
-- `useYouTubePlayer` — YouTube IFrame API wrapper, managed by the context (not by any component). Exposes playback controls via the `MediaState` interface.
-- `useSteamLibrary(isSignedIn)` — authenticated-only Steam library state (used by the catalog page, not composed into `PlayerProvider`). Owns `linked`, `steamSyncedAt`, `matchedGameIds`, `cooldownMinutes`, and the `sync`/`disconnect` mutations. Guest users never call it.
-- `media: MediaState | null` — unified playback interface (`isPlaying`, `currentTime`, `duration`, `volume`, `togglePlayPause`, `seekTo`, `applyVolume`). Null when no track is active. Components consume media state through this interface, never through the YouTube player directly.
-- `isSignedIn` — boolean, available on the context for auth-gating UI
-- `toggleAntiSpoiler` — single callback that flips the anti-spoiler config and clears revealed tracks (preserving the currently playing one) when the toggle goes from off→on. This logic lives on the context because both `usePlayerState` (revealed tracks) and `useConfig` (the toggle) are involved.
-
-Use `usePlayerContext()` to access any of these from any client component.
-
-**Playback persistence:** On mount, `PlayerProvider` runs a unified restore memo (`restoreData`) that reads cached playback state from localStorage (`bgm_playback_state` for position/track, `bgm_playback_tracks` for the playlist, `bgm_revealed_tracks` for anti-spoiler state — see `src/hooks/player/playback-state.ts`). For signed-in users: clears guest artifacts, validates the cached session belongs to the current user, and hydrates if valid. For guests: always restores cached tracks, validates video ID match before restoring position. The server fetch then refreshes in the background. While playing, the player polls position every ~5s and writes to `bgm_playback_state`. Pause state is persisted immediately via `patchPausedState()` to avoid stale closure issues. The YouTube IFrame player itself is a module-level singleton (`useYouTubePlayer.ts`) — only one instance ever exists, with its DOM element created off-screen outside the React tree to survive App Router page transitions.
-
-**Guest hydration:** `FeedClient` starts with `hydrated = false` for guests (server can't read localStorage), rendering at `opacity: 0` until a mount effect flips it to `true`. This prevents a flash of the launchpad when a guest has cached playlist data.
-
-**Known limitation — pause state not restored:** Although `paused` is persisted to localStorage via `patchPausedState()`, the YouTube IFrame player always auto-plays on restore. The `startPaused` option is passed through but the YouTube API does not reliably honor it. Accepted as-is — on refresh, playback resumes from the saved position rather than staying paused.
-
-### Database layer (`src/lib/db/`)
-
-Uses **Drizzle ORM** with **Cloudflare D1** as the database driver everywhere (dev, staging, production). Local dev uses D1 emulation via miniflare (provided by `initOpenNextCloudflareForDev()` in `next.config.ts`). Tests use better-sqlite3 in-memory databases wrapped with a D1-compat layer.
-
-- `index.ts` — `getDB()` returns a D1-backed Drizzle instance via `getCloudflareContext().env.DB`
-- `drizzle-schema.ts` — Drizzle schema definition for all tables, indexes, and foreign keys
-- `repo.ts` — barrel re-export for all repos in `repos/`
-- `repos/` — one file per domain: `games`, `backstage-games`, `users`, `sessions`, `playlist`, `tracks`, `video-tracks`, `review-flags`, `decisions`, `user-steam-games`, `game-requests`
-- `mappers.ts` — row → typed object converters (used by repos that query via `sql` tagged template)
-- `queries.ts` — shared Drizzle subquery helpers
-- `test-helpers.ts` — `createTestDrizzleDB()` for in-memory test databases with D1-compat wrapper
-
-Users are created via `Users.createFromOAuth()` on first Google OAuth sign-in. In local dev, the Credentials provider creates users on the fly.
-
-### Playlist generation pipeline (`src/lib/pipeline/`)
-
-Two entry points in `src/lib/pipeline/index.ts`:
-
-- `generatePlaylist(send, userId, config)` — authenticated users, full pipeline with Vibe Profiler + persistence
-- `generatePlaylistForGuest(send, gameSelections, config)` — guests, Director-only, no Vibe Profiler, no persistence
-
-Both called from `POST /api/playlist/generate`, which wraps them in an SSE stream (using the shared `makeSSEStream` factory in `src/lib/sse.ts`).
-
-Three-phase process (all track data is pre-cached during backstage onboarding — no YouTube API or LLM calls needed for candidate loading):
-
-1. **Candidate gathering** (`candidates.ts`): `getTaggedPool()` loads active, tagged tracks with pre-resolved video IDs from the `tracks` + `video_tracks` tables. Only tracks that are active, tagged (energy + roles), and have a resolved YouTube video are included.
-2. **Rubric resolution** (mode-dependent):
-   - **Journey mode**: `vibe-profiler.ts` LLM produces a `VibeRubric` from the session's game titles + per-game tag distributions. The rubric provides per-phase mood/instrument overrides that sharpen the Director's arc template. Before calling the LLM, the pipeline checks the user's existing sessions for a cached rubric matching the same game set (`findCachedRubric`); a cache hit reuses the rubric without an LLM call and does not consume the daily LLM cap. On cache miss, the daily cap (`USER_DAILY_LLM_CAP = 10` actual LLM calls) is checked silently — if exceeded, the Director falls back to the `JOURNEY_ARC_TEMPLATE` with no rubric. Always skipped for guests.
-   - **Energy modes** (`low`/`mid`/`high`): no rubric, no LLM. The pipeline calls `getEnergyModeTemplate(mode)` from `director/arc-templates/` which returns a static single-phase `Steady` template (Chill / Mix / Rush). No cache lookup, no cap check, no profiler call.
-3. **Deterministic arc assembly + parallel session naming** (`director/index.ts` + `session-naming.ts`): the TypeScript Director builds the final ordered playlist from the tagged pool, shaping energy flow and cross-game balance against whatever `ArcTemplate` it was given. **No LLM involvement in the Director.** Energy modes pass `allowLastResort: false` so unmatched slots compact out (shorter playlist) instead of being filled with off-mode tracks. Each selected track produces a `TrackDecision` record (score components, arc phase, pool size, game budget) persisted via `DirectorDecisions.bulkInsert()` into `playlist_track_decisions` — this is the Director telemetry shown in the Theatre view. The `arc_phase` field is also exposed to the client via a left-join in the playlist query, used for subtle spacing between arc phase transitions in the playlist UI (no labels or phase names are shown). Energy-mode playlists tag every slot with `arc_phase = "steady"` so the spacing is naturally absent. Concurrently with the Director, `generateSessionName()` fires a dedicated, short LLM call (authenticated path only, guests skipped) that reads game titles + per-game curation modes + the `PlaylistMode` and returns a fresh 2–5 word playlist title shaped by the mode. The naming call runs on **every** authenticated generation — cached-rubric reruns still get a new name — and is **not** gated by `USER_DAILY_LLM_CAP`. Any failure resolves to `null` and `persistSession` falls back to the deterministic `"Game A, Game B, Game C"` concatenation.
-
-**Track reroll** (`POST /api/playlist/[id]/reroll`): picks a random replacement from the same backstage-curated pool (`getTaggedPool`), excluding tracks already in the current session. For energy-mode playlists, the reroll handler reads `playlist_mode` from the session and applies the same energy filter the original generation used, so a Chill reroll never returns an energy-3 track. No YouTube API calls — everything from DB.
-
-**Two distinct "modes"** are stored on different rows and serve different purposes — do not confuse them:
-
-- **`CurationMode`** enum (`src/types/index.ts`) — per-game library setting (`lite` / `include` / `focus`). Stored in `library_games.curation`. Controls how a single game contributes to **any** playlist regardless of which assembly mode is active.
+- **`CurationMode`** — *per game*, stored on `library_games.curation`. Controls how one game contributes to any playlist regardless of assembly mode.
   - `lite` — half budget weight
   - `include` — standard (default)
-  - `focus` — guaranteed double-weighted budget, pre-assigned slots across the arc
-- **`PlaylistMode`** enum (`src/types/index.ts`) — per-playlist assembly mode (`journey` / `low` / `mid` / `high`). Stored in `playlists.playlist_mode`. Controls the arc template + Vibe Profiler branching the Director runs against. Display names: Journey / Chill / Mix / Rush. Default is Journey.
+  - `focus` — guaranteed doubled budget, pre-assigned slots across the arc
+- **`PlaylistMode`** — *per playlist*, stored on `playlists.playlist_mode`. Controls arc template + Vibe Profiler branching.
+  - `journey` (default) — six-phase narrative arc, Vibe Profiler runs
+  - `low` → Chill (energy 1+2), `mid` → Mix (all energies), `high` → Rush (energy 2+3) — static templates, no profiler
 
 ### Director (`src/lib/pipeline/generation/director/`)
 
-The Director lives in its own folder so the parameterized assembly logic, scoring constants, types, and arc templates each have a clear home:
-
 ```
-director/
-├── index.ts              # main logic: assemblePlaylist, scoreTrack, expandArc, …
-├── constants.ts          # scoring weights, budget weights, view bias params, penalties
-├── types.ts              # ArcSlot, ArcTemplate, ArcTemplatePhase
-├── arc-templates/
-│   ├── index.ts          # barrel + getEnergyModeTemplate(mode)
-│   ├── journey.ts        # JOURNEY_ARC_TEMPLATE — six-phase narrative arc
-│   ├── chill.ts          # CHILL_ARC_TEMPLATE — single Steady phase, energy 1+2
-│   ├── mix.ts            # MIX_ARC_TEMPLATE — single Steady phase, all energies
-│   └── rush.ts           # RUSH_ARC_TEMPLATE — single Steady phase, energy 2+3
-└── __tests__/
+index.ts              # assemblePlaylist, scoreTrack, expandArc
+constants.ts          # scoring weights, budget weights, view-bias params
+types.ts              # ArcSlot, ArcTemplate, ArcTemplatePhase
+arc-templates/
+  ├── journey.ts      # six-phase
+  ├── chill.ts        # single Steady phase, energies 1+2
+  ├── mix.ts          # single Steady phase, all energies
+  └── rush.ts         # single Steady phase, energies 2+3
 ```
 
-`assemblePlaylist(taggedPools, games, targetCount, rubric, arcTemplate, options?)` is the only public entry. View bias scoring is always active. Adding a new mode is two steps: write a new `ArcTemplate` file and add a case to `getEnergyModeTemplate`.
+`assemblePlaylist(taggedPools, games, targetCount, rubric, arcTemplate, options?)` is the only entry. View-bias scoring is always on. Adding a mode = new arc template file + case in `getEnergyModeTemplate`.
 
-**Game onboarding** (`onboarding.ts`): backstage-driven process that prepares a game for playlist generation. Three phases:
+### Game onboarding (backstage-driven)
 
-1. **Load tracks** — fetch tracklist from a source (`TracklistSource` enum: `DiscogsRelease`, `DiscogsMaster`, `Vgmdb`, `Manual`). Source metadata and URL generation live in `src/lib/services/parsing/tracklist-source.ts`.
-2. **Resolve videos** (`youtube-resolve.ts`) — align track names to YouTube video IDs via LLM playlist matching + fallback search; results cached in `video_tracks` table. Resolution is capped at `RESOLVE_POOL_MAX` (80) tracks per batch and `RESOLVE_FALLBACK_MAX` (10) for YouTube search fallback.
-3. **Tag tracks** — LLM produces energy, roles, moods, instrumentation for each resolved track; stored in `tracks` table. Tags can be cleared selectively via `Tracks.clearTags(gameId, names?)`.
+Three phases (`src/lib/pipeline/onboarding/`):
 
-Only after all three phases complete is a game ready for the Director. The Backstage reingest action re-runs all phases; retag re-runs only phase 3. Selective resolve/tag operations are available via `POST /api/backstage/resolve-selected` and `POST /api/backstage/tag-selected`, which operate on a subset of tracks chosen in the game detail view's multi-selection UI.
+1. **Load tracks** from `TracklistSource` (Discogs release/master, VGMdb, manual).
+2. **Resolve videos** (`youtube-resolve.ts`) — LLM playlist matching + fallback search, cached in `video_tracks`. Capped at `RESOLVE_POOL_MAX` (80) per batch, `RESOLVE_FALLBACK_MAX` (10) for search fallback.
+3. **Tag tracks** — LLM produces energy/roles/moods/instrumentation into `tracks`.
 
-### LLM providers (`src/lib/llm/`)
+A game is only Director-ready after all three. `reingest` re-runs all three; `retag` re-runs only phase 3. `resolve-selected` / `tag-selected` operate on user-picked subsets.
 
-`src/lib/llm/index.ts` exports:
+### Database
 
-- `getTaggingProvider()` — video resolver + track tagger (used during backstage onboarding). Override model with `ANTHROPIC_TAGGING_MODEL`.
-- `getVibeProfilerProvider()` — Vibe Profiler (used during Journey-mode playlist generation only — energy modes never call this). Override model with `ANTHROPIC_VIBE_MODEL`.
-- `getSessionNamingProvider()` — session naming LLM call (used during authenticated playlist generation in all modes, runs in parallel with the Director; not gated by `USER_DAILY_LLM_CAP`). The user prompt includes the active `PlaylistMode` so names diverge across Journey / Chill / Mix / Rush. Override model with `ANTHROPIC_NAMING_MODEL`.
+Drizzle ORM on D1 everywhere — dev, staging, production. Local dev uses miniflare D1 emulation (via `initOpenNextCloudflareForDev()` in `next.config.ts`). Tests use `better-sqlite3` wrapped in a D1-compat layer (`createTestDrizzleDB` in `src/lib/db/test-helpers.ts`).
 
-All providers implement `LLMProvider` (`src/lib/llm/provider.ts`): `complete(system, user, opts)`. All LLM calls use Anthropic (`ANTHROPIC_API_KEY` required).
+```
+src/lib/db/
+├── index.ts            # getDB() via getCloudflareContext; batch() with parallel chunking over D1's 100-query limit
+├── drizzle-schema.ts   # schema / indexes / FKs
+├── repo.ts             # barrel for repos/
+├── repos/              # one file per domain
+├── mappers.ts          # row → typed object
+├── queries.ts          # shared Drizzle helpers
+└── test-helpers.ts
+```
 
-### Config system
-
-Config is stored in **localStorage** (not the DB). `useConfig` (`src/hooks/useConfig.ts`) reads/writes via `localStorage` with the following keys:
-
-| Key                        | Type         | Default     | Purpose                                              |
-| -------------------------- | ------------ | ----------- | ---------------------------------------------------- |
-| `bgm_target_track_count`   | number       | 50          | Target playlist length                               |
-| `bgm_anti_spoiler_enabled` | "1" \| "0"   | "0"         | Blur unplayed track titles                           |
-| `bgm_allow_long_tracks`    | "1" \| "0"   | "0"         | Allow tracks >9min                                   |
-| `bgm_allow_short_tracks`   | "1" \| "0"   | "1"         | Allow tracks <90s (note: always false in practice)   |
-| `bgm_playlist_mode`        | PlaylistMode | `"journey"` | Playlist assembly mode: `journey`/`low`/`mid`/`high` |
-
-There is no `/api/config` route. The hook uses `localStorage.getItem()` / `localStorage.setItem()` directly with boolean parsing via `v === "1"`. To add a new config key:
-
-1. Add an `lsGet`/`lsSet` call in `useConfig.ts`
-2. Update state and return from the hook
-3. Expose getter/setter for the new key in the hook's return object
-
-Config persists across sessions and is independent of user identity (all users share the same browser localStorage).
-
-### Guest library (`src/lib/guest-library.ts`)
-
-Guests get a localStorage-backed game library that mirrors the authenticated DB-backed library. The `useGameLibrary` hook accepts `isSignedIn` and branches internally:
-
-- **Authenticated:** all operations go through `/api/games` (GET/POST/PATCH/DELETE)
-- **Guest:** reads/writes `bgm_guest_library` in localStorage as `{ gameId, curation }[]`, hydrates into full `Game` objects via `/api/games/catalog`
-
-The hook exposes `addGame(game, curation)`, `updateCuration(gameId, curation)`, and `deleteGame(gameId)` which work identically for both paths. Guest generation sends `gameSelections` in the POST body to `/api/playlist/generate`, which the backend already supports via `generatePlaylistForGuest`. Guests never run the Vibe Profiler (Director uses the default arc template).
-
-### Steam library sync (`src/lib/services/external/steam-sync.ts`)
-
-Authenticated-only discovery feature: users link a Steam profile, the backend fetches their public library via Steam Web API, and matched catalog games become a client-side filter on the catalog page. This is a **discovery aid, not auto-import** — games still need to be added to the user's BGMancer library manually.
-
-**Data model:**
-
-- `users.steam_id` (text, nullable) — 64-bit Steam ID, stored as text
-- `users.steam_synced_at` (text, nullable) — ISO timestamp of last successful sync. Used both to enforce the 1-hour cooldown AND to power the "Last synced X ago" display; single source of truth for both.
-- `user_steam_games` join table — `(user_id, steam_app_id, playtime_minutes)`, unique per `(user_id, steam_app_id)`. No `game_id` column; catalog matching is a JOIN at read time on `games.steam_appid`.
-
-**Service** (`src/lib/services/external/steam-sync.ts`) owns all Steam Web API calls (`ISteamUser/ResolveVanityURL`, `IPlayerService/GetOwnedGames`), the cooldown check, the top-N cap, and the atomic batch persistence. Route handlers are thin wrappers that map typed errors (`SteamApiError`, `PrivateProfileError`, `InvalidSteamUrlError`, `VanityNotFoundError`, `CooldownError`, `MissingSteamUrlError`) to masked HTTP responses. Constants in `src/lib/constants.ts`: `STEAM_SYNC_COOLDOWN_MS` (1 hour), `STEAM_SYNC_MAX_GAMES` (500, sorted by playtime).
-
-**Cooldown**: enforced in SQL, not KV — because `steam_synced_at` is load-bearing UI state (popover display), not an ephemeral rate limit. The KV rate limiter (`src/lib/rate-limit.ts`) is reserved for IP-keyed, count-in-window throttling (guest generation); Steam sync is a user-keyed, once-per-hour action whose "when" is a user-facing fact.
-
-**Error masking**: the sync route's 429 response includes structured `cooldownMinutes: number` alongside the human-readable `error` string. The client hook consumes the structured field directly — **never parse server error strings on the client** for data. See `useSteamLibrary` as the reference pattern for how hooks own domain logic and expose structured state to UI components.
-
-**Backstage Steam routes** (`/api/backstage/steam/*`) are a separate, admin-only surface used during game onboarding to look up Steam game metadata (store search, owned-games lookup for testing). They share `parseSteamInput`/`resolveVanityUrl`/`fetchOwnedGames` helpers via the same service module.
-
-### Game requests (`src/lib/services/external/igdb.ts`)
-
-The catalog empty state lets any user (guest or logged-in) request a game that isn't in the catalog yet. The flow is:
-
-1. User searches the catalog → zero results → `GameRequestPrompt` is rendered (`src/components/library/GameRequestPrompt.tsx`). All client-side state, the debounced IGDB fetch, and the submit POST live in `useGameRequest` (`src/hooks/library/useGameRequest.ts`).
-2. The current catalog search term is shown as preview text inside an inactive input. On first focus the input activates, copies the term into the hook's editable `query`, and the 300ms-debounced effect calls `GET /api/games/search-igdb`.
-3. The user clicks a result. The component awaits a Turnstile token via `useTurnstileToken` (`src/hooks/shared/useTurnstileToken.ts`), then calls the hook's `submitRequest`. The shared Turnstile hook is also used by `FeedClient` for guest playlist generation — single source of truth for the script-load race + render dance.
-4. The server rate-limits per IP (5/hr), verifies Turnstile, then calls `GameRequests.upsertRequest` — new rows insert with `request_count = 1`, existing unacknowledged rows increment, acknowledged rows are no-ops. Always returns `{ success: true }`.
-
-**Data model:** single `game_requests` table keyed on `igdb_id` (the natural identity from IGDB; no synthetic PK). Columns: `name`, `cover_url`, `request_count`, `acknowledged`, `created_at`, `updated_at`.
-
-**IGDB service** (`src/lib/services/external/igdb.ts`) handles Twitch OAuth client-credentials with a module-level token cache (per Worker isolate; tokens last ~60 days). `searchGames(query)` POSTs to `/v4/games` and filters client-side because IGDB doesn't reliably combine `search` with `where` clauses. Filter pipeline (in order): `version_parent` (excludes platform re-releases), `parent_game` (excludes DLC/expansions/content packs), then a `category` blacklist as a backstop. Finally a name dedupe (lowercased, first wins) and slice to 10. All errors return `[]` — this is a soft feature.
-
-**Server-side feature flag:** `requestFormEnabled` is computed in `src/app/(main)/catalog/page.tsx` as `Boolean(env.igdbClientId && env.igdbClientSecret && env.turnstileSiteKey)` and passed down. When false, the empty state renders only the icon and "No games found" — no input. The client also reacts to a 404 from `/api/games/search-igdb` by switching into the same degraded state at runtime.
-
-**Backstage queue** (`/backstage/requests`): admin view of unacknowledged requests sorted by `request_count` desc. The "Show all" toggle adds acknowledged rows. The query param contract is strict: `?all=1` includes acknowledged, anything else returns the unacknowledged-only view.
-
-**CSP requirements:** `next.config.ts` allows `https://challenges.cloudflare.com` in `script-src`, `connect-src`, and `frame-src` for Turnstile, plus `https://images.igdb.com` in `img-src` for cover thumbnails. Both `FeedClient` (guest playlist generation) and `GameRequestPrompt` rely on this.
-
-### API routes
-
-All under `src/app/api/`. Auth levels are defined in `src/lib/route-config.ts`. Key routes:
-
-- `POST /api/playlist/generate` — SSE stream; runs the pipeline (Optional — guests get Director-only). Body accepts an optional `playlist_mode` field (`journey` / `low` / `mid` / `high`). Defaults to `journey` when omitted. Energy modes skip the Vibe Profiler entirely
-- `GET /api/games` — user's game library (Optional — guests get `[]`)
-- `POST/PATCH/DELETE /api/games` — game library mutations (Required)
-- `GET /api/games/catalog` — published game catalog (Public)
-- `GET /api/games/search-igdb?q=...` — proxy search against IGDB for the catalog "Request a game" empty state (Public). Returns 404 when IGDB credentials aren't configured (the client uses this to hide the request form). IP-rate-limited 30/min via `igdb-search:${ip}`
-- `POST /api/games/request` — register a game request (Public). Body: `{ igdbId, name, coverUrl, turnstileToken }`. Verified server-side via Turnstile (rejects with 403 on failure), then IP-rate-limited 5/hr via `game-request:${ip}`. Always returns `{ success: true }` regardless of internal state (new row, increment, or no-op on already-acknowledged) — the client never learns whether the request was new
-- `GET /api/playlist` — fetch tracks (Optional — guests get `[]`). Response includes `arc_phase` per track via a left-join on `playlist_track_decisions`; null for guest playlists or tracks without decision data
-- `DELETE /api/playlist` — clear playlist (Required)
-- `DELETE /api/playlist/[id]` — remove a track (Required + ownership)
-- `POST /api/playlist/[id]/reroll` — reroll a single track (Required + ownership). For energy-mode playlists the candidate pool is filtered by the mode's energy template so rerolls stay within the mode
-- `GET /api/sessions` — session list (Optional — guests get `[]`). Each row carries `playlist_mode` for header / history display
-- `PATCH/DELETE /api/sessions/[id]` — session management (Required + ownership)
-- `POST /api/sync` — sync playlist to YouTube account (Required + OAuth access token)
-- `POST /api/steam/sync` — link and/or re-sync the user's Steam library (Required). Body: `{ steamUrl? }`. Returns `{ totalSynced, catalogMatches, steamSyncedAt }`. On 429 cooldown the body also carries `cooldownMinutes: number`.
-- `GET /api/steam/library` — returns `{ linked: false }` or `{ linked: true, steamSyncedAt, matchedGameIds: string[] }` (Required)
-- `DELETE /api/steam/link` — unlink Steam account; atomically nulls `users.steam_id`/`steam_synced_at` and drops all `user_steam_games` rows for the user (Required)
-
-Backstage API routes (all under `src/app/api/backstage/`, auth level: Admin). Every route is explicitly registered in `src/lib/route-config.ts` — no wildcards (NextAuth's `/api/auth/*` is the only remaining wildcard, for its catch-all):
-
-- `GET /api/backstage/dashboard` — admin dashboard data
-- `GET /api/backstage/games` — paginated game list with needs-review flag
-- `POST /api/backstage/games` — create a new game
-- `PATCH/DELETE /api/backstage/games/[gameId]` — update or delete a game
-- `GET /api/backstage/games/[gameId]/tracks` — tracks for a single game
-- `GET/POST/PATCH/DELETE /api/backstage/tracks` — full track table with tag metadata and bulk mutations
-- `POST /api/backstage/tracks/review` — mark tracks as reviewed
-- `POST /api/backstage/load-tracks` — fetch tracklist from the configured source (Discogs / VGMdb / manual); streams SSE progress
-- `POST /api/backstage/import-tracks` — import tracks into the tracks table
-- `POST /api/backstage/resolve` / `POST /api/backstage/resolve-selected` — align track names to YouTube video IDs; selected variant operates on a user-chosen subset; streams SSE progress
-- `POST /api/backstage/retag` / `POST /api/backstage/tag-selected` — LLM re-tagging; selected variant advances phase to Tagged when all taggable tracks are done; streams SSE progress
-- `POST /api/backstage/reingest` — clear tracks and re-run all onboarding phases; streams SSE progress
-- `POST /api/backstage/quick-onboard` — end-to-end onboarding convenience
-- `POST /api/backstage/publish` / `POST /api/backstage/bulk-publish` — mark games published
-- `DELETE /api/backstage/review-flags` — clear per-game review flags
-- `GET /api/backstage/steam/games` — fetch a Steam user's owned games (admin testing / game onboarding)
-- `GET /api/backstage/steam/search` — search the Steam store by name (admin game onboarding)
-- `GET /api/backstage/theatre/sessions` — session list for Theatre view
-- `GET /api/backstage/theatre/[playlistId]` — full telemetry for one playlist (tracks + decisions + budgets + rubric)
-- `GET /api/backstage/requests` — game request queue. Defaults to unacknowledged-only ordered by `request_count` desc. Pass `?all=1` to also include acknowledged rows; any other value (or absent) returns the unacknowledged view
-- `POST /api/backstage/requests/acknowledge` — mark a request as acknowledged. Body: `{ igdbId }`. Idempotent — acknowledging an already-acknowledged or nonexistent row is a no-op
-
-## Code style
-
-- Use `enum` for all named value sets — not string literal union types (`type Foo = "a" | "b"`). See `CurationMode`, `PlaylistMode`, `TrackMood`, `TrackInstrumentation` as the established pattern.
-- `CurationMode` (per-game) and `PlaylistMode` (per-playlist) are deliberately separate enums for two different concepts. Don't conflate them in code or copy.
-
-## Schema changes
-
-Schema is defined in `src/lib/db/drizzle-schema.ts` using Drizzle's SQLite schema builders. Migrations are managed by Drizzle Kit and stored in `drizzle/migrations/`.
-
-**Workflow:**
-
-1. Edit `src/lib/db/drizzle-schema.ts`
-2. Run `pnpm db:generate` — diffs against the latest snapshot and produces a new `.sql` migration file
-3. Run `pnpm db:migrate` — applies migrations to local D1
-4. For production: `wrangler d1 migrations apply bgmancer-prod --remote`
-5. To start fresh locally: `pnpm db:reset` then `pnpm db:migrate`
-
-While there are no production users, you can collapse to a single migration by deleting `drizzle/migrations/` and re-running `pnpm db:generate`. Once there is real user data, use incremental migrations instead.
+Users are created via `Users.createFromOAuth()` on first Google sign-in; dev's Credentials provider creates them on the fly.
 
 ### Review flags
 
-Games can be flagged for manual review via `ReviewFlags.markAsNeedsReview(gameId, reason, detail?)` in `repos/review-flags.ts`. This sets `games.needs_review = 1` and inserts a row into `game_review_flags`. The pipeline raises flags when it encounters bad data (e.g. no usable tracks, playlist not found). Backstage shows these and lets the operator clear them after correcting the metadata.
+`ReviewFlags.markAsNeedsReview(gameId, reason, detail?)` sets `games.needs_review = 1` and inserts into `game_review_flags`. Pipeline flags raise when the generation encounters bad data (no usable tracks, playlist missing). Backstage surfaces them; operators clear them via `DELETE /api/backstage/review-flags`.
 
-## Key constraints
+### LLM providers (`src/lib/llm/`)
 
-- **Never use `process.env` directly** — use the typed `env` singleton from `@/lib/env`
-- **Every route must be in `src/lib/route-config.ts`** — unregistered routes return 404 via the proxy
-- **Next.js 16 with OpenNext Cloudflare MUST use `middleware.ts`** — `proxy.ts` is not yet supported by `@opennextjs/cloudflare`
-- `process.env.NODE_ENV` does **not** work reliably in client components with Turbopack — avoid conditional rendering based on it. Use `env.isDev` on the server instead
-- `useEffect` must be placed **after** all `const` variables it references (temporal dead zone issue in this codebase's hook patterns)
-- **Guest sessions use `GUEST_SESSION_ID`** (`"guest"`, defined in `src/lib/constants.ts`) — never hardcode the string `"guest"` directly
-- Sessions are FIFO-evicted: at most `MAX_PLAYLIST_SESSIONS` (3) sessions are kept per user; the oldest is deleted automatically
-- YouTube OST playlist IDs are cached on the `games.yt_playlist_id` column to minimize API quota usage
+All use Anthropic. All implement `LLMProvider.complete(system, user, opts)`.
+
+- `getTaggingProvider()` — onboarding video resolver + tagger. Override with `ANTHROPIC_TAGGING_MODEL`.
+- `getVibeProfilerProvider()` — Journey-mode only. Override with `ANTHROPIC_VIBE_MODEL`.
+- `getSessionNamingProvider()` — always on (authed), not gated by daily cap. Prompt includes `PlaylistMode` so names diverge across modes. Override with `ANTHROPIC_NAMING_MODEL`.
+
+### Config
+
+Stored in `localStorage`, not DB. No `/api/config` route. Keys in `src/hooks/config/useConfig.ts`:
+
+| Key | Default |
+|-----|---------|
+| `bgm_target_track_count` | 50 |
+| `bgm_anti_spoiler_enabled` | `"0"` |
+| `bgm_allow_long_tracks` | `"0"` |
+| `bgm_allow_short_tracks` | `"1"` (always forced false in practice) |
+| `bgm_playlist_mode` | `"journey"` |
+
+Shared across all users of a browser (independent of identity).
+
+### External services
+
+- **Steam sync** (`src/lib/services/external/steam-sync.ts`) — authed-only *discovery aid*, not auto-import. Links Steam ID, pulls public library top-N by playtime (`STEAM_SYNC_MAX_GAMES = 500`), matches against catalog via JOIN on `games.steam_appid`. Cooldown (`STEAM_SYNC_COOLDOWN_MS = 1h`) is enforced in SQL via `users.steam_synced_at` because that column is also the "Last synced X ago" UI display. 429 responses carry a structured `cooldownMinutes: number` field — **never parse server error strings on the client** for data; see `useSteamLibrary` for the right pattern.
+- **Game requests** (`src/lib/services/external/igdb.ts`) — catalog empty-state search hits IGDB via Twitch OAuth (module-level token cache, ~60d lifetime). `searchGames` filters client-side (IGDB's `where` + `search` combo is unreliable): drops `version_parent`, `parent_game`, category blacklist, name dedupe, slice 10. Errors return `[]` (soft feature). `GameRequests.upsertRequest` is atomic via `INSERT ... ON CONFLICT DO UPDATE WHERE acknowledged = 0`.
+- **IGDB/Turnstile feature flag** — `requestFormEnabled` is computed server-side from `env.igdbClientId && env.igdbClientSecret && env.turnstileSiteKey`. When off, empty state degrades to "No games found" with no input. The `/api/games/search-igdb` route returns 404 when creds are missing so the client can degrade at runtime too.
+- **Cover URLs** — `gameRequestSchema.coverUrl` rejects any host other than `images.igdb.com` (DB stores only IGDB origins).
+
+### CSP
+
+`next.config.ts` allows:
+- `script-src` / `connect-src` / `frame-src`: `https://challenges.cloudflare.com` (Turnstile)
+- `img-src`: `https://images.igdb.com` (IGDB covers)
+
+## Code style
+
+Follow what the codebase already does. Highlights that come up often:
+
+- **Enums, not literal unions.** `CurationMode`, `PlaylistMode`, `TrackMood`, `TrackInstrumentation`.
+- **`@/*` imports only**, never relative `../../`.
+- **`import type`** for type-only imports.
+- **Prettier:** 100-char width, 2-space tab, semicolons, double quotes, trailing commas.
+- **No `process.env`** — always `@/lib/env`.
+- **No `console.log`** (lint-banned). `console.warn` / `console.error` on the server are fine.
+- **No non-null assertions** (`!`) outside DB repos and tests.
+- **Comments:** explain *why*, not *what*. Public functions get docstrings; internals only when the algorithm is non-obvious.
+- **Errors:** subclass `Error` with an explicit `this.name`. Route handlers wrap in `NextResponse.json({ error }, { status })` with generic messages. SSE streams emit `SSEEventType.Error` rather than throwing.
+- **`useEffect` placement:** define all referenced `const`s *before* the effect (temporal-dead-zone quirk of the hook composition patterns here).
+
+## Schema changes
+
+```
+1. Edit src/lib/db/drizzle-schema.ts
+2. pnpm db:generate     # creates a new .sql migration
+3. pnpm db:migrate      # apply to local D1
+4. wrangler d1 migrations apply bgmancer-prod --remote   # production
+```
+
+**Pre-prod shortcut:** while there are no real users, collapsing to a single migration is fine — delete `drizzle/migrations/` and re-run `db:generate`. Once production has data, use incremental migrations only.
 
 ## Deployment
 
-The app runs on Cloudflare Workers via `@opennextjs/cloudflare`. Infrastructure is defined in `wrangler.jsonc`.
+Cloudflare Workers via `@opennextjs/cloudflare`. Infrastructure in `wrangler.jsonc`.
 
 ```bash
 # Production
-pnpm cf-typegen                                          # generate Cloudflare env types
-pnpm opennextjs-cloudflare build                         # build for Workers
-wrangler deploy                                          # deploy to production
-wrangler d1 migrations apply bgmancer-prod --remote      # apply DB migrations
+pnpm cf-typegen
+pnpm opennextjs-cloudflare build
+wrangler deploy
+wrangler d1 migrations apply bgmancer-prod --remote
 
 # Staging
 wrangler deploy --env staging
 wrangler d1 migrations apply bgmancer-staging --remote --env staging
 
 # Secrets
-wrangler secret put <NAME>                               # push a secret to production
-wrangler secret put <NAME> --env staging                 # push a secret to staging
+wrangler secret put <NAME>              # prod
+wrangler secret put <NAME> --env staging
 
-# Rollback
-wrangler rollback                                        # revert to previous deployment
-
-# Logs
-wrangler tail                                            # live-stream Worker logs
+# Ops
+wrangler rollback
+wrangler tail
 ```
 
-The Cloudflare dashboard build command is: `pnpm cf-typegen && pnpm opennextjs-cloudflare build`
+CF dashboard build command: `pnpm cf-typegen && pnpm opennextjs-cloudflare build`.
 
-<!-- GSD:project-start source:PROJECT.md -->
-## Project
+## Load-bearing invariants (don't break these)
 
-**BGMancer**
+- Every route registered in `src/lib/route-config.ts` — no wildcards beyond NextAuth.
+- `env` singleton, never `process.env`.
+- Next.js 16 with `@opennextjs/cloudflare` uses `middleware.ts` (not Next 16's `proxy.ts` — not yet supported by the adapter).
+- `process.env.NODE_ENV` is unreliable in client components under Turbopack — use `env.isDev` server-side.
+- `GUEST_SESSION_ID` constant, never the literal `"guest"`.
+- Sessions FIFO-evict to `MAX_PLAYLIST_SESSIONS` (3) per user.
+- `games.yt_playlist_id` caches discovered OST playlist IDs to conserve YT quota.
+- Enum *values* are stable (DB + wire); display labels can change.
 
-BGMancer is a video game soundtrack playlist generator. Users build a library of games, then generate curated playlists of background music from those games' soundtracks, played via YouTube. It supports multiple playlist modes (Journey, Chill, Mix, Rush), guest and authenticated flows, and includes a backstage admin for game onboarding and metadata curation.
+## Test philosophy
 
-**Core Value:** Generate high-quality, mood-aware playlists from video game soundtracks that feel intentionally curated, not random.
-
-### Constraints
-
-- **Tech stack**: Existing stack is fixed (Next.js 16, Cloudflare Workers, Drizzle, D1)
-- **No behavior changes**: Review must not alter user-facing functionality
-- **Test philosophy**: 100% coverage target, no dead code, tests adapt to production code (never the reverse)
-<!-- GSD:project-end -->
-
-<!-- GSD:stack-start source:codebase/STACK.md -->
-## Technology Stack
-
-## Languages
-- TypeScript 5.9.3 - All application code, both server and client
-- JSX (React 19.2.4) - UI components
-- JavaScript/MHTML - CSS and configuration files
-- SQL - SQLite database queries via Drizzle ORM
-## Runtime
-- Node.js 22+ (required, see `package.json` engines)
-- Cloudflare Workers (deployment target via @opennextjs/cloudflare)
-- pnpm 10.33.0
-- Lockfile: `pnpm-lock.yaml` (present)
-## Frameworks
-- Next.js 16.2.1 - Full-stack framework with App Router
-- React 19.2.4 - UI library
-- Tailwind CSS 4.2.1 - Utility-first CSS framework
-- Drizzle ORM 0.45.2 - TypeScript ORM for SQLite
-- Drizzle Kit 0.31.10 - Migration generation and schema management
-- Cloudflare D1 - SQLite database service (local dev via miniflare, production via Workers binding)
-- NextAuth 5.0.0-beta.30 - Session management with JWT strategy
-- Google OAuth 2.0 (production) / Credentials provider (dev)
-- Vitest 4.1.2 - Unit and integration test runner
-- @testing-library/react 16.3.2 - Component testing utilities
-- jsdom 29.0.1 - DOM environment for tests
-- better-sqlite3 12.8.0 - In-memory SQLite for test databases
-- @vitest/coverage-v8 4.1.2 - Code coverage (targets 100% for `src/lib/**/*.ts`)
-- Turbopack - Fast build and dev mode (via `next dev --turbopack`)
-- OpenNext 1.18.0 (@opennextjs/cloudflare) - Next.js to Cloudflare Workers adapter
-- TypeScript Compiler - Type checking (strict mode)
-- ESLint 9.39.4 - Code linting
-- Prettier 3.8.1 - Code formatting
-- Husky 9.1.7 - Git hooks for pre-commit lint + format
-- @base-ui/react 1.3.0 - Unstyled component primitives (popover, menu)
-- @dnd-kit/core 6.3.1, @dnd-kit/sortable 10.0.0 - Drag-and-drop for playlist reordering
-- lucide-react 0.577.0 - Icon library
-- class-variance-authority 0.7.1 - CSS class composition
-- clsx 2.1.1 - Conditional className utilities
-- tailwind-merge 3.5.0 - Tailwind class merging
-- tw-animate-css 1.4.0 - Tailwind animation utilities
-- Zod 4.3.6 - Schema validation for API inputs
-- jose 6.2.2 - JWT token handling (NextAuth compatibility)
-- uuidv7 1.2.1 - UUID v7 generation for entity IDs
-- @anthropic-ai/sdk 0.82.0 - Anthropic Claude API client
-## Key Dependencies
-- drizzle-orm, drizzle-kit - Required for database schema management and queries
-- next-auth - Centralized authentication for all auth levels (Public/Optional/Required/Admin)
-- @anthropic-ai/sdk - Powers all LLM calls: track tagging, vibe profiling, session naming
-- zod - Input validation for all POST/PATCH/DELETE routes
-- @opennextjs/cloudflare - Cloudflare Workers adapter (production deployment)
-- better-sqlite3 - In-memory test databases with D1 compatibility wrapper
-- None as npm packages; all external APIs (YouTube, Steam, IGDB, Discogs) use native fetch()
-## Configuration
-- Centralized in `src/lib/env.ts` - Single source of truth for all environment variables
-- Lazy-loaded singleton pattern - Read on first access (required for Cloudflare Workers)
-- Required env vars: `NEXTAUTH_SECRET`, `YOUTUBE_API_KEY`, `ANTHROPIC_API_KEY`
-- Optional: `GOOGLE_CLIENT_ID/SECRET` (prod), `STEAM_API_KEY`, `DISCOGS_TOKEN`, `IGDB_CLIENT_ID/SECRET`, `TURNSTILE_SITE_KEY/SECRET_KEY`
-- `tsconfig.json` - TypeScript strict mode, @/\* path alias
-- `next.config.ts - Image optimization disabled (unoptimized), CSP headers, development setup
-- `vitest.config.ts` - Separate projects for node and jsdom environments, 100% coverage targets
-- `.prettierrc` - 100-char print width, trailing commas, no semicolons (singleQuote: false but uses "")
-- `eslint.config.mjs` - Next.js ESLint configuration
-- `drizzle.config.ts` - Points to `src/lib/db/drizzle-schema.ts` and `drizzle/migrations/`
-- Migrations stored in `drizzle/migrations/` - Applied via `pnpm db:migrate` (local) or `wrangler d1 migrations apply` (production)
-## Platform Requirements
-- Node.js 22+
-- pnpm 10.33.0
-- `.env.local` file (copy from `.env.local.example`) with required API keys
-- OpenSSL (for generating NEXTAUTH_SECRET)
-- Cloudflare Workers (compute)
-- Cloudflare D1 (SQLite database)
-- Cloudflare KV (rate limiting and caching)
-- Cloudflare Turnstile (bot verification)
-- Cloudflare Access (backstage route protection)
-- Google Cloud Project (YouTube Data API v3, Google OAuth)
-- Steam API (for library import)
-- Anthropic Claude API (for LLM calls)
-- Twitch Developer Console (IGDB credentials)
-- Cloudflare (Turnstile, KV, D1, Workers, Assets)
-- Discogs API (optional, for tracklist loading with higher rate limit)
-<!-- GSD:stack-end -->
-
-<!-- GSD:conventions-start source:CONVENTIONS.md -->
-## Conventions
-
-## Naming Patterns
-- React components: PascalCase (e.g., `LogoLink.tsx`, `FeedClient.tsx`)
-- Utilities and services: camelCase (e.g., `useConfig.ts`, `steam-sync.ts`)
-- Constants/configs: camelCase or UPPER_CASE (e.g., `route-config.ts`, `constants.ts`)
-- Tests: `*.test.ts` for Node, `*.test.tsx` for jsdom (e.g., `useConfig.test.ts`)
-- Directories: kebab-case (e.g., `arc-templates`, `game-requests`)
-- Type files: `*.ts` (may contain enums, interfaces, types)
-- Regular functions: camelCase (e.g., `getAuthUserId`, `createTestDrizzleDB`)
-- React hook functions: `use` prefix, camelCase (e.g., `useConfig`, `usePlayerContext`)
-- Handler/resolver functions: descriptive verbs (e.g., `assemblePlaylist`, `parseTagItem`)
-- Private/internal functions: `_` prefix optional when truly internal (e.g., `_extractTagArray`)
-- camelCase for all local variables and state (e.g., `targetTrackCount`, `allowLongTracks`)
-- Constants (file-level): UPPER_SNAKE_CASE (e.g., `DEFAULT_TRACK_COUNT`, `MAX_TRACK_COUNT`)
-- Object keys in `const` objects: camelCase (e.g., `targetTrackCount` in `KEYS` object)
-- Underscore prefix to suppress unused-vars warnings (e.g., `_err`, `_unused`)
-- Interfaces: PascalCase, no `I` prefix (e.g., `User`, `PlaylistSession`, `TrackDecision`)
-- Enums: PascalCase, values are fully lowercase strings/identifiers (e.g., `enum PlaylistMode { Journey = "journey", Chill = "low" }`)
-- Enum values: match API/database format (lowercase, kebab-case for compound names; e.g., `focus_pre`, `last_resort`)
-- Type unions: PascalCase or inherit naming (e.g., `AuthResult = { authenticated: true; userId: string } | { authenticated: false }`)
-## Code Style
-- Tool: Prettier (configured in `.prettierrc`)
-- Print width: 100 characters
-- Tab width: 2 spaces
-- Trailing commas: all
-- Semicolons: required
-- String quotes: double quotes (not single)
-- Tailwind CSS plugin: sorts class attributes
-- Tool: ESLint with Next.js and TypeScript support (configured in `eslint.config.mjs`)
-- Automatically run on staged files via Husky pre-commit hook (`.ts`, `.tsx` only)
-- Manual run: `pnpm lint` (check), `pnpm lint:fix` (auto-fix)
-- No `var`, only `const` and `let`
-- Prefer `const`; use `let` only when the variable is reassigned
-- Strict equality (`===`, `==`) except `== null` allowed (catches both null and undefined)
-- No `console.log` (banned); allow `console.warn` and `console.error` for server-side logging
-- No unused variables (leading `_` suppresses the rule)
-- `import type` required for type-only imports (keeps JS bundle clean)
-- No non-null assertions (`!`) except in DB repos and tests
-- Object shorthand required (e.g., `{ foo }` not `{ foo: foo }`)
-- Template literals over string concatenation
-- Specific relaxations:
-## Import Organization
-- Single alias: `@/*` → `./src/*` (configured in `tsconfig.json`)
-- All imports use `@` prefix (e.g., `@/lib/db`, `@/hooks/useConfig`, `@/types`)
-- Never use relative imports like `../../../` — use `@` instead
-## Error Handling
-- Inherit from `Error` with explicit `name` property assignment (e.g., `this.name = "AuthRequiredError"`)
-- Define in a single file alongside their usage (e.g., `src/lib/services/auth/auth-helpers.ts`)
-- Established custom errors: `AuthRequiredError`, `YouTubeQuotaError`, `YouTubeInvalidKeyError`, `SteamApiError`, `PrivateProfileError`, `VanityNotFoundError`, `CooldownError`, `InvalidSteamUrlError`, `MissingSteamUrlError`
-- Route handlers wrap errors in `NextResponse.json({ error: ... }, { status: 4xx|5xx })`
-- Zod validation errors use `zodErrorResponse(error)` helper in `src/lib/validation.ts` (returns structured error with 400 status)
-- Database/service errors are caught and re-thrown as domain-specific errors (e.g., `SteamApiError` from Steam sync service)
-- Async generators (SSE streams) emit `SSEEventType.Error` messages instead of throwing
-- Use optional chaining (`?.`) and nullish coalescing (`??`) throughout
-- Explicit null checks before usage: `if (!session?.user?.id) { ... }`
-- Return union types for fallible operations: `{ authenticated: true; userId: string } | { authenticated: false }`
-## Logging
-- Warn-level: use `console.warn()` for recoverable errors or important state transitions
-- Error-level: use `console.error()` for unrecoverable failures or stack traces
-- Never use `console.log()` for debugging (removed via linting)
-- Structured logging: log objects as JSON when context helps (e.g., error details, decision telemetry)
-## Comments
-- No narration comments (e.g., "increment counter" is obvious from `count++`)
-- Section dividers: use horizontal-rule comments for grouping logical blocks
-- Explain "why", not "what": comment non-obvious algorithmic choices or business rules
-- Public functions and exported types: always include docstrings
-- Format: standard JSDoc (leading `/**`, one param per line if >1, return type optional)
-- Private/internal functions: only if algorithm is non-obvious
-- Example:
-## Function Design
-- Hook functions in `src/hooks/` often handle state setup and are longer (acceptable)
-- Service functions in `src/lib/services/` should be concise and single-purpose
-- Large orchestrators (pipeline stages) are explicitly excluded from coverage, accepted as-is
-- Positional: 1–3 parameters (if >3, use an object parameter)
-- Object parameters: destructure inline (e.g., `{ userId, gameId }`)
-- Optional parameters: use `?` in types, default to `undefined`
-- No boolean trap (passing `true`/`false` without context) — use named parameters or enums
-- Simple data: return the value directly
-- Fallible operations: return a union type (`T | null`, or `Success | Failure` object)
-- Async operations: always `Promise<T>`, never void (allows awaiting side effects)
-- SSE streams: return `ReadableStream<Uint8Array>` (managed by `makeSSEStream` factory)
-## Module Design
-- Named exports only (no default exports) except:
-- Barrel files (`index.ts`) re-export public APIs from sibling files
-- Internal files (prefixed `_` or in `__internal/`) are not re-exported
-- Location: `index.ts` in each feature directory
-- Purpose: single entry point for related exports
-- Pattern: `export { X } from "./x"; export { Y } from "./y";` (no circular deps)
-- Used in: `src/lib/db/repos/` (→ `repo.ts`), `src/lib/pipeline/generation/director/arc-templates/` (→ `index.ts`)
-- File per entity: `games.ts`, `sessions.ts`, `tracks.ts`, etc. in `src/lib/db/repos/`
-- Each export a single object with static methods (e.g., `Games.listAll()`, `Sessions.create()`)
-- Signature: `async methodName(params): Promise<T>`
-- Row-to-type conversion: use mappers from `src/lib/db/mappers.ts` (e.g., `toGame(row)`)
-- SQL queries: use Drizzle ORM builders or tagged template `sql` helpers, never raw SQL strings
-## Key Constraints
-- **Never use `process.env` directly** — import typed `env` singleton from `@/lib/env`
-- **Enum values are stable** — stored in database and sent on API wire; the display labels (`PLAYLIST_MODE_LABELS`) can change without touching enum values
-- **CurationMode (per-game) and PlaylistMode (per-playlist) are distinct concepts** — do not conflate them
-- **Type-only imports** must use `import type` to keep the JavaScript bundle clean
-- **useEffect temporal dead zone** — define all `const` variables before `useEffect` that references them
-- **Guest sessions use `GUEST_SESSION_ID`** constant (`"guest"`) — never hardcode the string
-- **Sessions are FIFO-evicted** — at most 3 per user; oldest automatically deleted
-- **YouTube OST playlist IDs** cached on `games.yt_playlist_id` to minimize API quota usage
-<!-- GSD:conventions-end -->
-
-<!-- GSD:architecture-start source:ARCHITECTURE.md -->
-## Architecture
-
-## Pattern Overview
-- Server-side route validation via allowlist (`src/lib/route-config.ts`)
-- Client-side global state composition via `PlayerProvider` context (`src/context/player-context.tsx`)
-- Stateless playlist generation with LLM-driven Vibe Profiler and deterministic Director algorithm
-- SQLite database (Drizzle ORM) backed by Cloudflare D1
-- Two distinct user modes: authenticated (Google OAuth) and guest (localStorage-backed)
-- Hierarchical role-based access: Public → Optional → Required → Admin (Cloudflare Access gated)
-## Layers
-- Purpose: Render UI pages and interactive components
-- Location: `src/app/(main)/`, `src/app/(main)/catalog/`, `src/app/(backstage)/backstage/`, `src/components/`
-- Contains: Pages (`*.tsx` files in `src/app/`), page-owned layouts (FeedClient, CatalogClient), React components
-- Depends on: Context (PlayerProvider), Hooks, API routes
-- Used by: HTTP requests from browser
-- Purpose: Expose endpoints following Next.js App Router conventions, enforce auth via route-config allowlist, delegate to services
-- Location: `src/app/api/*/route.ts`
-- Contains: Request parsing, validation via Zod, auth enforcement, SSE streaming, service delegation
-- Depends on: Auth helpers, validation schemas, services (db/llm/external), rate limiting
-- Used by: Client components, external services (YouTube sync)
-- Purpose: Encapsulate business logic, database queries, external API calls, LLM coordination
-- Location: `src/lib/services/`, `src/lib/db/repos/`, `src/lib/pipeline/`, `src/lib/llm/`
-- Contains: Game management, playlist generation, Steam sync, IGDB search, Turnstile verification, YouTube operations
-- Depends on: Database (Drizzle), external APIs, constants
-- Used by: API routes, hooks
-- Purpose: Manage schema, queries, and persistence
-- Location: `src/lib/db/drizzle-schema.ts`, `src/lib/db/repos/`, `src/lib/db/mappers.ts`, `src/lib/db/queries.ts`
-- Contains: SQLite schema definitions, repository methods for all domain objects
-- Depends on: Cloudflare D1 environment binding
-- Used by: Services, repos
-- Purpose: Manage client-side state composition and derived data
-- Location: `src/context/player-context.tsx`, `src/hooks/`
-- Contains: Global state providers, custom hooks for playlist/player/config/library/games
-- Depends on: API routes (for data fetching), localStorage (for persistence), YouTube IFrame API
-- Used by: Components
-- Purpose: Interface with third-party services
-- Location: `src/lib/services/external/` (YouTube, Steam, IGDB, Turnstile)
-- Contains: API clients, token caching, error types, domain-specific logic (steam-sync.ts, igdb.ts, youtube-resolve.ts, turnstile.ts)
-- Depends on: Typed env (env.ts), rate limiting, Drizzle
-- Used by: Services, API routes
-- Purpose: Cross-cutting concerns and helpers
-- Location: `src/lib/` (env.ts, route-config.ts, rate-limit.ts, sse.ts, logger.ts, concurrency.ts, validation.ts)
-- Contains: Typed environment configuration, logging, rate limiting, SSE stream factory, Zod schemas
-- Depends on: Standard library
-- Used by: All layers
-## Data Flow
-## Key Abstractions
-- Purpose: Unified playback interface abstracting YouTube API
-- Examples: `src/hooks/player/useYouTubePlayer.ts`, `src/context/player-context.tsx`
-- Pattern: Module-level singleton `ytPlayer` reference, exposes `MediaState` interface (isPlaying, currentTime, volume, seekTo, etc.)
-- Mounted by `PlayerProvider`, consumed by components via `usePlayerContext().media`
-- Purpose: Represent a single selected track, carry decision score components and arc phase
-- Examples: `PlaylistTrack` type with `arc_phase` left-join from `playlist_track_decisions`
-- Pattern: Query result includes decision data; UI uses arc_phase for subtle spacing (no labels shown)
-- Energy modes always tag with `arc_phase = "steady"` so spacing is absent
-- Purpose: Parameterize Director arc template per session based on game mood/energy distribution
-- Examples: `src/lib/pipeline/generation/vibe-profiler.ts`, cached in `playlists.rubric` (JSON)
-- Pattern: LLM generates per-game mood profiles → aggregates to game-set rubric → Director uses to sharpen arc template
-- Cache hit key: sorted game IDs; cache misses consume daily LLM cap
-- Purpose: Define playlist structure (phases, slot budgets, energy targets)
-- Examples: `JOURNEY_ARC_TEMPLATE` (six phases), `CHILL_ARC_TEMPLATE` (single Steady phase), energy mode templates
-- Pattern: Phases contain ArcSlots (mood/instrument constraints); Director fills slots deterministically
-- Energy modes pass `allowLastResort: false` so unmatched slots compact out (shorter playlists)
-- Purpose: Assemble final ordered track list from candidate pool
-- Examples: `src/lib/pipeline/generation/director/index.ts`, scoring in `constants.ts`
-- Pattern: Scores each track (energy match, cross-game balance, view bias, arc phase precedence) → fills arc slots deterministically
-- No randomness; same inputs always produce same output; produces `TrackDecision` records for telemetry
-- Entry point: `assemblePlaylist(taggedPools, games, targetCount, rubric, arcTemplate, options?)`
-- Purpose: Mark games needing manual review when onboarding encounters bad data
-- Examples: `src/lib/db/repos/review-flags.ts`, set by pipeline when no usable tracks or fetch fails
-- Pattern: `ReviewFlags.markAsNeedsReview(gameId, reason, detail?)` sets `games.needs_review = 1` + inserts row
-- Backstage displays flagged games; operators correct metadata + clear flags via `DELETE /api/backstage/review-flags`
-- Purpose: Prevent concurrent playlist generations per user, enforce cooldown
-- Examples: `Users.tryAcquireGenerationLock(userId, cooldownMs)`, `Users.releaseGenerationLock(userId)`
-- Pattern: DB-backed atomic lock using `users.is_generating` flag + `users.last_generated_at` timestamp
-- Route handler acquires before pipeline; releases in finally block
-- Returns structured error with retry-after if cooldown active
-## Entry Points
-- Location: `src/app/(main)/page.tsx` + `src/app/(main)/FeedClient.tsx`
-- Triggers: HTTP GET `/`
-- Responsibilities: Server component fetches initial games/tracks, passes to PlayerProvider; client component renders Launchpad or Playlist layout
-- Location: `src/app/(main)/catalog/page.tsx` + `src/app/(main)/catalog/CatalogClient.tsx`
-- Triggers: HTTP GET `/catalog`
-- Responsibilities: Server component fetches published game catalog; client component renders grid + library drawer + Steam sync integration
-- Location: `src/app/(backstage)/backstage/` (games, tracks, theatre, requests pages)
-- Triggers: HTTP GET `/backstage/*` (Admin auth required)
-- Responsibilities: Page-per-view (games list, track editor, Director telemetry, game request queue)
-- Location: `src/app/api/playlist/generate/route.ts`
-- Triggers: `POST /api/playlist/generate` with optional body (`target_track_count`, `playlist_mode`, `allow_long_tracks`, `allow_short_tracks`)
-- Responsibilities: Validate input, enforce auth/rate limits, run pipeline, stream SSE events
-- Location: `src/app/api/auth/[...nextauth]/route.ts`
-- Triggers: `POST /api/auth/signin`, `GET /api/auth/callback/google`, etc.
-- Responsibilities: NextAuth v5 routes; sign-in with Google (prod) or Credentials (dev)
-## Error Handling
-- **External API failures:** Return SSE error event or 500 JSON; client receives structured error with reason (YouTube quota, Steam profile private, IGDB down, etc.)
-- **Auth failures:** Return 401 for Required routes (via `AuthRequiredError`), 404 for unregistered routes or Cloudflare Access failures (identity opaque)
-- **Validation failures:** Return 400 with Zod error details (auth=Public) or 401 (auth=Required, validate after auth enforcement)
-- **Database failures:** Log error, return generic 500 (never expose DB schema/constraint details)
-- **Rate limit breaches:** Return 429 with `Retry-After` header (guest IP limit) or structured `{ cooldownMinutes }` response (generation cooldown)
-- **LLM cap exceeded:** Silently continue with fallback (default arc template for Vibe Profiler, concatenated name for session naming)
-- **SSE stream errors:** Send `{ type: "error", message }` event; stream closes after
+- 100% coverage target on `src/lib/**/*.ts` (enforced in `vitest.config.ts`).
+- Tests adapt to production code, not the reverse.
+- Don't mock the subject under test. Don't assert error messages word-for-word — use regex or structured codes.
 
 ## Skill routing
 
-When the user's request matches an available skill, ALWAYS invoke it using the Skill
-tool as your FIRST action. Do NOT answer directly, do NOT use other tools first.
-The skill has specialized workflows that produce better results than ad-hoc answers.
+When a user request matches a skill, invoke it via the Skill tool **first** — the specialized workflows beat ad-hoc answers.
 
-Key routing rules:
-- Product ideas, "is this worth building", brainstorming → invoke office-hours
-- Bugs, errors, "why is this broken", 500 errors → invoke investigate
-- Ship, deploy, push, create PR → invoke ship
-- QA, test the site, find bugs → invoke qa
-- Code review, check my diff → invoke review
-- Update docs after shipping → invoke document-release
-- Weekly retro → invoke retro
-- Design system, brand → invoke design-consultation
-- Visual audit, design polish → invoke design-review
-- Architecture review → invoke plan-eng-review
-- Save progress, checkpoint, resume → invoke checkpoint
-- Code quality, health check → invoke health
+- Product ideas, "is this worth building" → **office-hours**
+- Bugs, errors, 500s, "why is this broken" → **investigate**
+- Ship, deploy, push, create PR → **ship**
+- QA, test the site, find bugs → **qa**
+- Code review, check my diff → **review**
+- Post-ship docs → **document-release**
+- Weekly retro → **retro**
+- Design system, brand → **design-consultation**
+- Visual audit, polish → **design-review**
+- Architecture review → **plan-eng-review**
+- Save progress, checkpoint, resume → **checkpoint**
+- Code quality, health check → **health**

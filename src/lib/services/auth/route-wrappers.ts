@@ -44,4 +44,3 @@ export function withOptionalAuth<A extends RouteArgs>(
     }
   };
 }
-

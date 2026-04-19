@@ -110,8 +110,7 @@ export function PlayerProvider({
   const gameLibrary = useGameLibrary(isSignedIn, initialGames);
 
   const player = usePlayerState();
-  const { currentTrackIndex, effectiveFoundTracks, setCurrentTrackIndex, setIsPlayerPlaying } =
-    player;
+  const { currentTrackIndex, effectiveTracks, setCurrentTrackIndex, setIsPlayerPlaying } = player;
 
   const [restoredSeekSeconds, setRestoredSeekSeconds] = useState<number | null>(
     restoreData.playback?.positionSeconds ?? null,
@@ -177,7 +176,7 @@ export function PlayerProvider({
       const idx = player.currentTrackIndex;
       const sessionId = player.playingSessionId ?? GUEST_SESSION_ID;
       if (idx === null) return;
-      const track = player.effectiveFoundTracks[idx];
+      const track = player.effectiveTracks[idx];
       if (!track?.video_id) return;
       savePlaybackState({
         sessionId,
@@ -187,7 +186,7 @@ export function PlayerProvider({
         paused,
       });
     },
-    [player.currentTrackIndex, player.playingSessionId, player.effectiveFoundTracks],
+    [player.currentTrackIndex, player.playingSessionId, player.effectiveTracks],
   );
 
   useEffect(() => {
@@ -195,7 +194,7 @@ export function PlayerProvider({
     const idx = player.currentTrackIndex;
     const sessionId = player.playingSessionId ?? GUEST_SESSION_ID;
     if (idx === null) return;
-    const track = player.effectiveFoundTracks[idx];
+    const track = player.effectiveTracks[idx];
     if (!track?.video_id) return;
     savePlaybackState({ sessionId, trackIndex: idx, positionSeconds: 0, videoId: track.video_id });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -225,10 +224,10 @@ export function PlayerProvider({
   }, [playlist.tracks]);
 
   // ── YouTube player ──
-  const hasActiveTrack = currentTrackIndex !== null && effectiveFoundTracks.length > 0;
+  const hasActiveTrack = currentTrackIndex !== null && effectiveTracks.length > 0;
 
   const ytPlayer = useYouTubePlayer({
-    tracks: hasActiveTrack ? effectiveFoundTracks : [],
+    tracks: hasActiveTrack ? effectiveTracks : [],
     currentIndex: currentTrackIndex ?? 0,
     onIndexChange: setCurrentTrackIndex,
     onPlayingChange: setIsPlayerPlaying,

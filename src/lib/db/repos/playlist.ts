@@ -1,5 +1,5 @@
 import { getDB, batch } from "@/lib/db";
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { playlistTracks } from "@/lib/db/drizzle-schema";
 import { toPlaylistTracks } from "@/lib/db/mappers";
 import type { PlaylistTrack } from "@/types";
@@ -133,6 +133,16 @@ export const Playlist = {
       .run();
   },
 
+  /** Mark many tracks synced in a single UPDATE — used after concurrent YT sync. */
+  async markManySynced(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    await getDB()
+      .update(playlistTracks)
+      .set({ synced_at: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')` })
+      .where(inArray(playlistTracks.id, ids))
+      .run();
+  },
+
   /** Returns the userId who owns the playlist containing this track, or null. */
   async getTrackOwnerId(trackId: string): Promise<string | null> {
     const row = await getDB().get<{ user_id: string }>(sql`
@@ -172,5 +182,4 @@ export const Playlist = {
       .filter((r): r is typeof r & { video_id: string } => r.video_id != null)
       .map((r) => r.video_id);
   },
-
 };

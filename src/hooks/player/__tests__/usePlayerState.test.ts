@@ -43,7 +43,7 @@ describe("usePlayerState", () => {
       expect(result.current.playingSessionId).toBeNull();
       expect(result.current.isPlayerPlaying).toBe(false);
       expect(result.current.shuffleMode).toBe(false);
-      expect(result.current.effectiveFoundTracks).toEqual([]);
+      expect(result.current.effectiveTracks).toEqual([]);
       expect(result.current.playedTrackIds.size).toBe(0);
     });
   });
@@ -60,7 +60,7 @@ describe("usePlayerState", () => {
       expect(result.current.currentTrackIndex).toBe(1);
       expect(result.current.playingTrackId).toBe("t2");
       expect(result.current.playingSessionId).toBe("session-1");
-      expect(result.current.effectiveFoundTracks).toEqual(tracks);
+      expect(result.current.effectiveTracks).toEqual(tracks);
     });
 
     it("should preserve playedTrackIds across startPlaying calls", () => {
@@ -131,7 +131,7 @@ describe("usePlayerState", () => {
       expect(result.current.currentTrackIndex).toBeNull();
       expect(result.current.playingTrackId).toBeNull();
       expect(result.current.playingSessionId).toBeNull();
-      expect(result.current.effectiveFoundTracks).toEqual([]);
+      expect(result.current.effectiveTracks).toEqual([]);
       expect(result.current.playedTrackIds.size).toBe(0);
       expect(result.current.shuffleMode).toBe(false);
     });
@@ -151,11 +151,11 @@ describe("usePlayerState", () => {
 
       expect(result.current.shuffleMode).toBe(true);
       // The effective tracks should still contain the same set of tracks
-      expect(result.current.effectiveFoundTracks).toHaveLength(3);
+      expect(result.current.effectiveTracks).toHaveLength(3);
       // Current track should be at position 0 after shuffle
       expect(result.current.currentTrackIndex).toBe(0);
       // The first track in the shuffled order should be the one that was playing
-      expect(result.current.effectiveFoundTracks[0].id).toBe("t1");
+      expect(result.current.effectiveTracks[0].id).toBe("t1");
     });
 
     it("should toggle shuffle mode off and restore position", () => {
@@ -174,7 +174,7 @@ describe("usePlayerState", () => {
 
       expect(result.current.shuffleMode).toBe(false);
       // Should be back in original order
-      expect(result.current.effectiveFoundTracks).toEqual(tracks);
+      expect(result.current.effectiveTracks).toEqual(tracks);
     });
   });
 

@@ -3,6 +3,21 @@
  *
  * In production, backstage routes require a valid CF_Authorization cookie
  * set by Cloudflare Access after identity verification.
+ *
+ * **Security contract:** this check does NOT verify the JWT signature. It only
+ * validates structure and expiry. The signature is verified by Cloudflare Access
+ * at the edge *before* the request reaches the Worker.
+ *
+ * **Deploy-time dependency:** this is load-bearing only when CF Access covers
+ * every path that resolves to an `AuthLevel.Admin` route. If the Worker can be
+ * reached bypassing CF Access (e.g. via the `*.workers.dev` default URL or a
+ * misconfigured route), attackers can forge a structurally valid JWT with a
+ * future `exp` and pass the check. When deploying:
+ *   1. Disable `workers.dev` on this Worker (`workers_dev: false` in wrangler).
+ *   2. Confirm the CF Access Application covers `/backstage/*` AND
+ *      `/api/backstage/*` on the production hostname.
+ *   3. If either of the above cannot be guaranteed, swap this function for a
+ *      proper JWKS-backed signature check against `/cdn-cgi/access/certs`.
  */
 
 const CF_AUTH_COOKIE = "CF_Authorization";

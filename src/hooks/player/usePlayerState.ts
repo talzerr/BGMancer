@@ -96,7 +96,7 @@ export function usePlayerState() {
     }
   }
 
-  const effectiveFoundTracks = useMemo(
+  const effectiveTracks = useMemo(
     () =>
       shuffleMode && shuffleOrder.length === playingTracks.length
         ? shuffleOrder.map((i) => playingTracks[i]).filter(Boolean)
@@ -105,19 +105,19 @@ export function usePlayerState() {
   );
 
   const playingTrackId =
-    currentTrackIndex !== null ? (effectiveFoundTracks[currentTrackIndex]?.id ?? null) : null;
+    currentTrackIndex !== null ? (effectiveTracks[currentTrackIndex]?.id ?? null) : null;
   const playingTrackIdRef = useRef(playingTrackId);
   useEffect(() => {
     playingTrackIdRef.current = playingTrackId;
   }, [playingTrackId]);
 
   const activeGameId =
-    currentTrackIndex !== null ? (effectiveFoundTracks[currentTrackIndex]?.game_id ?? null) : null;
+    currentTrackIndex !== null ? (effectiveTracks[currentTrackIndex]?.game_id ?? null) : null;
 
-  // Mark current track as played whenever the index changes (must be after effectiveFoundTracks)
+  // Mark current track as played whenever the index changes (must be after effectiveTracks)
   useEffect(() => {
     if (currentTrackIndex !== null) {
-      const track = effectiveFoundTracks[currentTrackIndex];
+      const track = effectiveTracks[currentTrackIndex];
       if (track) {
         setPlayedTrackIds((prev) => {
           if (prev.has(track.id)) return prev;
@@ -143,7 +143,7 @@ export function usePlayerState() {
     startPlaying,
     restorePlayback,
     clearPlayedTracks,
-    effectiveFoundTracks,
+    effectiveTracks,
     playingTrackId,
     playingSessionId,
     activeGameId,

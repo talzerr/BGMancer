@@ -9,65 +9,70 @@ import { updateGameSchema, zodErrorResponse } from "@/lib/validation";
 const log = createLogger("backstage-games");
 
 /** PATCH /api/backstage/games/[gameId] — update game metadata */
-export const PATCH = withAdminAuth(async (req: Request, { params }: { params: Promise<{ gameId: string }> }) => {
-  const { gameId } = await params;
+export const PATCH = withAdminAuth(
+  async (req: Request, { params }: { params: Promise<{ gameId: string }> }) => {
+    const { gameId } = await params;
 
-  try {
-    const game = await Games.getById(gameId);
-    if (!game) {
-      return NextResponse.json({ error: "Game not found" }, { status: 404 });
+    try {
+      const game = await Games.getById(gameId);
+      if (!game) {
+        return NextResponse.json({ error: "Game not found" }, { status: 404 });
+      }
+
+      const parsed = updateGameSchema.safeParse(await req.json());
+      if (!parsed.success) return zodErrorResponse(parsed.error);
+      const body = parsed.data;
+
+      const fields: GameUpdateFields = {};
+      if (body.title !== undefined) fields.title = body.title;
+      if (body.steam_appid !== undefined) fields.steam_appid = body.steam_appid ?? null;
+      if (body.tracklist_source !== undefined)
+        fields.tracklist_source = body.tracklist_source ?? null;
+      if (body.yt_playlist_id !== undefined)
+        fields.yt_playlist_id = body.yt_playlist_id ? extractPlaylistId(body.yt_playlist_id) : null;
+      if (body.thumbnail_url !== undefined) fields.thumbnail_url = body.thumbnail_url ?? null;
+      if (body.onboarding_phase !== undefined) fields.onboarding_phase = body.onboarding_phase;
+
+      if (Object.keys(fields).length === 0) {
+        return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+      }
+
+      const updated = await BackstageGames.update(gameId, fields);
+      if (!updated) {
+        return NextResponse.json({ error: "Game not found after update" }, { status: 404 });
+      }
+      return NextResponse.json(updated);
+    } catch (err) {
+      log.error("handler failed", {}, err);
+      return NextResponse.json({ error: "Failed to update game" }, { status: 500 });
     }
-
-    const parsed = updateGameSchema.safeParse(await req.json());
-    if (!parsed.success) return zodErrorResponse(parsed.error);
-    const body = parsed.data;
-
-    const fields: GameUpdateFields = {};
-    if (body.title !== undefined) fields.title = body.title;
-    if (body.steam_appid !== undefined) fields.steam_appid = body.steam_appid ?? null;
-    if (body.tracklist_source !== undefined)
-      fields.tracklist_source = body.tracklist_source ?? null;
-    if (body.yt_playlist_id !== undefined)
-      fields.yt_playlist_id = body.yt_playlist_id ? extractPlaylistId(body.yt_playlist_id) : null;
-    if (body.thumbnail_url !== undefined) fields.thumbnail_url = body.thumbnail_url ?? null;
-    if (body.onboarding_phase !== undefined)
-      fields.onboarding_phase = body.onboarding_phase as GameUpdateFields["onboarding_phase"];
-
-    if (Object.keys(fields).length === 0) {
-      return NextResponse.json({ error: "No fields to update" }, { status: 400 });
-    }
-
-    const updated = await BackstageGames.update(gameId, fields);
-    if (!updated) {
-      return NextResponse.json({ error: "Game not found after update" }, { status: 404 });
-    }
-    return NextResponse.json(updated);
-  } catch (err) {
-    log.error("handler failed", {}, err);
-    return NextResponse.json({ error: "Failed to update game" }, { status: 500 });
-  }
-}, "backstage-games");
+  },
+  "backstage-games",
+);
 
 /** DELETE /api/backstage/games/[gameId] — permanently delete a game and all associated data */
-export const DELETE = withAdminAuth(async (_req: Request, { params }: { params: Promise<{ gameId: string }> }) => {
-  const { gameId } = await params;
+export const DELETE = withAdminAuth(
+  async (_req: Request, { params }: { params: Promise<{ gameId: string }> }) => {
+    const { gameId } = await params;
 
-  try {
-    const game = await Games.getById(gameId);
-    if (!game) {
-      return NextResponse.json({ error: "Game not found" }, { status: 404 });
-    }
-    if (game.published) {
-      return NextResponse.json(
-        { error: "Cannot delete a published game. Unpublish it first." },
-        { status: 400 },
-      );
-    }
+    try {
+      const game = await Games.getById(gameId);
+      if (!game) {
+        return NextResponse.json({ error: "Game not found" }, { status: 404 });
+      }
+      if (game.published) {
+        return NextResponse.json(
+          { error: "Cannot delete a published game. Unpublish it first." },
+          { status: 400 },
+        );
+      }
 
-    await BackstageGames.destroy(gameId);
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    log.error("handler failed", {}, err);
-    return NextResponse.json({ error: "Failed to delete game" }, { status: 500 });
-  }
-}, "backstage-games");
+      await BackstageGames.destroy(gameId);
+      return NextResponse.json({ ok: true });
+    } catch (err) {
+      log.error("handler failed", {}, err);
+      return NextResponse.json({ error: "Failed to delete game" }, { status: 500 });
+    }
+  },
+  "backstage-games",
+);

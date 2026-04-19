@@ -115,4 +115,33 @@ describe("DELETE /api/playlist/[id]", () => {
       expect(remaining.map((r) => r.id)).toEqual(["pt-1", "pt-3"]);
     });
   });
+
+  describe("ownership enforcement (IDOR regression)", () => {
+    it("should return 403 when the track belongs to another user", async () => {
+      seedTestUser(rawDb, "other-user");
+      const gameId = seedTestGame(rawDb, "other-user", { id: "g-other", title: "Other Game" });
+      const playlistId = seedTestSession(rawDb, "other-user", { id: "pl-other" });
+      seedPlaylistTrack(rawDb, playlistId, "pt-other", gameId, 0);
+
+      const res = await DELETE_HANDLER(makeJsonRequest("/api/playlist/pt-other", "DELETE"), {
+        params: Promise.resolve({ id: "pt-other" }),
+      });
+
+      expect(res.status).toBe(403);
+      const body = await parseJson<{ error: string }>(res);
+      expect(body.error).toBe("Forbidden");
+
+      const stillThere = rawDb
+        .prepare("SELECT id FROM playlist_tracks WHERE id = ?")
+        .get("pt-other");
+      expect(stillThere).toBeDefined();
+    });
+
+    it("should return 404 when the track does not exist", async () => {
+      const res = await DELETE_HANDLER(makeJsonRequest("/api/playlist/nope", "DELETE"), {
+        params: Promise.resolve({ id: "nope" }),
+      });
+      expect(res.status).toBe(404);
+    });
+  });
 });

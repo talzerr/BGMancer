@@ -43,6 +43,16 @@ export class YouTubeInvalidKeyError extends Error {
   }
 }
 
+/** Thrown when an OAuth-scoped YouTube call returns 401/403 — callers re-auth */
+export class YouTubeOAuthError extends Error {
+  readonly status: number;
+  constructor(status: number, message?: string) {
+    super(message ?? `YouTube OAuth request failed with status ${status}`);
+    this.status = status;
+    this.name = "YouTubeOAuthError";
+  }
+}
+
 /** Parse a YouTube error response body and throw a fatal error if applicable */
 async function throwIfFatalError(res: Response): Promise<void> {
   const body = await res.text().catch(() => "");
@@ -51,16 +61,26 @@ async function throwIfFatalError(res: Response): Promise<void> {
     status: res.status,
     statusText: res.statusText,
   });
+
+  let parsed: unknown = null;
   try {
-    const parsed = JSON.parse(body);
-    const reason = parsed?.error?.errors?.[0]?.reason;
-    log.error("error reason", { reason: reason ?? "unknown" });
-    if (reason === "quotaExceeded") throw new YouTubeQuotaError();
-    const details: Array<{ reason?: string }> = parsed?.error?.details ?? [];
-    if (details.some((d) => d.reason === "API_KEY_INVALID")) throw new YouTubeInvalidKeyError();
-  } catch (e) {
-    if (e instanceof YouTubeQuotaError || e instanceof YouTubeInvalidKeyError) throw e;
+    parsed = JSON.parse(body);
+  } catch {
+    log.error("response body (non-JSON)", { body });
+    return;
   }
+
+  const err = (
+    parsed as {
+      error?: { errors?: Array<{ reason?: string }>; details?: Array<{ reason?: string }> };
+    }
+  ).error;
+  const reason = err?.errors?.[0]?.reason;
+  log.error("error reason", { reason: reason ?? "unknown" });
+  if (reason === "quotaExceeded") throw new YouTubeQuotaError();
+  const details = err?.details ?? [];
+  if (details.some((d) => d.reason === "API_KEY_INVALID")) throw new YouTubeInvalidKeyError();
+
   log.error("response body", { body });
 }
 
@@ -411,22 +431,37 @@ interface PlaylistItem {
   snippet: { title: string };
 }
 
-/** Find the "BGMancer Journey" playlist, or return null if not found */
+function throwOAuthIfUnauthorized(res: Response, body: string, context: string): void {
+  if (res.status === 401 || res.status === 403) {
+    throw new YouTubeOAuthError(res.status, `${context}: ${res.status}${body ? ` — ${body}` : ""}`);
+  }
+}
+
+/** Find the "BGMancer Journey" playlist across all pages, or return null if not found */
 export async function findBGMancerPlaylist(accessToken: string): Promise<string | null> {
-  const url = new URL(`${YOUTUBE_API_BASE}/playlists`);
-  url.searchParams.set("part", "snippet");
-  url.searchParams.set("mine", "true");
-  url.searchParams.set("maxResults", "50");
+  let pageToken: string | undefined;
+  do {
+    const url = new URL(`${YOUTUBE_API_BASE}/playlists`);
+    url.searchParams.set("part", "snippet");
+    url.searchParams.set("mine", "true");
+    url.searchParams.set("maxResults", "50");
+    if (pageToken) url.searchParams.set("pageToken", pageToken);
 
-  const res = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!res.ok) throw new Error(`Failed to list playlists: ${res.status}`);
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throwOAuthIfUnauthorized(res, body, "Failed to list playlists");
+      throw new Error(`Failed to list playlists: ${res.status}`);
+    }
 
-  const data = (await res.json()) as { items?: PlaylistItem[] };
-  const playlists: PlaylistItem[] = data.items ?? [];
-  const match = playlists.find((p) => p.snippet.title === BGMANCER_PLAYLIST_TITLE);
-  return match?.id ?? null;
+    const data = (await res.json()) as { items?: PlaylistItem[]; nextPageToken?: string };
+    const match = (data.items ?? []).find((p) => p.snippet.title === BGMANCER_PLAYLIST_TITLE);
+    if (match) return match.id;
+    pageToken = data.nextPageToken;
+  } while (pageToken);
+  return null;
 }
 
 /** Create the "BGMancer Journey" playlist and return its ID */
@@ -448,6 +483,7 @@ export async function createBGMancerPlaylist(accessToken: string): Promise<strin
 
   if (!res.ok) {
     const err = await res.text();
+    throwOAuthIfUnauthorized(res, err, "Failed to create playlist");
     throw new Error(`Failed to create playlist: ${res.status} — ${err}`);
   }
 
@@ -477,6 +513,7 @@ export async function addVideoToPlaylist(
 
   if (!res.ok) {
     const err = await res.text();
+    throwOAuthIfUnauthorized(res, err, "Failed to add video to playlist");
     throw new Error(`Failed to add video to playlist: ${res.status} — ${err}`);
   }
 

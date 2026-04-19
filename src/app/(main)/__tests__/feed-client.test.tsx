@@ -34,7 +34,7 @@ const mockPlayerContext = {
   },
   player: {
     currentTrackIndex: 0,
-    effectiveFoundTracks: [] as PlaylistTrack[],
+    effectiveTracks: [] as PlaylistTrack[],
     isPlayerPlaying: false,
     playingTrackId: null as string | null,
     playedTrackIds: new Set<string>(),

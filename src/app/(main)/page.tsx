@@ -6,12 +6,9 @@ import { FeedClient } from "./FeedClient";
 export default async function HomePage() {
   const session = await auth();
 
-  const allPublished = await Games.listPublished();
-  // Shuffle and take 8 covers for the empty-library launchpad preview.
-  // Fisher-Yates shuffle via crypto.getRandomValues to satisfy the purity lint rule.
-  const coverUrls = allPublished
-    .map((g) => g.thumbnail_url)
-    .filter((url): url is string => url != null);
+  // Narrow DB projection: only cover URLs, capped small. The row order is
+  // deterministic so we shuffle in memory before slicing to 8 previews.
+  const coverUrls = await Games.listPublishedCoverUrls(24);
   const rand = new Uint32Array(coverUrls.length);
   crypto.getRandomValues(rand);
   const previewCovers = coverUrls
