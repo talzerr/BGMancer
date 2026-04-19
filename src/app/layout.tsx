@@ -19,7 +19,7 @@ const jakarta = Plus_Jakarta_Sans({
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={cn("dark", "font-sans", inter.variable, jakarta.variable)}>
-      <body className="antialiased">{children}</body>
+      <body className="overflow-x-hidden antialiased">{children}</body>
     </html>
   );
 }
