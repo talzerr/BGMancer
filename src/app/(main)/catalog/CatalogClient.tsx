@@ -58,6 +58,8 @@ export function CatalogClient({
 
   const libraryGameIds = new Set(gameLibrary.games.map((g) => g.id));
 
+  const libraryCount = gameLibrary.games.length;
+
   return (
     <div className="flex h-screen flex-row overflow-hidden">
       <div className="flex min-w-0 flex-1 flex-col">
@@ -75,7 +77,7 @@ export function CatalogClient({
           </CatalogHeaderBar>
         </header>
         <main className="min-h-0 flex-1 overflow-y-auto">
-          <div className="p-4 pt-0">
+          <div className="p-4 pt-0 pb-24 lg:pb-4">
             <CatalogBrowser
               libraryGameIds={libraryGameIds}
               onAdd={handleAdd}
@@ -101,6 +103,27 @@ export function CatalogClient({
         onSignIn={!userName ? () => signIn("google", { callbackUrl: "/catalog" }) : undefined}
         onSignOut={userName ? () => performSignOut() : undefined}
       />
+
+      {/*
+       * Mobile library affordance — the desktop drawer is hidden below lg,
+       * which left mobile users with no way to see library state or start
+       * curation from /catalog (BUG-2). This fixed bottom bar surfaces the
+       * count and a Curate CTA once there's at least one game in the library.
+       */}
+      {libraryCount > 0 && (
+        <div className="bg-background/95 border-border pointer-events-auto fixed inset-x-0 bottom-0 z-20 flex items-center justify-between gap-3 border-t px-4 py-3 backdrop-blur-sm lg:hidden">
+          <span className="text-foreground text-sm font-medium">
+            Library · <span className="tabular-nums">{libraryCount}</span>
+          </span>
+          <button
+            type="button"
+            onClick={handleCurate}
+            className="bg-primary text-foreground min-h-11 cursor-pointer rounded-lg px-5 py-2 text-sm font-medium transition-colors hover:bg-[var(--primary-hover)]"
+          >
+            Curate →
+          </button>
+        </div>
+      )}
 
       {playlist.tracks.length > 0 && (
         <div className="hidden lg:flex">
