@@ -33,7 +33,7 @@ export function LaunchpadEmpty({ previewCovers }: { previewCovers: string[] }) {
       <p className="mt-4 text-[17px] leading-[1.4] font-normal -tracking-[0.01em] text-[rgba(255,255,255,0.6)]">
         Playlists from the games you&apos;ve played
       </p>
-      <p className="mt-1.5 text-[13px] font-normal text-[rgba(255,255,255,0.3)]">
+      <p className="mt-1.5 text-[13px] font-normal text-[rgba(255,255,255,0.6)]">
         Pick your games, get a soundtrack mix
       </p>
 
