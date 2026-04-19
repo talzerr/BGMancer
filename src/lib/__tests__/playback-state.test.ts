@@ -114,7 +114,6 @@ describe("patchPausedState", () => {
   it("silently ignores malformed existing JSON", () => {
     localStorage.setItem(STATE_KEY, "not-json");
     patchPausedState(true);
-    // Corrupt payload stays corrupt; reader recovers by returning null.
     expect(readPlaybackState()).toBeNull();
   });
 });

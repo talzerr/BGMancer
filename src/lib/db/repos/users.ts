@@ -61,7 +61,6 @@ export const Users = {
     const db = getDB();
     const cooldownThresholdIso = new Date(Date.now() - cooldownMs).toISOString();
 
-    // Atomic compare-and-set: only one concurrent caller can flip is_generating 0→1.
     const acquired = await db.get<{ id: string }>(sql`
       UPDATE users
       SET is_generating = 1
