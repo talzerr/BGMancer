@@ -39,9 +39,9 @@ export function LaunchpadEmpty({ previewCovers }: { previewCovers: string[] }) {
 
       <MusicNote className="h-8 w-8 text-[rgba(255,255,255,0.25)]" />
 
-      <p className="mt-4 text-[17px] leading-[1.4] font-normal -tracking-[0.01em] text-[rgba(255,255,255,0.6)]">
+      <h1 className="mt-4 text-[28px] leading-[1.2] font-semibold -tracking-[0.01em] text-[rgba(255,255,255,0.9)] sm:text-[32px]">
         Playlists from the games you&apos;ve played
-      </p>
+      </h1>
       <p className="mt-1.5 text-[13px] font-normal text-[rgba(255,255,255,0.6)]">
         Pick your games, get a soundtrack mix
       </p>
