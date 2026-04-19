@@ -1,6 +1,6 @@
 import { getDB, batch } from "@/lib/db";
-import { eq, sql, and } from "drizzle-orm";
-import { playlistTracks, playlists } from "@/lib/db/drizzle-schema";
+import { eq, sql } from "drizzle-orm";
+import { playlistTracks } from "@/lib/db/drizzle-schema";
 import { toPlaylistTracks } from "@/lib/db/mappers";
 import type { PlaylistTrack } from "@/types";
 
