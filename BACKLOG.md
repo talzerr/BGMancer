@@ -58,8 +58,6 @@ Future work. No urgency, no commitment.
   for common operations, production runbook. Currently using raw wrangler commands.
 - **[infra] Health check endpoint** — `GET /api/health` with D1 connectivity check,
   version info.
-- **[docs] Contributing & community docs** — CONTRIBUTING.md, GitHub issue templates,
-  PR template, CODE_OF_CONDUCT.md.
 - **[docs] Deployment documentation** — step-by-step Cloudflare setup, env var
   reference, operations runbook.
 - **[design] Design system addendum** — minor. The release design session produced
