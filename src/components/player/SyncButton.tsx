@@ -9,7 +9,7 @@ interface SyncResult {
   message: string;
   synced: number;
   playlist_url?: string;
-  errors?: Array<{ game_id: string; error: string }>;
+  errors?: Array<{ track_id: string; error: string }>;
 }
 
 const YOUTUBE_SCOPE = "https://www.googleapis.com/auth/youtube";

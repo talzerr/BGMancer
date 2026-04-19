@@ -87,7 +87,7 @@ vi.mock("@/context/player-context", () => ({
   usePlayerContext: () => mockPlayerContext,
 }));
 
-vi.mock("@/hooks/library/useSessionManager", () => ({
+vi.mock("@/hooks/player/useSessionManager", () => ({
   useSessionManager: () => mockSessionManager,
 }));
 
@@ -130,7 +130,7 @@ vi.mock("@/components/player/PlayerPanel", () => ({
   PlayerPanel: () => <div data-testid="player-panel" />,
 }));
 
-vi.mock("@/components/AuthButtons", () => ({
+vi.mock("@/components/layout/AuthButtons", () => ({
   AuthButtons: () => <div data-testid="auth-buttons" />,
   performSignOut: vi.fn(),
 }));

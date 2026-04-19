@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/services/auth/auth";
 import { Playlist } from "@/lib/db/repo";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { SYNC_MAX, SYNC_WINDOW_MS } from "@/lib/constants";
+import { SYNC_MAX, SYNC_WINDOW_MS, SYNC_CONCURRENCY } from "@/lib/constants";
 import { createLogger } from "@/lib/logger";
 import {
   findBGMancerPlaylist,
@@ -12,8 +12,6 @@ import {
 import { runConcurrent } from "@/lib/concurrency";
 
 const log = createLogger("sync");
-
-const SYNC_CONCURRENCY = 4;
 
 /**
  * POST /api/sync

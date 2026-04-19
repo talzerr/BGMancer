@@ -119,6 +119,9 @@ export const SYNC_MAX = 5;
 /** YouTube sync rate limit window in milliseconds (1 hour). */
 export const SYNC_WINDOW_MS = 60 * 60 * 1000;
 
+/** Concurrency limit for YouTube playlistItems.insert during sync. */
+export const SYNC_CONCURRENCY = 4;
+
 /** Maximum track reroll requests per user per minute. */
 export const REROLL_MAX = 30;
 

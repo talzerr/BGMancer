@@ -1,3 +1,7 @@
+import { env } from "@/lib/env";
+import { createLogger } from "@/lib/logger";
+import { YT_MAX_VIDEO_DURATION_SECONDS, YT_VIDEOS_PAGE_SIZE } from "@/lib/constants";
+
 interface YouTubeSearchResult {
   videoId: string;
   title: string;
@@ -7,8 +11,9 @@ interface YouTubeSearchResult {
   description: string;
 }
 
-import { env } from "@/lib/env";
-import { createLogger } from "@/lib/logger";
+const BGMANCER_PLAYLIST_TITLE = "BGMancer Journey";
+const BGMANCER_PLAYLIST_DESCRIPTION =
+  "AI-curated video game OST playlist, powered by BGMancer. Each entry is the best long-form official soundtrack found for that game.";
 
 const log = createLogger("youtube");
 
@@ -79,15 +84,13 @@ const REJECT_KEYWORDS = [
   "orchestral remix",
 ];
 
-import { YT_MAX_VIDEO_DURATION_SECONDS, YT_VIDEOS_PAGE_SIZE } from "@/lib/constants";
-
 /** Parse ISO 8601 duration string (PT1H23M45S) to seconds */
 export function parseDuration(iso: string): number {
   const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
   if (!match) return 0;
-  const hours = parseInt(match[1] ?? "0");
-  const minutes = parseInt(match[2] ?? "0");
-  const seconds = parseInt(match[3] ?? "0");
+  const hours = parseInt(match[1] ?? "0", 10);
+  const minutes = parseInt(match[2] ?? "0", 10);
+  const seconds = parseInt(match[3] ?? "0", 10);
   return hours * 3600 + minutes * 60 + seconds;
 }
 
@@ -422,7 +425,7 @@ export async function findBGMancerPlaylist(accessToken: string): Promise<string 
 
   const data = (await res.json()) as { items?: PlaylistItem[] };
   const playlists: PlaylistItem[] = data.items ?? [];
-  const match = playlists.find((p) => p.snippet.title === "BGMancer Journey");
+  const match = playlists.find((p) => p.snippet.title === BGMANCER_PLAYLIST_TITLE);
   return match?.id ?? null;
 }
 
@@ -436,9 +439,8 @@ export async function createBGMancerPlaylist(accessToken: string): Promise<strin
     },
     body: JSON.stringify({
       snippet: {
-        title: "BGMancer Journey",
-        description:
-          "AI-curated video game OST playlist, powered by BGMancer. Each entry is the best long-form official soundtrack found for that game.",
+        title: BGMANCER_PLAYLIST_TITLE,
+        description: BGMANCER_PLAYLIST_DESCRIPTION,
       },
       status: { privacyStatus: "public" },
     }),

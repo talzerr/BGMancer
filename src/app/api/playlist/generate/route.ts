@@ -98,7 +98,6 @@ export async function POST(request: Request) {
     })();
   } else {
     // ── Guest: Director-only, no Vibe Profiler, no persistence ──
-    // Rate-limit first (cheap KV lookup) so floods don't pay for upstream Turnstile siteverify.
     const limited = await checkGuestRateLimit(request);
     if (limited) {
       return sseError(`Please wait ${limited.waitSec}s before trying again.`);

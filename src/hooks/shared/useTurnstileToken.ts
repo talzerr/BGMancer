@@ -79,11 +79,13 @@ export function useTurnstileToken(siteKey: string | undefined): UseTurnstileToke
       });
     });
 
-    const timeoutPromise = new Promise<null>((resolve) =>
-      setTimeout(() => resolve(null), RENDER_TIMEOUT_MS),
-    );
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    const timeoutPromise = new Promise<null>((resolve) => {
+      timeoutHandle = setTimeout(() => resolve(null), RENDER_TIMEOUT_MS);
+    });
 
     const result = await Promise.race([tokenPromise, timeoutPromise]);
+    if (timeoutHandle) clearTimeout(timeoutHandle);
     if (result === null) {
       console.warn("[useTurnstileToken] widget did not resolve within timeout");
     }

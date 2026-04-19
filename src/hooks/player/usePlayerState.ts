@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import type { PlaylistTrack } from "@/types";
 import {
   clearPlaybackState,
@@ -96,10 +96,13 @@ export function usePlayerState() {
     }
   }
 
-  const effectiveFoundTracks =
-    shuffleMode && shuffleOrder.length === playingTracks.length
-      ? shuffleOrder.map((i) => playingTracks[i]).filter(Boolean)
-      : playingTracks;
+  const effectiveFoundTracks = useMemo(
+    () =>
+      shuffleMode && shuffleOrder.length === playingTracks.length
+        ? shuffleOrder.map((i) => playingTracks[i]).filter(Boolean)
+        : playingTracks,
+    [shuffleMode, shuffleOrder, playingTracks],
+  );
 
   const playingTrackId =
     currentTrackIndex !== null ? (effectiveFoundTracks[currentTrackIndex]?.id ?? null) : null;
