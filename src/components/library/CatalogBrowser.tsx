@@ -17,6 +17,8 @@ interface CatalogBrowserProps {
   steamMatchedGameIds: string[];
   requestFormEnabled: boolean;
   turnstileSiteKey: string | undefined;
+  /** Notifies the parent of the total catalog size once fetched. */
+  onCatalogLoaded?: (total: number) => void;
 }
 
 const PAGE_SIZE = 20;
@@ -38,6 +40,7 @@ export function CatalogBrowser({
   steamMatchedGameIds,
   requestFormEnabled,
   turnstileSiteKey,
+  onCatalogLoaded,
 }: CatalogBrowserProps) {
   const [catalog, setCatalog] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,13 +73,17 @@ export function CatalogBrowser({
   const fetchCatalog = useCallback(async () => {
     try {
       const res = await fetch("/api/games/catalog");
-      if (res.ok) setCatalog(await res.json());
+      if (res.ok) {
+        const data: Game[] = await res.json();
+        setCatalog(data);
+        onCatalogLoaded?.(data.length);
+      }
     } catch {
       /* non-critical */
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [onCatalogLoaded]);
 
   useEffect(() => {
     Promise.resolve().then(() => fetchCatalog());

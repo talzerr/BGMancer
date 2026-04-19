@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { usePlayerContext } from "@/context/player-context";
@@ -33,6 +33,8 @@ export function CatalogClient({
   const drawerExpanded = drawerOverride ?? (!gameLibrary.isLoading && gameLibrary.games.length > 0);
 
   const [steamFilterOn, setSteamFilterOn] = useState(false);
+  const [catalogTotal, setCatalogTotal] = useState<number | null>(null);
+  const handleCatalogLoaded = useCallback((total: number) => setCatalogTotal(total), []);
 
   async function handleAdd(game: Game, curation: CurationMode) {
     const wasEmpty = gameLibrary.games.length === 0;
@@ -78,6 +80,14 @@ export function CatalogClient({
         </header>
         <main className="min-h-0 flex-1 overflow-y-auto">
           <div className="p-4 pt-0 pb-24 lg:pb-4">
+            <div className="mb-4 flex items-baseline gap-2">
+              <h1 className="text-foreground text-lg font-semibold -tracking-[0.01em]">Catalog</h1>
+              {catalogTotal != null && (
+                <span className="text-[12px] text-[var(--text-tertiary)] tabular-nums">
+                  {catalogTotal} {catalogTotal === 1 ? "game" : "games"}
+                </span>
+              )}
+            </div>
             <CatalogBrowser
               libraryGameIds={libraryGameIds}
               onAdd={handleAdd}
@@ -87,6 +97,7 @@ export function CatalogClient({
               steamMatchedGameIds={steamLib.matchedGameIds}
               requestFormEnabled={requestFormEnabled}
               turnstileSiteKey={turnstileSiteKey}
+              onCatalogLoaded={handleCatalogLoaded}
             />
           </div>
         </main>
