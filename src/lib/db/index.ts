@@ -11,14 +11,11 @@ export function getDB(): DrizzleDB {
   return drizzle(env.DB, { schema });
 }
 
-/** D1 supports at most 100 statements per batch call. */
 const D1_BATCH_LIMIT = 100;
 
 /**
- * Execute multiple queries in a single batch (D1 sends them in one HTTP roundtrip).
- * Automatically chunks into multiple batch calls if the list exceeds D1's 100-statement
- * limit. Chunks run in parallel — D1 guarantees atomicity only within one batch call,
- * so multi-chunk callers already cannot rely on cross-chunk ordering.
+ * Execute many queries. Chunks over the D1 100-stmt limit run in parallel —
+ * D1's atomicity is per batch call, so multi-chunk callers already can't rely on order.
  */
 export async function batch(queries: any[]): Promise<void> {
   if (queries.length === 0) return;

@@ -15,14 +15,8 @@ import { runConcurrent } from "@/lib/concurrency";
 const log = createLogger("sync");
 
 /**
- * POST /api/sync
- *
- * Syncs all unsynced found tracks to a YouTube playlist ("BGMancer Journey").
- * Requires the user to be signed in with Google (OAuth access token via NextAuth).
- * Creates the YouTube playlist if it doesn't exist yet.
- *
- * Does not use withRequiredAuth because it needs the full NextAuth session
- * (OAuth access_token) — not just the userId.
+ * POST /api/sync — sync unsynced tracks to the user's "BGMancer Journey" playlist.
+ * Bypasses withRequiredAuth because it needs the OAuth access_token, not just userId.
  */
 export async function POST() {
   try {
@@ -71,7 +65,6 @@ export async function POST() {
         await addVideoToPlaylist(accessToken, playlistId, track.video_id);
         syncedIds.push(track.id);
       } catch (err) {
-        // Bubble up OAuth errors so the outer catch can prompt re-auth
         if (err instanceof YouTubeOAuthError) throw err;
         errors.push({
           track_id: track.id,
@@ -80,7 +73,6 @@ export async function POST() {
       }
     });
 
-    // Single bulk UPDATE beats N individual writes (one D1 round-trip vs N).
     await Playlist.markManySynced(syncedIds);
 
     return NextResponse.json({
@@ -91,7 +83,6 @@ export async function POST() {
       playlist_url: `https://www.youtube.com/playlist?list=${playlistId}`,
     });
   } catch (err) {
-    // YouTube 401/403 means the token lacks playlist scope — prompt re-auth
     if (err instanceof YouTubeOAuthError) {
       return NextResponse.json(
         { error: "YouTube access not granted. Please re-authenticate with YouTube permissions." },

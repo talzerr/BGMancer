@@ -1,11 +1,6 @@
 import { describe, it, expect, afterEach, beforeEach } from "vitest";
 import { _reloadEnvForTest, getEnv } from "@/lib/env";
 
-/**
- * Regression coverage for the NEXTAUTH_SECRET hardening added in commit 988dc9c:
- * rejects missing secret, known-insecure placeholder, and too-short values when
- * NODE_ENV is not "test".
- */
 describe("loadEnv — NEXTAUTH_SECRET validation", () => {
   const original = { ...process.env };
 

@@ -25,13 +25,7 @@ function rowToRequest(row: typeof gameRequests.$inferSelect): GameRequest {
 }
 
 export const GameRequests = {
-  /**
-   * New → insert; existing & unacknowledged → increment; acknowledged → no-op.
-   *
-   * Atomic: single INSERT ... ON CONFLICT DO UPDATE so concurrent callers for the
-   * same igdbId can't race into two INSERTs (UNIQUE violation → 500) or lose
-   * a count update. Acknowledged rows are preserved via the WHERE clause.
-   */
+  /** New → insert; existing & unacknowledged → increment; acknowledged → no-op. */
   async upsertRequest(igdbId: number, name: string, coverUrl: string | null): Promise<GameRequest> {
     const db = getDB();
     const now = new Date().toISOString();

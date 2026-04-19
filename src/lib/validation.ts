@@ -8,10 +8,7 @@ import { parseSteamInput } from "@/lib/services/external/steam-input";
 // ─── Shared helpers ──────────────────────────────────────────────────────────
 
 export function zodErrorResponse(error: z.ZodError): NextResponse {
-  // Keep the full Zod detail server-side (helpful for debugging) but don't
-  // leak it to the client — the raw output contains glyphs and dotted paths
-  // like "✖ Invalid URL\n  → at coverUrl" which is confusing to users and
-  // exposes internal field names.
+  // Full detail logged server-side; client gets a generic 400 to avoid leaking field paths.
   console.warn("[validation] request body failed schema", z.prettifyError(error));
   return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
 }
@@ -94,9 +91,7 @@ const IGDB_COVER_HOST = "images.igdb.com";
 export const gameRequestSchema = z.object({
   igdbId: z.number().int().positive(),
   name: z.string().trim().min(1).max(200),
-  // Enforce the IGDB cover CDN at validation time; the CSP img-src also allows
-  // images.igdb.com but tightening here prevents storing attacker-controlled
-  // URLs in the DB and defends against future CSP relaxations.
+  // Host-lock at validation time so the DB never stores non-IGDB origins, even if CSP relaxes later.
   coverUrl: z
     .string()
     .url()

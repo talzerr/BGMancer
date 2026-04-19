@@ -4,10 +4,7 @@ import { createLogger } from "@/lib/logger";
 
 type RouteArgs = [Request, ...unknown[]];
 
-/**
- * Wraps a route handler that requires authentication.
- * Resolves userId before calling the handler. Returns 401 for guests, 500 for unexpected errors.
- */
+/** Wraps a handler that requires auth. 401 for guests, 500 on unexpected errors. */
 export function withRequiredAuth<A extends RouteArgs>(
   handler: (userId: string, ...args: A) => Promise<Response>,
   errorLabel: string,
@@ -26,10 +23,7 @@ export function withRequiredAuth<A extends RouteArgs>(
   };
 }
 
-/**
- * Wraps a route handler where auth is optional.
- * Passes userId (string | null) to the handler. Returns 500 for unexpected errors.
- */
+/** Wraps a handler where auth is optional. Passes userId (string | null). */
 export function withOptionalAuth<A extends RouteArgs>(
   handler: (userId: string | null, ...args: A) => Promise<Response>,
   errorLabel: string,

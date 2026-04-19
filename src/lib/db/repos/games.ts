@@ -146,11 +146,7 @@ export const Games = {
     `);
   },
 
-  /**
-   * Narrow projection for the home page preview row. Pulls only thumbnail_url
-   * (not full Game rows) and caps at a small limit to keep D1 reads cheap on
-   * what is the hottest guest-read path in the app.
-   */
+  /** Narrow projection for the home page preview row — hottest guest-read path. */
   async listPublishedCoverUrls(limit = 24): Promise<string[]> {
     const rows = await getDB().all<{ thumbnail_url: string | null }>(sql`
       SELECT thumbnail_url FROM games

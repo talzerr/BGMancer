@@ -6,8 +6,6 @@ import { FeedClient } from "./FeedClient";
 export default async function HomePage() {
   const session = await auth();
 
-  // Narrow DB projection: only cover URLs, capped small. The row order is
-  // deterministic so we shuffle in memory before slicing to 8 previews.
   const coverUrls = await Games.listPublishedCoverUrls(24);
   const rand = new Uint32Array(coverUrls.length);
   crypto.getRandomValues(rand);

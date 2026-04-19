@@ -22,16 +22,8 @@ beforeEach(() => {
   seedTestUser(rawDb);
 });
 
-/**
- * Negative-path regression coverage for the backstage routes that got Zod
- * validation in commit 6911207. The SSE-streaming routes (resolve, retag,
- * load-tracks, etc.) respond 200 with an `error` event instead of 400 — the
- * tests below assert on the error event payload rather than the HTTP status.
- */
-
 async function readSseErrorMessage(res: Response): Promise<string> {
   const text = await res.text();
-  // SSE frames look like `data: {...}\n\n`
   const payload = text.split("\n\n").find((f) => f.startsWith("data: "));
   if (!payload) throw new Error(`No SSE data frame in: ${text}`);
   const json = JSON.parse(payload.slice("data: ".length)) as { type: string; message?: string };
@@ -39,7 +31,8 @@ async function readSseErrorMessage(res: Response): Promise<string> {
   return json.message ?? "";
 }
 
-// selectedTrackNamesSchema: resolve-selected, tag-selected (SSE)
+// SSE routes return 200 with an error event on validation failure.
+
 describe("selectedTrackNamesSchema routes", () => {
   it.each(["@/app/api/backstage/resolve-selected/route", "@/app/api/backstage/tag-selected/route"])(
     "%s emits an SSE error when trackNames is empty",
