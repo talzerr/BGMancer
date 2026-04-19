@@ -168,7 +168,7 @@ export function LibraryDrawer({
   return (
     <aside
       className="border-border bg-background/80 hidden h-full shrink-0 overflow-hidden border-l transition-[width] duration-300 [transition-timing-function:cubic-bezier(0.25,0.1,0.25,1)] lg:block"
-      style={{ width: isExpanded ? 300 : 40 }}
+      style={{ width: isExpanded ? 300 : 48 }}
     >
       <div className="relative h-full w-[300px]">
         {/* Collapsed strip */}
@@ -176,18 +176,18 @@ export function LibraryDrawer({
           type="button"
           onClick={() => onExpandedChange(true)}
           aria-expanded={isExpanded}
-          aria-label="Expand library"
-          className={`hover:text-foreground absolute inset-y-0 left-0 flex w-10 cursor-pointer flex-col items-center gap-3 py-3 text-[var(--text-tertiary)] transition-opacity duration-300 ${
+          aria-label={games.length > 0 ? `Expand library (${games.length})` : "Expand library"}
+          className={`hover:text-foreground absolute inset-y-0 left-0 flex w-12 cursor-pointer flex-col items-center gap-3 py-3 text-[rgba(255,255,255,0.7)] transition-opacity duration-300 ${
             isExpanded ? "pointer-events-none opacity-0" : "opacity-100"
           }`}
         >
           <ChevronLeftIcon />
           <span className="flex flex-col items-center gap-1.5">
-            <span className="text-foreground text-sm font-medium [writing-mode:vertical-rl]">
+            <span className="text-foreground text-sm font-semibold [writing-mode:vertical-rl]">
               Library
             </span>
             {games.length > 0 && (
-              <span className="text-xs text-[var(--text-tertiary)] tabular-nums [writing-mode:vertical-rl]">
+              <span className="bg-primary/15 text-primary rounded-full px-1.5 py-0.5 text-[11px] font-medium tabular-nums">
                 {games.length}
               </span>
             )}

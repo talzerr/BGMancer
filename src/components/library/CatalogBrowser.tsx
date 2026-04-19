@@ -24,8 +24,8 @@ const PAGE_SIZE = 20;
 const GRID_MIN_COL = 220;
 const GRID_GAP = 12;
 // Width delta the catalog grid gains/loses when the drawer collapses/expands
-// (LibraryDrawer: 300px expanded vs 40px collapsed strip).
-const DRAWER_WIDTH_DELTA = 260;
+// (LibraryDrawer: 300px expanded vs 48px collapsed strip).
+const DRAWER_WIDTH_DELTA = 252;
 // Drawer width transition duration (DESIGN_SYSTEM.md §2 — 300ms panel open/close).
 const DRAWER_TRANSITION_MS = 300;
 
