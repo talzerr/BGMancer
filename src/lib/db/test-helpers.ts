@@ -1,61 +1,99 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import { PGlite } from "@electric-sql/pglite";
+import { drizzle } from "drizzle-orm/pglite";
+import { migrate } from "drizzle-orm/pglite/migrator";
 import path from "path";
 import * as schema from "./drizzle-schema";
 import { TEST_USER_ID, TEST_USER_EMAIL, TEST_USER_NAME, TEST_SESSION_NAME } from "@/test/constants";
 import { PlaylistMode } from "@/types";
 import type { DrizzleDB } from ".";
 
-function addBatchSupport(
-  sqliteDb: ReturnType<typeof drizzle<typeof schema>>,
-  rawDb: Database.Database,
-): DrizzleDB {
-  const db = sqliteDb as unknown as DrizzleDB;
-  // Add .batch() that D1 Drizzle has but better-sqlite3 doesn't
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (db as any).batch = (queries: any[]) => {
-    rawDb.transaction(() => {
-      for (const q of queries) {
-        q.run();
-      }
-    })();
-    return Promise.resolve([]);
+/**
+ * Minimal better-sqlite3-shaped façade over PGlite so test call sites keep the
+ * familiar `prepare(sql).get/all/run(...params)` form. All three are async.
+ */
+export interface TestRawDB {
+  prepare(query: string): {
+    get<T = Record<string, unknown>>(...params: unknown[]): Promise<T | undefined>;
+    all<T = Record<string, unknown>>(...params: unknown[]): Promise<T[]>;
+    run(...params: unknown[]): Promise<void>;
   };
-  return db;
 }
 
+/** Rewrites better-sqlite3 `?` placeholders into Postgres `$1..$n`. */
+function toPgPlaceholders(query: string): string {
+  let n = 0;
+  return query.replace(/\?/g, () => `$${++n}`);
+}
+
+function createRawDB(pg: PGlite): TestRawDB {
+  return {
+    prepare(query: string) {
+      const text = toPgPlaceholders(query);
+      return {
+        async get<T = Record<string, unknown>>(...params: unknown[]): Promise<T | undefined> {
+          const res = await pg.query<T>(text, params);
+          return res.rows[0];
+        },
+        async all<T = Record<string, unknown>>(...params: unknown[]): Promise<T[]> {
+          const res = await pg.query<T>(text, params);
+          return res.rows;
+        },
+        async run(...params: unknown[]): Promise<void> {
+          await pg.query(text, params);
+        },
+      };
+    },
+  };
+}
+
+/** Every table in the schema, ordered arbitrarily — CASCADE handles dependencies. */
+const ALL_TABLES = [
+  "users",
+  "user_steam_games",
+  "games",
+  "libraries",
+  "library_games",
+  "playlists",
+  "playlist_tracks",
+  "playlist_track_decisions",
+  "tracks",
+  "game_review_flags",
+  "game_requests",
+  "video_tracks",
+];
+
 /**
- * Creates a fresh in-memory Drizzle-wrapped database with the full schema
- * applied via migrations. Returns both the Drizzle instance and the raw DB.
+ * Creates a fresh in-memory Postgres (PGlite) with the full schema applied via
+ * migrations. Returns both the Drizzle instance and a raw query shim.
  */
-export function createTestDrizzleDB(): { db: DrizzleDB; rawDb: Database.Database } {
-  const rawDb = new Database(":memory:");
-  rawDb.pragma("foreign_keys = ON");
-  const sqliteDb = drizzle(rawDb, { schema });
-  migrate(sqliteDb, { migrationsFolder: path.join(process.cwd(), "drizzle/migrations") });
-  const db = addBatchSupport(sqliteDb, rawDb);
-  return { db, rawDb };
+export async function createTestDrizzleDB(): Promise<{ db: DrizzleDB; rawDb: TestRawDB }> {
+  const pg = new PGlite();
+  const pgliteDb = drizzle(pg, { schema });
+  await migrate(pgliteDb, { migrationsFolder: path.join(process.cwd(), "drizzle/migrations") });
+  return { db: pgliteDb as unknown as DrizzleDB, rawDb: createRawDB(pg) };
+}
+
+/** Truncates every table so one PGlite instance can be reused across tests. */
+export async function resetTestDB(rawDb: TestRawDB): Promise<void> {
+  await rawDb.prepare(`TRUNCATE ${ALL_TABLES.join(", ")} RESTART IDENTITY CASCADE`).run();
 }
 
 /** Inserts a test user + library. Returns { userId, libraryId }. */
-export function seedTestUser(
-  db: Database.Database,
+export async function seedTestUser(
+  db: TestRawDB,
   userId = TEST_USER_ID,
-): { userId: string; libraryId: string } {
+): Promise<{ userId: string; libraryId: string }> {
   const libraryId = `lib-${userId}`;
-  db.prepare("INSERT INTO users (id, email, username) VALUES (?, ?, ?)").run(
-    userId,
-    userId === TEST_USER_ID ? TEST_USER_EMAIL : `${userId}@test.com`,
-    TEST_USER_NAME,
-  );
-  db.prepare("INSERT INTO libraries (id, user_id) VALUES (?, ?)").run(libraryId, userId);
+  await db
+    .prepare("INSERT INTO users (id, email, username) VALUES (?, ?, ?)")
+    .run(userId, userId === TEST_USER_ID ? TEST_USER_EMAIL : `${userId}@test.com`, TEST_USER_NAME);
+  await db.prepare("INSERT INTO libraries (id, user_id) VALUES (?, ?)").run(libraryId, userId);
   return { userId, libraryId };
 }
 
 /** Inserts a test game and links it to a user's library. Returns the game ID. */
-export function seedTestGame(
-  db: Database.Database,
+export async function seedTestGame(
+  db: TestRawDB,
   userId: string,
   overrides: {
     id?: string;
@@ -65,7 +103,7 @@ export function seedTestGame(
     steamAppid?: number | null;
     onboardingPhase?: string;
   } = {},
-): string {
+): Promise<string> {
   const id = overrides.id ?? `game-${Math.random().toString(36).slice(2, 8)}`;
   const title = overrides.title ?? "Test Game"; // intentional default — not TEST_GAME_TITLE since seeds may need unique names
   const published = overrides.published ?? true;
@@ -73,68 +111,72 @@ export function seedTestGame(
   const onboardingPhase = overrides.onboardingPhase ?? "tagged";
   const curation = overrides.curation ?? "include";
 
-  db.prepare(
-    "INSERT INTO games (id, title, steam_appid, onboarding_phase, published) VALUES (?, ?, ?, ?, ?)",
-  ).run(id, title, steamAppid, onboardingPhase, published ? 1 : 0);
+  await db
+    .prepare(
+      "INSERT INTO games (id, title, steam_appid, onboarding_phase, published) VALUES (?, ?, ?, ?, ?)",
+    )
+    .run(id, title, steamAppid, onboardingPhase, published);
 
-  const libraryId = db.prepare("SELECT id FROM libraries WHERE user_id = ? LIMIT 1").get(userId) as
-    | { id: string }
-    | undefined;
+  const libraryId = await db
+    .prepare("SELECT id FROM libraries WHERE user_id = ? LIMIT 1")
+    .get<{ id: string }>(userId);
 
   if (libraryId) {
-    db.prepare("INSERT INTO library_games (library_id, game_id, curation) VALUES (?, ?, ?)").run(
-      libraryId.id,
-      id,
-      curation,
-    );
+    await db
+      .prepare("INSERT INTO library_games (library_id, game_id, curation) VALUES (?, ?, ?)")
+      .run(libraryId.id, id, curation);
   }
 
   return id;
 }
 
 /** Inserts test tracks for a game. Returns the track names. */
-export function seedTestTracks(
-  db: Database.Database,
+export async function seedTestTracks(
+  db: TestRawDB,
   gameId: string,
   count: number,
   tagged = false,
-): string[] {
+): Promise<string[]> {
   const names: string[] = [];
   for (let i = 0; i < count; i++) {
     const name = `Track ${i + 1}`;
     names.push(name);
-    db.prepare(
-      `INSERT INTO tracks (game_id, name, position, energy, roles, moods, instrumentation, has_vocals, tagged_at)
+    await db
+      .prepare(
+        `INSERT INTO tracks (game_id, name, position, energy, roles, moods, instrumentation, has_vocals, tagged_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      gameId,
-      name,
-      i,
-      tagged ? 2 : null,
-      tagged ? '["ambient"]' : null,
-      tagged ? '["peaceful"]' : null,
-      tagged ? '["piano"]' : null,
-      tagged ? 0 : null,
-      tagged ? new Date().toISOString() : null,
-    );
+      )
+      .run(
+        gameId,
+        name,
+        i,
+        tagged ? 2 : null,
+        tagged ? ["ambient"] : null,
+        tagged ? ["peaceful"] : null,
+        tagged ? ["piano"] : null,
+        tagged ? 0 : null,
+        tagged ? new Date() : null,
+      );
   }
   return names;
 }
 
 /** Inserts a test playlist (session) for a user. Returns the playlist ID. */
-export function seedTestSession(
-  db: Database.Database,
+export async function seedTestSession(
+  db: TestRawDB,
   userId: string,
   overrides: { id?: string; name?: string; isArchived?: boolean; playlistMode?: PlaylistMode } = {},
-): string {
+): Promise<string> {
   const id = overrides.id ?? `session-${Math.random().toString(36).slice(2, 8)}`;
   const name = overrides.name ?? TEST_SESSION_NAME;
   const isArchived = overrides.isArchived ?? false;
   const playlistMode = overrides.playlistMode ?? PlaylistMode.Journey;
 
-  db.prepare(
-    "INSERT INTO playlists (id, user_id, name, is_archived, playlist_mode) VALUES (?, ?, ?, ?, ?)",
-  ).run(id, userId, name, isArchived ? 1 : 0, playlistMode);
+  await db
+    .prepare(
+      "INSERT INTO playlists (id, user_id, name, is_archived, playlist_mode) VALUES (?, ?, ?, ?, ?)",
+    )
+    .run(id, userId, name, isArchived, playlistMode);
 
   return id;
 }
