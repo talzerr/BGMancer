@@ -1,5 +1,5 @@
 {
-  "id": "df11b627-f6c6-4b17-9850-d854dbbb4948",
+  "id": "c0c03194-b7f4-4974-b349-69b3b8c54713",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -154,8 +154,12 @@
           "name": "game_review_flags_game_id_games_id_fk",
           "tableFrom": "game_review_flags",
           "tableTo": "games",
-          "columnsFrom": ["game_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "game_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -373,8 +377,12 @@
           "name": "libraries_user_id_users_id_fk",
           "tableFrom": "libraries",
           "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -465,8 +473,12 @@
           "name": "library_games_library_id_libraries_id_fk",
           "tableFrom": "library_games",
           "tableTo": "libraries",
-          "columnsFrom": ["library_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "library_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -474,8 +486,12 @@
           "name": "library_games_game_id_games_id_fk",
           "tableFrom": "library_games",
           "tableTo": "games",
-          "columnsFrom": ["game_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "game_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -483,7 +499,10 @@
       "compositePrimaryKeys": {
         "library_games_library_id_game_id_pk": {
           "name": "library_games_library_id_game_id_pk",
-          "columns": ["library_id", "game_id"]
+          "columns": [
+            "library_id",
+            "game_id"
+          ]
         }
       },
       "uniqueConstraints": {},
@@ -602,8 +621,12 @@
           "name": "playlist_track_decisions_playlist_id_playlists_id_fk",
           "tableFrom": "playlist_track_decisions",
           "tableTo": "playlists",
-          "columnsFrom": ["playlist_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "playlist_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -611,7 +634,10 @@
       "compositePrimaryKeys": {
         "playlist_track_decisions_playlist_id_position_pk": {
           "name": "playlist_track_decisions_playlist_id_position_pk",
-          "columns": ["playlist_id", "position"]
+          "columns": [
+            "playlist_id",
+            "position"
+          ]
         }
       },
       "uniqueConstraints": {},
@@ -750,8 +776,12 @@
           "name": "playlist_tracks_playlist_id_playlists_id_fk",
           "tableFrom": "playlist_tracks",
           "tableTo": "playlists",
-          "columnsFrom": ["playlist_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "playlist_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -759,8 +789,12 @@
           "name": "playlist_tracks_game_id_games_id_fk",
           "tableFrom": "playlist_tracks",
           "tableTo": "games",
-          "columnsFrom": ["game_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "game_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -815,13 +849,13 @@
         },
         "rubric": {
           "name": "rubric",
-          "type": "text",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },
         "game_budgets": {
           "name": "game_budgets",
-          "type": "text",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },
@@ -903,8 +937,12 @@
           "name": "playlists_user_id_users_id_fk",
           "tableFrom": "playlists",
           "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -945,19 +983,19 @@
         },
         "roles": {
           "name": "roles",
-          "type": "text",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },
         "moods": {
           "name": "moods",
-          "type": "text",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },
         "instrumentation": {
           "name": "instrumentation",
-          "type": "text",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },
@@ -1030,8 +1068,12 @@
           "name": "tracks_game_id_games_id_fk",
           "tableFrom": "tracks",
           "tableTo": "games",
-          "columnsFrom": ["game_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "game_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1039,7 +1081,10 @@
       "compositePrimaryKeys": {
         "tracks_game_id_name_pk": {
           "name": "tracks_game_id_name_pk",
-          "columns": ["game_id", "name"]
+          "columns": [
+            "game_id",
+            "name"
+          ]
         }
       },
       "uniqueConstraints": {},
@@ -1116,8 +1161,12 @@
           "name": "user_steam_games_user_id_users_id_fk",
           "tableFrom": "user_steam_games",
           "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1190,7 +1239,9 @@
         "users_email_unique": {
           "name": "users_email_unique",
           "nullsNotDistinct": false,
-          "columns": ["email"]
+          "columns": [
+            "email"
+          ]
         }
       },
       "policies": {},
@@ -1267,8 +1318,12 @@
           "name": "video_tracks_game_id_games_id_fk",
           "tableFrom": "video_tracks",
           "tableTo": "games",
-          "columnsFrom": ["game_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "game_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1276,7 +1331,10 @@
       "compositePrimaryKeys": {
         "video_tracks_video_id_game_id_pk": {
           "name": "video_tracks_video_id_game_id_pk",
-          "columns": ["video_id", "game_id"]
+          "columns": [
+            "video_id",
+            "game_id"
+          ]
         }
       },
       "uniqueConstraints": {},

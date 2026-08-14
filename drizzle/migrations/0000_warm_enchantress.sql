@@ -85,8 +85,8 @@ CREATE TABLE "playlists" (
 	"description" text,
 	"is_archived" boolean DEFAULT false NOT NULL,
 	"playlist_mode" text DEFAULT 'journey' NOT NULL,
-	"rubric" text,
-	"game_budgets" text,
+	"rubric" jsonb,
+	"game_budgets" jsonb,
 	"youtube_playlist_id" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -96,9 +96,9 @@ CREATE TABLE "tracks" (
 	"name" text NOT NULL,
 	"position" integer NOT NULL,
 	"energy" integer,
-	"roles" text,
-	"moods" text,
-	"instrumentation" text,
+	"roles" jsonb,
+	"moods" jsonb,
+	"instrumentation" jsonb,
 	"has_vocals" integer,
 	"active" boolean DEFAULT true NOT NULL,
 	"discovered" text,

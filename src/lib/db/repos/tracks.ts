@@ -1,6 +1,7 @@
 import { getDB, batch, first } from "@/lib/db";
 import { eq, and, count, isNotNull, asc, sql } from "drizzle-orm";
 import { tracks, videoTracks } from "@/lib/db/drizzle-schema";
+import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
 import { toTrack } from "@/lib/db/mappers";
 import type { Track, TrackRole, TrackMood, TrackInstrumentation } from "@/types";
 
@@ -29,24 +30,14 @@ function rowToTrack(row: typeof tracks.$inferSelect): Track {
     name: row.name,
     position: row.position,
     energy,
-    roles: parseJsonArray(row.roles) as TrackRole[],
-    moods: parseJsonArray(row.moods) as TrackMood[],
-    instrumentation: parseJsonArray(row.instrumentation) as TrackInstrumentation[],
+    roles: (row.roles ?? []) as TrackRole[],
+    moods: (row.moods ?? []) as TrackMood[],
+    instrumentation: (row.instrumentation ?? []) as TrackInstrumentation[],
     hasVocals: row.has_vocals != null ? !!row.has_vocals : null,
     active: row.active,
     discovered: row.discovered as Track["discovered"],
     taggedAt: row.tagged_at?.toISOString() ?? null,
   };
-}
-
-function parseJsonArray(raw: string | null): string[] {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
 }
 
 export const Tracks = {
@@ -129,21 +120,24 @@ export const Tracks = {
     name: string,
     tags: {
       energy: number;
-      roles: string;
-      moods: string;
-      instrumentation: string;
+      roles: string[];
+      moods: string[];
+      instrumentation: string[];
       hasVocals: boolean;
     },
   ): Promise<void> {
-    await getDB().execute(sql`
-      UPDATE tracks
-      SET energy = ${tags.energy}, roles = ${tags.roles}, moods = ${tags.moods},
-          instrumentation = ${tags.instrumentation},
-          has_vocals = ${tags.hasVocals ? 1 : 0},
-          tagged_at = now(),
-          active = CASE WHEN discovered = 'approved' THEN true ELSE active END
-      WHERE game_id = ${gameId} AND name = ${name}
-    `);
+    await getDB()
+      .update(tracks)
+      .set({
+        energy: tags.energy,
+        roles: tags.roles,
+        moods: tags.moods,
+        instrumentation: tags.instrumentation,
+        has_vocals: tags.hasVocals ? 1 : 0,
+        tagged_at: sql`now()`,
+        active: sql`CASE WHEN ${tracks.discovered} = 'approved' THEN true ELSE ${tracks.active} END`,
+      })
+      .where(and(eq(tracks.game_id, gameId), eq(tracks.name, name)));
   },
 
   async insertDiscovered(gameId: string, name: string): Promise<void> {
@@ -227,36 +221,34 @@ export const Tracks = {
       newName?: string;
       active?: boolean;
       energy?: number | null;
-      roles?: string | null;
-      moods?: string | null;
-      instrumentation?: string | null;
+      roles?: string[] | null;
+      moods?: string[] | null;
+      instrumentation?: string[] | null;
       hasVocals?: boolean | null;
     },
   ): Promise<void> {
     const tagFields = ["energy", "roles", "moods", "instrumentation", "hasVocals"];
     const isTagChange = tagFields.some((k) => fields[k as keyof typeof fields] !== undefined);
 
-    const setParts: ReturnType<typeof sql>[] = [];
+    const set: PgUpdateSetSource<typeof tracks> = {};
 
-    if (fields.newName !== undefined) setParts.push(sql`name = ${fields.newName}`);
-    if (fields.active !== undefined) setParts.push(sql`active = ${fields.active}`);
-    if (fields.energy !== undefined) setParts.push(sql`energy = ${fields.energy}`);
-    if (fields.roles !== undefined) setParts.push(sql`roles = ${fields.roles}`);
-    if (fields.moods !== undefined) setParts.push(sql`moods = ${fields.moods}`);
-    if (fields.instrumentation !== undefined)
-      setParts.push(sql`instrumentation = ${fields.instrumentation}`);
+    if (fields.newName !== undefined) set.name = fields.newName;
+    if (fields.active !== undefined) set.active = fields.active;
+    if (fields.energy !== undefined) set.energy = fields.energy;
+    if (fields.roles !== undefined) set.roles = fields.roles;
+    if (fields.moods !== undefined) set.moods = fields.moods;
+    if (fields.instrumentation !== undefined) set.instrumentation = fields.instrumentation;
     if (fields.hasVocals !== undefined) {
-      const val = fields.hasVocals === null ? null : fields.hasVocals ? 1 : 0;
-      setParts.push(sql`has_vocals = ${val}`);
+      set.has_vocals = fields.hasVocals === null ? null : fields.hasVocals ? 1 : 0;
     }
-    if (isTagChange) setParts.push(sql.raw("tagged_at = now()"));
+    if (isTagChange) set.tagged_at = sql`now()`;
 
-    if (setParts.length === 0) return;
+    if (Object.keys(set).length === 0) return;
 
-    const setClause = sql.join(setParts, sql.raw(", "));
-    await getDB().execute(
-      sql`UPDATE tracks SET ${setClause} WHERE game_id = ${gameId} AND name = ${name}`,
-    );
+    await getDB()
+      .update(tracks)
+      .set(set)
+      .where(and(eq(tracks.game_id, gameId), eq(tracks.name, name)));
   },
 
   async deleteByKeys(keys: { gameId: string; name: string }[]): Promise<void> {

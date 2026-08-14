@@ -38,9 +38,9 @@ interface TrackPatch {
     name?: string;
     active?: boolean;
     energy?: number | null;
-    roles?: string | null;
-    moods?: string | null;
-    instrumentation?: string | null;
+    roles?: string[] | null;
+    moods?: string[] | null;
+    instrumentation?: string[] | null;
     hasVocals?: boolean | null;
   };
   videoUpdates?: {

@@ -8,8 +8,10 @@ import {
   uniqueIndex,
   primaryKey,
   timestamp,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import type { VibeRubric } from "@/types";
 
 // ─── Users ───────────────────────────────────────────────────────────────────
 
@@ -115,8 +117,8 @@ export const playlists = pgTable(
     description: text("description"),
     is_archived: boolean("is_archived").notNull().default(false),
     playlist_mode: text("playlist_mode").notNull().default("journey"),
-    rubric: text("rubric"),
-    game_budgets: text("game_budgets"),
+    rubric: jsonb("rubric").$type<VibeRubric>(),
+    game_budgets: jsonb("game_budgets").$type<Record<string, number>>(),
     youtube_playlist_id: text("youtube_playlist_id"),
     created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -193,9 +195,9 @@ export const tracks = pgTable(
     name: text("name").notNull(),
     position: integer("position").notNull(),
     energy: integer("energy"),
-    roles: text("roles"),
-    moods: text("moods"),
-    instrumentation: text("instrumentation"),
+    roles: jsonb("roles").$type<string[]>(),
+    moods: jsonb("moods").$type<string[]>(),
+    instrumentation: jsonb("instrumentation").$type<string[]>(),
     has_vocals: integer("has_vocals"),
     active: boolean("active").notNull().default(true),
     discovered: text("discovered"),

@@ -179,9 +179,9 @@ export async function tagTracks(
 
       await Tracks.updateTags(gameId, track.name, {
         energy: tag.energy,
-        roles: JSON.stringify(tag.roles),
-        moods: JSON.stringify(tag.moods),
-        instrumentation: JSON.stringify(tag.instrumentation),
+        roles: tag.roles,
+        moods: tag.moods,
+        instrumentation: tag.instrumentation,
         hasVocals: tag.hasVocals,
       });
     }

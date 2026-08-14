@@ -58,7 +58,7 @@ export function useTrackMutations({
       sel.map((t) => ({
         gameId: t.gameId,
         name: t.name,
-        updates: { roles: JSON.stringify([role]) },
+        updates: { roles: [role] },
       })),
     );
   }

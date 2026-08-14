@@ -34,9 +34,9 @@ interface TrackEditSheetProps {
 export interface PatchUpdates {
   name?: string;
   energy?: number | null;
-  roles?: string | null;
-  moods?: string | null;
-  instrumentation?: string | null;
+  roles?: string[] | null;
+  moods?: string[] | null;
+  instrumentation?: string[] | null;
   hasVocals?: boolean | null;
   active?: boolean;
   videoId?: string;
@@ -106,9 +106,9 @@ export function TrackEditSheet({
     try {
       const updates: PatchUpdates = {
         energy,
-        roles: JSON.stringify(roles),
-        moods: JSON.stringify(moods),
-        instrumentation: JSON.stringify(instrumentation),
+        roles,
+        moods,
+        instrumentation,
         hasVocals,
         active,
       };

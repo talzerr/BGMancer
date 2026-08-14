@@ -1,7 +1,4 @@
-import { createLogger } from "@/lib/logger";
 import { getDB, first } from "@/lib/db";
-
-const log = createLogger("sessions");
 import { eq, desc, asc, and, count } from "drizzle-orm";
 import { playlists, playlistTracks } from "@/lib/db/drizzle-schema";
 import type { PlaylistSession, VibeRubric } from "@/types";
@@ -149,33 +146,21 @@ export const Sessions = {
     await getDB()
       .update(playlists)
       .set({
-        rubric: rubric ? JSON.stringify(rubric) : null,
-        game_budgets: gameBudgets ? JSON.stringify(gameBudgets) : null,
+        rubric: rubric ?? null,
+        game_budgets: gameBudgets ?? null,
       })
       .where(eq(playlists.id, id));
   },
 
-  /** Returns a session with its telemetry columns parsed. */
+  /** Returns a session with its telemetry columns. */
   async getByIdWithTelemetry(id: string): Promise<SessionWithTelemetry | null> {
     const row = await first(getDB().select().from(playlists).where(eq(playlists.id, id)));
     if (!row) return null;
-    let rubric: VibeRubric | null = null;
-    let gameBudgets: Record<string, number> | null = null;
-    if (row.rubric) {
-      try {
-        rubric = JSON.parse(row.rubric) as VibeRubric;
-      } catch {
-        log.error("failed to parse rubric", { sessionId: id });
-      }
-    }
-    if (row.game_budgets) {
-      try {
-        gameBudgets = JSON.parse(row.game_budgets) as Record<string, number>;
-      } catch {
-        log.error("failed to parse game_budgets", { sessionId: id });
-      }
-    }
-    return { ...rowToSession(row), rubric, gameBudgets };
+    return {
+      ...rowToSession(row),
+      rubric: row.rubric ?? null,
+      gameBudgets: row.game_budgets ?? null,
+    };
   },
 
   /** Returns recent sessions across all users — used by Backstage Theatre. */
