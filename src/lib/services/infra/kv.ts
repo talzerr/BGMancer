@@ -1,11 +1,10 @@
-/* eslint-disable @typescript-eslint/no-require-imports -- Lazy require() for @opennextjs/cloudflare avoids import errors in test/dev environments */
-import { env } from "@/lib/env";
-
 /**
  * Key-value cache service with TTL support.
  *
- * - Production (Cloudflare Workers): backed by KV namespace.
- * - Local dev / tests: backed by an in-memory Map with manual expiry.
+ * Backed by an in-process Map with manual expiry. State lives in the running
+ * process and **resets on restart** — a deliberate trade-off for the
+ * single-replica LAN deployment. In practice this means guest rate limits and
+ * the per-user daily LLM cap reset whenever the pod restarts.
  *
  * Usage:
  *   import { KV } from "@/lib/services/infra/kv";
@@ -15,7 +14,7 @@ import { env } from "@/lib/env";
  */
 
 // ---------------------------------------------------------------------------
-// In-memory backend (local dev / tests)
+// In-memory backend
 // ---------------------------------------------------------------------------
 
 interface MemEntry {
@@ -47,42 +46,23 @@ function memDel(key: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// KV backend (Cloudflare Workers)
-// ---------------------------------------------------------------------------
-
-function getKV(): KVNamespace {
-  const { getCloudflareContext } = require("@opennextjs/cloudflare");
-  return getCloudflareContext().env.CACHE;
-}
-
-// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
-
-function isProduction(): boolean {
-  return !env.isDev;
-}
 
 export const KV = {
   /**
    * Get a value by key. Returns null if not found or expired.
    */
   async get<T = string>(key: string): Promise<T | null> {
-    if (!isProduction()) {
-      const raw = memGet(key);
-      return raw === null ? null : (JSON.parse(raw) as T);
-    }
-    return getKV().get(key, "json");
+    const raw = memGet(key);
+    return raw === null ? null : (JSON.parse(raw) as T);
   },
 
   /**
    * Get a raw string value by key. Returns null if not found or expired.
    */
   async getString(key: string): Promise<string | null> {
-    if (!isProduction()) {
-      return memGet(key);
-    }
-    return getKV().get(key, "text");
+    return memGet(key);
   },
 
   /**
@@ -90,34 +70,20 @@ export const KV = {
    * Value is JSON-serialized.
    */
   async set<T>(key: string, value: T, ttlSeconds?: number): Promise<void> {
-    const serialized = JSON.stringify(value);
-    if (!isProduction()) {
-      memSet(key, serialized, ttlSeconds);
-      return;
-    }
-    const opts: KVNamespacePutOptions = {};
-    if (ttlSeconds) opts.expirationTtl = ttlSeconds;
-    await getKV().put(key, serialized, opts);
+    memSet(key, JSON.stringify(value), ttlSeconds);
   },
 
   /**
    * Delete a key.
    */
   async del(key: string): Promise<void> {
-    if (!isProduction()) {
-      memDel(key);
-      return;
-    }
-    await getKV().delete(key);
+    memDel(key);
   },
 
   /**
    * Check if a key exists (without parsing the value).
    */
   async has(key: string): Promise<boolean> {
-    if (!isProduction()) {
-      return memGet(key) !== null;
-    }
-    return (await getKV().get(key, "text")) !== null;
+    return memGet(key) !== null;
   },
 };

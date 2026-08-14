@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { KV } from "../../infra/kv";
+import { _reloadEnvForTest } from "@/lib/env";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -97,5 +98,27 @@ describe("KV.has", () => {
     await KV.set("test:has-ttl", "temp", 10);
     vi.advanceTimersByTime(11_000);
     expect(await KV.has("test:has-ttl")).toBe(false);
+  });
+});
+
+describe("KV in production mode", () => {
+  it("should use the in-memory backend when NODE_ENV=production", async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalSecret = process.env.NEXTAUTH_SECRET;
+    process.env.NODE_ENV = "production";
+    process.env.NEXTAUTH_SECRET = "test-secret-not-in-the-insecure-list";
+    _reloadEnvForTest();
+    try {
+      await KV.set("test:prod", { deployed: true });
+      expect(await KV.get("test:prod")).toEqual({ deployed: true });
+      expect(await KV.getString("test:prod")).toBe('{"deployed":true}');
+      expect(await KV.has("test:prod")).toBe(true);
+      await KV.del("test:prod");
+      expect(await KV.get("test:prod")).toBeNull();
+    } finally {
+      process.env.NODE_ENV = originalNodeEnv;
+      process.env.NEXTAUTH_SECRET = originalSecret;
+      _reloadEnvForTest();
+    }
   });
 });
