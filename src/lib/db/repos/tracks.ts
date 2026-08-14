@@ -239,7 +239,7 @@ export const Tracks = {
     const setParts: ReturnType<typeof sql>[] = [];
 
     if (fields.newName !== undefined) setParts.push(sql`name = ${fields.newName}`);
-    if (fields.active !== undefined) setParts.push(sql`active = ${fields.active ? 1 : 0}`);
+    if (fields.active !== undefined) setParts.push(sql`active = ${fields.active}`);
     if (fields.energy !== undefined) setParts.push(sql`energy = ${fields.energy}`);
     if (fields.roles !== undefined) setParts.push(sql`roles = ${fields.roles}`);
     if (fields.moods !== undefined) setParts.push(sql`moods = ${fields.moods}`);
@@ -305,7 +305,7 @@ export const Tracks = {
     if (filters.gameTitle) conditions.push(sql`g.title ILIKE ${`%${filters.gameTitle}%`}`);
     if (filters.name) conditions.push(sql`t.name ILIKE ${`%${filters.name}%`}`);
     if (filters.energy != null) conditions.push(sql`t.energy = ${filters.energy}`);
-    if (filters.active != null) conditions.push(sql`t.active = ${filters.active ? 1 : 0}`);
+    if (filters.active != null) conditions.push(sql`t.active = ${filters.active}`);
     if (filters.untaggedOnly) conditions.push(sql.raw("t.tagged_at IS NULL"));
 
     const whereClause =

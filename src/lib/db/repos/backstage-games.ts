@@ -118,7 +118,7 @@ export const BackstageGames = {
     if (fields.onboarding_phase !== undefined)
       setParts.push(sql`onboarding_phase = ${fields.onboarding_phase}`);
     if (fields.needs_review !== undefined)
-      setParts.push(sql`needs_review = ${fields.needs_review ? 1 : 0}`);
+      setParts.push(sql`needs_review = ${fields.needs_review}`);
 
     if (setParts.length > 0) {
       setParts.push(sql.raw("updated_at = now()"));
@@ -166,9 +166,9 @@ export const BackstageGames = {
     if (filters.title) conditions.push(sql`g.title ILIKE ${`%${filters.title}%`}`);
     if (filters.phase) conditions.push(sql`g.onboarding_phase = ${filters.phase}`);
     if (filters.needsReview !== undefined)
-      conditions.push(sql`g.needs_review = ${filters.needsReview ? 1 : 0}`);
+      conditions.push(sql`g.needs_review = ${filters.needsReview}`);
     if (filters.published !== undefined)
-      conditions.push(sql`g.published = ${filters.published ? 1 : 0}`);
+      conditions.push(sql`g.published = ${filters.published}`);
 
     const whereClause =
       conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql.raw(" AND "))}` : sql.raw("");
