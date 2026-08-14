@@ -47,9 +47,6 @@ export default defineConfig({
         "src/lib/pipeline/generation/types.ts",
         "src/lib/services/auth/auth.ts",
 
-        // KV production paths require Cloudflare Workers runtime
-        "src/lib/services/infra/kv.ts",
-
         // Heavy orchestrators chaining 3+ external services (LLM + YouTube + DB).
         // Appropriate for E2E tests, not unit/integration tests.
         "src/lib/pipeline/generation/index.ts",

@@ -103,10 +103,8 @@ describe("KV.has", () => {
 
 describe("KV in production mode", () => {
   it("should use the in-memory backend when NODE_ENV=production", async () => {
-    const originalNodeEnv = process.env.NODE_ENV;
-    const originalSecret = process.env.NEXTAUTH_SECRET;
-    process.env.NODE_ENV = "production";
-    process.env.NEXTAUTH_SECRET = "test-secret-not-in-the-insecure-list";
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXTAUTH_SECRET", "test-secret-not-in-the-insecure-list");
     _reloadEnvForTest();
     try {
       await KV.set("test:prod", { deployed: true });
@@ -116,8 +114,7 @@ describe("KV in production mode", () => {
       await KV.del("test:prod");
       expect(await KV.get("test:prod")).toBeNull();
     } finally {
-      process.env.NODE_ENV = originalNodeEnv;
-      process.env.NEXTAUTH_SECRET = originalSecret;
+      vi.unstubAllEnvs();
       _reloadEnvForTest();
     }
   });
