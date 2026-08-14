@@ -1,11 +1,10 @@
 import type { NextConfig } from "next";
-import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
 const nextConfig: NextConfig = {
   devIndicators: false,
   images: {
-    // Image optimization on Cloudflare requires a paid Cloudflare Images subscription.
-    // With unoptimized, images load directly from their source CDNs (Steam, YouTube, Google).
+    // The runtime image ships without sharp and no remotePatterns are declared, so
+    // images load directly from their source CDNs (Steam, YouTube, Google).
     unoptimized: true,
   },
   async headers() {
@@ -54,9 +53,5 @@ const nextConfig: NextConfig = {
     ];
   },
 };
-
-// Makes getCloudflareContext() work during `next dev` by spinning up
-// a local miniflare instance with the bindings from wrangler.jsonc.
-initOpenNextCloudflareForDev();
 
 export default nextConfig;

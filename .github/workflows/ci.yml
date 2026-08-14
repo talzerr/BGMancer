@@ -29,9 +29,6 @@ jobs:
       - name: Load env
         run: cp .env.test .env.local
 
-      - name: Generate Cloudflare types
-        run: pnpm cf-typegen
-
       - name: Build
         run: pnpm build
 
