@@ -36,7 +36,7 @@ describe("toUser", () => {
         username: "alice",
         steam_id: null,
         steam_synced_at: null,
-        created_at: "2025-01-01",
+        created_at: "2025-01-01T00:00:00.000Z",
       });
     });
 
@@ -75,6 +75,31 @@ describe("toUser", () => {
 });
 
 // ─── toGame ─────────────────────────────────────────────────────────────────
+
+describe("timestamp normalisation", () => {
+  it("should convert a Date to an ISO string", () => {
+    const d = new Date("2026-08-14T20:21:52.321Z");
+    expect(toGame({ id: "g", title: "T", created_at: d, updated_at: d }).created_at).toBe(
+      "2026-08-14T20:21:52.321Z",
+    );
+  });
+
+  it("should normalise the driver's raw postgres string form to ISO", () => {
+    // Raw `db.execute(sql`…`)` yields this shape rather than a Date.
+    const raw = "2026-08-14 20:21:52.321954+00";
+    expect(toGame({ id: "g", title: "T", created_at: raw, updated_at: raw }).created_at).toBe(
+      "2026-08-14T20:21:52.321Z",
+    );
+  });
+
+  it("should pass through an unparseable string unchanged", () => {
+    expect(toGame({ id: "g", title: "T", created_at: "not-a-date" }).created_at).toBe("not-a-date");
+  });
+
+  it("should map a null nullable timestamp to null", () => {
+    expect(toUser({ id: "u", email: "e", steam_synced_at: null }).steam_synced_at).toBeNull();
+  });
+});
 
 describe("toGame", () => {
   const baseRow = {
@@ -246,7 +271,7 @@ describe("toTrack", () => {
       expect(track.hasVocals).toBe(false);
       expect(track.active).toBe(true);
       expect(track.discovered).toBe(DiscoveredStatus.Approved);
-      expect(track.taggedAt).toBe("2025-01-01");
+      expect(track.taggedAt).toBe("2025-01-01T00:00:00.000Z");
     });
   });
 

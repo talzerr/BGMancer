@@ -10,15 +10,25 @@ import type { Game, PlaylistTrack, Track, User } from "@/types";
 
 const VALID_ONBOARDING_PHASES = new Set<string>(Object.values(OnboardingPhase));
 
-/** Timestamp columns are `timestamptz` (JS `Date`); the public types are ISO strings. */
+/**
+ * Timestamp columns are `timestamptz`; the public types are ISO-8601 strings.
+ *
+ * The query builder yields `Date`, but raw `db.execute(sql\`…\`)` yields the
+ * driver's own string form ("2026-08-14 20:21:52.321954+00"), which is not
+ * ISO-8601. Both paths are normalised here so the API is consistent.
+ */
 function toIso(value: unknown): string {
   if (value instanceof Date) return value.toISOString();
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? value : parsed.toISOString();
+  }
   return value != null ? String(value) : "";
 }
 
 function toIsoOrNull(value: unknown): string | null {
-  if (value instanceof Date) return value.toISOString();
-  return value != null ? String(value) : null;
+  if (value == null) return null;
+  return toIso(value);
 }
 
 export const VALID_CURATIONS = new Set<CurationMode>(Object.values(CurationMode) as CurationMode[]);
