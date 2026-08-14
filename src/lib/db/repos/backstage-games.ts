@@ -167,8 +167,7 @@ export const BackstageGames = {
     if (filters.phase) conditions.push(sql`g.onboarding_phase = ${filters.phase}`);
     if (filters.needsReview !== undefined)
       conditions.push(sql`g.needs_review = ${filters.needsReview}`);
-    if (filters.published !== undefined)
-      conditions.push(sql`g.published = ${filters.published}`);
+    if (filters.published !== undefined) conditions.push(sql`g.published = ${filters.published}`);
 
     const whereClause =
       conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql.raw(" AND "))}` : sql.raw("");

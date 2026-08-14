@@ -129,8 +129,7 @@ function loadEnv(): Env {
       process.env.YOUTUBE_SYNC_ENABLED === "1" || process.env.YOUTUBE_SYNC_ENABLED === "true",
 
     adminGateSecret: process.env.ADMIN_GATE_SECRET || undefined,
-    backstageOpen:
-      process.env.BACKSTAGE_OPEN === "1" || process.env.BACKSTAGE_OPEN === "true",
+    backstageOpen: process.env.BACKSTAGE_OPEN === "1" || process.env.BACKSTAGE_OPEN === "true",
 
     nodeEnv,
 

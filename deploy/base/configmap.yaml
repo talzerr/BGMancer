@@ -7,4 +7,6 @@ data:
   AUTH_TRUST_HOST: "true"
   BACKSTAGE_OPEN: "1"
   YOUTUBE_SYNC_ENABLED: "0"
-  NEXTAUTH_URL: "https://bgmancer.home.talzerr.dev"
+  # Host-specific. Overlays MUST patch this to match their Ingress host —
+  # NextAuth rejects callbacks whose origin does not match NEXTAUTH_URL.
+  NEXTAUTH_URL: "https://bgmancer.example.invalid"
