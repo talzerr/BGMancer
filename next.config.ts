@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Emits .next/standalone with a self-contained server.js + pruned node_modules.
+  output: "standalone",
   devIndicators: false,
   images: {
     // The runtime image ships without sharp and no remotePatterns are declared, so
