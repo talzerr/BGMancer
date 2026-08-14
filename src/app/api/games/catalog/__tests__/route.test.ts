@@ -1,19 +1,23 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type Database from "better-sqlite3";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import type { TestRawDB } from "@/lib/db/test-helpers";
 import type { DrizzleDB } from "@/lib/db";
-import { createTestDrizzleDB, seedTestUser, seedTestGame } from "@/lib/db/test-helpers";
+import {
+  createTestDrizzleDB,
+  resetTestDB,
+  seedTestUser,
+  seedTestGame,
+} from "@/lib/db/test-helpers";
 import { TEST_USER_ID } from "@/test/constants";
 import { makeGetRequest, parseJson } from "@/test/route-helpers";
 
 let db: DrizzleDB;
-let rawDb: Database.Database;
+let rawDb: TestRawDB;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  const { createDbMock } = await import("@/test/db-mock");
   return {
-    getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries as [any]),
-
+    ...createDbMock(() => db),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -21,16 +25,24 @@ vi.mock("@/lib/db", async () => {
 
 const { GET } = await import("../route");
 
-beforeEach(() => {
-  ({ db, rawDb } = createTestDrizzleDB());
-  seedTestUser(rawDb);
+beforeAll(async () => {
+  ({ db, rawDb } = await createTestDrizzleDB());
+});
+
+beforeEach(async () => {
+  await resetTestDB(rawDb);
+  await seedTestUser(rawDb);
 });
 
 describe("GET /api/games/catalog", () => {
   describe("when published games exist", () => {
     it("should return them", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: "pub-a", title: "Alpha Game", published: true });
-      seedTestGame(rawDb, TEST_USER_ID, { id: "pub-b", title: "Beta Game", published: true });
+      await seedTestGame(rawDb, TEST_USER_ID, {
+        id: "pub-a",
+        title: "Alpha Game",
+        published: true,
+      });
+      await seedTestGame(rawDb, TEST_USER_ID, { id: "pub-b", title: "Beta Game", published: true });
 
       const res = await GET(makeGetRequest("/api/games/catalog"));
       expect(res.status).toBe(200);
@@ -43,7 +55,11 @@ describe("GET /api/games/catalog", () => {
     });
 
     it("should set Cache-Control header for edge caching", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: "pub-c", title: "Cached Game", published: true });
+      await seedTestGame(rawDb, TEST_USER_ID, {
+        id: "pub-c",
+        title: "Cached Game",
+        published: true,
+      });
       const res = await GET(makeGetRequest("/api/games/catalog"));
       expect(res.headers.get("Cache-Control")).toBe("public, s-maxage=300");
     });
@@ -51,8 +67,12 @@ describe("GET /api/games/catalog", () => {
 
   describe("when search query is provided", () => {
     it("should filter by title", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: "pub-a", title: "Alpha Game", published: true });
-      seedTestGame(rawDb, TEST_USER_ID, { id: "pub-b", title: "Beta Game", published: true });
+      await seedTestGame(rawDb, TEST_USER_ID, {
+        id: "pub-a",
+        title: "Alpha Game",
+        published: true,
+      });
+      await seedTestGame(rawDb, TEST_USER_ID, { id: "pub-b", title: "Beta Game", published: true });
 
       const res = await GET(makeGetRequest("/api/games/catalog", { q: "Alpha" }));
       expect(res.status).toBe(200);
@@ -65,7 +85,11 @@ describe("GET /api/games/catalog", () => {
 
   describe("when no games match", () => {
     it("should return empty array", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: "pub-a", title: "Alpha Game", published: true });
+      await seedTestGame(rawDb, TEST_USER_ID, {
+        id: "pub-a",
+        title: "Alpha Game",
+        published: true,
+      });
 
       const res = await GET(makeGetRequest("/api/games/catalog", { q: "Nonexistent" }));
       expect(res.status).toBe(200);
@@ -77,8 +101,12 @@ describe("GET /api/games/catalog", () => {
 
   describe("when unpublished games exist", () => {
     it("should NOT return them", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: "pub-a", title: "Published Game", published: true });
-      seedTestGame(rawDb, TEST_USER_ID, {
+      await seedTestGame(rawDb, TEST_USER_ID, {
+        id: "pub-a",
+        title: "Published Game",
+        published: true,
+      });
+      await seedTestGame(rawDb, TEST_USER_ID, {
         id: "draft-b",
         title: "Draft Game",
         published: false,

@@ -1,21 +1,21 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type Database from "better-sqlite3";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import type { TestRawDB } from "../../test-helpers";
 import type { DrizzleDB } from "@/lib/db";
 import {
   createTestDrizzleDB,
+  resetTestDB,
   seedTestUser,
   seedTestGame,
   seedTestTracks,
 } from "../../test-helpers";
 let db: DrizzleDB;
-let rawDb: Database.Database;
+let rawDb: TestRawDB;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  const { createDbMock } = await import("@/test/db-mock");
   return {
-    getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries as [any]),
-
+    ...createDbMock(() => db),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -26,10 +26,14 @@ const { Tracks } = await import("../tracks");
 let userId: string;
 let gameId: string;
 
-beforeEach(() => {
-  ({ db, rawDb } = createTestDrizzleDB());
-  ({ userId } = seedTestUser(rawDb));
-  gameId = seedTestGame(rawDb, userId);
+beforeAll(async () => {
+  ({ db, rawDb } = await createTestDrizzleDB());
+});
+
+beforeEach(async () => {
+  await resetTestDB(rawDb);
+  ({ userId } = await seedTestUser(rawDb));
+  gameId = await seedTestGame(rawDb, userId);
 });
 
 describe("Tracks", () => {
@@ -41,9 +45,9 @@ describe("Tracks", () => {
           { gameId, name: "Battle Theme", position: 1 },
         ]);
 
-        const rows = rawDb
+        const rows = (await rawDb
           .prepare("SELECT * FROM tracks WHERE game_id = ? ORDER BY position")
-          .all(gameId) as Array<Record<string, unknown>>;
+          .all(gameId)) as Array<Record<string, unknown>>;
         expect(rows).toHaveLength(2);
         expect(rows[0].name).toBe("Title Screen");
         expect(rows[1].name).toBe("Battle Theme");
@@ -55,9 +59,9 @@ describe("Tracks", () => {
         await Tracks.upsertBatch([{ gameId, name: "Main Theme", position: 0 }]);
         await Tracks.upsertBatch([{ gameId, name: "Main Theme", position: 5 }]);
 
-        const rows = rawDb
+        const rows = (await rawDb
           .prepare("SELECT * FROM tracks WHERE game_id = ? AND name = ?")
-          .all(gameId, "Main Theme") as Array<Record<string, unknown>>;
+          .all(gameId, "Main Theme")) as Array<Record<string, unknown>>;
         expect(rows).toHaveLength(1);
         expect(rows[0].position).toBe(5);
       });
@@ -112,13 +116,11 @@ describe("Tracks", () => {
       });
     });
 
-    describe("when tracks have malformed JSON in tag columns", () => {
+    describe("when tag columns are NULL", () => {
       it("should return empty arrays for roles/moods/instrumentation", async () => {
-        rawDb
-          .prepare(
-            "INSERT INTO tracks (game_id, name, position, roles, moods, instrumentation) VALUES (?, ?, ?, ?, ?, ?)",
-          )
-          .run(gameId, "Bad JSON Track", 0, "{not json", "also bad", "nope");
+        await rawDb
+          .prepare("INSERT INTO tracks (game_id, name, position) VALUES (?, ?, ?)")
+          .run(gameId, "Untagged Track", 0);
 
         const tracks = await Tracks.getByGame(gameId);
         expect(tracks).toHaveLength(1);
@@ -132,7 +134,7 @@ describe("Tracks", () => {
   describe("hasData", () => {
     describe("when tracks exist for the game", () => {
       it("should return true", async () => {
-        seedTestTracks(rawDb, gameId, 1);
+        await seedTestTracks(rawDb, gameId, 1);
         expect(await Tracks.hasData(gameId)).toBe(true);
       });
     });
@@ -147,14 +149,14 @@ describe("Tracks", () => {
   describe("isTagged", () => {
     describe("when at least one track has tagged_at set", () => {
       it("should return true", async () => {
-        seedTestTracks(rawDb, gameId, 2, true);
+        await seedTestTracks(rawDb, gameId, 2, true);
         expect(await Tracks.isTagged(gameId)).toBe(true);
       });
     });
 
     describe("when no tracks have tagged_at", () => {
       it("should return false", async () => {
-        seedTestTracks(rawDb, gameId, 2, false);
+        await seedTestTracks(rawDb, gameId, 2, false);
         expect(await Tracks.isTagged(gameId)).toBe(false);
       });
     });
@@ -169,7 +171,7 @@ describe("Tracks", () => {
   describe("countTagged", () => {
     describe("when some tracks are tagged", () => {
       it("should return the count of tagged tracks", async () => {
-        seedTestTracks(rawDb, gameId, 3, true);
+        await seedTestTracks(rawDb, gameId, 3, true);
         // Untag one track
         await Tracks.clearTags(gameId, ["Track 1"]);
 
@@ -179,14 +181,14 @@ describe("Tracks", () => {
 
     describe("when all tracks are tagged", () => {
       it("should return the total count", async () => {
-        seedTestTracks(rawDb, gameId, 3, true);
+        await seedTestTracks(rawDb, gameId, 3, true);
         expect(await Tracks.countTagged(gameId)).toBe(3);
       });
     });
 
     describe("when no tracks are tagged", () => {
       it("should return 0", async () => {
-        seedTestTracks(rawDb, gameId, 2, false);
+        await seedTestTracks(rawDb, gameId, 2, false);
         expect(await Tracks.countTagged(gameId)).toBe(0);
       });
     });
@@ -201,12 +203,12 @@ describe("Tracks", () => {
   describe("updateTags", () => {
     describe("when tagging a track", () => {
       it("should set all tag fields and tagged_at", async () => {
-        seedTestTracks(rawDb, gameId, 1);
+        await seedTestTracks(rawDb, gameId, 1);
         await Tracks.updateTags(gameId, "Track 1", {
           energy: 3,
-          roles: '["combat","build"]',
-          moods: '["epic","tense"]',
-          instrumentation: '["orchestral"]',
+          roles: ["combat", "build"],
+          moods: ["epic", "tense"],
+          instrumentation: ["orchestral"],
           hasVocals: false,
         });
 
@@ -231,9 +233,9 @@ describe("Tracks", () => {
 
         await Tracks.updateTags(gameId, "Bonus Track", {
           energy: 1,
-          roles: '["ambient"]',
-          moods: '["peaceful"]',
-          instrumentation: '["piano"]',
+          roles: ["ambient"],
+          moods: ["peaceful"],
+          instrumentation: ["piano"],
           hasVocals: false,
         });
 
@@ -263,7 +265,7 @@ describe("Tracks", () => {
       });
 
       it("should auto-assign position after existing tracks", async () => {
-        seedTestTracks(rawDb, gameId, 3);
+        await seedTestTracks(rawDb, gameId, 3);
         await Tracks.insertDiscovered(gameId, "New Discovery");
 
         const track = (await Tracks.getByGame(gameId)).find((t) => t.name === "New Discovery");
@@ -315,7 +317,7 @@ describe("Tracks", () => {
   describe("clearTags", () => {
     describe("when clearing tags for a game", () => {
       it("should reset energy, roles, moods, instrumentation, has_vocals, and tagged_at to null", async () => {
-        seedTestTracks(rawDb, gameId, 2, true);
+        await seedTestTracks(rawDb, gameId, 2, true);
 
         await Tracks.clearTags(gameId);
 
@@ -331,9 +333,9 @@ describe("Tracks", () => {
       });
 
       it("should not affect tracks from other games", async () => {
-        const otherGame = seedTestGame(rawDb, userId, { id: "other-game", title: "Other" });
-        seedTestTracks(rawDb, otherGame, 1, true);
-        seedTestTracks(rawDb, gameId, 1, true);
+        const otherGame = await seedTestGame(rawDb, userId, { id: "other-game", title: "Other" });
+        await seedTestTracks(rawDb, otherGame, 1, true);
+        await seedTestTracks(rawDb, gameId, 1, true);
 
         await Tracks.clearTags(gameId);
 
@@ -345,7 +347,7 @@ describe("Tracks", () => {
 
     describe("when clearing tags for specific tracks by name", () => {
       it("should only clear tags for the named tracks", async () => {
-        seedTestTracks(rawDb, gameId, 3, true);
+        await seedTestTracks(rawDb, gameId, 3, true);
 
         await Tracks.clearTags(gameId, ["Track 1", "Track 3"]);
 
@@ -365,7 +367,7 @@ describe("Tracks", () => {
 
   describe("bulkSetActive", () => {
     it("should set active for named tracks and leave others unchanged", async () => {
-      seedTestTracks(rawDb, gameId, 3);
+      await seedTestTracks(rawDb, gameId, 3);
 
       await Tracks.bulkSetActive(gameId, ["Track 1", "Track 3"], false);
 
@@ -377,8 +379,8 @@ describe("Tracks", () => {
   });
 
   describe("updateFields", () => {
-    beforeEach(() => {
-      seedTestTracks(rawDb, gameId, 1);
+    beforeEach(async () => {
+      await seedTestTracks(rawDb, gameId, 1);
     });
 
     describe("when updating a single non-tag field", () => {
@@ -433,8 +435,8 @@ describe("Tracks", () => {
     });
 
     describe("when updating roles", () => {
-      it("should set the roles JSON string", async () => {
-        await Tracks.updateFields(gameId, "Track 1", { roles: '["combat"]' });
+      it("should set the roles array", async () => {
+        await Tracks.updateFields(gameId, "Track 1", { roles: ["combat"] });
 
         const track = (await Tracks.getByGame(gameId))[0];
         expect(track.roles).toEqual(["combat"]);
@@ -443,8 +445,8 @@ describe("Tracks", () => {
     });
 
     describe("when updating moods", () => {
-      it("should set the moods JSON string", async () => {
-        await Tracks.updateFields(gameId, "Track 1", { moods: '["epic"]' });
+      it("should set the moods array", async () => {
+        await Tracks.updateFields(gameId, "Track 1", { moods: ["epic"] });
 
         const track = (await Tracks.getByGame(gameId))[0];
         expect(track.moods).toEqual(["epic"]);
@@ -453,8 +455,8 @@ describe("Tracks", () => {
     });
 
     describe("when updating instrumentation", () => {
-      it("should set the instrumentation JSON string", async () => {
-        await Tracks.updateFields(gameId, "Track 1", { instrumentation: '["piano"]' });
+      it("should set the instrumentation array", async () => {
+        await Tracks.updateFields(gameId, "Track 1", { instrumentation: ["piano"] });
 
         const track = (await Tracks.getByGame(gameId))[0];
         expect(track.instrumentation).toEqual(["piano"]);
@@ -493,7 +495,7 @@ describe("Tracks", () => {
   describe("deleteByKeys", () => {
     describe("when deleting specific tracks", () => {
       it("should remove only the specified tracks", async () => {
-        seedTestTracks(rawDb, gameId, 3);
+        await seedTestTracks(rawDb, gameId, 3);
 
         await Tracks.deleteByKeys([
           { gameId, name: "Track 1" },
@@ -508,7 +510,7 @@ describe("Tracks", () => {
 
     describe("when keys array is empty", () => {
       it("should not throw or delete anything", async () => {
-        seedTestTracks(rawDb, gameId, 2);
+        await seedTestTracks(rawDb, gameId, 2);
         await Tracks.deleteByKeys([]);
         expect(await Tracks.getByGame(gameId)).toHaveLength(2);
       });
@@ -516,14 +518,14 @@ describe("Tracks", () => {
 
     describe("when tracks have associated video_tracks", () => {
       it("should also delete the video_tracks rows", async () => {
-        seedTestTracks(rawDb, gameId, 1);
-        rawDb
+        await seedTestTracks(rawDb, gameId, 1);
+        await rawDb
           .prepare("INSERT INTO video_tracks (video_id, game_id, track_name) VALUES (?, ?, ?)")
           .run("vid-1", gameId, "Track 1");
 
         await Tracks.deleteByKeys([{ gameId, name: "Track 1" }]);
 
-        const videoTracks = rawDb
+        const videoTracks = await rawDb
           .prepare("SELECT * FROM video_tracks WHERE game_id = ? AND track_name = ?")
           .all(gameId, "Track 1");
         expect(videoTracks).toHaveLength(0);
@@ -534,15 +536,15 @@ describe("Tracks", () => {
   describe("deleteByGame", () => {
     describe("when deleting all tracks for a game", () => {
       it("should remove all tracks", async () => {
-        seedTestTracks(rawDb, gameId, 5);
+        await seedTestTracks(rawDb, gameId, 5);
         await Tracks.deleteByGame(gameId);
         expect(await Tracks.getByGame(gameId)).toHaveLength(0);
       });
 
       it("should not affect other games", async () => {
-        const otherGame = seedTestGame(rawDb, userId, { id: "other-game-2", title: "Other" });
-        seedTestTracks(rawDb, gameId, 3);
-        seedTestTracks(rawDb, otherGame, 2);
+        const otherGame = await seedTestGame(rawDb, userId, { id: "other-game-2", title: "Other" });
+        await seedTestTracks(rawDb, gameId, 3);
+        await seedTestTracks(rawDb, otherGame, 2);
 
         await Tracks.deleteByGame(gameId);
 
@@ -555,8 +557,8 @@ describe("Tracks", () => {
   describe("listAllWithVideoIds", () => {
     describe("when tracks exist with video_tracks joined", () => {
       it("should return tracks with gameTitle and videoId", async () => {
-        seedTestTracks(rawDb, gameId, 1);
-        rawDb
+        await seedTestTracks(rawDb, gameId, 1);
+        await rawDb
           .prepare(
             "INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds, view_count) VALUES (?, ?, ?, ?, ?)",
           )
@@ -573,7 +575,7 @@ describe("Tracks", () => {
 
     describe("when tracks have no video_tracks", () => {
       it("should return null for videoId, durationSeconds, and viewCount", async () => {
-        seedTestTracks(rawDb, gameId, 1);
+        await seedTestTracks(rawDb, gameId, 1);
 
         const rows = await Tracks.listAllWithVideoIds();
         expect(rows).toHaveLength(1);
@@ -585,17 +587,17 @@ describe("Tracks", () => {
   });
 
   describe("searchWithVideoIds", () => {
-    beforeEach(() => {
-      seedTestTracks(rawDb, gameId, 3, true);
+    beforeEach(async () => {
+      await seedTestTracks(rawDb, gameId, 3, true);
     });
 
     describe("when filtering by gameId", () => {
       it("should return only tracks for that game", async () => {
-        const otherGame = seedTestGame(rawDb, userId, {
+        const otherGame = await seedTestGame(rawDb, userId, {
           id: "other-search",
           title: "Other Search",
         });
-        seedTestTracks(rawDb, otherGame, 2);
+        await seedTestTracks(rawDb, otherGame, 2);
 
         const results = await Tracks.searchWithVideoIds({ gameId });
         expect(results).toHaveLength(3);

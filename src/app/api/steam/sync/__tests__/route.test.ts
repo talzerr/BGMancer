@@ -1,20 +1,18 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type Database from "better-sqlite3";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import type { TestRawDB } from "@/lib/db/test-helpers";
 import type { DrizzleDB } from "@/lib/db";
-import { createTestDrizzleDB, seedTestUser } from "@/lib/db/test-helpers";
+import { createTestDrizzleDB, resetTestDB, seedTestUser } from "@/lib/db/test-helpers";
 import { makeJsonRequest, parseJson } from "@/test/route-helpers";
 import type * as SteamSyncModule from "@/lib/services/external/steam-sync";
 
 let db: DrizzleDB;
-let rawDb: Database.Database;
+let rawDb: TestRawDB;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  const { createDbMock } = await import("@/test/db-mock");
   return {
-    getDB: () => db,
-
-    batch: async (queries: any[]) => db.batch(queries as [any]),
-
+    ...createDbMock(() => db),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -50,9 +48,13 @@ const {
 
 const { POST } = await import("../route");
 
-beforeEach(() => {
-  ({ db, rawDb } = createTestDrizzleDB());
-  seedTestUser(rawDb);
+beforeAll(async () => {
+  ({ db, rawDb } = await createTestDrizzleDB());
+});
+
+beforeEach(async () => {
+  await resetTestDB(rawDb);
+  await seedTestUser(rawDb);
   vi.mocked(syncUserLibrary).mockReset();
 });
 

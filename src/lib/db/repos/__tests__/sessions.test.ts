@@ -1,19 +1,23 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type Database from "better-sqlite3";
-import { createTestDrizzleDB, seedTestUser, seedTestSession } from "../../test-helpers";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import type { TestRawDB } from "../../test-helpers";
+import {
+  createTestDrizzleDB,
+  resetTestDB,
+  seedTestUser,
+  seedTestSession,
+} from "../../test-helpers";
 import { TEST_USER_ID } from "@/test/constants";
 import { ArcPhase, PlaylistMode, TrackInstrumentation, TrackMood, TrackRole } from "@/types";
 import type { DrizzleDB } from "@/lib/db";
 
 let db: DrizzleDB;
-let rawDb: Database.Database;
+let rawDb: TestRawDB;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  const { createDbMock } = await import("@/test/db-mock");
   return {
-    getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries as [any]),
-
+    ...createDbMock(() => db),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -21,11 +25,15 @@ vi.mock("@/lib/db", async () => {
 
 const { Sessions } = await import("../sessions");
 
-beforeEach(() => {
-  const testDb = createTestDrizzleDB();
+beforeAll(async () => {
+  const testDb = await createTestDrizzleDB();
   db = testDb.db;
   rawDb = testDb.rawDb;
-  seedTestUser(rawDb);
+});
+
+beforeEach(async () => {
+  await resetTestDB(rawDb);
+  await seedTestUser(rawDb);
 });
 
 describe("Sessions", () => {
@@ -68,15 +76,15 @@ describe("Sessions", () => {
         await Sessions.create(TEST_USER_ID, "Session 3", PlaylistMode.Journey);
         await Sessions.create(TEST_USER_ID, "Session 4", PlaylistMode.Journey);
 
-        const remaining = rawDb
+        const remaining = (await rawDb
           .prepare("SELECT id FROM playlists WHERE user_id = ? ORDER BY created_at ASC")
-          .all(TEST_USER_ID) as Array<{ id: string }>;
+          .all(TEST_USER_ID)) as Array<{ id: string }>;
         expect(remaining).toHaveLength(3);
         expect(remaining.map((r) => r.id)).not.toContain(s1.id);
       });
 
       it("should not evict sessions belonging to other users", async () => {
-        seedTestUser(rawDb, "other-user");
+        await seedTestUser(rawDb, "other-user");
         const otherSession = await Sessions.create("other-user", "Other", PlaylistMode.Journey);
 
         await Sessions.create(TEST_USER_ID, "S1", PlaylistMode.Journey);
@@ -93,15 +101,18 @@ describe("Sessions", () => {
   describe("getActive", () => {
     describe("when non-archived sessions exist", () => {
       it("should return the most recent non-archived session", async () => {
-        const oldId = seedTestSession(rawDb, TEST_USER_ID, { id: "old-session", name: "Old" });
-        rawDb
+        const oldId = await seedTestSession(rawDb, TEST_USER_ID, {
+          id: "old-session",
+          name: "Old",
+        });
+        await rawDb
           .prepare("UPDATE playlists SET created_at = '2024-01-01T00:00:00Z' WHERE id = ?")
           .run(oldId);
-        const newerId = seedTestSession(rawDb, TEST_USER_ID, {
+        const newerId = await seedTestSession(rawDb, TEST_USER_ID, {
           id: "newer-session",
           name: "Newer",
         });
-        rawDb
+        await rawDb
           .prepare("UPDATE playlists SET created_at = '2024-01-02T00:00:00Z' WHERE id = ?")
           .run(newerId);
 
@@ -113,7 +124,7 @@ describe("Sessions", () => {
 
     describe("when all sessions are archived", () => {
       it("should return null", async () => {
-        const id = seedTestSession(rawDb, TEST_USER_ID, { isArchived: true });
+        const id = await seedTestSession(rawDb, TEST_USER_ID, { isArchived: true });
         expect(id).toBeTruthy();
 
         const active = await Sessions.getActive(TEST_USER_ID);
@@ -140,7 +151,7 @@ describe("Sessions", () => {
       it("should sanitize an unknown playlist_mode column value to Journey", async () => {
         const created = await Sessions.create(TEST_USER_ID, "Test", PlaylistMode.Chill);
         // Simulate corruption / forwards-incompat: write a value the enum doesn't know.
-        rawDb
+        await rawDb
           .prepare("UPDATE playlists SET playlist_mode = ? WHERE id = ?")
           .run("bogus", created.id);
 
@@ -163,9 +174,9 @@ describe("Sessions", () => {
 
         // Insert some playlist tracks directly
         const gameId = "game-1";
-        rawDb.prepare("INSERT INTO games (id, title) VALUES (?, ?)").run(gameId, "Test Game");
+        await rawDb.prepare("INSERT INTO games (id, title) VALUES (?, ?)").run(gameId, "Test Game");
         for (let i = 0; i < 3; i++) {
-          rawDb
+          await rawDb
             .prepare(
               "INSERT INTO playlist_tracks (id, playlist_id, game_id, position) VALUES (?, ?, ?, ?)",
             )
@@ -294,26 +305,29 @@ describe("Sessions", () => {
       });
     });
 
-    describe("when JSON is malformed in the database", () => {
-      it("should return null for the malformed field", async () => {
-        const session = await Sessions.create(TEST_USER_ID, "Bad JSON", PlaylistMode.Journey);
-        rawDb
-          .prepare("UPDATE playlists SET rubric = ?, game_budgets = ? WHERE id = ?")
-          .run("{not valid json", '{"a":1}', session.id);
+    // jsonb rejects malformed JSON at write time, so the surviving invariant is
+    // that the two telemetry columns are read independently of one another.
+    describe("when only one telemetry column is populated", () => {
+      it("should return null for rubric while preserving gameBudgets", async () => {
+        const session = await Sessions.create(TEST_USER_ID, "Budgets only", PlaylistMode.Journey);
+        await rawDb
+          .prepare("UPDATE playlists SET rubric = NULL, game_budgets = ? WHERE id = ?")
+          .run(JSON.stringify({ a: 1 }), session.id);
 
         const result = await Sessions.getByIdWithTelemetry(session.id);
         expect(result!.rubric).toBeNull();
         expect(result!.gameBudgets).toEqual({ a: 1 });
       });
 
-      it("should return null for gameBudgets when game_budgets JSON is malformed", async () => {
-        const session = await Sessions.create(TEST_USER_ID, "Bad Budgets", PlaylistMode.Journey);
-        rawDb
-          .prepare("UPDATE playlists SET rubric = ?, game_budgets = ? WHERE id = ?")
-          .run('{"targetEnergy":[2]}', "not valid json!!!", session.id);
+      it("should return null for gameBudgets while preserving rubric", async () => {
+        const session = await Sessions.create(TEST_USER_ID, "Rubric only", PlaylistMode.Journey);
+        await rawDb
+          .prepare("UPDATE playlists SET rubric = ?, game_budgets = NULL WHERE id = ?")
+          .run(JSON.stringify({ targetEnergy: [2] }), session.id);
 
         const result = await Sessions.getByIdWithTelemetry(session.id);
         expect(result).not.toBeNull();
+        expect(result!.rubric).toEqual({ targetEnergy: [2] });
         expect(result!.gameBudgets).toBeNull();
       });
     });
@@ -328,13 +342,13 @@ describe("Sessions", () => {
   describe("listRecent", () => {
     describe("when sessions exist across users", () => {
       it("should return sessions from all users newest first", async () => {
-        seedTestUser(rawDb, "user-2");
-        const idA = seedTestSession(rawDb, TEST_USER_ID, { id: "recent-a", name: "A" });
-        rawDb
+        await seedTestUser(rawDb, "user-2");
+        const idA = await seedTestSession(rawDb, TEST_USER_ID, { id: "recent-a", name: "A" });
+        await rawDb
           .prepare("UPDATE playlists SET created_at = '2024-01-01T00:00:00Z' WHERE id = ?")
           .run(idA);
-        const idB = seedTestSession(rawDb, "user-2", { id: "recent-b", name: "B" });
-        rawDb
+        const idB = await seedTestSession(rawDb, "user-2", { id: "recent-b", name: "B" });
+        await rawDb
           .prepare("UPDATE playlists SET created_at = '2024-01-02T00:00:00Z' WHERE id = ?")
           .run(idB);
 
@@ -367,8 +381,10 @@ describe("Sessions", () => {
       it("should cascade-delete playlist tracks", async () => {
         const session = await Sessions.create(TEST_USER_ID, "With tracks", PlaylistMode.Journey);
         const gameId = "game-cascade";
-        rawDb.prepare("INSERT INTO games (id, title) VALUES (?, ?)").run(gameId, "Cascade Game");
-        rawDb
+        await rawDb
+          .prepare("INSERT INTO games (id, title) VALUES (?, ?)")
+          .run(gameId, "Cascade Game");
+        await rawDb
           .prepare(
             "INSERT INTO playlist_tracks (id, playlist_id, game_id, position) VALUES (?, ?, ?, ?)",
           )
@@ -376,7 +392,7 @@ describe("Sessions", () => {
 
         await Sessions.delete(session.id);
 
-        const tracks = rawDb
+        const tracks = await rawDb
           .prepare("SELECT * FROM playlist_tracks WHERE playlist_id = ?")
           .all(session.id);
         expect(tracks).toHaveLength(0);

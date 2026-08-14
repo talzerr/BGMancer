@@ -1,20 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type Database from "better-sqlite3";
-import { createTestDrizzleDB, seedTestUser } from "../../test-helpers";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import type { TestRawDB } from "../../test-helpers";
+import { createTestDrizzleDB, resetTestDB, seedTestUser } from "../../test-helpers";
 import { TEST_USER_ID, TEST_USER_EMAIL } from "@/test/constants";
 import type { DrizzleDB } from "@/lib/db";
 
 const NEW_USER_ID = "new-user";
 
 let db: DrizzleDB;
-let rawDb: Database.Database;
+let rawDb: TestRawDB;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  const { createDbMock } = await import("@/test/db-mock");
   return {
-    getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries as [any]),
-
+    ...createDbMock(() => db),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -23,11 +22,15 @@ vi.mock("@/lib/db", async () => {
 // Import after mock so the module binds to our mocked getDB
 const { Users } = await import("../users");
 
-beforeEach(() => {
-  const testDb = createTestDrizzleDB();
+beforeAll(async () => {
+  const testDb = await createTestDrizzleDB();
   db = testDb.db;
   rawDb = testDb.rawDb;
-  seedTestUser(rawDb);
+});
+
+beforeEach(async () => {
+  await resetTestDB(rawDb);
+  await seedTestUser(rawDb);
 });
 
 describe("Users", () => {
@@ -37,9 +40,9 @@ describe("Users", () => {
         const user = await Users.createFromOAuth("new@example.com");
         expect(user.email).toBe("new@example.com");
         expect(user.username).toBe("new");
-        const lib = rawDb.prepare("SELECT * FROM libraries WHERE user_id = ?").get(user.id) as
-          | Record<string, unknown>
-          | undefined;
+        const lib = (await rawDb
+          .prepare("SELECT * FROM libraries WHERE user_id = ?")
+          .get(user.id)) as Record<string, unknown> | undefined;
         expect(lib).toBeTruthy();
       });
     });
@@ -64,7 +67,9 @@ describe("Users", () => {
       it("should not create a duplicate library", async () => {
         await Users.getOrCreate(TEST_USER_ID);
         await Users.getOrCreate(TEST_USER_ID);
-        const libs = rawDb.prepare("SELECT * FROM libraries WHERE user_id = ?").all(TEST_USER_ID);
+        const libs = await rawDb
+          .prepare("SELECT * FROM libraries WHERE user_id = ?")
+          .all(TEST_USER_ID);
         expect(libs).toHaveLength(1);
       });
     });
@@ -73,9 +78,9 @@ describe("Users", () => {
       it("should create user and library atomically", async () => {
         const user = await Users.getOrCreate(NEW_USER_ID);
         expect(user.id).toBe(NEW_USER_ID);
-        const lib = rawDb.prepare("SELECT * FROM libraries WHERE user_id = ?").get(NEW_USER_ID) as
-          | Record<string, unknown>
-          | undefined;
+        const lib = (await rawDb
+          .prepare("SELECT * FROM libraries WHERE user_id = ?")
+          .get(NEW_USER_ID)) as Record<string, unknown> | undefined;
         expect(lib).toBeTruthy();
       });
     });
@@ -104,14 +109,14 @@ describe("Users", () => {
         expect(result.acquired).toBe(true);
       });
 
-      it("should set is_generating to 1", async () => {
+      it("should set is_generating to true", async () => {
         await Users.tryAcquireGenerationLock(TEST_USER_ID, 0);
-        const row = rawDb
+        const row = (await rawDb
           .prepare("SELECT is_generating FROM users WHERE id = ?")
-          .get(TEST_USER_ID) as {
-          is_generating: number;
+          .get(TEST_USER_ID)) as {
+          is_generating: boolean;
         };
-        expect(row.is_generating).toBe(1);
+        expect(row.is_generating).toBe(true);
       });
     });
 
@@ -128,11 +133,9 @@ describe("Users", () => {
     });
 
     describe("when cooldown has not elapsed", () => {
-      beforeEach(() => {
-        rawDb
-          .prepare(
-            "UPDATE users SET last_generated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?",
-          )
+      beforeEach(async () => {
+        await rawDb
+          .prepare("UPDATE users SET last_generated_at = now() WHERE id = ?")
           .run(TEST_USER_ID);
       });
 
@@ -160,19 +163,19 @@ describe("Users", () => {
 
       it("should clear the is_generating flag", async () => {
         await Users.releaseGenerationLock(TEST_USER_ID);
-        const row = rawDb
+        const row = (await rawDb
           .prepare("SELECT is_generating FROM users WHERE id = ?")
-          .get(TEST_USER_ID) as {
-          is_generating: number;
+          .get(TEST_USER_ID)) as {
+          is_generating: boolean;
         };
-        expect(row.is_generating).toBe(0);
+        expect(row.is_generating).toBe(false);
       });
 
       it("should set last_generated_at", async () => {
         await Users.releaseGenerationLock(TEST_USER_ID);
-        const row = rawDb
+        const row = (await rawDb
           .prepare("SELECT last_generated_at FROM users WHERE id = ?")
-          .get(TEST_USER_ID) as { last_generated_at: string | null };
+          .get(TEST_USER_ID)) as { last_generated_at: string | null };
         expect(row.last_generated_at).not.toBeNull();
       });
     });

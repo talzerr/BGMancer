@@ -1,22 +1,22 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type Database from "better-sqlite3";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import type { TestRawDB } from "../../test-helpers";
 import type { DrizzleDB } from "@/lib/db";
 import {
   createTestDrizzleDB,
+  resetTestDB,
   seedTestUser,
   seedTestGame,
   seedTestSession,
 } from "../../test-helpers";
 import type { InsertableTrack } from "../playlist";
 let db: DrizzleDB;
-let rawDb: Database.Database;
+let rawDb: TestRawDB;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  const { createDbMock } = await import("@/test/db-mock");
   return {
-    getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries as [any]),
-
+    ...createDbMock(() => db),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -41,11 +41,15 @@ function makeTrack(overrides: Partial<InsertableTrack> & { id: string }): Insert
   };
 }
 
-beforeEach(() => {
-  ({ db, rawDb } = createTestDrizzleDB());
-  ({ userId } = seedTestUser(rawDb));
-  gameId = seedTestGame(rawDb, userId);
-  sessionId = seedTestSession(rawDb, userId);
+beforeAll(async () => {
+  ({ db, rawDb } = await createTestDrizzleDB());
+});
+
+beforeEach(async () => {
+  await resetTestDB(rawDb);
+  ({ userId } = await seedTestUser(rawDb));
+  gameId = await seedTestGame(rawDb, userId);
+  sessionId = await seedTestSession(rawDb, userId);
 });
 
 describe("Playlist", () => {
@@ -59,11 +63,11 @@ describe("Playlist", () => {
         ];
         await Playlist.replaceAll(sessionId, tracks);
 
-        const rows = rawDb
+        const rows = (await rawDb
           .prepare(
             "SELECT id, position FROM playlist_tracks WHERE playlist_id = ? ORDER BY position",
           )
-          .all(sessionId) as Array<{ id: string; position: number }>;
+          .all(sessionId)) as Array<{ id: string; position: number }>;
         expect(rows).toHaveLength(3);
         expect(rows[0]).toEqual({ id: "t1", position: 0 });
         expect(rows[1]).toEqual({ id: "t2", position: 1 });
@@ -79,9 +83,9 @@ describe("Playlist", () => {
           makeTrack({ id: "new-2" }),
         ]);
 
-        const rows = rawDb
+        const rows = (await rawDb
           .prepare("SELECT id FROM playlist_tracks WHERE playlist_id = ?")
-          .all(sessionId) as Array<{ id: string }>;
+          .all(sessionId)) as Array<{ id: string }>;
         expect(rows).toHaveLength(2);
         expect(rows.map((r) => r.id)).toContain("new-1");
         expect(rows.map((r) => r.id)).not.toContain("old-1");
@@ -105,11 +109,11 @@ describe("Playlist", () => {
           180,
           "Clean Name",
         );
-        const row = rawDb
+        const row = (await rawDb
           .prepare(
             "SELECT video_id, video_title, channel_title, thumbnail, duration_seconds, track_name FROM playlist_tracks WHERE id = ?",
           )
-          .get("uv-1") as {
+          .get("uv-1")) as {
           video_id: string;
           video_title: string;
           channel_title: string;
@@ -136,9 +140,9 @@ describe("Playlist", () => {
         ]);
         await Playlist.removeOne("remove");
 
-        const rows = rawDb
+        const rows = (await rawDb
           .prepare("SELECT id FROM playlist_tracks WHERE playlist_id = ?")
-          .all(sessionId) as Array<{ id: string }>;
+          .all(sessionId)) as Array<{ id: string }>;
         expect(rows).toHaveLength(1);
         expect(rows[0].id).toBe("keep");
       });
@@ -193,7 +197,7 @@ describe("Playlist", () => {
         await Playlist.replaceAll(sessionId, [makeTrack({ id: "cl1" }), makeTrack({ id: "cl2" })]);
         await Playlist.clearAll(userId);
 
-        const rows = rawDb
+        const rows = await rawDb
           .prepare("SELECT * FROM playlist_tracks WHERE playlist_id = ?")
           .all(sessionId);
         expect(rows).toHaveLength(0);
@@ -201,17 +205,20 @@ describe("Playlist", () => {
 
       it("should not delete tracks from other sessions", async () => {
         // Make sessionId (from beforeEach) the older session
-        rawDb
+        await rawDb
           .prepare("UPDATE playlists SET created_at = '2024-01-01T00:00:00Z' WHERE id = ?")
           .run(sessionId);
         // Create a newer session that becomes the active one
-        const otherSession = seedTestSession(rawDb, userId, { id: "other-session", name: "Other" });
-        rawDb
+        const otherSession = await seedTestSession(rawDb, userId, {
+          id: "other-session",
+          name: "Other",
+        });
+        await rawDb
           .prepare("UPDATE playlists SET created_at = '2024-01-02T00:00:00Z' WHERE id = ?")
           .run(otherSession);
 
         // Insert tracks into the older (non-active) session
-        rawDb
+        await rawDb
           .prepare(
             "INSERT INTO playlist_tracks (id, playlist_id, game_id, position) VALUES (?, ?, ?, ?)",
           )
@@ -221,7 +228,7 @@ describe("Playlist", () => {
         await Playlist.clearAll(userId);
 
         // The older session's track should remain
-        const kept = rawDb
+        const kept = await rawDb
           .prepare("SELECT * FROM playlist_tracks WHERE playlist_id = ?")
           .all(sessionId);
         expect(kept).toHaveLength(1);
@@ -262,12 +269,12 @@ describe("Playlist", () => {
           makeTrack({ id: "ap1", track_name: "Intro Track" }),
           makeTrack({ id: "ap2", track_name: "Rising Track" }),
         ]);
-        rawDb
+        await rawDb
           .prepare(
             "INSERT INTO playlist_track_decisions (playlist_id, position, arc_phase, game_id, track_video_id) VALUES (?, ?, ?, ?, ?)",
           )
           .run(sessionId, 0, "intro", gameId, "v1");
-        rawDb
+        await rawDb
           .prepare(
             "INSERT INTO playlist_track_decisions (playlist_id, position, arc_phase, game_id, track_video_id) VALUES (?, ?, ?, ?, ?)",
           )
@@ -314,7 +321,7 @@ describe("Playlist", () => {
 
     describe("when other sessions have tracks", () => {
       it("should only return video IDs from the specified session", async () => {
-        const otherSession = seedTestSession(rawDb, userId, { id: "other-s", name: "Other" });
+        const otherSession = await seedTestSession(rawDb, userId, { id: "other-s", name: "Other" });
         await Playlist.replaceAll(sessionId, [makeTrack({ id: "vs4", video_id: "vid-mine" })]);
         await Playlist.replaceAll(otherSession, [makeTrack({ id: "vs5", video_id: "vid-other" })]);
 

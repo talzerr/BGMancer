@@ -1,7 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type Database from "better-sqlite3";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import type { TestRawDB } from "@/lib/db/test-helpers";
 import type { DrizzleDB } from "@/lib/db";
-import { createTestDrizzleDB, seedTestGame, seedTestUser } from "@/lib/db/test-helpers";
+import {
+  createTestDrizzleDB,
+  resetTestDB,
+  seedTestGame,
+  seedTestUser,
+} from "@/lib/db/test-helpers";
 import { makeJsonRequest, parseJson } from "@/test/route-helpers";
 import { TEST_USER_ID } from "@/test/constants";
 import { PlaylistMode } from "@/types";
@@ -41,13 +46,13 @@ vi.mock("@/lib/services/auth/auth", () => ({
 // ─── DB ──────────────────────────────────────────────────────────────────────
 
 let db: DrizzleDB;
-let rawDb: Database.Database;
+let rawDb: TestRawDB;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  const { createDbMock } = await import("@/test/db-mock");
   return {
-    getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries as [any]),
+    ...createDbMock(() => db),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -78,16 +83,18 @@ const { POST } = await import("../route");
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 let seededUser = false;
-function ensureUserAndGame(): string {
+async function ensureUserAndGame(): Promise<string> {
   if (!seededUser) {
-    seedTestUser(rawDb);
+    await seedTestUser(rawDb);
     seededUser = true;
   }
-  return seedTestGame(rawDb, TEST_USER_ID, { id: `game-${Math.random().toString(36).slice(2)}` });
+  return await seedTestGame(rawDb, TEST_USER_ID, {
+    id: `game-${Math.random().toString(36).slice(2)}`,
+  });
 }
 
 async function createSessionWithTracks(opts: { videoIds: Array<string | null> }) {
-  const gameId = ensureUserAndGame();
+  const gameId = await ensureUserAndGame();
   const session = await Sessions.create(TEST_USER_ID, "Test session", PlaylistMode.Journey);
   await Playlist.replaceAll(
     session.id,
@@ -105,8 +112,12 @@ async function createSessionWithTracks(opts: { videoIds: Array<string | null> })
   return session;
 }
 
-beforeEach(() => {
-  ({ db, rawDb } = createTestDrizzleDB());
+beforeAll(async () => {
+  ({ db, rawDb } = await createTestDrizzleDB());
+});
+
+beforeEach(async () => {
+  await resetTestDB(rawDb);
   seededUser = false;
   mockYoutubeSyncEnabled = true;
   mockIsDev = false;
@@ -184,7 +195,7 @@ describe("POST /api/sync", () => {
 
   describe("when the session does not exist", () => {
     it("returns 404 without leaking existence", async () => {
-      seedTestUser(rawDb);
+      await seedTestUser(rawDb);
       const res = await POST(makeJsonRequest("/api/sync", "POST", { sessionId: "does-not-exist" }));
       expect(res.status).toBe(404);
     });
@@ -192,8 +203,8 @@ describe("POST /api/sync", () => {
 
   describe("when the session belongs to a different user", () => {
     it("returns 404 (same shape as not-found)", async () => {
-      seedTestUser(rawDb);
-      seedTestUser(rawDb, "other-user");
+      await seedTestUser(rawDb);
+      await seedTestUser(rawDb, "other-user");
       const session = await Sessions.create("other-user", "Someone else's", PlaylistMode.Journey);
       const res = await POST(makeJsonRequest("/api/sync", "POST", { sessionId: session.id }));
       expect(res.status).toBe(404);

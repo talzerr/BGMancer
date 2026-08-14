@@ -1,19 +1,23 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type Database from "better-sqlite3";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import type { TestRawDB } from "@/lib/db/test-helpers";
 import type { DrizzleDB } from "@/lib/db";
-import { createTestDrizzleDB, seedTestUser, seedTestGame } from "@/lib/db/test-helpers";
+import {
+  createTestDrizzleDB,
+  resetTestDB,
+  seedTestUser,
+  seedTestGame,
+} from "@/lib/db/test-helpers";
 import { TEST_USER_ID, TEST_GAME_ID, TEST_GAME_TITLE } from "@/test/constants";
 import { makeJsonRequest, parseJson } from "@/test/route-helpers";
 
 let db: DrizzleDB;
-let rawDb: Database.Database;
+let rawDb: TestRawDB;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  const { createDbMock } = await import("@/test/db-mock");
   return {
-    getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries as [any]),
-
+    ...createDbMock(() => db),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -21,15 +25,19 @@ vi.mock("@/lib/db", async () => {
 
 const { PATCH, DELETE: DELETE_HANDLER } = await import("../route");
 
-beforeEach(() => {
-  ({ db, rawDb } = createTestDrizzleDB());
-  seedTestUser(rawDb);
+beforeAll(async () => {
+  ({ db, rawDb } = await createTestDrizzleDB());
+});
+
+beforeEach(async () => {
+  await resetTestDB(rawDb);
+  await seedTestUser(rawDb);
 });
 
 describe("PATCH /api/backstage/games/[gameId]", () => {
   describe("when updating title", () => {
     it("should return updated game", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
+      await seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
 
       const res = await PATCH(
         makeJsonRequest(`/api/backstage/games/${TEST_GAME_ID}`, "PATCH", {
@@ -62,7 +70,7 @@ describe("PATCH /api/backstage/games/[gameId]", () => {
 
   describe("when no fields provided", () => {
     it("should return 400", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
+      await seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
 
       const res = await PATCH(
         makeJsonRequest(`/api/backstage/games/${TEST_GAME_ID}`, "PATCH", {}),
@@ -80,7 +88,7 @@ describe("PATCH /api/backstage/games/[gameId]", () => {
 describe("DELETE /api/backstage/games/[gameId]", () => {
   describe("when deleting an unpublished game", () => {
     it("should return success", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, {
+      await seedTestGame(rawDb, TEST_USER_ID, {
         id: TEST_GAME_ID,
         title: TEST_GAME_TITLE,
         published: false,
@@ -97,14 +105,14 @@ describe("DELETE /api/backstage/games/[gameId]", () => {
       expect(body.ok).toBe(true);
 
       // Verify game is removed from DB
-      const row = rawDb.prepare("SELECT id FROM games WHERE id = ?").get(TEST_GAME_ID);
+      const row = await rawDb.prepare("SELECT id FROM games WHERE id = ?").get(TEST_GAME_ID);
       expect(row).toBeUndefined();
     });
   });
 
   describe("when game is published", () => {
     it("should return 400", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, {
+      await seedTestGame(rawDb, TEST_USER_ID, {
         id: TEST_GAME_ID,
         title: TEST_GAME_TITLE,
         published: true,

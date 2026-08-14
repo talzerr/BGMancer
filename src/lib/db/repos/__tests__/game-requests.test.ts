@@ -1,17 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type Database from "better-sqlite3";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import type { TestRawDB } from "../../test-helpers";
 import type { DrizzleDB } from "@/lib/db";
-import { createTestDrizzleDB } from "../../test-helpers";
+import { createTestDrizzleDB, resetTestDB } from "../../test-helpers";
 
 let db: DrizzleDB;
-let rawDb: Database.Database;
+let rawDb: TestRawDB;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  const { createDbMock } = await import("@/test/db-mock");
   return {
-    getDB: () => db,
-    batch: async (queries: unknown[]) =>
-      db.batch(queries as unknown as Parameters<typeof db.batch>[0]),
+    ...createDbMock(() => db),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -19,8 +18,12 @@ vi.mock("@/lib/db", async () => {
 
 const { GameRequests } = await import("../game-requests");
 
-beforeEach(() => {
-  ({ db, rawDb } = createTestDrizzleDB());
+beforeAll(async () => {
+  ({ db, rawDb } = await createTestDrizzleDB());
+});
+
+beforeEach(async () => {
+  await resetTestDB(rawDb);
 });
 
 interface RawRow {
@@ -28,11 +31,11 @@ interface RawRow {
   name: string;
   cover_url: string | null;
   request_count: number;
-  acknowledged: number;
+  acknowledged: boolean;
 }
 
-function getRow(igdbId: number): RawRow | undefined {
-  return rawDb.prepare("SELECT * FROM game_requests WHERE igdb_id = ?").get(igdbId) as
+async function getRow(igdbId: number): Promise<RawRow | undefined> {
+  return (await rawDb.prepare("SELECT * FROM game_requests WHERE igdb_id = ?").get(igdbId)) as
     | RawRow
     | undefined;
 }
@@ -48,10 +51,10 @@ describe("GameRequests", () => {
       expect(result.requestCount).toBe(1);
       expect(result.acknowledged).toBe(false);
 
-      const row = getRow(123);
+      const row = await getRow(123);
       expect(row).toBeDefined();
       expect(row?.request_count).toBe(1);
-      expect(row?.acknowledged).toBe(0);
+      expect(row?.acknowledged).toBe(false);
     });
 
     it("should increment request_count when submitting a duplicate unacknowledged igdb_id", async () => {
@@ -59,7 +62,7 @@ describe("GameRequests", () => {
       const result = await GameRequests.upsertRequest(123, "Celeste", null);
 
       expect(result.requestCount).toBe(2);
-      expect(getRow(123)?.request_count).toBe(2);
+      expect((await getRow(123))?.request_count).toBe(2);
     });
 
     it("should no-op when the row is already acknowledged", async () => {
@@ -68,19 +71,19 @@ describe("GameRequests", () => {
 
       await GameRequests.upsertRequest(456, "Hollow Knight", null);
 
-      const row = getRow(456);
+      const row = await getRow(456);
       expect(row?.request_count).toBe(1);
-      expect(row?.acknowledged).toBe(1);
+      expect(row?.acknowledged).toBe(true);
     });
   });
 
   describe("acknowledge", () => {
     it("should flip acknowledged from false to true", async () => {
       await GameRequests.upsertRequest(789, "Signalis", null);
-      expect(getRow(789)?.acknowledged).toBe(0);
+      expect((await getRow(789))?.acknowledged).toBe(false);
 
       await GameRequests.acknowledge(789);
-      expect(getRow(789)?.acknowledged).toBe(1);
+      expect((await getRow(789))?.acknowledged).toBe(true);
     });
   });
 

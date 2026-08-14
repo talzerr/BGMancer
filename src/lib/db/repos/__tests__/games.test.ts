@@ -1,18 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type Database from "better-sqlite3";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import type { TestRawDB } from "../../test-helpers";
 import type { DrizzleDB } from "@/lib/db";
-import { createTestDrizzleDB, seedTestUser, seedTestGame } from "../../test-helpers";
+import { createTestDrizzleDB, resetTestDB, seedTestUser, seedTestGame } from "../../test-helpers";
 import { TEST_USER_ID, TEST_GAME_ID } from "@/test/constants";
 
 let db: DrizzleDB;
-let rawDb: Database.Database;
+let rawDb: TestRawDB;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  const { createDbMock } = await import("@/test/db-mock");
   return {
-    getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries as [any]),
-
+    ...createDbMock(() => db),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -21,9 +20,13 @@ vi.mock("@/lib/db", async () => {
 const { Games } = await import("../games");
 const { CurationMode } = await import("@/types");
 
-beforeEach(() => {
-  ({ db, rawDb } = createTestDrizzleDB());
-  seedTestUser(rawDb);
+beforeAll(async () => {
+  ({ db, rawDb } = await createTestDrizzleDB());
+});
+
+beforeEach(async () => {
+  await resetTestDB(rawDb);
+  await seedTestUser(rawDb);
 });
 
 describe("Games", () => {
@@ -61,10 +64,18 @@ describe("Games", () => {
 
   describe("listAll", () => {
     describe("when library has published games with various curations", () => {
-      beforeEach(() => {
-        seedTestGame(rawDb, TEST_USER_ID, { id: "g-inc", title: "Included", curation: "include" });
-        seedTestGame(rawDb, TEST_USER_ID, { id: "g-lite", title: "Lite", curation: "lite" });
-        seedTestGame(rawDb, TEST_USER_ID, { id: "g-focus", title: "Focused", curation: "focus" });
+      beforeEach(async () => {
+        await seedTestGame(rawDb, TEST_USER_ID, {
+          id: "g-inc",
+          title: "Included",
+          curation: "include",
+        });
+        await seedTestGame(rawDb, TEST_USER_ID, { id: "g-lite", title: "Lite", curation: "lite" });
+        await seedTestGame(rawDb, TEST_USER_ID, {
+          id: "g-focus",
+          title: "Focused",
+          curation: "focus",
+        });
       });
 
       it("should return all games", async () => {
@@ -77,9 +88,13 @@ describe("Games", () => {
     });
 
     describe("when library has unpublished games", () => {
-      beforeEach(() => {
-        seedTestGame(rawDb, TEST_USER_ID, { id: "g-pub", title: "Published", published: true });
-        seedTestGame(rawDb, TEST_USER_ID, {
+      beforeEach(async () => {
+        await seedTestGame(rawDb, TEST_USER_ID, {
+          id: "g-pub",
+          title: "Published",
+          published: true,
+        });
+        await seedTestGame(rawDb, TEST_USER_ID, {
           id: "g-unpub",
           title: "Unpublished",
           published: false,
@@ -102,12 +117,12 @@ describe("Games", () => {
   });
 
   describe("getPublishedByIds", () => {
-    beforeEach(() => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: "g-pub", title: "Published" });
+    beforeEach(async () => {
+      await seedTestGame(rawDb, TEST_USER_ID, { id: "g-pub", title: "Published" });
       // Insert an unpublished game directly (seedTestGame creates published games)
-      rawDb
+      await rawDb
         .prepare(
-          "INSERT INTO games (id, title, published, onboarding_phase) VALUES (?, ?, 0, 'draft')",
+          "INSERT INTO games (id, title, published, onboarding_phase) VALUES (?, ?, false, 'draft')",
         )
         .run("g-unpub", "Unpublished");
     });
@@ -136,7 +151,7 @@ describe("Games", () => {
   describe("getById", () => {
     describe("when the game exists", () => {
       it("should return the game", async () => {
-        seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: "Hollow Knight" });
+        await seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: "Hollow Knight" });
         const game = await Games.getById(TEST_GAME_ID);
         expect(game).not.toBeNull();
         expect(game!.title).toBe("Hollow Knight");
@@ -153,7 +168,7 @@ describe("Games", () => {
   describe("getByIdForUser", () => {
     describe("when the game is in the user's library", () => {
       it("should return the game with the correct curation", async () => {
-        seedTestGame(rawDb, TEST_USER_ID, {
+        await seedTestGame(rawDb, TEST_USER_ID, {
           id: TEST_GAME_ID,
           title: "Celeste",
           curation: "focus",
@@ -167,7 +182,9 @@ describe("Games", () => {
     describe("when the game exists but is not in the user's library", () => {
       it("should return null", async () => {
         // Insert game directly without library link
-        rawDb.prepare("INSERT INTO games (id, title) VALUES (?, ?)").run("g-orphan", "Orphan Game");
+        await rawDb
+          .prepare("INSERT INTO games (id, title) VALUES (?, ?)")
+          .run("g-orphan", "Orphan Game");
         const game = await Games.getByIdForUser(TEST_USER_ID, "g-orphan");
         expect(game).toBeNull();
       });
@@ -175,8 +192,8 @@ describe("Games", () => {
   });
 
   describe("findByTitle", () => {
-    beforeEach(() => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: "Hollow Knight" });
+    beforeEach(async () => {
+      await seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: "Hollow Knight" });
     });
 
     describe("when searching with exact case", () => {
@@ -210,9 +227,9 @@ describe("Games", () => {
 
   describe("count", () => {
     describe("when the library has games", () => {
-      beforeEach(() => {
-        seedTestGame(rawDb, TEST_USER_ID, { id: "game-a", title: "Game A" });
-        seedTestGame(rawDb, TEST_USER_ID, { id: "game-b", title: "Game B" });
+      beforeEach(async () => {
+        await seedTestGame(rawDb, TEST_USER_ID, { id: "game-a", title: "Game A" });
+        await seedTestGame(rawDb, TEST_USER_ID, { id: "game-b", title: "Game B" });
       });
 
       it("should return the number of linked games", async () => {
@@ -229,8 +246,8 @@ describe("Games", () => {
 
   describe("setCuration", () => {
     describe("when changing curation mode", () => {
-      beforeEach(() => {
-        seedTestGame(rawDb, TEST_USER_ID, {
+      beforeEach(async () => {
+        await seedTestGame(rawDb, TEST_USER_ID, {
           id: TEST_GAME_ID,
           title: "A Game",
           curation: "include",
@@ -247,8 +264,8 @@ describe("Games", () => {
 
   describe("remove", () => {
     describe("when removing a game from the library", () => {
-      beforeEach(() => {
-        seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: "A Game" });
+      beforeEach(async () => {
+        await seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: "A Game" });
       });
 
       it("should remove the library link", async () => {
@@ -269,7 +286,9 @@ describe("Games", () => {
   describe("linkToLibrary", () => {
     describe("when linking an existing game", () => {
       it("should create a library link", async () => {
-        rawDb.prepare("INSERT INTO games (id, title) VALUES (?, ?)").run("g-orphan", "Orphan");
+        await rawDb
+          .prepare("INSERT INTO games (id, title) VALUES (?, ?)")
+          .run("g-orphan", "Orphan");
         await Games.linkToLibrary(TEST_USER_ID, "g-orphan");
         const game = await Games.getByIdForUser(TEST_USER_ID, "g-orphan");
         expect(game).not.toBeNull();
@@ -279,7 +298,7 @@ describe("Games", () => {
 
     describe("when the link already exists", () => {
       it("should not throw (INSERT OR IGNORE)", async () => {
-        seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: "A Game" });
+        await seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: "A Game" });
         await expect(Games.linkToLibrary(TEST_USER_ID, TEST_GAME_ID)).resolves.not.toThrow();
       });
     });
@@ -291,14 +310,14 @@ describe("Games", () => {
     async function fillLibraryToCap() {
       const { LIBRARY_MAX_GAMES } = await import("@/lib/constants");
       for (let i = 0; i < LIBRARY_MAX_GAMES; i++) {
-        seedTestGame(rawDb, TEST_USER_ID, { id: `cap-${i}`, title: `Game ${i}` });
+        await seedTestGame(rawDb, TEST_USER_ID, { id: `cap-${i}`, title: `Game ${i}` });
       }
       return LIBRARY_MAX_GAMES;
     }
 
     describe("when below the cap and the game is new", () => {
       it("should insert the link and return true", async () => {
-        rawDb.prepare("INSERT INTO games (id, title) VALUES (?, ?)").run("g-new", "New Game");
+        await rawDb.prepare("INSERT INTO games (id, title) VALUES (?, ?)").run("g-new", "New Game");
         const result = await Games.tryLinkToLibrary(TEST_USER_ID, "g-new");
         expect(result).toBe(true);
         const linked = await Games.getByIdForUser(TEST_USER_ID, "g-new");
@@ -308,7 +327,7 @@ describe("Games", () => {
 
     describe("when below the cap and the game is already linked", () => {
       it("should return true (idempotent)", async () => {
-        seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: "A Game" });
+        await seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: "A Game" });
         const result = await Games.tryLinkToLibrary(TEST_USER_ID, TEST_GAME_ID);
         expect(result).toBe(true);
         expect(await Games.count(TEST_USER_ID)).toBe(1);
@@ -318,7 +337,9 @@ describe("Games", () => {
     describe("when at the cap and the game is new", () => {
       it("should reject the insert and return false", async () => {
         await fillLibraryToCap();
-        rawDb.prepare("INSERT INTO games (id, title) VALUES (?, ?)").run("g-overflow", "Overflow");
+        await rawDb
+          .prepare("INSERT INTO games (id, title) VALUES (?, ?)")
+          .run("g-overflow", "Overflow");
         const result = await Games.tryLinkToLibrary(TEST_USER_ID, "g-overflow");
         expect(result).toBe(false);
         const linked = await Games.getByIdForUser(TEST_USER_ID, "g-overflow");
@@ -327,7 +348,9 @@ describe("Games", () => {
 
       it("should not increase the library count past the cap", async () => {
         const cap = await fillLibraryToCap();
-        rawDb.prepare("INSERT INTO games (id, title) VALUES (?, ?)").run("g-overflow", "Overflow");
+        await rawDb
+          .prepare("INSERT INTO games (id, title) VALUES (?, ?)")
+          .run("g-overflow", "Overflow");
         await Games.tryLinkToLibrary(TEST_USER_ID, "g-overflow");
         expect(await Games.count(TEST_USER_ID)).toBe(cap);
       });
@@ -344,7 +367,9 @@ describe("Games", () => {
 
     describe("when called with a non-default curation", () => {
       it("should persist the requested curation", async () => {
-        rawDb.prepare("INSERT INTO games (id, title) VALUES (?, ?)").run("g-focus", "Focus Game");
+        await rawDb
+          .prepare("INSERT INTO games (id, title) VALUES (?, ?)")
+          .run("g-focus", "Focus Game");
         await Games.tryLinkToLibrary(TEST_USER_ID, "g-focus", CurationMode.Focus);
         const linked = await Games.getByIdForUser(TEST_USER_ID, "g-focus");
         expect(linked!.curation).toBe(CurationMode.Focus);
@@ -364,8 +389,8 @@ describe("Games", () => {
     });
 
     describe("when the game already exists in the games table", () => {
-      beforeEach(() => {
-        rawDb
+      beforeEach(async () => {
+        await rawDb
           .prepare("INSERT INTO games (id, title) VALUES (?, ?)")
           .run("existing", "Existing Game");
       });
@@ -388,9 +413,9 @@ describe("Games", () => {
       it("should be idempotent", async () => {
         await Games.ensureExists(TEST_USER_ID, "idem-game", "Idem Game");
         await Games.ensureExists(TEST_USER_ID, "idem-game", "Idem Game");
-        const count = rawDb
+        const count = (await rawDb
           .prepare("SELECT COUNT(*) AS cnt FROM games WHERE id = ?")
-          .get("idem-game") as { cnt: number };
+          .get("idem-game")) as { cnt: number };
         expect(count.cnt).toBe(1);
       });
     });

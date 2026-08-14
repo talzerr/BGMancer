@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type Database from "better-sqlite3";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import type { TestRawDB } from "@/lib/db/test-helpers";
 import type { DrizzleDB } from "@/lib/db";
 import {
   createTestDrizzleDB,
+  resetTestDB,
   seedTestUser,
   seedTestGame,
   seedTestSession,
@@ -11,14 +12,13 @@ import { TEST_USER_ID, TEST_GAME_ID, TEST_GAME_TITLE } from "@/test/constants";
 import { parseJson } from "@/test/route-helpers";
 
 let db: DrizzleDB;
-let rawDb: Database.Database;
+let rawDb: TestRawDB;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  const { createDbMock } = await import("@/test/db-mock");
   return {
-    getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries as [any]),
-
+    ...createDbMock(() => db),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -35,25 +35,32 @@ vi.mock("@/lib/services/auth/auth-helpers", async () => {
 
 const { GET } = await import("../route");
 
-beforeEach(() => {
-  ({ db, rawDb } = createTestDrizzleDB());
-  seedTestUser(rawDb);
+beforeAll(async () => {
+  ({ db, rawDb } = await createTestDrizzleDB());
+});
+
+beforeEach(async () => {
+  await resetTestDB(rawDb);
+  await seedTestUser(rawDb);
 });
 
 describe("GET /api/sessions", () => {
   describe("when user has sessions", () => {
     it("should return sessions with track counts", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
-      const sessionId = seedTestSession(rawDb, TEST_USER_ID, { id: "s1", name: "Session One" });
+      await seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
+      const sessionId = await seedTestSession(rawDb, TEST_USER_ID, {
+        id: "s1",
+        name: "Session One",
+      });
 
       // Add some tracks to the session
-      rawDb
+      await rawDb
         .prepare(
           `INSERT INTO playlist_tracks (id, playlist_id, game_id, track_name, position)
          VALUES (?, ?, ?, ?, ?)`,
         )
         .run("pt1", sessionId, TEST_GAME_ID, "Track 1", 0);
-      rawDb
+      await rawDb
         .prepare(
           `INSERT INTO playlist_tracks (id, playlist_id, game_id, track_name, position)
          VALUES (?, ?, ?, ?, ?)`,

@@ -1,19 +1,23 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type Database from "better-sqlite3";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import type { TestRawDB } from "@/lib/db/test-helpers";
 import type { DrizzleDB } from "@/lib/db";
-import { createTestDrizzleDB, seedTestUser, seedTestSession } from "@/lib/db/test-helpers";
+import {
+  createTestDrizzleDB,
+  resetTestDB,
+  seedTestUser,
+  seedTestSession,
+} from "@/lib/db/test-helpers";
 import { TEST_USER_ID } from "@/test/constants";
 import { makeJsonRequest, parseJson } from "@/test/route-helpers";
 
 let db: DrizzleDB;
-let rawDb: Database.Database;
+let rawDb: TestRawDB;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  const { createDbMock } = await import("@/test/db-mock");
   return {
-    getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries as [any]),
-
+    ...createDbMock(() => db),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -30,9 +34,13 @@ vi.mock("@/lib/services/auth/auth-helpers", async () => {
 
 const { PATCH, DELETE: DELETE_HANDLER } = await import("../route");
 
-beforeEach(() => {
-  ({ db, rawDb } = createTestDrizzleDB());
-  seedTestUser(rawDb);
+beforeAll(async () => {
+  ({ db, rawDb } = await createTestDrizzleDB());
+});
+
+beforeEach(async () => {
+  await resetTestDB(rawDb);
+  await seedTestUser(rawDb);
 });
 
 /** Helper to build the async params object expected by Next.js 16 route handlers. */
@@ -43,7 +51,7 @@ function makeParams(id: string): { params: Promise<{ id: string }> } {
 describe("PATCH /api/sessions/[id]", () => {
   describe("when renaming a session", () => {
     it("should return success", async () => {
-      const sessionId = seedTestSession(rawDb, TEST_USER_ID, { id: "s1", name: "Old Name" });
+      const sessionId = await seedTestSession(rawDb, TEST_USER_ID, { id: "s1", name: "Old Name" });
 
       const res = await PATCH(
         makeJsonRequest(`/api/sessions/${sessionId}`, "PATCH", { name: "New Name" }),
@@ -55,7 +63,9 @@ describe("PATCH /api/sessions/[id]", () => {
       expect(body.success).toBe(true);
 
       // Verify the rename persisted
-      const row = rawDb.prepare("SELECT name FROM playlists WHERE id = ?").get(sessionId) as {
+      const row = (await rawDb
+        .prepare("SELECT name FROM playlists WHERE id = ?")
+        .get(sessionId)) as {
         name: string;
       };
       expect(row.name).toBe("New Name");
@@ -64,7 +74,7 @@ describe("PATCH /api/sessions/[id]", () => {
 
   describe("when name is missing", () => {
     it("should return 400", async () => {
-      const sessionId = seedTestSession(rawDb, TEST_USER_ID, { id: "s1" });
+      const sessionId = await seedTestSession(rawDb, TEST_USER_ID, { id: "s1" });
 
       const res = await PATCH(
         makeJsonRequest(`/api/sessions/${sessionId}`, "PATCH", {}),
@@ -91,8 +101,8 @@ describe("PATCH /api/sessions/[id]", () => {
 describe("DELETE /api/sessions/[id]", () => {
   describe("when deleting a session", () => {
     it("should return success with nextSessionId", async () => {
-      seedTestSession(rawDb, TEST_USER_ID, { id: "s1", name: "First" });
-      seedTestSession(rawDb, TEST_USER_ID, { id: "s2", name: "Second" });
+      await seedTestSession(rawDb, TEST_USER_ID, { id: "s1", name: "First" });
+      await seedTestSession(rawDb, TEST_USER_ID, { id: "s2", name: "Second" });
 
       const res = await DELETE_HANDLER(
         makeJsonRequest("/api/sessions/s1", "DELETE"),

@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type Database from "better-sqlite3";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import type { TestRawDB } from "@/lib/db/test-helpers";
 import type { DrizzleDB } from "@/lib/db";
 import {
   createTestDrizzleDB,
+  resetTestDB,
   seedTestUser,
   seedTestGame,
   seedTestTracks,
@@ -13,14 +14,13 @@ import type { GenerateEvent } from "../types";
 import { TEST_USER_ID, TEST_GAME_ID, TEST_GAME_TITLE } from "@/test/constants";
 
 let db: DrizzleDB;
-let rawDb: Database.Database;
+let rawDb: TestRawDB;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  const { createDbMock } = await import("@/test/db-mock");
   return {
-    getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries as [any]),
-
+    ...createDbMock(() => db),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -45,9 +45,13 @@ function makeGame(id: string, title: string): Game {
   } as Game;
 }
 
-beforeEach(() => {
-  ({ db, rawDb } = createTestDrizzleDB());
-  seedTestUser(rawDb);
+beforeAll(async () => {
+  ({ db, rawDb } = await createTestDrizzleDB());
+});
+
+beforeEach(async () => {
+  await resetTestDB(rawDb);
+  await seedTestUser(rawDb);
 });
 
 describe("fetchGameCandidates", () => {
@@ -57,24 +61,24 @@ describe("fetchGameCandidates", () => {
 
     beforeEach(async () => {
       events = [];
-      const gameId = seedTestGame(rawDb, TEST_USER_ID, {
+      const gameId = await seedTestGame(rawDb, TEST_USER_ID, {
         id: TEST_GAME_ID,
         title: TEST_GAME_TITLE,
       });
-      seedTestTracks(rawDb, gameId, 3, true);
+      await seedTestTracks(rawDb, gameId, 3, true);
 
       // Add video mappings for the tracks
-      rawDb
+      await rawDb
         .prepare(
           "INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds, view_count) VALUES (?, ?, ?, ?, ?)",
         )
         .run("vid-1", gameId, "Track 1", 200, 50000);
-      rawDb
+      await rawDb
         .prepare(
           "INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds, view_count) VALUES (?, ?, ?, ?, ?)",
         )
         .run("vid-2", gameId, "Track 2", 180, 30000);
-      rawDb
+      await rawDb
         .prepare(
           "INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds, view_count) VALUES (?, ?, ?, ?, ?)",
         )
@@ -113,8 +117,8 @@ describe("fetchGameCandidates", () => {
 
   describe("when game has tagged tracks but no video mappings", () => {
     it("should return empty array", async () => {
-      const gameId = seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID });
-      seedTestTracks(rawDb, gameId, 3, true);
+      const gameId = await seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID });
+      await seedTestTracks(rawDb, gameId, 3, true);
 
       const result = await fetchGameCandidates(makeGame(TEST_GAME_ID, "Test"), vi.fn());
       expect(result).toHaveLength(0);
@@ -123,7 +127,7 @@ describe("fetchGameCandidates", () => {
 
   describe("when game has no tracks", () => {
     it("should return empty array and emit a Done progress event", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID });
+      await seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID });
       const events: GenerateEvent[] = [];
 
       const result = await fetchGameCandidates(makeGame(TEST_GAME_ID, "Test"), (e) =>
@@ -138,8 +142,8 @@ describe("fetchGameCandidates", () => {
 
   describe("when game has untagged tracks", () => {
     it("should not include untagged tracks", async () => {
-      const gameId = seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID });
-      seedTestTracks(rawDb, gameId, 3, false); // untagged
+      const gameId = await seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID });
+      await seedTestTracks(rawDb, gameId, 3, false); // untagged
 
       const result = await fetchGameCandidates(makeGame(TEST_GAME_ID, "Test"), vi.fn());
       expect(result).toHaveLength(0);
@@ -148,9 +152,9 @@ describe("fetchGameCandidates", () => {
 
   describe("when a tagged track has has_vocals = null in the DB", () => {
     it("should default hasVocals to false in the TaggedTrack", async () => {
-      const gameId = seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID });
+      const gameId = await seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID });
       // Insert a tagged track with has_vocals explicitly null
-      rawDb
+      await rawDb
         .prepare(
           `INSERT INTO tracks (game_id, name, position, energy, roles, moods, instrumentation, has_vocals, tagged_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -168,7 +172,7 @@ describe("fetchGameCandidates", () => {
         );
 
       // Add video mapping
-      rawDb
+      await rawDb
         .prepare(
           "INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds) VALUES (?, ?, ?, ?)",
         )
@@ -182,17 +186,17 @@ describe("fetchGameCandidates", () => {
 
   describe("when game has inactive tracks", () => {
     it("should not include inactive tracks", async () => {
-      const gameId = seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID });
-      seedTestTracks(rawDb, gameId, 2, true);
+      const gameId = await seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID });
+      await seedTestTracks(rawDb, gameId, 2, true);
       // Deactivate one track
-      rawDb
-        .prepare("UPDATE tracks SET active = 0 WHERE game_id = ? AND name = ?")
+      await rawDb
+        .prepare("UPDATE tracks SET active = false WHERE game_id = ? AND name = ?")
         .run(gameId, "Track 1");
       // Add video mapping for both
-      rawDb
+      await rawDb
         .prepare("INSERT INTO video_tracks (video_id, game_id, track_name) VALUES (?, ?, ?)")
         .run("vid-1", gameId, "Track 1");
-      rawDb
+      await rawDb
         .prepare("INSERT INTO video_tracks (video_id, game_id, track_name) VALUES (?, ?, ?)")
         .run("vid-2", gameId, "Track 2");
 
@@ -206,17 +210,17 @@ describe("fetchGameCandidates", () => {
 describe("getTaggedPool", () => {
   describe("when game has tagged tracks with video mappings", () => {
     it("should return TaggedTrack entries without requiring SSE callback", async () => {
-      const gameId = seedTestGame(rawDb, TEST_USER_ID, {
+      const gameId = await seedTestGame(rawDb, TEST_USER_ID, {
         id: TEST_GAME_ID,
         title: TEST_GAME_TITLE,
       });
-      seedTestTracks(rawDb, gameId, 2, true);
-      rawDb
+      await seedTestTracks(rawDb, gameId, 2, true);
+      await rawDb
         .prepare(
           "INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds) VALUES (?, ?, ?, ?)",
         )
         .run("vid-1", gameId, "Track 1", 200);
-      rawDb
+      await rawDb
         .prepare(
           "INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds) VALUES (?, ?, ?, ?)",
         )
@@ -232,7 +236,7 @@ describe("getTaggedPool", () => {
 
   describe("when game has no active tagged tracks", () => {
     it("should return empty array", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID });
+      await seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID });
       const result = await getTaggedPool(TEST_GAME_ID, TEST_GAME_TITLE);
       expect(result).toHaveLength(0);
     });
@@ -240,10 +244,10 @@ describe("getTaggedPool", () => {
 
   describe("when tracks have no video mappings", () => {
     it("should exclude them", async () => {
-      const gameId = seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID });
-      seedTestTracks(rawDb, gameId, 3, true);
+      const gameId = await seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID });
+      await seedTestTracks(rawDb, gameId, 3, true);
       // Only map 1 of 3 tracks
-      rawDb
+      await rawDb
         .prepare(
           "INSERT INTO video_tracks (video_id, game_id, track_name, duration_seconds) VALUES (?, ?, ?, ?)",
         )

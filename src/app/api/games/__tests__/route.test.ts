@@ -1,19 +1,23 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type Database from "better-sqlite3";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import type { TestRawDB } from "@/lib/db/test-helpers";
 import type { DrizzleDB } from "@/lib/db";
-import { createTestDrizzleDB, seedTestUser, seedTestGame } from "@/lib/db/test-helpers";
+import {
+  createTestDrizzleDB,
+  resetTestDB,
+  seedTestUser,
+  seedTestGame,
+} from "@/lib/db/test-helpers";
 import { TEST_USER_ID, TEST_GAME_ID, TEST_GAME_TITLE } from "@/test/constants";
 import { makeGetRequest, makeJsonRequest, parseJson } from "@/test/route-helpers";
 
 let db: DrizzleDB;
-let rawDb: Database.Database;
+let rawDb: TestRawDB;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  const { createDbMock } = await import("@/test/db-mock");
   return {
-    getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries as [any]),
-
+    ...createDbMock(() => db),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -30,16 +34,20 @@ vi.mock("@/lib/services/auth/auth-helpers", async () => {
 
 const { GET, POST, PATCH, DELETE: DELETE_HANDLER } = await import("../route");
 
-beforeEach(() => {
-  ({ db, rawDb } = createTestDrizzleDB());
-  seedTestUser(rawDb);
+beforeAll(async () => {
+  ({ db, rawDb } = await createTestDrizzleDB());
+});
+
+beforeEach(async () => {
+  await resetTestDB(rawDb);
+  await seedTestUser(rawDb);
 });
 
 describe("GET /api/games", () => {
   describe("when user has games in library", () => {
     it("should return the games", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
-      seedTestGame(rawDb, TEST_USER_ID, { id: "g2", title: "Hollow Knight" });
+      await seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
+      await seedTestGame(rawDb, TEST_USER_ID, { id: "g2", title: "Hollow Knight" });
 
       const res = await GET(makeGetRequest("/api/games"));
       expect(res.status).toBe(200);
@@ -66,9 +74,9 @@ describe("POST /api/games", () => {
   describe("when posting with valid gameId of a published game", () => {
     it("should return 201 with the linked game", async () => {
       // Insert a published game directly (not linked to library)
-      rawDb
+      await rawDb
         .prepare(
-          "INSERT INTO games (id, title, published, onboarding_phase) VALUES (?, ?, 1, 'tagged')",
+          "INSERT INTO games (id, title, published, onboarding_phase) VALUES (?, ?, true, 'tagged')",
         )
         .run("pub-game", "Published Game");
 
@@ -93,9 +101,9 @@ describe("POST /api/games", () => {
 
   describe("when game is not published", () => {
     it("should return 404", async () => {
-      rawDb
+      await rawDb
         .prepare(
-          "INSERT INTO games (id, title, published, onboarding_phase) VALUES (?, ?, 0, 'draft')",
+          "INSERT INTO games (id, title, published, onboarding_phase) VALUES (?, ?, false, 'draft')",
         )
         .run("draft-game", "Draft Game");
 
@@ -108,13 +116,13 @@ describe("POST /api/games", () => {
     it("should return 400", async () => {
       // Seed 500 games to hit the limit
       for (let i = 0; i < 500; i++) {
-        seedTestGame(rawDb, TEST_USER_ID, { id: `fill-${i}`, title: `Fill Game ${i}` });
+        await seedTestGame(rawDb, TEST_USER_ID, { id: `fill-${i}`, title: `Fill Game ${i}` });
       }
 
       // Insert a new published game to try to add
-      rawDb
+      await rawDb
         .prepare(
-          "INSERT INTO games (id, title, published, onboarding_phase) VALUES (?, ?, 1, 'tagged')",
+          "INSERT INTO games (id, title, published, onboarding_phase) VALUES (?, ?, true, 'tagged')",
         )
         .run("one-too-many", "One Too Many");
 
@@ -130,7 +138,7 @@ describe("POST /api/games", () => {
 describe("PATCH /api/games", () => {
   describe("when updating curation", () => {
     it("should return updated game", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
+      await seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
 
       const res = await PATCH(
         makeJsonRequest(`/api/games?id=${TEST_GAME_ID}`, "PATCH", { curation: "focus" }),
@@ -157,7 +165,7 @@ describe("PATCH /api/games", () => {
 describe("DELETE /api/games", () => {
   describe("when deleting a game", () => {
     it("should return success", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
+      await seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
 
       const res = await DELETE_HANDLER(makeJsonRequest(`/api/games?id=${TEST_GAME_ID}`, "DELETE"));
       expect(res.status).toBe(200);
@@ -167,21 +175,21 @@ describe("DELETE /api/games", () => {
     });
 
     it("should still have game record in games table (only library link removed)", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
+      await seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
 
       await DELETE_HANDLER(makeJsonRequest(`/api/games?id=${TEST_GAME_ID}`, "DELETE"));
 
       // Game record still exists
-      const row = rawDb.prepare("SELECT id FROM games WHERE id = ?").get(TEST_GAME_ID) as
+      const row = (await rawDb.prepare("SELECT id FROM games WHERE id = ?").get(TEST_GAME_ID)) as
         | { id: string }
         | undefined;
       expect(row).toBeDefined();
       expect(row!.id).toBe(TEST_GAME_ID);
 
       // Library link is gone
-      const link = rawDb
+      const link = (await rawDb
         .prepare("SELECT * FROM library_games WHERE game_id = ?")
-        .get(TEST_GAME_ID) as unknown | undefined;
+        .get(TEST_GAME_ID)) as unknown | undefined;
       expect(link).toBeUndefined();
     });
   });

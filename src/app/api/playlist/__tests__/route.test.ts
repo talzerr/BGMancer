@@ -1,9 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type Database from "better-sqlite3";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import type { TestRawDB } from "@/lib/db/test-helpers";
 import type { DrizzleDB } from "@/lib/db";
 import { NextRequest } from "next/server";
 import {
   createTestDrizzleDB,
+  resetTestDB,
   seedTestUser,
   seedTestGame,
   seedTestSession,
@@ -35,14 +36,13 @@ function makeNextRequest(
 }
 
 let db: DrizzleDB;
-let rawDb: Database.Database;
+let rawDb: TestRawDB;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  const { createDbMock } = await import("@/test/db-mock");
   return {
-    getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries as [any]),
-
+    ...createDbMock(() => db),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -59,19 +59,23 @@ vi.mock("@/lib/services/auth/auth-helpers", async () => {
 
 const { GET, DELETE: DELETE_HANDLER } = await import("../route");
 
-beforeEach(() => {
-  ({ db, rawDb } = createTestDrizzleDB());
-  seedTestUser(rawDb);
+beforeAll(async () => {
+  ({ db, rawDb } = await createTestDrizzleDB());
+});
+
+beforeEach(async () => {
+  await resetTestDB(rawDb);
+  await seedTestUser(rawDb);
 });
 
 /** Inserts a playlist track directly into the DB. */
-function insertPlaylistTrack(
+async function insertPlaylistTrack(
   id: string,
   playlistId: string,
   gameId: string,
   opts: { trackName?: string; videoId?: string; position?: number } = {},
-): void {
-  rawDb
+): Promise<void> {
+  await rawDb
     .prepare(
       `INSERT INTO playlist_tracks (id, playlist_id, game_id, track_name, video_id, position)
      VALUES (?, ?, ?, ?, ?, ?)`,
@@ -89,14 +93,14 @@ function insertPlaylistTrack(
 describe("GET /api/playlist", () => {
   describe("when user has an active session with tracks", () => {
     it("should return tracks with game titles", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
-      const sessionId = seedTestSession(rawDb, TEST_USER_ID, { id: "s1" });
+      await seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
+      const sessionId = await seedTestSession(rawDb, TEST_USER_ID, { id: "s1" });
 
-      insertPlaylistTrack("pt1", sessionId, TEST_GAME_ID, {
+      await insertPlaylistTrack("pt1", sessionId, TEST_GAME_ID, {
         trackName: "Firelink Shrine",
         position: 0,
       });
-      insertPlaylistTrack("pt2", sessionId, TEST_GAME_ID, {
+      await insertPlaylistTrack("pt2", sessionId, TEST_GAME_ID, {
         trackName: "Gwyn's Theme",
         position: 1,
       });
@@ -123,15 +127,15 @@ describe("GET /api/playlist", () => {
 
   describe("when sessionId param is passed", () => {
     it("should return tracks for that session", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
-      const session1 = seedTestSession(rawDb, TEST_USER_ID, { id: "s1", name: "Session 1" });
-      const session2 = seedTestSession(rawDb, TEST_USER_ID, { id: "s2", name: "Session 2" });
+      await seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
+      const session1 = await seedTestSession(rawDb, TEST_USER_ID, { id: "s1", name: "Session 1" });
+      const session2 = await seedTestSession(rawDb, TEST_USER_ID, { id: "s2", name: "Session 2" });
 
-      insertPlaylistTrack("pt1", session1, TEST_GAME_ID, {
+      await insertPlaylistTrack("pt1", session1, TEST_GAME_ID, {
         trackName: "Track A",
         position: 0,
       });
-      insertPlaylistTrack("pt2", session2, TEST_GAME_ID, {
+      await insertPlaylistTrack("pt2", session2, TEST_GAME_ID, {
         trackName: "Track B",
         position: 0,
       });
@@ -150,11 +154,11 @@ describe("GET /api/playlist", () => {
 describe("DELETE /api/playlist", () => {
   describe("when clearing tracks", () => {
     it("should clear all tracks from active session", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
-      const sessionId = seedTestSession(rawDb, TEST_USER_ID, { id: "s1" });
+      await seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
+      const sessionId = await seedTestSession(rawDb, TEST_USER_ID, { id: "s1" });
 
-      insertPlaylistTrack("pt1", sessionId, TEST_GAME_ID, { position: 0 });
-      insertPlaylistTrack("pt2", sessionId, TEST_GAME_ID, { position: 1 });
+      await insertPlaylistTrack("pt1", sessionId, TEST_GAME_ID, { position: 0 });
+      await insertPlaylistTrack("pt2", sessionId, TEST_GAME_ID, { position: 1 });
 
       const res = await DELETE_HANDLER(
         new Request("http://localhost:6959/api/playlist", { method: "DELETE" }),
@@ -165,9 +169,9 @@ describe("DELETE /api/playlist", () => {
       expect(body.success).toBe(true);
 
       // Verify tracks are gone
-      const remaining = rawDb
+      const remaining = (await rawDb
         .prepare("SELECT COUNT(*) AS cnt FROM playlist_tracks WHERE playlist_id = ?")
-        .get(sessionId) as { cnt: number };
+        .get(sessionId)) as { cnt: number };
       expect(remaining.cnt).toBe(0);
     });
   });

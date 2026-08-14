@@ -1,18 +1,23 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type Database from "better-sqlite3";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import type { TestRawDB } from "@/lib/db/test-helpers";
 import type { DrizzleDB } from "@/lib/db";
-import { createTestDrizzleDB, seedTestUser, seedTestGame } from "@/lib/db/test-helpers";
+import {
+  createTestDrizzleDB,
+  resetTestDB,
+  seedTestUser,
+  seedTestGame,
+} from "@/lib/db/test-helpers";
 import { TEST_USER_ID } from "@/test/constants";
 import { parseJson } from "@/test/route-helpers";
 
 let db: DrizzleDB;
-let rawDb: Database.Database;
+let rawDb: TestRawDB;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  const { createDbMock } = await import("@/test/db-mock");
   return {
-    getDB: () => db,
-
+    ...createDbMock(() => db),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -20,9 +25,13 @@ vi.mock("@/lib/db", async () => {
 
 const { GET } = await import("../route");
 
-beforeEach(() => {
-  ({ db, rawDb } = createTestDrizzleDB());
-  seedTestUser(rawDb);
+beforeAll(async () => {
+  ({ db, rawDb } = await createTestDrizzleDB());
+});
+
+beforeEach(async () => {
+  await resetTestDB(rawDb);
+  await seedTestUser(rawDb);
 });
 
 interface DashboardRow {
@@ -35,19 +44,19 @@ interface DashboardRow {
 describe("GET /api/backstage/dashboard", () => {
   describe("when games exist", () => {
     it("should return dashboard counts grouped by phase", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, {
+      await seedTestGame(rawDb, TEST_USER_ID, {
         id: "g1",
         title: "Game 1",
         onboardingPhase: "tagged",
         published: true,
       });
-      seedTestGame(rawDb, TEST_USER_ID, {
+      await seedTestGame(rawDb, TEST_USER_ID, {
         id: "g2",
         title: "Game 2",
         onboardingPhase: "tagged",
         published: false,
       });
-      seedTestGame(rawDb, TEST_USER_ID, {
+      await seedTestGame(rawDb, TEST_USER_ID, {
         id: "g3",
         title: "Game 3",
         onboardingPhase: "draft",

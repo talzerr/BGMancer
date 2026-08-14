@@ -1,22 +1,22 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type Database from "better-sqlite3";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import type { TestRawDB } from "../../test-helpers";
 import type { DrizzleDB } from "@/lib/db";
 import {
   createTestDrizzleDB,
+  resetTestDB,
   seedTestUser,
   seedTestGame,
   seedTestSession,
 } from "../../test-helpers";
 import { ArcPhase, SelectionPass } from "@/types";
 let db: DrizzleDB;
-let rawDb: Database.Database;
+let rawDb: TestRawDB;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  const { createDbMock } = await import("@/test/db-mock");
   return {
-    getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries as [any]),
-
+    ...createDbMock(() => db),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -29,11 +29,15 @@ let userId: string;
 let gameId: string;
 let playlistId: string;
 
-beforeEach(() => {
-  ({ db, rawDb } = createTestDrizzleDB());
-  ({ userId } = seedTestUser(rawDb));
-  gameId = seedTestGame(rawDb, userId, { id: "game-decisions" });
-  playlistId = seedTestSession(rawDb, userId, { id: "session-decisions" });
+beforeAll(async () => {
+  ({ db, rawDb } = await createTestDrizzleDB());
+});
+
+beforeEach(async () => {
+  await resetTestDB(rawDb);
+  ({ userId } = await seedTestUser(rawDb));
+  gameId = await seedTestGame(rawDb, userId, { id: "game-decisions" });
+  playlistId = await seedTestSession(rawDb, userId, { id: "session-decisions" });
 });
 
 function makeDecision(
@@ -68,9 +72,9 @@ describe("DirectorDecisions", () => {
 
       await DirectorDecisions.bulkInsert(playlistId, decisions);
 
-      const rows = rawDb
+      const rows = (await rawDb
         .prepare("SELECT * FROM playlist_track_decisions WHERE playlist_id = ? ORDER BY position")
-        .all(playlistId) as Record<string, unknown>[];
+        .all(playlistId)) as Record<string, unknown>[];
 
       expect(rows).toHaveLength(2);
       expect(rows[0].position).toBe(0);
@@ -84,7 +88,7 @@ describe("DirectorDecisions", () => {
     it("should be a no-op when given an empty array", async () => {
       await DirectorDecisions.bulkInsert(playlistId, []);
 
-      const rows = rawDb
+      const rows = await rawDb
         .prepare("SELECT * FROM playlist_track_decisions WHERE playlist_id = ?")
         .all(playlistId);
 
@@ -149,7 +153,7 @@ describe("DirectorDecisions", () => {
     });
 
     it("should not return decisions from a different playlist", async () => {
-      const otherPlaylistId = seedTestSession(rawDb, userId, { id: "session-other" });
+      const otherPlaylistId = await seedTestSession(rawDb, userId, { id: "session-other" });
       await DirectorDecisions.bulkInsert(playlistId, [makeDecision({ position: 0 })]);
       await DirectorDecisions.bulkInsert(otherPlaylistId, [
         makeDecision({ position: 0, trackVideoId: "vid-other" }),

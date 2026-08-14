@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type Database from "better-sqlite3";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import type { TestRawDB } from "../../test-helpers";
 import type { DrizzleDB } from "@/lib/db";
 import {
   createTestDrizzleDB,
+  resetTestDB,
   seedTestUser,
   seedTestGame,
   seedTestTracks,
@@ -10,14 +11,13 @@ import {
 import { TEST_USER_ID } from "@/test/constants";
 
 let db: DrizzleDB;
-let rawDb: Database.Database;
+let rawDb: TestRawDB;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  const { createDbMock } = await import("@/test/db-mock");
   return {
-    getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries as [any]),
-
+    ...createDbMock(() => db),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -27,9 +27,13 @@ const { BackstageGames } = await import("../backstage-games");
 const { Games } = await import("../games");
 const { OnboardingPhase } = await import("@/types");
 
-beforeEach(() => {
-  ({ db, rawDb } = createTestDrizzleDB());
-  seedTestUser(rawDb);
+beforeAll(async () => {
+  ({ db, rawDb } = await createTestDrizzleDB());
+});
+
+beforeEach(async () => {
+  await resetTestDB(rawDb);
+  await seedTestUser(rawDb);
 });
 
 describe("BackstageGames", () => {
@@ -43,9 +47,9 @@ describe("BackstageGames", () => {
 
       it("should NOT link the game to any library", async () => {
         const game = await BackstageGames.createDraft("Draft Game");
-        const link = rawDb.prepare("SELECT * FROM library_games WHERE game_id = ?").get(game.id) as
-          | Record<string, unknown>
-          | undefined;
+        const link = (await rawDb
+          .prepare("SELECT * FROM library_games WHERE game_id = ?")
+          .get(game.id)) as Record<string, unknown> | undefined;
         expect(link).toBeUndefined();
       });
     });
@@ -203,11 +207,11 @@ describe("BackstageGames", () => {
 
       it("should cascade-delete associated review flags", async () => {
         const game = await BackstageGames.createDraft("Flagged Game");
-        rawDb
+        await rawDb
           .prepare("INSERT INTO game_review_flags (game_id, reason) VALUES (?, ?)")
           .run(game.id, "test-reason");
         await BackstageGames.destroy(game.id);
-        const flags = rawDb
+        const flags = await rawDb
           .prepare("SELECT * FROM game_review_flags WHERE game_id = ?")
           .all(game.id);
         expect(flags).toHaveLength(0);
@@ -233,10 +237,18 @@ describe("BackstageGames", () => {
   });
 
   describe("listPublished", () => {
-    beforeEach(() => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: "pub-a", title: "Alpha Game", published: true });
-      seedTestGame(rawDb, TEST_USER_ID, { id: "pub-b", title: "Beta Game", published: true });
-      seedTestGame(rawDb, TEST_USER_ID, { id: "draft-c", title: "Draft Game", published: false });
+    beforeEach(async () => {
+      await seedTestGame(rawDb, TEST_USER_ID, {
+        id: "pub-a",
+        title: "Alpha Game",
+        published: true,
+      });
+      await seedTestGame(rawDb, TEST_USER_ID, { id: "pub-b", title: "Beta Game", published: true });
+      await seedTestGame(rawDb, TEST_USER_ID, {
+        id: "draft-c",
+        title: "Draft Game",
+        published: false,
+      });
     });
 
     describe("when listing without filters", () => {
@@ -279,18 +291,18 @@ describe("BackstageGames", () => {
     describe("when games have tracks and review flags", () => {
       let gameId: string;
 
-      beforeEach(() => {
-        gameId = seedTestGame(rawDb, TEST_USER_ID, { id: "stats-game", title: "Stats Game" });
+      beforeEach(async () => {
+        gameId = await seedTestGame(rawDb, TEST_USER_ID, { id: "stats-game", title: "Stats Game" });
         // Seed 3 tagged tracks
-        seedTestTracks(rawDb, gameId, 3, true);
+        await seedTestTracks(rawDb, gameId, 3, true);
         // Seed 2 untagged tracks with distinct names (avoid PK collision)
         for (let i = 0; i < 2; i++) {
-          rawDb
+          await rawDb
             .prepare(`INSERT INTO tracks (game_id, name, position) VALUES (?, ?, ?)`)
             .run(gameId, `Untagged Track ${i + 1}`, 10 + i);
         }
         // Add a review flag
-        rawDb
+        await rawDb
           .prepare("INSERT INTO game_review_flags (game_id, reason) VALUES (?, ?)")
           .run(gameId, "bad-data");
       });
@@ -323,8 +335,8 @@ describe("BackstageGames", () => {
     });
 
     describe("when a game has no tracks", () => {
-      beforeEach(() => {
-        seedTestGame(rawDb, TEST_USER_ID, { id: "empty-game", title: "Empty Game" });
+      beforeEach(async () => {
+        await seedTestGame(rawDb, TEST_USER_ID, { id: "empty-game", title: "Empty Game" });
       });
 
       it("should return zero counts", async () => {
@@ -340,21 +352,21 @@ describe("BackstageGames", () => {
   });
 
   describe("searchWithStats", () => {
-    beforeEach(() => {
-      seedTestGame(rawDb, TEST_USER_ID, {
+    beforeEach(async () => {
+      await seedTestGame(rawDb, TEST_USER_ID, {
         id: "s1",
         title: "Celeste",
         published: true,
         onboardingPhase: "tagged",
       });
-      seedTestGame(rawDb, TEST_USER_ID, {
+      await seedTestGame(rawDb, TEST_USER_ID, {
         id: "s2",
         title: "Hollow Knight",
         published: false,
         onboardingPhase: "draft",
       });
       // Set needs_review on s2
-      rawDb.prepare("UPDATE games SET needs_review = 1 WHERE id = ?").run("s2");
+      await rawDb.prepare("UPDATE games SET needs_review = true WHERE id = ?").run("s2");
     });
 
     describe("when filtering by title", () => {
@@ -405,27 +417,27 @@ describe("BackstageGames", () => {
 
   describe("dashboardCounts", () => {
     describe("when games exist in different phases", () => {
-      beforeEach(() => {
-        seedTestGame(rawDb, TEST_USER_ID, {
+      beforeEach(async () => {
+        await seedTestGame(rawDb, TEST_USER_ID, {
           id: "d1",
           title: "Draft 1",
           onboardingPhase: "draft",
           published: false,
         });
-        seedTestGame(rawDb, TEST_USER_ID, {
+        await seedTestGame(rawDb, TEST_USER_ID, {
           id: "d2",
           title: "Draft 2",
           onboardingPhase: "draft",
           published: false,
         });
-        seedTestGame(rawDb, TEST_USER_ID, {
+        await seedTestGame(rawDb, TEST_USER_ID, {
           id: "t1",
           title: "Tagged 1",
           onboardingPhase: "tagged",
           published: true,
         });
         // Set needs_review on one draft
-        rawDb.prepare("UPDATE games SET needs_review = 1 WHERE id = ?").run("d1");
+        await rawDb.prepare("UPDATE games SET needs_review = true WHERE id = ?").run("d1");
       });
 
       it("should return counts grouped by phase", async () => {

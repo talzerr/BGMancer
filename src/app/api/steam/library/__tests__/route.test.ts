@@ -1,20 +1,18 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type Database from "better-sqlite3";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import type { TestRawDB } from "@/lib/db/test-helpers";
 import type { DrizzleDB } from "@/lib/db";
-import { createTestDrizzleDB, seedTestUser } from "@/lib/db/test-helpers";
+import { createTestDrizzleDB, resetTestDB, seedTestUser } from "@/lib/db/test-helpers";
 import { TEST_USER_ID } from "@/test/constants";
 import { makeGetRequest, parseJson } from "@/test/route-helpers";
 
 let db: DrizzleDB;
-let rawDb: Database.Database;
+let rawDb: TestRawDB;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  const { createDbMock } = await import("@/test/db-mock");
   return {
-    getDB: () => db,
-
-    batch: async (queries: any[]) => db.batch(queries as [any]),
-
+    ...createDbMock(() => db),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -31,9 +29,13 @@ vi.mock("@/lib/services/auth/auth-helpers", async () => {
 
 const { GET } = await import("../route");
 
-beforeEach(() => {
-  ({ db, rawDb } = createTestDrizzleDB());
-  seedTestUser(rawDb);
+beforeAll(async () => {
+  ({ db, rawDb } = await createTestDrizzleDB());
+});
+
+beforeEach(async () => {
+  await resetTestDB(rawDb);
+  await seedTestUser(rawDb);
 });
 
 describe("GET /api/steam/library", () => {
@@ -48,30 +50,30 @@ describe("GET /api/steam/library", () => {
   });
 
   describe("when the user is linked and has catalog matches", () => {
-    beforeEach(() => {
-      rawDb
+    beforeEach(async () => {
+      await rawDb
         .prepare("UPDATE users SET steam_id = ?, steam_synced_at = ? WHERE id = ?")
         .run("76561198000000000", "2026-04-07T12:00:00.000Z", TEST_USER_ID);
 
       // Two published games with steam_appids
-      rawDb
+      await rawDb
         .prepare(
-          "INSERT INTO games (id, title, steam_appid, published, onboarding_phase) VALUES (?, ?, ?, 1, 'tagged')",
+          "INSERT INTO games (id, title, steam_appid, published, onboarding_phase) VALUES (?, ?, ?, true, 'tagged')",
         )
         .run("cat-1", "Catalog Game 1", 111);
-      rawDb
+      await rawDb
         .prepare(
-          "INSERT INTO games (id, title, steam_appid, published, onboarding_phase) VALUES (?, ?, ?, 1, 'tagged')",
+          "INSERT INTO games (id, title, steam_appid, published, onboarding_phase) VALUES (?, ?, ?, true, 'tagged')",
         )
         .run("cat-2", "Catalog Game 2", 222);
 
       // User owns both on Steam
-      rawDb
+      await rawDb
         .prepare(
           "INSERT INTO user_steam_games (user_id, steam_app_id, playtime_minutes) VALUES (?, ?, ?)",
         )
         .run(TEST_USER_ID, 111, 500);
-      rawDb
+      await rawDb
         .prepare(
           "INSERT INTO user_steam_games (user_id, steam_app_id, playtime_minutes) VALUES (?, ?, ?)",
         )
@@ -94,13 +96,13 @@ describe("GET /api/steam/library", () => {
   });
 
   describe("when the user is linked but has no catalog matches", () => {
-    beforeEach(() => {
-      rawDb
+    beforeEach(async () => {
+      await rawDb
         .prepare("UPDATE users SET steam_id = ?, steam_synced_at = ? WHERE id = ?")
         .run("76561198000000000", "2026-04-07T12:00:00.000Z", TEST_USER_ID);
 
       // User owns a Steam game that has no catalog entry
-      rawDb
+      await rawDb
         .prepare(
           "INSERT INTO user_steam_games (user_id, steam_app_id, playtime_minutes) VALUES (?, ?, ?)",
         )

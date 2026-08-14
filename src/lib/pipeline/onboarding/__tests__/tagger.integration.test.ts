@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type Database from "better-sqlite3";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import type { TestRawDB } from "@/lib/db/test-helpers";
 import type { DrizzleDB } from "@/lib/db";
 import {
   createTestDrizzleDB,
+  resetTestDB,
   seedTestUser,
   seedTestGame,
   seedTestTracks,
@@ -12,14 +13,13 @@ import type { LLMProvider } from "@/lib/llm/provider";
 import { TEST_USER_ID, TEST_GAME_ID, TEST_GAME_TITLE } from "@/test/constants";
 
 let db: DrizzleDB;
-let rawDb: Database.Database;
+let rawDb: TestRawDB;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  const { createDbMock } = await import("@/test/db-mock");
   return {
-    getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries as [any]),
-
+    ...createDbMock(() => db),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -36,9 +36,13 @@ function failingProvider(): LLMProvider {
   return { complete: vi.fn().mockRejectedValue(new Error("API down")) };
 }
 
-beforeEach(() => {
-  ({ db, rawDb } = createTestDrizzleDB());
-  seedTestUser(rawDb);
+beforeAll(async () => {
+  ({ db, rawDb } = await createTestDrizzleDB());
+});
+
+beforeEach(async () => {
+  await resetTestDB(rawDb);
+  await seedTestUser(rawDb);
 });
 
 describe("tagTracks (integration)", () => {
@@ -46,8 +50,8 @@ describe("tagTracks (integration)", () => {
   let tracks: Track[];
 
   beforeEach(async () => {
-    gameId = seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
-    seedTestTracks(rawDb, gameId, 3, false);
+    gameId = await seedTestGame(rawDb, TEST_USER_ID, { id: TEST_GAME_ID, title: TEST_GAME_TITLE });
+    await seedTestTracks(rawDb, gameId, 3, false);
     tracks = await Tracks.getByGame(gameId);
   });
 
@@ -219,8 +223,11 @@ describe("tagTracks (integration)", () => {
 
   describe("when untagged track count exceeds TAG_POOL_MAX", () => {
     it("should create a TrackCapReached review flag", async () => {
-      const bigGameId = seedTestGame(rawDb, TEST_USER_ID, { id: "big-game", title: "Big Game" });
-      seedTestTracks(rawDb, bigGameId, 85, false);
+      const bigGameId = await seedTestGame(rawDb, TEST_USER_ID, {
+        id: "big-game",
+        title: "Big Game",
+      });
+      await seedTestTracks(rawDb, bigGameId, 85, false);
       const bigTracks = await Tracks.getByGame(bigGameId);
 
       // Build a response array that covers all 80 tracks (capped at TAG_POOL_MAX)
@@ -243,11 +250,11 @@ describe("tagTracks (integration)", () => {
 
     it("should only tag up to TAG_POOL_MAX tracks", async () => {
       const { TAG_POOL_MAX } = await import("@/lib/constants");
-      const bigGameId = seedTestGame(rawDb, TEST_USER_ID, {
+      const bigGameId = await seedTestGame(rawDb, TEST_USER_ID, {
         id: "big-game-2",
         title: "Big Game 2",
       });
-      seedTestTracks(rawDb, bigGameId, 85, false);
+      await seedTestTracks(rawDb, bigGameId, 85, false);
       const bigTracks = await Tracks.getByGame(bigGameId);
 
       const tagResponse = JSON.stringify(
@@ -344,14 +351,14 @@ describe("tagTracks (integration)", () => {
   describe("when tracks include pending discovered tracks", () => {
     it("should skip pending discovered tracks and only tag original/approved", async () => {
       // Insert a pending discovered track directly
-      rawDb
+      await rawDb
         .prepare(
           `INSERT INTO tracks (game_id, name, position, discovered, active)
            VALUES (?, ?, ?, ?, ?)`,
         )
         .run(gameId, "Discovered Pending", 99, "pending", 0);
       // Insert an approved discovered track
-      rawDb
+      await rawDb
         .prepare(
           `INSERT INTO tracks (game_id, name, position, discovered, active)
            VALUES (?, ?, ?, ?, ?)`,
@@ -390,7 +397,7 @@ describe("tagTracks (integration)", () => {
   describe("when there are no untagged tracks", () => {
     it("should return immediately without calling the provider", async () => {
       // Tag all tracks first
-      seedTestTracks(rawDb, gameId, 0); // no-op, tracks already seeded
+      await seedTestTracks(rawDb, gameId, 0); // no-op, tracks already seeded
       const taggedTracks = await Tracks.getByGame(gameId);
       const response = JSON.stringify(
         taggedTracks.map((t, i) => ({

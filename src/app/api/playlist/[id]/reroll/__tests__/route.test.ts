@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type Database from "better-sqlite3";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import type { TestRawDB } from "@/lib/db/test-helpers";
 import type { DrizzleDB } from "@/lib/db";
 import {
   createTestDrizzleDB,
+  resetTestDB,
   seedTestUser,
   seedTestGame,
   seedTestSession,
@@ -13,13 +14,13 @@ import { PlaylistMode, TrackInstrumentation, TrackMood, TrackRole } from "@/type
 import type { TaggedTrack } from "@/types";
 
 let db: DrizzleDB;
-let rawDb: Database.Database;
+let rawDb: TestRawDB;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  const { createDbMock } = await import("@/test/db-mock");
   return {
-    getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries as [any]),
+    ...createDbMock(() => db),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -58,8 +59,13 @@ function makeTrack(overrides: Partial<TaggedTrack> = {}): TaggedTrack {
   };
 }
 
-function seedPlaylistTrack(playlistId: string, trackId: string, gameId: string, position: number) {
-  rawDb
+async function seedPlaylistTrack(
+  playlistId: string,
+  trackId: string,
+  gameId: string,
+  position: number,
+) {
+  await rawDb
     .prepare(
       `INSERT INTO playlist_tracks (id, playlist_id, game_id, track_name, video_id, position, duration_seconds)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -75,21 +81,25 @@ function seedPlaylistTrack(playlistId: string, trackId: string, gameId: string, 
     );
 }
 
-beforeEach(() => {
-  ({ db, rawDb } = createTestDrizzleDB());
-  seedTestUser(rawDb);
+beforeAll(async () => {
+  ({ db, rawDb } = await createTestDrizzleDB());
+});
+
+beforeEach(async () => {
+  await resetTestDB(rawDb);
+  await seedTestUser(rawDb);
   taggedPool.length = 0;
 });
 
 describe("POST /api/playlist/[id]/reroll", () => {
   describe("when the playlist is in Journey mode", () => {
     it("should accept any energy level for the replacement", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: "g1" });
-      const playlistId = seedTestSession(rawDb, TEST_USER_ID, {
+      await seedTestGame(rawDb, TEST_USER_ID, { id: "g1" });
+      const playlistId = await seedTestSession(rawDb, TEST_USER_ID, {
         id: "pl-journey",
         playlistMode: PlaylistMode.Journey,
       });
-      seedPlaylistTrack(playlistId, "pt-1", "g1", 0);
+      await seedPlaylistTrack(playlistId, "pt-1", "g1", 0);
 
       taggedPool.push(
         makeTrack({ videoId: "vid-low", energy: 1 }),
@@ -113,12 +123,12 @@ describe("POST /api/playlist/[id]/reroll", () => {
 
   describe("when the playlist is in Chill mode", () => {
     it("should never return an energy-3 replacement", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: "g1" });
-      const playlistId = seedTestSession(rawDb, TEST_USER_ID, {
+      await seedTestGame(rawDb, TEST_USER_ID, { id: "g1" });
+      const playlistId = await seedTestSession(rawDb, TEST_USER_ID, {
         id: "pl-chill",
         playlistMode: PlaylistMode.Chill,
       });
-      seedPlaylistTrack(playlistId, "pt-1", "g1", 0);
+      await seedPlaylistTrack(playlistId, "pt-1", "g1", 0);
 
       taggedPool.push(
         makeTrack({ videoId: "vid-low", energy: 1 }),
@@ -140,12 +150,12 @@ describe("POST /api/playlist/[id]/reroll", () => {
     });
 
     it("should return 409 when the only candidate is energy-3", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: "g1" });
-      const playlistId = seedTestSession(rawDb, TEST_USER_ID, {
+      await seedTestGame(rawDb, TEST_USER_ID, { id: "g1" });
+      const playlistId = await seedTestSession(rawDb, TEST_USER_ID, {
         id: "pl-chill",
         playlistMode: PlaylistMode.Chill,
       });
-      seedPlaylistTrack(playlistId, "pt-1", "g1", 0);
+      await seedPlaylistTrack(playlistId, "pt-1", "g1", 0);
 
       taggedPool.push(makeTrack({ videoId: "vid-high", energy: 3 }));
 
@@ -163,12 +173,12 @@ describe("POST /api/playlist/[id]/reroll", () => {
 
   describe("when the playlist is in Rush mode", () => {
     it("should never return an energy-1 replacement", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, { id: "g1" });
-      const playlistId = seedTestSession(rawDb, TEST_USER_ID, {
+      await seedTestGame(rawDb, TEST_USER_ID, { id: "g1" });
+      const playlistId = await seedTestSession(rawDb, TEST_USER_ID, {
         id: "pl-rush",
         playlistMode: PlaylistMode.Rush,
       });
-      seedPlaylistTrack(playlistId, "pt-1", "g1", 0);
+      await seedPlaylistTrack(playlistId, "pt-1", "g1", 0);
 
       taggedPool.push(
         makeTrack({ videoId: "vid-low", energy: 1 }),

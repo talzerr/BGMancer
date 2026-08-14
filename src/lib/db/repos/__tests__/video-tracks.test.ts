@@ -1,21 +1,21 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type Database from "better-sqlite3";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import type { TestRawDB } from "../../test-helpers";
 import type { DrizzleDB } from "@/lib/db";
 import {
   createTestDrizzleDB,
+  resetTestDB,
   seedTestUser,
   seedTestGame,
   seedTestTracks,
 } from "../../test-helpers";
 let db: DrizzleDB;
-let rawDb: Database.Database;
+let rawDb: TestRawDB;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  const { createDbMock } = await import("@/test/db-mock");
   return {
-    getDB: () => db,
-    batch: async (queries: any[]) => db.batch(queries as [any]),
-
+    ...createDbMock(() => db),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -28,17 +28,24 @@ let userId: string;
 let gameId: string;
 let trackNames: string[];
 
-beforeEach(() => {
-  ({ db, rawDb } = createTestDrizzleDB());
-  ({ userId } = seedTestUser(rawDb));
-  gameId = seedTestGame(rawDb, userId, { id: "game-vt" });
-  trackNames = seedTestTracks(rawDb, gameId, 3);
+beforeAll(async () => {
+  ({ db, rawDb } = await createTestDrizzleDB());
 });
 
-function getRawRow(videoId: string, gId: string): Record<string, unknown> | undefined {
-  return rawDb
+beforeEach(async () => {
+  await resetTestDB(rawDb);
+  ({ userId } = await seedTestUser(rawDb));
+  gameId = await seedTestGame(rawDb, userId, { id: "game-vt" });
+  trackNames = await seedTestTracks(rawDb, gameId, 3);
+});
+
+async function getRawRow(
+  videoId: string,
+  gId: string,
+): Promise<Record<string, unknown> | undefined> {
+  return (await rawDb
     .prepare("SELECT * FROM video_tracks WHERE video_id = ? AND game_id = ?")
-    .get(videoId, gId) as Record<string, unknown> | undefined;
+    .get(videoId, gId)) as Record<string, unknown> | undefined;
 }
 
 describe("VideoTracks", () => {
@@ -49,8 +56,8 @@ describe("VideoTracks", () => {
         { videoId: "v2", gameId, trackName: trackNames[1] },
       ]);
 
-      const row1 = getRawRow("v1", gameId);
-      const row2 = getRawRow("v2", gameId);
+      const row1 = await getRawRow("v1", gameId);
+      const row2 = await getRawRow("v2", gameId);
 
       expect(row1).toBeDefined();
       expect(row1!.track_name).toBe(trackNames[0]);
@@ -62,21 +69,21 @@ describe("VideoTracks", () => {
       await VideoTracks.upsertBatch([{ videoId: "v1", gameId, trackName: trackNames[0] }]);
       await VideoTracks.upsertBatch([{ videoId: "v1", gameId, trackName: trackNames[1] }]);
 
-      const row = getRawRow("v1", gameId);
+      const row = await getRawRow("v1", gameId);
       expect(row!.track_name).toBe(trackNames[1]);
     });
 
     it("should be a no-op when given an empty array", async () => {
       await VideoTracks.upsertBatch([]);
 
-      const rows = rawDb.prepare("SELECT * FROM video_tracks WHERE game_id = ?").all(gameId);
+      const rows = await rawDb.prepare("SELECT * FROM video_tracks WHERE game_id = ?").all(gameId);
       expect(rows).toHaveLength(0);
     });
 
     it("should allow null track_name", async () => {
       await VideoTracks.upsertBatch([{ videoId: "v-null", gameId, trackName: null }]);
 
-      const row = getRawRow("v-null", gameId);
+      const row = await getRawRow("v-null", gameId);
       expect(row).toBeDefined();
       expect(row!.track_name).toBeNull();
     });
@@ -90,7 +97,7 @@ describe("VideoTracks", () => {
         viewCount: 5000,
       });
 
-      const row = getRawRow("v-single", gameId);
+      const row = await getRawRow("v-single", gameId);
       expect(row).toBeDefined();
       expect(row!.track_name).toBe(trackNames[0]);
       expect(row!.duration_seconds).toBe(180);
@@ -110,7 +117,7 @@ describe("VideoTracks", () => {
         viewCount: 2000,
       });
 
-      const row = getRawRow("v-coalesce", gameId);
+      const row = await getRawRow("v-coalesce", gameId);
       expect(row!.duration_seconds).toBe(200);
       expect(row!.view_count).toBe(2000);
     });
@@ -128,7 +135,7 @@ describe("VideoTracks", () => {
         viewCount: null,
       });
 
-      const row = getRawRow("v-vc", gameId);
+      const row = await getRawRow("v-vc", gameId);
       expect(row!.duration_seconds).toBe(100);
       expect(row!.view_count).toBe(3000);
     });
@@ -137,7 +144,7 @@ describe("VideoTracks", () => {
       await VideoTracks.upsertSingle(gameId, trackNames[0], { videoId: "v-rename" });
       await VideoTracks.upsertSingle(gameId, trackNames[1], { videoId: "v-rename" });
 
-      const row = getRawRow("v-rename", gameId);
+      const row = await getRawRow("v-rename", gameId);
       expect(row!.track_name).toBe(trackNames[1]);
     });
   });
@@ -148,7 +155,7 @@ describe("VideoTracks", () => {
         { videoId: "v-dur1", gameId, durationSeconds: 240, viewCount: 10000 },
       ]);
 
-      const row = getRawRow("v-dur1", gameId);
+      const row = await getRawRow("v-dur1", gameId);
       expect(row).toBeDefined();
       expect(row!.duration_seconds).toBe(240);
       expect(row!.view_count).toBe(10000);
@@ -164,7 +171,7 @@ describe("VideoTracks", () => {
         { videoId: "v-wo", gameId, durationSeconds: 999, viewCount: 1500 },
       ]);
 
-      const row = getRawRow("v-wo", gameId);
+      const row = await getRawRow("v-wo", gameId);
       expect(row!.duration_seconds).toBe(300); // original preserved
     });
 
@@ -177,14 +184,14 @@ describe("VideoTracks", () => {
         { videoId: "v-vc", gameId, durationSeconds: 999, viewCount: 7777 },
       ]);
 
-      const row = getRawRow("v-vc", gameId);
+      const row = await getRawRow("v-vc", gameId);
       expect(row!.view_count).toBe(7777); // refreshed
     });
 
     it("should be a no-op when given an empty array", async () => {
       await VideoTracks.storeDurations([]);
 
-      const rows = rawDb.prepare("SELECT * FROM video_tracks WHERE game_id = ?").all(gameId);
+      const rows = await rawDb.prepare("SELECT * FROM video_tracks WHERE game_id = ?").all(gameId);
       expect(rows).toHaveLength(0);
     });
   });
@@ -251,8 +258,8 @@ describe("VideoTracks", () => {
     });
 
     it("should not return entries from a different game", async () => {
-      const otherGameId = seedTestGame(rawDb, userId, { id: "game-vt-other" });
-      const otherTracks = seedTestTracks(rawDb, otherGameId, 1);
+      const otherGameId = await seedTestGame(rawDb, userId, { id: "game-vt-other" });
+      const otherTracks = await seedTestTracks(rawDb, otherGameId, 1);
 
       await VideoTracks.upsertBatch([
         { videoId: "v1", gameId, trackName: trackNames[0] },

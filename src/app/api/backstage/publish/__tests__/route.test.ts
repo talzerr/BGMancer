@@ -1,18 +1,23 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type Database from "better-sqlite3";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import type { TestRawDB } from "@/lib/db/test-helpers";
 import type { DrizzleDB } from "@/lib/db";
-import { createTestDrizzleDB, seedTestUser, seedTestGame } from "@/lib/db/test-helpers";
+import {
+  createTestDrizzleDB,
+  resetTestDB,
+  seedTestUser,
+  seedTestGame,
+} from "@/lib/db/test-helpers";
 import { TEST_USER_ID, TEST_GAME_ID, TEST_GAME_TITLE } from "@/test/constants";
 import { makeJsonRequest, parseJson } from "@/test/route-helpers";
 
 let db: DrizzleDB;
-let rawDb: Database.Database;
+let rawDb: TestRawDB;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  const { createDbMock } = await import("@/test/db-mock");
   return {
-    getDB: () => db,
-
+    ...createDbMock(() => db),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -20,15 +25,19 @@ vi.mock("@/lib/db", async () => {
 
 const { POST } = await import("../route");
 
-beforeEach(() => {
-  ({ db, rawDb } = createTestDrizzleDB());
-  seedTestUser(rawDb);
+beforeAll(async () => {
+  ({ db, rawDb } = await createTestDrizzleDB());
+});
+
+beforeEach(async () => {
+  await resetTestDB(rawDb);
+  await seedTestUser(rawDb);
 });
 
 describe("POST /api/backstage/publish", () => {
   describe("when publishing a game", () => {
     it("should set published=true", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, {
+      await seedTestGame(rawDb, TEST_USER_ID, {
         id: TEST_GAME_ID,
         title: TEST_GAME_TITLE,
         published: false,
@@ -48,16 +57,18 @@ describe("POST /api/backstage/publish", () => {
       expect(body.published).toBe(true);
 
       // Verify in DB
-      const row = rawDb.prepare("SELECT published FROM games WHERE id = ?").get(TEST_GAME_ID) as {
-        published: number;
+      const row = (await rawDb
+        .prepare("SELECT published FROM games WHERE id = ?")
+        .get(TEST_GAME_ID)) as {
+        published: boolean;
       };
-      expect(row.published).toBe(1);
+      expect(row.published).toBe(true);
     });
   });
 
   describe("when unpublishing a game", () => {
     it("should set published=false", async () => {
-      seedTestGame(rawDb, TEST_USER_ID, {
+      await seedTestGame(rawDb, TEST_USER_ID, {
         id: TEST_GAME_ID,
         title: TEST_GAME_TITLE,
         published: true,
@@ -77,10 +88,12 @@ describe("POST /api/backstage/publish", () => {
       expect(body.published).toBe(false);
 
       // Verify in DB
-      const row = rawDb.prepare("SELECT published FROM games WHERE id = ?").get(TEST_GAME_ID) as {
-        published: number;
+      const row = (await rawDb
+        .prepare("SELECT published FROM games WHERE id = ?")
+        .get(TEST_GAME_ID)) as {
+        published: boolean;
       };
-      expect(row.published).toBe(0);
+      expect(row.published).toBe(false);
     });
   });
 

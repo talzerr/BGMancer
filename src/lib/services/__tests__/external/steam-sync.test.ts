@@ -1,20 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from "vitest";
-import type Database from "better-sqlite3";
+import type { TestRawDB } from "@/lib/db/test-helpers";
 import type { DrizzleDB } from "@/lib/db";
-import { createTestDrizzleDB, seedTestUser } from "@/lib/db/test-helpers";
+import { createTestDrizzleDB, resetTestDB, seedTestUser } from "@/lib/db/test-helpers";
 import { TEST_USER_ID } from "@/test/constants";
 import { _reloadEnvForTest } from "@/lib/env";
 
 let db: DrizzleDB;
-let rawDb: Database.Database;
+let rawDb: TestRawDB;
 
 vi.mock("@/lib/db", async () => {
   const { MOCK_LOCAL_USER_ID, MOCK_LOCAL_LIBRARY_ID } = await import("@/test/constants");
+  const { createDbMock } = await import("@/test/db-mock");
   return {
-    getDB: () => db,
-
-    batch: async (queries: any[]) => db.batch(queries as [any]),
-
+    ...createDbMock(() => db),
     LOCAL_USER_ID: MOCK_LOCAL_USER_ID,
     LOCAL_LIBRARY_ID: MOCK_LOCAL_LIBRARY_ID,
   };
@@ -59,9 +57,13 @@ afterEach(() => {
 });
 
 describe("syncUserLibrary", () => {
-  beforeEach(() => {
-    ({ db, rawDb } = createTestDrizzleDB());
-    seedTestUser(rawDb);
+  beforeAll(async () => {
+    ({ db, rawDb } = await createTestDrizzleDB());
+  });
+
+  beforeEach(async () => {
+    await resetTestDB(rawDb);
+    await seedTestUser(rawDb);
   });
 
   describe("when the user has no stored steam_id and no URL is provided", () => {
@@ -71,7 +73,7 @@ describe("syncUserLibrary", () => {
   });
 
   describe("when performing a first sync with a vanity URL", () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       mockFetch(async (url) => {
         if (url.includes("ResolveVanityURL")) {
           return jsonResponse({
@@ -93,9 +95,9 @@ describe("syncUserLibrary", () => {
       });
 
       // Seed a published catalog game whose steam_appid matches one of the owned appids
-      rawDb
+      await rawDb
         .prepare(
-          "INSERT INTO games (id, title, steam_appid, published, onboarding_phase) VALUES (?, ?, ?, 1, 'tagged')",
+          "INSERT INTO games (id, title, steam_appid, published, onboarding_phase) VALUES (?, ?, ?, true, 'tagged')",
         )
         .run("catalog-game-1", "Catalog Game 1", 100);
     });
@@ -117,11 +119,11 @@ describe("syncUserLibrary", () => {
         now: new Date("2026-04-07T12:00:00Z"),
       });
 
-      const row = rawDb
+      const row = (await rawDb
         .prepare("SELECT steam_id, steam_synced_at FROM users WHERE id = ?")
-        .get(TEST_USER_ID) as { steam_id: string; steam_synced_at: string };
+        .get(TEST_USER_ID)) as { steam_id: string; steam_synced_at: Date };
       expect(row.steam_id).toBe("76561198000000000");
-      expect(row.steam_synced_at).toBe("2026-04-07T12:00:00.000Z");
+      expect(row.steam_synced_at.toISOString()).toBe("2026-04-07T12:00:00.000Z");
     });
 
     it("inserts user_steam_games rows", async () => {
@@ -130,9 +132,9 @@ describe("syncUserLibrary", () => {
         now: new Date("2026-04-07T12:00:00Z"),
       });
 
-      const rows = rawDb
+      const rows = (await rawDb
         .prepare("SELECT steam_app_id FROM user_steam_games WHERE user_id = ?")
-        .all(TEST_USER_ID) as Array<{ steam_app_id: number }>;
+        .all(TEST_USER_ID)) as Array<{ steam_app_id: number }>;
       expect(rows).toHaveLength(3);
       const appids = rows.map((r) => r.steam_app_id).sort((a, b) => a - b);
       expect(appids).toEqual([100, 200, 300]);
@@ -142,7 +144,7 @@ describe("syncUserLibrary", () => {
   describe("when the cooldown has not elapsed", () => {
     it("throws CooldownError with the remaining minutes", async () => {
       // Manually set stored steam_id and steam_synced_at 30 minutes ago
-      rawDb
+      await rawDb
         .prepare("UPDATE users SET steam_id = ?, steam_synced_at = ? WHERE id = ?")
         .run("76561198000000000", "2026-04-07T11:30:00.000Z", TEST_USER_ID);
 
@@ -158,8 +160,8 @@ describe("syncUserLibrary", () => {
   });
 
   describe("when the Steam profile is private", () => {
-    beforeEach(() => {
-      rawDb
+    beforeEach(async () => {
+      await rawDb
         .prepare("UPDATE users SET steam_id = ? WHERE id = ?")
         .run("76561198000000000", TEST_USER_ID);
 
@@ -179,8 +181,8 @@ describe("syncUserLibrary", () => {
   });
 
   describe("when the Steam profile is public but has no games", () => {
-    beforeEach(() => {
-      rawDb
+    beforeEach(async () => {
+      await rawDb
         .prepare("UPDATE users SET steam_id = ? WHERE id = ?")
         .run("76561198000000000", TEST_USER_ID);
 
@@ -202,8 +204,8 @@ describe("syncUserLibrary", () => {
   });
 
   describe("when the owned games exceed the 500-game cap", () => {
-    beforeEach(() => {
-      rawDb
+    beforeEach(async () => {
+      await rawDb
         .prepare("UPDATE users SET steam_id = ? WHERE id = ?")
         .run("76561198000000000", TEST_USER_ID);
 
@@ -230,9 +232,9 @@ describe("syncUserLibrary", () => {
     it("keeps only the top 500 games by playtime", async () => {
       await syncUserLibrary(TEST_USER_ID, { now: new Date("2026-04-07T12:00:00Z") });
 
-      const rows = rawDb
+      const rows = (await rawDb
         .prepare("SELECT steam_app_id, playtime_minutes FROM user_steam_games WHERE user_id = ?")
-        .all(TEST_USER_ID) as Array<{ steam_app_id: number; playtime_minutes: number }>;
+        .all(TEST_USER_ID)) as Array<{ steam_app_id: number; playtime_minutes: number }>;
 
       expect(rows).toHaveLength(500);
       // Top 500 by playtime = playtimes 100..599 → appids 1100..1599
@@ -249,26 +251,26 @@ describe("syncUserLibrary", () => {
   });
 
   describe("when counting catalog matches", () => {
-    beforeEach(() => {
-      rawDb
+    beforeEach(async () => {
+      await rawDb
         .prepare("UPDATE users SET steam_id = ? WHERE id = ?")
         .run("76561198000000000", TEST_USER_ID);
 
       // Published catalog games — these should count as matches.
-      rawDb
+      await rawDb
         .prepare(
-          "INSERT INTO games (id, title, steam_appid, published, onboarding_phase) VALUES (?, ?, ?, 1, 'tagged')",
+          "INSERT INTO games (id, title, steam_appid, published, onboarding_phase) VALUES (?, ?, ?, true, 'tagged')",
         )
         .run("pub-1", "Pub 1", 10);
-      rawDb
+      await rawDb
         .prepare(
-          "INSERT INTO games (id, title, steam_appid, published, onboarding_phase) VALUES (?, ?, ?, 1, 'tagged')",
+          "INSERT INTO games (id, title, steam_appid, published, onboarding_phase) VALUES (?, ?, ?, true, 'tagged')",
         )
         .run("pub-2", "Pub 2", 20);
       // Unpublished — must NOT count even though user owns it.
-      rawDb
+      await rawDb
         .prepare(
-          "INSERT INTO games (id, title, steam_appid, published, onboarding_phase) VALUES (?, ?, ?, 0, 'draft')",
+          "INSERT INTO games (id, title, steam_appid, published, onboarding_phase) VALUES (?, ?, ?, false, 'draft')",
         )
         .run("unpub", "Unpub", 30);
 
@@ -374,8 +376,8 @@ describe("syncUserLibrary", () => {
   });
 
   describe("when GetOwnedGames fetch throws", () => {
-    beforeEach(() => {
-      rawDb
+    beforeEach(async () => {
+      await rawDb
         .prepare("UPDATE users SET steam_id = ? WHERE id = ?")
         .run("76561198000000000", TEST_USER_ID);
 
@@ -393,8 +395,8 @@ describe("syncUserLibrary", () => {
   });
 
   describe("when GetOwnedGames returns non-OK", () => {
-    beforeEach(() => {
-      rawDb
+    beforeEach(async () => {
+      await rawDb
         .prepare("UPDATE users SET steam_id = ? WHERE id = ?")
         .run("76561198000000000", TEST_USER_ID);
 
