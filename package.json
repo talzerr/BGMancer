@@ -11,14 +11,12 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "wrangler d1 migrations apply bgmancer-prod --local",
+    "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "db:reset": "rm -rf .wrangler/state && echo 'Local D1 reset. Run pnpm db:migrate to recreate.'",
+    "db:reset": "docker exec bgmancer-pg psql -U bgmancer -d bgmancer -c 'DROP SCHEMA IF EXISTS drizzle CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public;' && pnpm db:migrate",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "preview": "pnpm db:migrate && opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "prepare": "husky"
   },
   "dependencies": {

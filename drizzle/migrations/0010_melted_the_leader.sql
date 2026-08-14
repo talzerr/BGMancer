@@ -1,1 +1,0 @@
-ALTER TABLE `playlists` ADD `playlist_mode` text DEFAULT 'journey' NOT NULL;
