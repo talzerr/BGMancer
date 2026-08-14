@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bgmancer-config
+data:
+  NODE_ENV: "production"
+  AUTH_TRUST_HOST: "true"
+  BACKSTAGE_OPEN: "1"
+  YOUTUBE_SYNC_ENABLED: "0"
+  NEXTAUTH_URL: "https://bgmancer.home.talzerr.dev"

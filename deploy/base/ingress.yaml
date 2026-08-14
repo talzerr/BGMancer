@@ -1,0 +1,21 @@
+# Plain networking.k8s.io Ingress rather than a Traefik IngressRoute CRD, so
+# swapping the controller is a one-line ingressClassName change.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: bgmancer
+  labels:
+    app: bgmancer
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: bgmancer.example.invalid
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: bgmancer
+                port:
+                  number: 80

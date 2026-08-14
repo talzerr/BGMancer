@@ -1,0 +1,30 @@
+# Applies pending drizzle migrations. Runs the migrator stage of the repo
+# Dockerfile, which keeps drizzle-kit and drizzle/ — neither is present in the
+# standalone runtime image. Apply this before rolling the Deployment.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bgmancer-migrate
+  labels:
+    app: bgmancer
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: bgmancer
+        component: migrate
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: bgmancer-migrate:dev
+          envFrom:
+            - secretRef:
+                name: bgmancer-db
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi

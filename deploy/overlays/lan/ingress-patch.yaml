@@ -1,0 +1,20 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: bgmancer
+spec:
+  tls:
+    - hosts:
+        - bgmancer.home.talzerr.dev
+      secretName: bgmancer-tls
+  rules:
+    - host: bgmancer.home.talzerr.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: bgmancer
+                port:
+                  number: 80
