@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { matchRoute } from "@/lib/route-matcher";
 import { AuthLevel } from "@/lib/route-config";
-import { hasCloudflareAccessToken } from "@/lib/services/auth/cloudflare-access";
+import { hasAdminGate } from "@/lib/services/auth/ingress-auth";
 import { env } from "./lib/env";
 
 export function middleware(request: NextRequest) {
@@ -15,9 +15,9 @@ export function middleware(request: NextRequest) {
     return new NextResponse(null, { status: 404 });
   }
 
-  // Backstage: open in dev, requires Cloudflare Access in production.
+  // Backstage: open in dev, requires the ingress admin gate in production.
   if (!env.isDev && route.auth === AuthLevel.Admin) {
-    if (!hasCloudflareAccessToken(request)) {
+    if (!hasAdminGate(request)) {
       return new NextResponse(null, { status: 404 });
     }
   }

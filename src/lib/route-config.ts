@@ -16,7 +16,7 @@ export enum AuthLevel {
   Optional = "optional",
   /** Must be logged in — 401 otherwise. */
   Required = "required",
-  /** Backstage — gated by Cloudflare Access in production, open in dev. */
+  /** Backstage — gated by the ingress admin gate in production, open in dev. */
   Admin = "admin",
 }
 
