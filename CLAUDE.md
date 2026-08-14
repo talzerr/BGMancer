@@ -14,22 +14,32 @@ pnpm format:check # Prettier (check only)
 pnpm test         # Run all tests (Vitest)
 pnpm test:watch   # Tests in watch mode
 pnpm test:coverage # Tests with coverage report
-pnpm db:generate  # Generate migration from schema diff
-pnpm db:migrate   # Apply pending migrations to local D1
+pnpm db:generate  # Generate migration from schema diff (drizzle-kit generate)
+pnpm db:migrate   # Apply pending migrations (drizzle-kit migrate)
 pnpm db:studio    # Open Drizzle Studio (browser DB inspector)
-pnpm db:reset     # Wipe local D1 state (run db:migrate after)
-pnpm preview      # Build + preview in Cloudflare Workers runtime
+pnpm db:reset     # Drop + recreate the public schema, then re-migrate
 ```
+
+Local development needs a Postgres server. The `db:reset` script assumes a container named `bgmancer-pg`:
+
+```bash
+docker run --name bgmancer-pg \
+  -e POSTGRES_PASSWORD=bgmancer -e POSTGRES_USER=bgmancer -e POSTGRES_DB=bgmancer \
+  -p 5432:5432 -d postgres:17
+```
+
+Tests do **not** need it — they run against PGlite, an in-process Postgres.
 
 Tests run via Vitest. Lint and format run automatically via husky pre-commit on staged `.ts`/`.tsx` files.
 
 ## Environment
 
-All env vars are centralized in `src/lib/env.ts` — a typed lazy-loaded singleton. Never use `process.env` directly; import `env` from `@/lib/env` instead. In Cloudflare Workers, `env` is initialized on first access (not at module load time) because secrets are available per-request.
+All env vars are centralized in `src/lib/env.ts` — a typed lazy-loaded singleton. Never use `process.env` directly; import `env` from `@/lib/env` instead. `env` is built on first access rather than at module load so that importing the module never throws during a build or a test collection pass.
 
 Requires a `.env.local` (copy from `.env.local.example`) with:
 
 - `NEXTAUTH_SECRET` — **required**; signs NextAuth sessions. Must not be a known insecure value. Generate with `openssl rand -base64 32`
+- `DATABASE_URL` — **required**; Postgres connection string (e.g. `postgresql://bgmancer:bgmancer@localhost:5432/bgmancer`). Read by both the app and `drizzle.config.ts`
 - `YOUTUBE_API_KEY` — required for all playlist generation
 - `STEAM_API_KEY` — required for Steam import
 - `ANTHROPIC_API_KEY` — required; powers all LLM calls (tagging, vibe profiling)
@@ -40,9 +50,11 @@ Requires a `.env.local` (copy from `.env.local.example`) with:
 - `IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` — optional; powers the catalog "Request a game" empty state. Twitch dev console credentials. When unset (or `TURNSTILE_SITE_KEY` is unset), the request form is hidden server-side and the empty state shows only "No games found"
 - `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` — Cloudflare Turnstile credentials. Used for guest playlist generation and game requests. In dev (`env.isDev`) or when the secret is unset, server-side verification is short-circuited
 - `YOUTUBE_SYNC_ENABLED` — optional; set to `1` or `true` to enable the "Sync to YouTube" feature. When unset, the Sync link is hidden and `POST /api/sync` returns 503. Gated while Google OAuth verification is pending
-- Backstage (`/backstage/*`) is open in local dev. In production, it's gated by Cloudflare Access on `bgmancer.com/backstage*`
+- `BACKSTAGE_OPEN` — optional; set to `1` or `true` to open `/backstage` with no gate. For LAN-only deployments where the network is the security boundary
+- `ADMIN_GATE_SECRET` — optional; shared secret the ingress injects as an `x-admin-gate` header on requests it has already authenticated. Used when `BACKSTAGE_OPEN` is unset
+- Backstage (`/backstage/*`) is open in local dev. Outside dev it requires the ingress admin gate — see [Authentication & Security](#authentication--security). With neither `BACKSTAGE_OPEN` nor `ADMIN_GATE_SECRET` set, it fails closed (404)
 
-Schema is managed by Drizzle ORM with migrations stored in `drizzle/migrations/`. Locally, apply with `pnpm db:migrate`. In production, apply with `wrangler d1 migrations apply bgmancer-prod --remote`.
+Schema is managed by Drizzle ORM with migrations stored in `drizzle/migrations/`. Apply with `pnpm db:migrate` locally. In the cluster, migrations run as a separate k8s Job built from the Dockerfile's `migrator` stage — see [Deployment](#deployment).
 
 ## Architecture
 
@@ -56,7 +68,9 @@ This section describes the current codebase. For prescriptive rules and patterns
 
 **Route auth config (`src/lib/route-config.ts`):** Single source of truth — every accessible route (pages and API) must be registered here. Unregistered routes return 404. Each entry declares its auth level: `Public`, `Optional`, `Required`, or `Admin`.
 
-**Middleware (`src/middleware.ts`):** Runs on all non-static requests. Reads the route config and enforces: (1) allowlist — unregistered routes get 404, (2) admin routes — in production, requires `CF_Authorization` cookie (set by Cloudflare Access) as defense in depth. Uses the deprecated `middleware.ts` convention (not Next.js 16's `proxy.ts`) for `@opennextjs/cloudflare` compatibility.
+**Middleware (`src/middleware.ts`):** Runs on all non-static requests. Reads the route config and enforces: (1) allowlist — unregistered routes get 404, (2) admin routes — outside dev, requires the ingress admin gate as defense in depth.
+
+**Admin gate (`src/lib/services/auth/ingress-auth.ts`):** `hasAdminGate(request)` guards `/backstage`. The real authorization policy lives at the ingress (Traefik BasicAuth or forwardAuth), which injects an `x-admin-gate` header on requests it has already authenticated; this is the presence-and-match check behind it, not a standalone auth system. Resolution order: `BACKSTAGE_OPEN` set → open; else `ADMIN_GATE_SECRET` set → compare against the `x-admin-gate` header; else **fail closed**. On the LAN deployment the network is the boundary and `BACKSTAGE_OPEN=1` is what's used.
 
 **Route wrappers (`src/lib/services/auth/route-wrappers.ts`):** `withRequiredAuth(handler, label)` and `withOptionalAuth(handler, label)` enforce user auth at the handler level. Middleware can't call `auth()` (NextAuth doesn't work in the middleware layer), so user auth is enforced here.
 
@@ -66,7 +80,9 @@ This section describes the current codebase. For prescriptive rules and patterns
 
 **Input validation:** All POST/PATCH/DELETE routes validate bodies with Zod schemas defined in `src/lib/validation.ts`.
 
-**Rate limiting:** Guest generation is IP-rate-limited via `src/lib/rate-limit.ts` (KV-backed sliding window in production, in-memory in dev). Authenticated users have a DB-backed generation cooldown lock.
+**Rate limiting:** Guest generation is IP-rate-limited via `src/lib/rate-limit.ts`, a sliding window over the KV service. **KV is a single in-process `Map` (`src/lib/services/infra/kv.ts`) — it resets on restart**, so guest rate limits and the per-user daily LLM cap are non-durable. Accepted for a single-replica LAN instance; it is also why the Deployment pins `replicas: 1` with `strategy: Recreate` (two pods would keep divergent counters). Authenticated users additionally have a DB-backed generation cooldown lock, which _is_ durable.
+
+**Client IP:** `getClientIp()` reads `x-forwarded-for` (first entry), then `x-real-ip`, then falls back to `"unknown"`. The ingress is responsible for setting these.
 
 **Guest vs Logged-in behavior:**
 
@@ -138,15 +154,29 @@ Use `usePlayerContext()` to access any of these from any client component.
 
 ### Database layer (`src/lib/db/`)
 
-Uses **Drizzle ORM** with **Cloudflare D1** as the database driver everywhere (dev, staging, production). Local dev uses D1 emulation via miniflare (provided by `initOpenNextCloudflareForDev()` in `next.config.ts`). Tests use better-sqlite3 in-memory databases wrapped with a D1-compat layer.
+Uses **Drizzle ORM** over **Postgres** via the `postgres-js` driver, everywhere. Local dev talks to a real Postgres server; tests run against **PGlite** (`@electric-sql/pglite`), an in-process Postgres — no server, no Docker, no shared state between files.
 
-- `index.ts` — `getDB()` returns a D1-backed Drizzle instance via `getCloudflareContext().env.DB`
-- `drizzle-schema.ts` — Drizzle schema definition for all tables, indexes, and foreign keys
+- `index.ts` — `getDB()` returns a module-level pooled Drizzle instance (`postgres(env.databaseUrl, { max: 10, prepare: false })`). The pool is module-level because the Node process is long-lived
+- `drizzle-schema.ts` — Drizzle schema definition for all tables, indexes, and foreign keys, built on `drizzle-orm/pg-core`. Timestamps are real `timestamptz` columns and structured blobs are real `jsonb` — not text
 - `repo.ts` — barrel re-export for all repos in `repos/`
 - `repos/` — one file per domain: `games`, `backstage-games`, `users`, `sessions`, `playlist`, `tracks`, `video-tracks`, `review-flags`, `decisions`, `user-steam-games`, `game-requests`
 - `mappers.ts` — row → typed object converters (used by repos that query via `sql` tagged template)
 - `queries.ts` — shared Drizzle subquery helpers
-- `test-helpers.ts` — `createTestDrizzleDB()` for in-memory test databases with D1-compat wrapper
+- `test-helpers.ts` — `createTestDrizzleDB()` (async) spins up a PGlite instance and runs the migrations against it; `resetTestDB()` truncates every table
+
+**Two helpers replace D1 idioms:**
+
+- `first(query)` — returns the first row or `undefined`. Replaces D1's `.get()`, which `postgres-js` does not have
+- `batch(queries)` — keeps D1's array-of-builders signature but is implemented as a single transaction that runs `tx.execute(q.getSQL())` per query. Callers did not have to change; the atomicity guarantee got stronger
+
+**Test DB lifecycle:** create **one instance per file** in `beforeAll` and call `resetTestDB()` in `beforeEach`. Do not create a fresh instance per test — a new PGlite instance plus migrations costs ~700ms against ~9ms for a truncate, an 81x difference across the suite.
+
+**Postgres gotchas that SQLite silently tolerated** — all of these were live bugs found during the migration, and none were caught by the type checker:
+
+- Use `ILIKE`, not `LIKE`. Postgres `LIKE` is case-sensitive
+- Never compare a boolean column against `0`/`1`. `row.active !== 0` is `true` for a real `false`, and a parameterized `= ${x ? 1 : 0}` binds an integer against a boolean column and matches nothing
+- Cast aggregates: `COUNT(*)::int`, `SUM(x)::int`. Postgres returns `bigint` and `postgres-js` surfaces it as a **string**
+- Quote camelCase aliases: `AS "publishedCount"`. Unquoted identifiers fold to lowercase
 
 Users are created via `Users.createFromOAuth()` on first Google OAuth sign-in. In local dev, the Credentials provider creates users on the fly.
 
@@ -353,15 +383,15 @@ Backstage API routes (all under `src/app/api/backstage/`, auth level: Admin). Ev
 
 ## Schema changes
 
-Schema is defined in `src/lib/db/drizzle-schema.ts` using Drizzle's SQLite schema builders. Migrations are managed by Drizzle Kit and stored in `drizzle/migrations/`.
+Schema is defined in `src/lib/db/drizzle-schema.ts` using Drizzle's Postgres (`pg-core`) schema builders. Migrations are managed by Drizzle Kit and stored in `drizzle/migrations/` — currently a single squashed migration.
 
 **Workflow:**
 
 1. Edit `src/lib/db/drizzle-schema.ts`
 2. Run `pnpm db:generate` — diffs against the latest snapshot and produces a new `.sql` migration file
-3. Run `pnpm db:migrate` — applies migrations to local D1
-4. For production: `wrangler d1 migrations apply bgmancer-prod --remote`
-5. To start fresh locally: `pnpm db:reset` then `pnpm db:migrate`
+3. Run `pnpm db:migrate` — applies migrations to your local Postgres
+4. In the cluster: re-run the `bgmancer-migrate` Job with a freshly built `migrator` image
+5. To start fresh locally: `pnpm db:reset` (drops and recreates the schema, then re-migrates)
 
 While there are no production users, you can collapse to a single migration by deleting `drizzle/migrations/` and re-running `pnpm db:generate`. Once there is real user data, use incremental migrations instead.
 
@@ -373,7 +403,7 @@ Games can be flagged for manual review via `ReviewFlags.markAsNeedsReview(gameId
 
 - **Never use `process.env` directly** — use the typed `env` singleton from `@/lib/env`
 - **Every route must be in `src/lib/route-config.ts`** — unregistered routes return 404 via the proxy
-- **Next.js 16 with OpenNext Cloudflare MUST use `middleware.ts`** — `proxy.ts` is not yet supported by `@opennextjs/cloudflare`
+- **Routing middleware still lives in `src/middleware.ts`** — the OpenNext constraint that forced this is gone, so renaming to Next.js 16's `proxy.ts` convention is now possible. Deliberately deferred; do not rename it as a drive-by
 - `process.env.NODE_ENV` does **not** work reliably in client components with Turbopack — avoid conditional rendering based on it. Use `env.isDev` on the server instead
 - `useEffect` must be placed **after** all `const` variables it references (temporal dead zone issue in this codebase's hook patterns)
 - **Guest sessions use `GUEST_SESSION_ID`** (`"guest"`, defined in `src/lib/constants.ts`) — never hardcode the string `"guest"` directly
@@ -382,28 +412,29 @@ Games can be flagged for manual review via `ReviewFlags.markAsNeedsReview(gameId
 
 ## Deployment
 
-The app runs on Cloudflare Workers via `@opennextjs/cloudflare`. Infrastructure is defined in `wrangler.jsonc`.
+The app is self-hosted on a single-node Kubernetes cluster. `next.config.ts` sets `output: "standalone"`; the multi-stage `Dockerfile` produces two images from that build.
 
 ```bash
-# Production
-pnpm cf-typegen                                          # generate Cloudflare env types
-pnpm opennextjs-cloudflare build                         # build for Workers
-wrangler deploy                                          # deploy to production
-wrangler d1 migrations apply bgmancer-prod --remote      # apply DB migrations
+# Build both images
+docker build -t bgmancer:dev         --target runner   .
+docker build -t bgmancer-migrate:dev --target migrator .
 
-# Staging
-wrangler deploy --env staging
-wrangler d1 migrations apply bgmancer-staging --remote --env staging
+# Apply manifests (Ingress host, TLS secret, and NEXTAUTH_URL come from the overlay)
+kubectl apply -k deploy/overlays/lan
 
-# Secrets
-wrangler secret put <NAME>                               # push a secret to production
-wrangler secret put <NAME> --env staging                 # push a secret to staging
-
-# Rollback
-wrangler rollback                                        # revert to previous deployment
-
-# Logs
-wrangler tail                                            # live-stream Worker logs
+# Follow logs
+kubectl -n bgmancer logs -f deploy/bgmancer
 ```
 
-The Cloudflare dashboard build command is: `pnpm cf-typegen && pnpm opennextjs-cloudflare build`
+**Two images on purpose.** The `runner` stage ships `.next/standalone`, which prunes devDependencies and the `drizzle/` folder — it physically cannot apply migrations. The `migrator` stage keeps `drizzle-kit` and the migration journal and is deployed as a separate k8s Job (`deploy/base/migration-job.yaml`). **Run the Job before rolling the Deployment.**
+
+**Manifests** live in `deploy/`:
+
+- `deploy/base/` — configmap, deployment, service, ingress, migration-job, kustomization. Host-neutral. Plain `networking.k8s.io/v1` Ingress with `ingressClassName: traefik`, so swapping controllers is a one-line change
+- `deploy/overlays/lan/` — patches the Ingress host + TLS secret and `NEXTAUTH_URL` for `bgmancer.home.talzerr.dev`, and sets namespace `bgmancer`
+
+The Deployment is **1 replica with `strategy: Recreate`**, not RollingUpdate — the rate limiter is in-process, so two concurrently running pods would keep divergent counters. Do not raise the replica count without first moving KV to a shared backend.
+
+Config comes from a ConfigMap (`bgmancer-config`) plus two Secrets the cluster must provide: `bgmancer-secrets` (API keys, `NEXTAUTH_SECRET`) and `bgmancer-db` (must expose a `DATABASE_URL` key).
+
+**Cluster-side setup is tracked separately in `docs/claude/CLUSTER_BLOCKERS.md`** — DNS, DNS-01 TLS, CloudNativePG, Vault wiring, registry, and the Google OAuth redirect URI. Read it before attempting a deploy.

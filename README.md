@@ -11,7 +11,7 @@ Uses [Anthropic Claude](https://anthropic.com) as the LLM backend. YouTube playb
 
 ## Running locally
 
-**Requirements:** Node.js >= 22, pnpm
+**Requirements:** Node.js >= 22, pnpm, and a Postgres server (Docker is easiest)
 
 ```bash
 git clone https://github.com/talzerr/bgmancer.git
@@ -24,6 +24,7 @@ Fill in `.env.local`:
 
 ```env
 NEXTAUTH_SECRET=          # openssl rand -base64 32
+DATABASE_URL=             # postgresql://bgmancer:bgmancer@localhost:5432/bgmancer
 YOUTUBE_API_KEY=          # console.cloud.google.com
 ANTHROPIC_API_KEY=        # console.anthropic.com
 
@@ -33,20 +34,30 @@ ANTHROPIC_API_KEY=        # console.anthropic.com
 # GOOGLE_CLIENT_SECRET=
 ```
 
+Start Postgres:
+
+```bash
+docker run --name bgmancer-pg \
+  -e POSTGRES_PASSWORD=bgmancer -e POSTGRES_USER=bgmancer -e POSTGRES_DB=bgmancer \
+  -p 5432:5432 -d postgres:17
+```
+
 ```bash
 pnpm db:migrate   # apply database migrations
-pnpm dev           # → http://localhost:6959
+pnpm dev          # → http://localhost:6959
 ```
+
+Tests need no database — they run against PGlite, an in-process Postgres.
 
 See [CLAUDE.md](CLAUDE.md) for full architecture docs, commands, and deployment guide.
 
 ## Built with
 
 - **Frontend:** Next.js 16, React, Tailwind CSS
-- **Backend:** Cloudflare Workers, D1 (SQLite), KV
+- **Backend:** Next.js server runtime, Postgres (Drizzle ORM)
+- **Hosting:** self-hosted Kubernetes — Traefik ingress, CloudNativePG
 - **AI:** Anthropic Claude (track tagging + vibe profiling)
 - **APIs:** YouTube Data v3, Steam Web API, Discogs
-- **Adapter:** @opennextjs/cloudflare
 - **Development:** human-led architecture & decisions, Claude-assisted implementation
 
 ## Docs

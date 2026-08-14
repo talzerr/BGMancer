@@ -139,8 +139,9 @@ function loadEnv(): Env {
 
 // ---------------------------------------------------------------------------
 // Lazy singleton — loaded on first access, not at module load time.
-// In Cloudflare Workers, process.env is populated per-request,
-// so reading it at module initialization would miss secrets.
+// loadEnv() throws on a missing NEXTAUTH_SECRET, and importing this module
+// must never be what triggers that: Next evaluates server modules during the
+// build, and tests set env vars after collection.
 // ---------------------------------------------------------------------------
 
 let _env: Env | null = null;
