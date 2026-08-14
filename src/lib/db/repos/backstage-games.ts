@@ -207,8 +207,8 @@ export const BackstageGames = {
       SELECT
         onboarding_phase AS phase,
         COUNT(*)::int AS count,
-        SUM(CASE WHEN published THEN 1 ELSE 0 END)::int AS publishedCount,
-        SUM(CASE WHEN needs_review THEN 1 ELSE 0 END)::int AS needsReviewCount
+        SUM(CASE WHEN published THEN 1 ELSE 0 END)::int AS "publishedCount",
+        SUM(CASE WHEN needs_review THEN 1 ELSE 0 END)::int AS "needsReviewCount"
       FROM games
       GROUP BY onboarding_phase
     `);
