@@ -1,4 +1,4 @@
-import { getDB } from "@/lib/db";
+import { getDB, first } from "@/lib/db";
 import { and, desc, eq } from "drizzle-orm";
 import { gameRequests } from "@/lib/db/drizzle-schema";
 
@@ -29,30 +29,23 @@ export const GameRequests = {
   async upsertRequest(igdbId: number, name: string, coverUrl: string | null): Promise<GameRequest> {
     const db = getDB();
     const now = new Date().toISOString();
-    const existing = await db
-      .select()
-      .from(gameRequests)
-      .where(eq(gameRequests.igdb_id, igdbId))
-      .get();
+    const existing = await first(
+      db.select().from(gameRequests).where(eq(gameRequests.igdb_id, igdbId)),
+    );
 
     if (!existing) {
-      await db
-        .insert(gameRequests)
-        .values({
-          igdb_id: igdbId,
-          name,
-          cover_url: coverUrl,
-          request_count: 1,
-          acknowledged: false,
-          created_at: now,
-          updated_at: now,
-        })
-        .run();
-      const inserted = await db
-        .select()
-        .from(gameRequests)
-        .where(eq(gameRequests.igdb_id, igdbId))
-        .get();
+      await db.insert(gameRequests).values({
+        igdb_id: igdbId,
+        name,
+        cover_url: coverUrl,
+        request_count: 1,
+        acknowledged: false,
+        created_at: now,
+        updated_at: now,
+      });
+      const inserted = await first(
+        db.select().from(gameRequests).where(eq(gameRequests.igdb_id, igdbId)),
+      );
       return rowToRequest(inserted!);
     }
 
@@ -60,8 +53,7 @@ export const GameRequests = {
       await db
         .update(gameRequests)
         .set({ request_count: existing.request_count + 1, updated_at: now })
-        .where(eq(gameRequests.igdb_id, igdbId))
-        .run();
+        .where(eq(gameRequests.igdb_id, igdbId));
       return rowToRequest({
         ...existing,
         request_count: existing.request_count + 1,
@@ -77,8 +69,7 @@ export const GameRequests = {
       .select()
       .from(gameRequests)
       .where(eq(gameRequests.acknowledged, false))
-      .orderBy(desc(gameRequests.request_count), desc(gameRequests.updated_at))
-      .all();
+      .orderBy(desc(gameRequests.request_count), desc(gameRequests.updated_at));
     return rows.map(rowToRequest);
   },
 
@@ -86,8 +77,7 @@ export const GameRequests = {
     const rows = await getDB()
       .select()
       .from(gameRequests)
-      .orderBy(desc(gameRequests.request_count), desc(gameRequests.updated_at))
-      .all();
+      .orderBy(desc(gameRequests.request_count), desc(gameRequests.updated_at));
     return rows.map(rowToRequest);
   },
 
@@ -96,7 +86,6 @@ export const GameRequests = {
     await getDB()
       .update(gameRequests)
       .set({ acknowledged: true })
-      .where(and(eq(gameRequests.igdb_id, igdbId), eq(gameRequests.acknowledged, false)))
-      .run();
+      .where(and(eq(gameRequests.igdb_id, igdbId), eq(gameRequests.acknowledged, false)));
   },
 };

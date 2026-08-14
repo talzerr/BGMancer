@@ -6,7 +6,7 @@ import { userSteamGames } from "@/lib/db/drizzle-schema";
 export const UserSteamGames = {
   /** Returns the IDs of published catalog games that the user owns on Steam. */
   async getMatchedGameIds(userId: string): Promise<string[]> {
-    const rows = await getDB().all<{ id: string }>(sql`
+    const rows = await getDB().execute<{ id: string }>(sql`
       SELECT g.id FROM games g
       INNER JOIN user_steam_games usg ON g.steam_appid = usg.steam_app_id
       WHERE usg.user_id = ${userId} AND g.published = 1

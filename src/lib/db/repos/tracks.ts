@@ -1,4 +1,4 @@
-import { getDB, batch } from "@/lib/db";
+import { getDB, batch, first } from "@/lib/db";
 import { eq, and, count, isNotNull, asc, sql } from "drizzle-orm";
 import { tracks, videoTracks } from "@/lib/db/drizzle-schema";
 import { toTrack } from "@/lib/db/mappers";
@@ -55,8 +55,7 @@ export const Tracks = {
       .select()
       .from(tracks)
       .where(eq(tracks.game_id, gameId))
-      .orderBy(asc(tracks.position))
-      .all();
+      .orderBy(asc(tracks.position));
     return rows.map(rowToTrack);
   },
 
@@ -90,7 +89,7 @@ export const Tracks = {
 
   async deactivateTracks(gameId: string, names: string[]): Promise<void> {
     if (names.length === 0) return;
-    await getDB().run(
+    await getDB().execute(
       sql`UPDATE tracks SET active = 0 WHERE game_id = ${gameId} AND name IN (${sql.join(
         names.map((n) => sql`${n}`),
         sql`, `,
@@ -99,29 +98,29 @@ export const Tracks = {
   },
 
   async hasData(gameId: string): Promise<boolean> {
-    const row = (await getDB()
-      .select({ cnt: count() })
-      .from(tracks)
-      .where(eq(tracks.game_id, gameId))
-      .get()) ?? { cnt: 0 };
+    const row = (await first(
+      getDB().select({ cnt: count() }).from(tracks).where(eq(tracks.game_id, gameId)),
+    )) ?? { cnt: 0 };
     return row.cnt > 0;
   },
 
   async isTagged(gameId: string): Promise<boolean> {
-    const row = (await getDB()
-      .select({ cnt: count() })
-      .from(tracks)
-      .where(and(eq(tracks.game_id, gameId), isNotNull(tracks.tagged_at)))
-      .get()) ?? { cnt: 0 };
+    const row = (await first(
+      getDB()
+        .select({ cnt: count() })
+        .from(tracks)
+        .where(and(eq(tracks.game_id, gameId), isNotNull(tracks.tagged_at))),
+    )) ?? { cnt: 0 };
     return row.cnt > 0;
   },
 
   async countTagged(gameId: string): Promise<number> {
-    const row = (await getDB()
-      .select({ cnt: count() })
-      .from(tracks)
-      .where(and(eq(tracks.game_id, gameId), isNotNull(tracks.tagged_at)))
-      .get()) ?? { cnt: 0 };
+    const row = (await first(
+      getDB()
+        .select({ cnt: count() })
+        .from(tracks)
+        .where(and(eq(tracks.game_id, gameId), isNotNull(tracks.tagged_at))),
+    )) ?? { cnt: 0 };
     return row.cnt;
   },
 
@@ -136,7 +135,7 @@ export const Tracks = {
       hasVocals: boolean;
     },
   ): Promise<void> {
-    await getDB().run(sql`
+    await getDB().execute(sql`
       UPDATE tracks
       SET energy = ${tags.energy}, roles = ${tags.roles}, moods = ${tags.moods},
           instrumentation = ${tags.instrumentation},
@@ -148,7 +147,7 @@ export const Tracks = {
   },
 
   async insertDiscovered(gameId: string, name: string): Promise<void> {
-    await getDB().run(sql`
+    await getDB().execute(sql`
       INSERT OR IGNORE INTO tracks (game_id, name, position, active, discovered)
       VALUES (${gameId}, ${name}, (SELECT COALESCE(MAX(position), 0) + 1 FROM tracks WHERE game_id = ${gameId}), 0, 'pending')
     `);
@@ -205,7 +204,7 @@ export const Tracks = {
         ),
       );
     } else {
-      await getDB().update(tracks).set(set).where(eq(tracks.game_id, gameId)).run();
+      await getDB().update(tracks).set(set).where(eq(tracks.game_id, gameId));
     }
   },
 
@@ -254,7 +253,7 @@ export const Tracks = {
     if (setParts.length === 0) return;
 
     const setClause = sql.join(setParts, sql.raw(", "));
-    await getDB().run(
+    await getDB().execute(
       sql`UPDATE tracks SET ${setClause} WHERE game_id = ${gameId} AND name = ${name}`,
     );
   },
@@ -275,11 +274,11 @@ export const Tracks = {
   },
 
   async deleteByGame(gameId: string): Promise<void> {
-    await getDB().delete(tracks).where(eq(tracks.game_id, gameId)).run();
+    await getDB().delete(tracks).where(eq(tracks.game_id, gameId));
   },
 
   async listAllWithVideoIds(): Promise<BackstageTrackRow[]> {
-    const rows = await getDB().all(sql`
+    const rows = await getDB().execute(sql`
       SELECT t.*, g.title AS game_title,
         (SELECT vt.video_id FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS video_id,
         (SELECT vt.duration_seconds FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS duration_seconds,
@@ -311,7 +310,7 @@ export const Tracks = {
     const whereClause =
       conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql.raw(" AND "))}` : sql.raw("");
 
-    const rows = await getDB().all(sql`
+    const rows = await getDB().execute(sql`
       SELECT t.*, g.title AS game_title,
         (SELECT vt.video_id FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS video_id,
         (SELECT vt.duration_seconds FROM video_tracks vt WHERE vt.game_id = t.game_id AND vt.track_name = t.name LIMIT 1) AS duration_seconds,

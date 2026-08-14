@@ -1,4 +1,4 @@
-import { getDB, batch } from "@/lib/db";
+import { getDB, batch, first } from "@/lib/db";
 import { eq, sql } from "drizzle-orm";
 import { users, libraries } from "@/lib/db/drizzle-schema";
 import type { User } from "@/types";
@@ -19,7 +19,7 @@ export const Users = {
   /** Create or fetch a user from an OAuth profile (email is the unique key). */
   async createFromOAuth(email: string): Promise<User> {
     const db = getDB();
-    const existing = await db.select().from(users).where(eq(users.email, email)).get();
+    const existing = await first(db.select().from(users).where(eq(users.email, email)));
     if (existing) return rowToUser(existing);
 
     const id = newId();
@@ -30,12 +30,12 @@ export const Users = {
       db.insert(libraries).values({ id: newId(), user_id: id }).onConflictDoNothing(),
     ]);
 
-    return rowToUser((await db.select().from(users).where(eq(users.id, id)).get())!);
+    return rowToUser((await first(db.select().from(users).where(eq(users.id, id))))!);
   },
 
   async getOrCreate(id: string): Promise<User> {
     const db = getDB();
-    const existing = await db.select().from(users).where(eq(users.id, id)).get();
+    const existing = await first(db.select().from(users).where(eq(users.id, id)));
     if (existing) return rowToUser(existing);
 
     await batch([
@@ -46,11 +46,11 @@ export const Users = {
       db.insert(libraries).values({ id: newId(), user_id: id }).onConflictDoNothing(),
     ]);
 
-    return rowToUser((await db.select().from(users).where(eq(users.id, id)).get())!);
+    return rowToUser((await first(db.select().from(users).where(eq(users.id, id))))!);
   },
 
   async getById(id: string): Promise<User | null> {
-    const row = await getDB().select().from(users).where(eq(users.id, id)).get();
+    const row = await first(getDB().select().from(users).where(eq(users.id, id)));
     return row ? rowToUser(row) : null;
   },
 
@@ -59,11 +59,12 @@ export const Users = {
     cooldownMs: number,
   ): Promise<{ acquired: boolean; reason?: string }> {
     const db = getDB();
-    const row = await db
-      .select({ is_generating: users.is_generating, last_generated_at: users.last_generated_at })
-      .from(users)
-      .where(eq(users.id, id))
-      .get();
+    const row = await first(
+      db
+        .select({ is_generating: users.is_generating, last_generated_at: users.last_generated_at })
+        .from(users)
+        .where(eq(users.id, id)),
+    );
 
     if (!row) return { acquired: false, reason: "User not found" };
 
@@ -83,7 +84,7 @@ export const Users = {
       };
     }
 
-    await db.update(users).set({ is_generating: true }).where(eq(users.id, id)).run();
+    await db.update(users).set({ is_generating: true }).where(eq(users.id, id));
     return { acquired: true };
   },
 
@@ -94,7 +95,6 @@ export const Users = {
         is_generating: false,
         last_generated_at: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
       })
-      .where(eq(users.id, id))
-      .run();
+      .where(eq(users.id, id));
   },
 };

@@ -1,4 +1,4 @@
-import { getDB, batch } from "@/lib/db";
+import { getDB, batch, first } from "@/lib/db";
 import { eq, asc, count } from "drizzle-orm";
 import { gameReviewFlags, games } from "@/lib/db/drizzle-schema";
 import { sql } from "drizzle-orm";
@@ -43,19 +43,16 @@ export const ReviewFlags = {
       .select()
       .from(gameReviewFlags)
       .where(eq(gameReviewFlags.game_id, gameId))
-      .orderBy(asc(gameReviewFlags.created_at))
-      .all();
+      .orderBy(asc(gameReviewFlags.created_at));
     return rows.map(rowToFlag);
   },
 
   async dismiss(flagId: number, gameId: string): Promise<void> {
     const db = getDB();
-    await db.delete(gameReviewFlags).where(eq(gameReviewFlags.id, flagId)).run();
-    const remaining = (await db
-      .select({ cnt: count() })
-      .from(gameReviewFlags)
-      .where(eq(gameReviewFlags.game_id, gameId))
-      .get()) ?? { cnt: 0 };
+    await db.delete(gameReviewFlags).where(eq(gameReviewFlags.id, flagId));
+    const remaining = (await first(
+      db.select({ cnt: count() }).from(gameReviewFlags).where(eq(gameReviewFlags.game_id, gameId)),
+    )) ?? { cnt: 0 };
     if (remaining.cnt === 0) {
       await db
         .update(games)
@@ -63,8 +60,7 @@ export const ReviewFlags = {
           needs_review: false,
           updated_at: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
         })
-        .where(eq(games.id, gameId))
-        .run();
+        .where(eq(games.id, gameId));
     }
   },
 

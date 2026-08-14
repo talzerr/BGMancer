@@ -19,8 +19,7 @@ export const VideoTracks = {
         view_count: videoTracks.view_count,
       })
       .from(videoTracks)
-      .where(eq(videoTracks.game_id, gameId))
-      .all();
+      .where(eq(videoTracks.game_id, gameId));
 
     const map = new Map<
       string,
@@ -40,8 +39,7 @@ export const VideoTracks = {
     const rows = await getDB()
       .select({ video_id: videoTracks.video_id, track_name: videoTracks.track_name })
       .from(videoTracks)
-      .where(and(eq(videoTracks.game_id, gameId), isNotNull(videoTracks.track_name)))
-      .all();
+      .where(and(eq(videoTracks.game_id, gameId), isNotNull(videoTracks.track_name)));
 
     const map = new Map<string, string>();
     for (const row of rows) {
@@ -97,8 +95,7 @@ export const VideoTracks = {
           view_count: sql`COALESCE(excluded.view_count, video_tracks.view_count)`,
           aligned_at: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
         },
-      })
-      .run();
+      });
   },
 
   async storeDurations(

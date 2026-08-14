@@ -35,8 +35,7 @@ export const DirectorDecisions = {
       .select()
       .from(playlistTrackDecisions)
       .where(eq(playlistTrackDecisions.playlist_id, playlistId))
-      .orderBy(asc(playlistTrackDecisions.position))
-      .all();
+      .orderBy(asc(playlistTrackDecisions.position));
 
     return rows.map((r) => ({
       position: r.position,

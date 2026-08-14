@@ -1,4 +1,4 @@
-import { getDB } from "@/lib/db";
+import { getDB, first } from "@/lib/db";
 import { sql, inArray, and, eq } from "drizzle-orm";
 import { games as gamesTable } from "@/lib/db/drizzle-schema";
 import { toGame, toGames } from "@/lib/db/mappers";
@@ -9,7 +9,7 @@ import { LIBRARY_MAX_GAMES, steamHeaderUrl } from "@/lib/constants";
 export const Games = {
   async listAll(userId: string): Promise<Game[]> {
     return toGames(
-      await getDB().all(sql`
+      await getDB().execute(sql`
         SELECT g.*, lg.curation FROM games g
         JOIN library_games lg ON lg.game_id = g.id
         WHERE lg.library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
@@ -25,38 +25,43 @@ export const Games = {
     const rows = await getDB()
       .select()
       .from(gamesTable)
-      .where(and(inArray(gamesTable.id, ids), eq(gamesTable.published, true)))
-      .all();
+      .where(and(inArray(gamesTable.id, ids), eq(gamesTable.published, true)));
     // Guests have no library — default curation to "include".
     return rows.map((r) => toGame({ ...r, curation: CurationMode.Include }));
   },
 
   async count(userId: string): Promise<number> {
-    const row = (await getDB().get<{ cnt: number }>(sql`
+    const row = (await first(
+      getDB().execute<{ cnt: number }>(sql`
       SELECT COUNT(*) AS cnt FROM games g
       JOIN library_games lg ON lg.game_id = g.id
       WHERE lg.library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
-    `))!;
+    `),
+    ))!;
     return row.cnt;
   },
 
   async findByTitle(title: string): Promise<Game | null> {
-    const row = await getDB().get(sql`SELECT * FROM games WHERE lower(title) = lower(${title})`);
+    const row = await first(
+      getDB().execute(sql`SELECT * FROM games WHERE lower(title) = lower(${title})`),
+    );
     return row ? toGame(row as Record<string, unknown>) : null;
   },
 
   async getById(id: string): Promise<Game | null> {
-    const row = await getDB().get(sql`SELECT * FROM games WHERE id = ${id}`);
+    const row = await first(getDB().execute(sql`SELECT * FROM games WHERE id = ${id}`));
     return row ? toGame(row as Record<string, unknown>) : null;
   },
 
   async getByIdForUser(userId: string, id: string): Promise<Game | null> {
-    const row = await getDB().get(sql`
+    const row = await first(
+      getDB().execute(sql`
       SELECT g.*, lg.curation FROM games g
       JOIN library_games lg ON lg.game_id = g.id
       WHERE g.id = ${id}
         AND lg.library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
-    `);
+    `),
+    );
     return row ? toGame(row as Record<string, unknown>) : null;
   },
 
@@ -69,19 +74,21 @@ export const Games = {
   ): Promise<Game> {
     const db = getDB();
     const thumbnail = steamAppid ? steamHeaderUrl(steamAppid) : null;
-    await db.run(sql`
+    await db.execute(sql`
       INSERT INTO games (id, title, steam_appid, thumbnail_url) VALUES (${id}, ${title}, ${steamAppid}, ${thumbnail})
     `);
-    await db.run(sql`
+    await db.execute(sql`
       INSERT OR IGNORE INTO library_games (library_id, game_id, curation)
       VALUES ((SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1), ${id}, ${curation})
     `);
-    const row = await db.get(sql`
+    const row = await first(
+      db.execute(sql`
       SELECT g.*, lg.curation FROM games g
       JOIN library_games lg ON lg.game_id = g.id
       WHERE g.id = ${id}
         AND lg.library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
-    `);
+    `),
+    );
     return toGame(row as Record<string, unknown>);
   },
 
@@ -90,7 +97,7 @@ export const Games = {
     gameId: string,
     curation = CurationMode.Include,
   ): Promise<void> {
-    await getDB().run(sql`
+    await getDB().execute(sql`
       INSERT OR IGNORE INTO library_games (library_id, game_id, curation)
       VALUES ((SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1), ${gameId}, ${curation})
     `);
@@ -112,7 +119,7 @@ export const Games = {
     gameId: string,
     curation = CurationMode.Include,
   ): Promise<boolean> {
-    await getDB().run(sql`
+    await getDB().execute(sql`
       INSERT OR IGNORE INTO library_games (library_id, game_id, curation)
       SELECT lib.id, ${gameId}, ${curation}
       FROM libraries lib
@@ -122,16 +129,18 @@ export const Games = {
           WHERE lg.library_id = lib.id
         ) < ${LIBRARY_MAX_GAMES}
     `);
-    const exists = await getDB().get(sql`
+    const exists = await first(
+      getDB().execute(sql`
       SELECT 1 AS x FROM library_games
       WHERE library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
         AND game_id = ${gameId}
-    `);
+    `),
+    );
     return !!exists;
   },
 
   async setCuration(userId: string, gameId: string, curation: CurationMode): Promise<void> {
-    await getDB().run(sql`
+    await getDB().execute(sql`
       UPDATE library_games SET curation = ${curation}
       WHERE library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
         AND game_id = ${gameId}
@@ -139,7 +148,7 @@ export const Games = {
   },
 
   async remove(userId: string, id: string): Promise<void> {
-    await getDB().run(sql`
+    await getDB().execute(sql`
       DELETE FROM library_games
       WHERE library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
         AND game_id = ${id}
@@ -147,7 +156,7 @@ export const Games = {
   },
 
   async ensureExists(userId: string, id: string, title: string): Promise<void> {
-    const exists = await getDB().get(sql`SELECT id FROM games WHERE id = ${id}`);
+    const exists = await first(getDB().execute(sql`SELECT id FROM games WHERE id = ${id}`));
     if (!exists) {
       await this.create(userId, id, title, CurationMode.Include);
     } else {

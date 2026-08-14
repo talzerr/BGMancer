@@ -1,5 +1,5 @@
 import { createLogger } from "@/lib/logger";
-import { getDB } from "@/lib/db";
+import { getDB, first } from "@/lib/db";
 
 const log = createLogger("sessions");
 import { eq, desc, asc, and, count } from "drizzle-orm";
@@ -45,52 +45,49 @@ export const Sessions = {
   ): Promise<PlaylistSession> {
     const db = getDB();
 
-    const { cnt } = (await db
-      .select({ cnt: count() })
-      .from(playlists)
-      .where(eq(playlists.user_id, userId))
-      .get())!;
+    const { cnt } = (await first(
+      db.select({ cnt: count() }).from(playlists).where(eq(playlists.user_id, userId)),
+    ))!;
 
     if (cnt >= MAX_PLAYLIST_SESSIONS) {
-      const oldest = (await db
-        .select({ id: playlists.id })
-        .from(playlists)
-        .where(eq(playlists.user_id, userId))
-        .orderBy(asc(playlists.created_at))
-        .limit(1)
-        .get())!;
-      await db.delete(playlists).where(eq(playlists.id, oldest.id)).run();
+      const oldest = (await first(
+        db
+          .select({ id: playlists.id })
+          .from(playlists)
+          .where(eq(playlists.user_id, userId))
+          .orderBy(asc(playlists.created_at))
+          .limit(1),
+      ))!;
+      await db.delete(playlists).where(eq(playlists.id, oldest.id));
     }
 
     const id = newId();
-    await db
-      .insert(playlists)
-      .values({
-        id,
-        user_id: userId,
-        name,
-        playlist_mode: playlistMode,
-        description: description ?? null,
-      })
-      .run();
+    await db.insert(playlists).values({
+      id,
+      user_id: userId,
+      name,
+      playlist_mode: playlistMode,
+      description: description ?? null,
+    });
 
-    return rowToSession((await db.select().from(playlists).where(eq(playlists.id, id)).get())!);
+    return rowToSession((await first(db.select().from(playlists).where(eq(playlists.id, id))))!);
   },
 
   /** Returns the most recently created non-archived session for the user, or null if none exist. */
   async getActive(userId: string): Promise<PlaylistSession | null> {
-    const row = await getDB()
-      .select()
-      .from(playlists)
-      .where(and(eq(playlists.user_id, userId), eq(playlists.is_archived, false)))
-      .orderBy(desc(playlists.created_at))
-      .limit(1)
-      .get();
+    const row = await first(
+      getDB()
+        .select()
+        .from(playlists)
+        .where(and(eq(playlists.user_id, userId), eq(playlists.is_archived, false)))
+        .orderBy(desc(playlists.created_at))
+        .limit(1),
+    );
     return row ? rowToSession(row) : null;
   },
 
   async getById(id: string): Promise<PlaylistSession | null> {
-    const row = await getDB().select().from(playlists).where(eq(playlists.id, id)).get();
+    const row = await first(getDB().select().from(playlists).where(eq(playlists.id, id)));
     return row ? rowToSession(row) : null;
   },
 
@@ -116,8 +113,7 @@ export const Sessions = {
       .leftJoin(playlistTracks, eq(playlistTracks.playlist_id, playlists.id))
       .where(eq(playlists.user_id, userId))
       .groupBy(playlists.id)
-      .orderBy(desc(playlists.created_at))
-      .all();
+      .orderBy(desc(playlists.created_at));
 
     return rows.map((r) => ({
       id: r.id,
@@ -133,7 +129,7 @@ export const Sessions = {
   },
 
   async rename(id: string, name: string): Promise<void> {
-    await getDB().update(playlists).set({ name }).where(eq(playlists.id, id)).run();
+    await getDB().update(playlists).set({ name }).where(eq(playlists.id, id));
   },
 
   /** Persists the YouTube playlist ID after a successful sync. */
@@ -141,8 +137,7 @@ export const Sessions = {
     await getDB()
       .update(playlists)
       .set({ youtube_playlist_id: youtubePlaylistId })
-      .where(eq(playlists.id, id))
-      .run();
+      .where(eq(playlists.id, id));
   },
 
   /** Stores rubric + game budgets on a session after generation. */
@@ -157,13 +152,12 @@ export const Sessions = {
         rubric: rubric ? JSON.stringify(rubric) : null,
         game_budgets: gameBudgets ? JSON.stringify(gameBudgets) : null,
       })
-      .where(eq(playlists.id, id))
-      .run();
+      .where(eq(playlists.id, id));
   },
 
   /** Returns a session with its telemetry columns parsed. */
   async getByIdWithTelemetry(id: string): Promise<SessionWithTelemetry | null> {
-    const row = await getDB().select().from(playlists).where(eq(playlists.id, id)).get();
+    const row = await first(getDB().select().from(playlists).where(eq(playlists.id, id)));
     if (!row) return null;
     let rubric: VibeRubric | null = null;
     let gameBudgets: Record<string, number> | null = null;
@@ -204,8 +198,7 @@ export const Sessions = {
       .leftJoin(playlistTracks, eq(playlistTracks.playlist_id, playlists.id))
       .groupBy(playlists.id)
       .orderBy(desc(playlists.created_at))
-      .limit(limit)
-      .all();
+      .limit(limit);
 
     return rows.map((r) => ({
       id: r.id,
@@ -222,6 +215,6 @@ export const Sessions = {
 
   /** Hard-deletes a session and all its tracks (via CASCADE). */
   async delete(id: string): Promise<void> {
-    await getDB().delete(playlists).where(eq(playlists.id, id)).run();
+    await getDB().delete(playlists).where(eq(playlists.id, id));
   },
 };
