@@ -20,6 +20,9 @@ interface Env {
   /** NextAuth callback URL. */
   nextAuthUrl: string | undefined;
 
+  /** Postgres connection string (required). */
+  databaseUrl: string;
+
   /** Google OAuth — required in production for "Sign in with Google". */
   googleClientId: string | undefined;
   googleClientSecret: string | undefined;
@@ -94,6 +97,8 @@ function loadEnv(): Env {
   return {
     nextAuthSecret,
     nextAuthUrl: process.env.NEXTAUTH_URL || undefined,
+
+    databaseUrl: process.env.DATABASE_URL ?? "",
 
     googleClientId,
     googleClientSecret,
