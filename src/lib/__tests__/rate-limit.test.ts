@@ -72,15 +72,15 @@ describe("getClientIp", () => {
     return new Request("http://localhost/test", { headers });
   }
 
-  it("should prefer cf-connecting-ip", () => {
+  it("should ignore cf-connecting-ip and prefer x-forwarded-for", () => {
     expect(
       getClientIp(
         makeRequest({
-          "cf-connecting-ip": "1.2.3.4",
-          "x-forwarded-for": "5.6.7.8",
+          "cf-connecting-ip": "1.1.1.1",
+          "x-forwarded-for": "2.2.2.2, 3.3.3.3",
         }),
       ),
-    ).toBe("1.2.3.4");
+    ).toBe("2.2.2.2");
   });
 
   it("should fall back to x-forwarded-for", () => {
