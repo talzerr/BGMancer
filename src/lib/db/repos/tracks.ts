@@ -35,7 +35,7 @@ function rowToTrack(row: typeof tracks.$inferSelect): Track {
     hasVocals: row.has_vocals != null ? !!row.has_vocals : null,
     active: row.active,
     discovered: row.discovered as Track["discovered"],
-    taggedAt: row.tagged_at,
+    taggedAt: row.tagged_at?.toISOString() ?? null,
   };
 }
 
@@ -140,7 +140,7 @@ export const Tracks = {
       SET energy = ${tags.energy}, roles = ${tags.roles}, moods = ${tags.moods},
           instrumentation = ${tags.instrumentation},
           has_vocals = ${tags.hasVocals ? 1 : 0},
-          tagged_at = to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+          tagged_at = now(),
           active = CASE WHEN discovered = 'approved' THEN true ELSE active END
       WHERE game_id = ${gameId} AND name = ${name}
     `);
@@ -249,10 +249,7 @@ export const Tracks = {
       const val = fields.hasVocals === null ? null : fields.hasVocals ? 1 : 0;
       setParts.push(sql`has_vocals = ${val}`);
     }
-    if (isTagChange)
-      setParts.push(
-        sql.raw(`tagged_at = to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`),
-      );
+    if (isTagChange) setParts.push(sql.raw("tagged_at = now()"));
 
     if (setParts.length === 0) return;
 

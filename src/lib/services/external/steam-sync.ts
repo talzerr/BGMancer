@@ -173,11 +173,8 @@ export async function syncUserLibrary(
   const replaceStmts = UserSteamGames.buildReplaceStatements(userId, topGames);
   const db = getDB();
   const userUpdate = storingFreshSteamId
-    ? db
-        .update(users)
-        .set({ steam_id: steamId, steam_synced_at: steamSyncedAt })
-        .where(eq(users.id, userId))
-    : db.update(users).set({ steam_synced_at: steamSyncedAt }).where(eq(users.id, userId));
+    ? db.update(users).set({ steam_id: steamId, steam_synced_at: now }).where(eq(users.id, userId))
+    : db.update(users).set({ steam_synced_at: now }).where(eq(users.id, userId));
 
   await batch([...replaceStmts, userUpdate]);
 

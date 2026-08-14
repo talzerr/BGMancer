@@ -4,8 +4,8 @@ CREATE TABLE "game_requests" (
 	"cover_url" text,
 	"request_count" integer DEFAULT 1 NOT NULL,
 	"acknowledged" boolean DEFAULT false NOT NULL,
-	"created_at" text DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')) NOT NULL,
-	"updated_at" text DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')) NOT NULL
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "game_review_flags" (
@@ -13,7 +13,7 @@ CREATE TABLE "game_review_flags" (
 	"game_id" text NOT NULL,
 	"reason" text NOT NULL,
 	"detail" text,
-	"created_at" text DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')) NOT NULL
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "games" (
@@ -26,21 +26,21 @@ CREATE TABLE "games" (
 	"yt_playlist_id" text,
 	"thumbnail_url" text,
 	"needs_review" boolean DEFAULT false NOT NULL,
-	"created_at" text DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')) NOT NULL,
-	"updated_at" text DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')) NOT NULL
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "libraries" (
 	"id" text PRIMARY KEY NOT NULL,
 	"user_id" text NOT NULL,
-	"created_at" text DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')) NOT NULL
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "library_games" (
 	"library_id" text NOT NULL,
 	"game_id" text NOT NULL,
 	"curation" text DEFAULT 'include' NOT NULL,
-	"added_at" text DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')) NOT NULL,
+	"added_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "library_games_library_id_game_id_pk" PRIMARY KEY("library_id","game_id")
 );
 --> statement-breakpoint
@@ -74,8 +74,8 @@ CREATE TABLE "playlist_tracks" (
 	"thumbnail" text,
 	"duration_seconds" integer,
 	"position" integer DEFAULT 0 NOT NULL,
-	"created_at" text DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')) NOT NULL,
-	"synced_at" text
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"synced_at" timestamp with time zone
 );
 --> statement-breakpoint
 CREATE TABLE "playlists" (
@@ -88,7 +88,7 @@ CREATE TABLE "playlists" (
 	"rubric" text,
 	"game_budgets" text,
 	"youtube_playlist_id" text,
-	"created_at" text DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')) NOT NULL
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "tracks" (
@@ -102,7 +102,7 @@ CREATE TABLE "tracks" (
 	"has_vocals" integer,
 	"active" boolean DEFAULT true NOT NULL,
 	"discovered" text,
-	"tagged_at" text,
+	"tagged_at" timestamp with time zone,
 	CONSTRAINT "tracks_game_id_name_pk" PRIMARY KEY("game_id","name")
 );
 --> statement-breakpoint
@@ -118,10 +118,10 @@ CREATE TABLE "users" (
 	"email" text NOT NULL,
 	"username" text,
 	"steam_id" text,
-	"steam_synced_at" text,
+	"steam_synced_at" timestamp with time zone,
 	"is_generating" boolean DEFAULT false NOT NULL,
-	"last_generated_at" text,
-	"created_at" text DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')) NOT NULL,
+	"last_generated_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "users_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
@@ -131,7 +131,7 @@ CREATE TABLE "video_tracks" (
 	"track_name" text,
 	"duration_seconds" integer,
 	"view_count" integer,
-	"aligned_at" text DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')) NOT NULL,
+	"aligned_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "video_tracks_video_id_game_id_pk" PRIMARY KEY("video_id","game_id")
 );
 --> statement-breakpoint

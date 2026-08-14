@@ -18,7 +18,7 @@ function rowToFlag(row: typeof gameReviewFlags.$inferSelect): ReviewFlag {
     gameId: row.game_id,
     reason: row.reason as ReviewReason,
     detail: row.detail,
-    createdAt: row.created_at,
+    createdAt: row.created_at.toISOString(),
   };
 }
 
@@ -32,7 +32,7 @@ export const ReviewFlags = {
         .update(games)
         .set({
           needs_review: true,
-          updated_at: sql`to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
+          updated_at: sql`now()`,
         })
         .where(eq(games.id, gameId)),
     ]);
@@ -58,7 +58,7 @@ export const ReviewFlags = {
         .update(games)
         .set({
           needs_review: false,
-          updated_at: sql`to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
+          updated_at: sql`now()`,
         })
         .where(eq(games.id, gameId));
     }
@@ -71,7 +71,7 @@ export const ReviewFlags = {
         .update(games)
         .set({
           needs_review: false,
-          updated_at: sql`to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
+          updated_at: sql`now()`,
         })
         .where(eq(games.id, gameId)),
     ]);

@@ -1,5 +1,5 @@
 {
-  "id": "fda20d03-5af6-41f2-b60e-f6b6b79f12ee",
+  "id": "df11b627-f6c6-4b17-9850-d854dbbb4948",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -42,17 +42,17 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "text",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "(to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'))"
+          "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "text",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "(to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'))"
+          "default": "now()"
         }
       },
       "indexes": {
@@ -126,10 +126,10 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "text",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "(to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'))"
+          "default": "now()"
         }
       },
       "indexes": {
@@ -154,12 +154,8 @@
           "name": "game_review_flags_game_id_games_id_fk",
           "tableFrom": "game_review_flags",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -233,17 +229,17 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "text",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "(to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'))"
+          "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "text",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "(to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'))"
+          "default": "now()"
         }
       },
       "indexes": {
@@ -349,10 +345,10 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "text",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "(to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'))"
+          "default": "now()"
         }
       },
       "indexes": {
@@ -377,12 +373,8 @@
           "name": "libraries_user_id_users_id_fk",
           "tableFrom": "libraries",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -418,10 +410,10 @@
         },
         "added_at": {
           "name": "added_at",
-          "type": "text",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "(to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'))"
+          "default": "now()"
         }
       },
       "indexes": {
@@ -473,12 +465,8 @@
           "name": "library_games_library_id_libraries_id_fk",
           "tableFrom": "library_games",
           "tableTo": "libraries",
-          "columnsFrom": [
-            "library_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["library_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -486,12 +474,8 @@
           "name": "library_games_game_id_games_id_fk",
           "tableFrom": "library_games",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -499,10 +483,7 @@
       "compositePrimaryKeys": {
         "library_games_library_id_game_id_pk": {
           "name": "library_games_library_id_game_id_pk",
-          "columns": [
-            "library_id",
-            "game_id"
-          ]
+          "columns": ["library_id", "game_id"]
         }
       },
       "uniqueConstraints": {},
@@ -621,12 +602,8 @@
           "name": "playlist_track_decisions_playlist_id_playlists_id_fk",
           "tableFrom": "playlist_track_decisions",
           "tableTo": "playlists",
-          "columnsFrom": [
-            "playlist_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["playlist_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -634,10 +611,7 @@
       "compositePrimaryKeys": {
         "playlist_track_decisions_playlist_id_position_pk": {
           "name": "playlist_track_decisions_playlist_id_position_pk",
-          "columns": [
-            "playlist_id",
-            "position"
-          ]
+          "columns": ["playlist_id", "position"]
         }
       },
       "uniqueConstraints": {},
@@ -712,14 +686,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "text",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "(to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'))"
+          "default": "now()"
         },
         "synced_at": {
           "name": "synced_at",
-          "type": "text",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         }
@@ -776,12 +750,8 @@
           "name": "playlist_tracks_playlist_id_playlists_id_fk",
           "tableFrom": "playlist_tracks",
           "tableTo": "playlists",
-          "columnsFrom": [
-            "playlist_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["playlist_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -789,12 +759,8 @@
           "name": "playlist_tracks_game_id_games_id_fk",
           "tableFrom": "playlist_tracks",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -867,10 +833,10 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "text",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "(to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'))"
+          "default": "now()"
         }
       },
       "indexes": {
@@ -937,12 +903,8 @@
           "name": "playlists_user_id_users_id_fk",
           "tableFrom": "playlists",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1020,7 +982,7 @@
         },
         "tagged_at": {
           "name": "tagged_at",
-          "type": "text",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         }
@@ -1068,12 +1030,8 @@
           "name": "tracks_game_id_games_id_fk",
           "tableFrom": "tracks",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1081,10 +1039,7 @@
       "compositePrimaryKeys": {
         "tracks_game_id_name_pk": {
           "name": "tracks_game_id_name_pk",
-          "columns": [
-            "game_id",
-            "name"
-          ]
+          "columns": ["game_id", "name"]
         }
       },
       "uniqueConstraints": {},
@@ -1161,12 +1116,8 @@
           "name": "user_steam_games_user_id_users_id_fk",
           "tableFrom": "user_steam_games",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1207,7 +1158,7 @@
         },
         "steam_synced_at": {
           "name": "steam_synced_at",
-          "type": "text",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -1220,16 +1171,16 @@
         },
         "last_generated_at": {
           "name": "last_generated_at",
-          "type": "text",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "created_at": {
           "name": "created_at",
-          "type": "text",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "(to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'))"
+          "default": "now()"
         }
       },
       "indexes": {},
@@ -1239,9 +1190,7 @@
         "users_email_unique": {
           "name": "users_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -1284,10 +1233,10 @@
         },
         "aligned_at": {
           "name": "aligned_at",
-          "type": "text",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "(to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'))"
+          "default": "now()"
         }
       },
       "indexes": {
@@ -1318,12 +1267,8 @@
           "name": "video_tracks_game_id_games_id_fk",
           "tableFrom": "video_tracks",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1331,10 +1276,7 @@
       "compositePrimaryKeys": {
         "video_tracks_video_id_game_id_pk": {
           "name": "video_tracks_video_id_game_id_pk",
-          "columns": [
-            "video_id",
-            "game_id"
-          ]
+          "columns": ["video_id", "game_id"]
         }
       },
       "uniqueConstraints": {},

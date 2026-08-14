@@ -10,8 +10,8 @@ function rowToUser(row: typeof users.$inferSelect): User {
     email: row.email,
     username: row.username,
     steam_id: row.steam_id,
-    steam_synced_at: row.steam_synced_at,
-    created_at: row.created_at,
+    steam_synced_at: row.steam_synced_at?.toISOString() ?? null,
+    created_at: row.created_at.toISOString(),
   };
 }
 
@@ -75,7 +75,7 @@ export const Users = {
       };
     }
 
-    const lastGenTime = row.last_generated_at ? new Date(row.last_generated_at).getTime() : 0;
+    const lastGenTime = row.last_generated_at?.getTime() ?? 0;
     const cooldownRemaining = cooldownMs - (Date.now() - lastGenTime);
     if (cooldownRemaining > 0) {
       return {
@@ -93,7 +93,7 @@ export const Users = {
       .update(users)
       .set({
         is_generating: false,
-        last_generated_at: sql`to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
+        last_generated_at: sql`now()`,
       })
       .where(eq(users.id, id));
   },

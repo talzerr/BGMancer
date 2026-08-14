@@ -7,12 +7,9 @@ import {
   index,
   uniqueIndex,
   primaryKey,
+  timestamp,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-
-// ─── Timestamp default ───────────────────────────────────────────────────────
-
-const timestampDefault = sql`(to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))`;
 
 // ─── Users ───────────────────────────────────────────────────────────────────
 
@@ -21,10 +18,10 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   username: text("username"),
   steam_id: text("steam_id"),
-  steam_synced_at: text("steam_synced_at"),
+  steam_synced_at: timestamp("steam_synced_at", { withTimezone: true }),
   is_generating: boolean("is_generating").notNull().default(false),
-  last_generated_at: text("last_generated_at"),
-  created_at: text("created_at").notNull().default(timestampDefault),
+  last_generated_at: timestamp("last_generated_at", { withTimezone: true }),
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 // ─── User ↔ Steam games ──────────────────────────────────────────────────────
@@ -56,8 +53,8 @@ export const games = pgTable(
     yt_playlist_id: text("yt_playlist_id"),
     thumbnail_url: text("thumbnail_url"),
     needs_review: boolean("needs_review").notNull().default(false),
-    created_at: text("created_at").notNull().default(timestampDefault),
-    updated_at: text("updated_at").notNull().default(timestampDefault),
+    created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index("idx_games_created").on(table.created_at),
@@ -79,7 +76,7 @@ export const libraries = pgTable(
     user_id: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    created_at: text("created_at").notNull().default(timestampDefault),
+    created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [uniqueIndex("idx_libraries_user").on(table.user_id)],
 );
@@ -96,7 +93,7 @@ export const libraryGames = pgTable(
       .notNull()
       .references(() => games.id, { onDelete: "cascade" }),
     curation: text("curation").notNull().default("include"),
-    added_at: text("added_at").notNull().default(timestampDefault),
+    added_at: timestamp("added_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     primaryKey({ columns: [table.library_id, table.game_id] }),
@@ -121,7 +118,7 @@ export const playlists = pgTable(
     rubric: text("rubric"),
     game_budgets: text("game_budgets"),
     youtube_playlist_id: text("youtube_playlist_id"),
-    created_at: text("created_at").notNull().default(timestampDefault),
+    created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index("idx_playlists_user").on(table.user_id),
@@ -149,8 +146,8 @@ export const playlistTracks = pgTable(
     thumbnail: text("thumbnail"),
     duration_seconds: integer("duration_seconds"),
     position: integer("position").notNull().default(0),
-    created_at: text("created_at").notNull().default(timestampDefault),
-    synced_at: text("synced_at"),
+    created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    synced_at: timestamp("synced_at", { withTimezone: true }),
   },
   (table) => [
     index("idx_tracks_playlist").on(table.playlist_id),
@@ -202,7 +199,7 @@ export const tracks = pgTable(
     has_vocals: integer("has_vocals"),
     active: boolean("active").notNull().default(true),
     discovered: text("discovered"),
-    tagged_at: text("tagged_at"),
+    tagged_at: timestamp("tagged_at", { withTimezone: true }),
   },
   (table) => [
     primaryKey({ columns: [table.game_id, table.name] }),
@@ -222,7 +219,7 @@ export const gameReviewFlags = pgTable(
       .references(() => games.id, { onDelete: "cascade" }),
     reason: text("reason").notNull(),
     detail: text("detail"),
-    created_at: text("created_at").notNull().default(timestampDefault),
+    created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("idx_review_flags_game").on(table.game_id)],
 );
@@ -237,8 +234,8 @@ export const gameRequests = pgTable(
     cover_url: text("cover_url"),
     request_count: integer("request_count").notNull().default(1),
     acknowledged: boolean("acknowledged").notNull().default(false),
-    created_at: text("created_at").notNull().default(timestampDefault),
-    updated_at: text("updated_at").notNull().default(timestampDefault),
+    created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("idx_game_requests_ack_count").on(table.acknowledged, table.request_count)],
 );
@@ -255,7 +252,7 @@ export const videoTracks = pgTable(
     track_name: text("track_name"),
     duration_seconds: integer("duration_seconds"),
     view_count: integer("view_count"),
-    aligned_at: text("aligned_at").notNull().default(timestampDefault),
+    aligned_at: timestamp("aligned_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     primaryKey({ columns: [table.video_id, table.game_id] }),

@@ -72,7 +72,7 @@ export const BackstageGames = {
       .update(games)
       .set({
         onboarding_phase: phase,
-        updated_at: sql`to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
+        updated_at: sql`now()`,
       })
       .where(eq(games.id, id));
   },
@@ -82,7 +82,7 @@ export const BackstageGames = {
       .update(games)
       .set({
         published,
-        updated_at: sql`to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
+        updated_at: sql`now()`,
       })
       .where(eq(games.id, id));
   },
@@ -121,9 +121,7 @@ export const BackstageGames = {
       setParts.push(sql`needs_review = ${fields.needs_review ? 1 : 0}`);
 
     if (setParts.length > 0) {
-      setParts.push(
-        sql.raw(`updated_at = to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`),
-      );
+      setParts.push(sql.raw("updated_at = now()"));
       const setClause = sql.join(setParts, sql.raw(", "));
       await getDB().execute(sql`UPDATE games SET ${setClause} WHERE id = ${id}`);
     }

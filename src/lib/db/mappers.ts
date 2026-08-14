@@ -10,6 +10,17 @@ import type { Game, PlaylistTrack, Track, User } from "@/types";
 
 const VALID_ONBOARDING_PHASES = new Set<string>(Object.values(OnboardingPhase));
 
+/** Timestamp columns are `timestamptz` (JS `Date`); the public types are ISO strings. */
+function toIso(value: unknown): string {
+  if (value instanceof Date) return value.toISOString();
+  return value != null ? String(value) : "";
+}
+
+function toIsoOrNull(value: unknown): string | null {
+  if (value instanceof Date) return value.toISOString();
+  return value != null ? String(value) : null;
+}
+
 export const VALID_CURATIONS = new Set<CurationMode>(Object.values(CurationMode) as CurationMode[]);
 
 export function toUser(row: Record<string, unknown>): User {
@@ -18,8 +29,8 @@ export function toUser(row: Record<string, unknown>): User {
     email: String(row.email),
     username: row.username != null ? String(row.username) : null,
     steam_id: row.steam_id != null ? String(row.steam_id) : null,
-    steam_synced_at: row.steam_synced_at != null ? String(row.steam_synced_at) : null,
-    created_at: String(row.created_at ?? ""),
+    steam_synced_at: toIsoOrNull(row.steam_synced_at),
+    created_at: toIso(row.created_at),
   };
 }
 
@@ -43,8 +54,8 @@ export function toGame(row: Record<string, unknown>): Game {
     yt_playlist_id: row.yt_playlist_id != null ? String(row.yt_playlist_id) : null,
     thumbnail_url: row.thumbnail_url != null ? String(row.thumbnail_url) : null,
     needs_review: !!row.needs_review,
-    created_at: String(row.created_at ?? ""),
-    updated_at: String(row.updated_at ?? ""),
+    created_at: toIso(row.created_at),
+    updated_at: toIso(row.updated_at),
   };
 }
 
@@ -66,7 +77,7 @@ export function toPlaylistTrack(row: Record<string, unknown>): PlaylistTrack {
     thumbnail: row.thumbnail != null ? String(row.thumbnail) : null,
     duration_seconds: row.duration_seconds != null ? Number(row.duration_seconds) : null,
     position: Number(row.position ?? 0),
-    created_at: String(row.created_at ?? ""),
+    created_at: toIso(row.created_at),
     arc_phase: row.arc_phase != null ? String(row.arc_phase) : null,
   };
 }
@@ -114,11 +125,11 @@ export function toTrack(row: Record<string, unknown>): Track {
       VALID_INSTRUMENTATIONS,
     ),
     hasVocals: row.has_vocals != null ? !!row.has_vocals : null,
-    active: row.active !== 0,
+    active: row.active == null ? true : !!row.active,
     discovered: VALID_DISCOVERED.has(row.discovered as string)
       ? (row.discovered as DiscoveredStatus)
       : null,
-    taggedAt: row.tagged_at != null ? String(row.tagged_at) : null,
+    taggedAt: toIsoOrNull(row.tagged_at),
   };
 }
 

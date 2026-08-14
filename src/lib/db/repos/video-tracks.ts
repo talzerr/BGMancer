@@ -66,7 +66,7 @@ export const VideoTracks = {
             target: [videoTracks.video_id, videoTracks.game_id],
             set: {
               track_name: sql`excluded.track_name`,
-              aligned_at: sql`to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
+              aligned_at: sql`now()`,
             },
           }),
       ),
@@ -93,7 +93,7 @@ export const VideoTracks = {
           track_name: sql`excluded.track_name`,
           duration_seconds: sql`COALESCE(excluded.duration_seconds, video_tracks.duration_seconds)`,
           view_count: sql`COALESCE(excluded.view_count, video_tracks.view_count)`,
-          aligned_at: sql`to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
+          aligned_at: sql`now()`,
         },
       });
   },

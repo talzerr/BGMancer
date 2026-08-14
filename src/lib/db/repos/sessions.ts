@@ -31,7 +31,7 @@ function rowToSession(row: typeof playlists.$inferSelect): PlaylistSession {
     is_archived: row.is_archived,
     playlist_mode: parsePlaylistMode(row.playlist_mode),
     youtube_playlist_id: row.youtube_playlist_id,
-    created_at: row.created_at,
+    created_at: row.created_at.toISOString(),
   };
 }
 
@@ -123,7 +123,7 @@ export const Sessions = {
       is_archived: r.is_archived,
       playlist_mode: parsePlaylistMode(r.playlist_mode),
       youtube_playlist_id: r.youtube_playlist_id,
-      created_at: r.created_at,
+      created_at: r.created_at.toISOString(),
       track_count: r.track_count,
     }));
   },
@@ -208,7 +208,7 @@ export const Sessions = {
       is_archived: r.is_archived,
       playlist_mode: parsePlaylistMode(r.playlist_mode),
       youtube_playlist_id: r.youtube_playlist_id,
-      created_at: r.created_at,
+      created_at: r.created_at.toISOString(),
       track_count: r.track_count,
     }));
   },

@@ -19,8 +19,8 @@ function rowToRequest(row: typeof gameRequests.$inferSelect): GameRequest {
     coverUrl: row.cover_url,
     requestCount: row.request_count,
     acknowledged: row.acknowledged,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt: row.created_at.toISOString(),
+    updatedAt: row.updated_at.toISOString(),
   };
 }
 
@@ -28,7 +28,7 @@ export const GameRequests = {
   /** New → insert; existing & unacknowledged → increment; acknowledged → no-op. */
   async upsertRequest(igdbId: number, name: string, coverUrl: string | null): Promise<GameRequest> {
     const db = getDB();
-    const now = new Date().toISOString();
+    const now = new Date();
     const existing = await first(
       db.select().from(gameRequests).where(eq(gameRequests.igdb_id, igdbId)),
     );
