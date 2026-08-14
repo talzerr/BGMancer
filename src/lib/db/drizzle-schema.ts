@@ -1,37 +1,38 @@
 import {
-  sqliteTable,
+  pgTable,
   text,
   integer,
   real,
+  boolean,
   index,
   uniqueIndex,
   primaryKey,
-} from "drizzle-orm/sqlite-core";
+} from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
 // ─── Timestamp default ───────────────────────────────────────────────────────
 
-const timestampDefault = sql`(strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))`;
+const timestampDefault = sql`(to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))`;
 
 // ─── Users ───────────────────────────────────────────────────────────────────
 
-export const users = sqliteTable("users", {
+export const users = pgTable("users", {
   id: text("id").notNull().primaryKey(),
   email: text("email").notNull().unique(),
   username: text("username"),
   steam_id: text("steam_id"),
   steam_synced_at: text("steam_synced_at"),
-  is_generating: integer("is_generating", { mode: "boolean" }).notNull().default(false),
+  is_generating: boolean("is_generating").notNull().default(false),
   last_generated_at: text("last_generated_at"),
   created_at: text("created_at").notNull().default(timestampDefault),
 });
 
 // ─── User ↔ Steam games ──────────────────────────────────────────────────────
 
-export const userSteamGames = sqliteTable(
+export const userSteamGames = pgTable(
   "user_steam_games",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
     user_id: text("user_id")
       .notNull()
       .references(() => users.id),
@@ -43,18 +44,18 @@ export const userSteamGames = sqliteTable(
 
 // ─── Games ───────────────────────────────────────────────────────────────────
 
-export const games = sqliteTable(
+export const games = pgTable(
   "games",
   {
     id: text("id").notNull().primaryKey(),
     title: text("title").notNull(),
     steam_appid: integer("steam_appid"),
     onboarding_phase: text("onboarding_phase").notNull().default("draft"),
-    published: integer("published", { mode: "boolean" }).notNull().default(false),
+    published: boolean("published").notNull().default(false),
     tracklist_source: text("tracklist_source"),
     yt_playlist_id: text("yt_playlist_id"),
     thumbnail_url: text("thumbnail_url"),
-    needs_review: integer("needs_review", { mode: "boolean" }).notNull().default(false),
+    needs_review: boolean("needs_review").notNull().default(false),
     created_at: text("created_at").notNull().default(timestampDefault),
     updated_at: text("updated_at").notNull().default(timestampDefault),
   },
@@ -71,7 +72,7 @@ export const games = sqliteTable(
 
 // ─── Libraries ───────────────────────────────────────────────────────────────
 
-export const libraries = sqliteTable(
+export const libraries = pgTable(
   "libraries",
   {
     id: text("id").notNull().primaryKey(),
@@ -85,7 +86,7 @@ export const libraries = sqliteTable(
 
 // ─── Library ↔ Game junction ─────────────────────────────────────────────────
 
-export const libraryGames = sqliteTable(
+export const libraryGames = pgTable(
   "library_games",
   {
     library_id: text("library_id")
@@ -106,7 +107,7 @@ export const libraryGames = sqliteTable(
 
 // ─── Playlists (sessions) ────────────────────────────────────────────────────
 
-export const playlists = sqliteTable(
+export const playlists = pgTable(
   "playlists",
   {
     id: text("id").notNull().primaryKey(),
@@ -115,7 +116,7 @@ export const playlists = sqliteTable(
       .references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     description: text("description"),
-    is_archived: integer("is_archived", { mode: "boolean" }).notNull().default(false),
+    is_archived: boolean("is_archived").notNull().default(false),
     playlist_mode: text("playlist_mode").notNull().default("journey"),
     rubric: text("rubric"),
     game_budgets: text("game_budgets"),
@@ -131,7 +132,7 @@ export const playlists = sqliteTable(
 
 // ─── Playlist tracks ─────────────────────────────────────────────────────────
 
-export const playlistTracks = sqliteTable(
+export const playlistTracks = pgTable(
   "playlist_tracks",
   {
     id: text("id").notNull().primaryKey(),
@@ -160,7 +161,7 @@ export const playlistTracks = sqliteTable(
 
 // ─── Playlist track decisions (Director telemetry) ───────────────────────────
 
-export const playlistTrackDecisions = sqliteTable(
+export const playlistTrackDecisions = pgTable(
   "playlist_track_decisions",
   {
     playlist_id: text("playlist_id")
@@ -186,7 +187,7 @@ export const playlistTrackDecisions = sqliteTable(
 
 // ─── Tracks (game soundtrack metadata) ───────────────────────────────────────
 
-export const tracks = sqliteTable(
+export const tracks = pgTable(
   "tracks",
   {
     game_id: text("game_id")
@@ -199,7 +200,7 @@ export const tracks = sqliteTable(
     moods: text("moods"),
     instrumentation: text("instrumentation"),
     has_vocals: integer("has_vocals"),
-    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    active: boolean("active").notNull().default(true),
     discovered: text("discovered"),
     tagged_at: text("tagged_at"),
   },
@@ -212,10 +213,10 @@ export const tracks = sqliteTable(
 
 // ─── Game review flags ───────────────────────────────────────────────────────
 
-export const gameReviewFlags = sqliteTable(
+export const gameReviewFlags = pgTable(
   "game_review_flags",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
     game_id: text("game_id")
       .notNull()
       .references(() => games.id, { onDelete: "cascade" }),
@@ -228,14 +229,14 @@ export const gameReviewFlags = sqliteTable(
 
 // ─── Game requests (IGDB-backed "can't find your game?") ────────────────────
 
-export const gameRequests = sqliteTable(
+export const gameRequests = pgTable(
   "game_requests",
   {
     igdb_id: integer("igdb_id").notNull().primaryKey(),
     name: text("name").notNull(),
     cover_url: text("cover_url"),
     request_count: integer("request_count").notNull().default(1),
-    acknowledged: integer("acknowledged", { mode: "boolean" }).notNull().default(false),
+    acknowledged: boolean("acknowledged").notNull().default(false),
     created_at: text("created_at").notNull().default(timestampDefault),
     updated_at: text("updated_at").notNull().default(timestampDefault),
   },
@@ -244,7 +245,7 @@ export const gameRequests = sqliteTable(
 
 // ─── Video tracks (YouTube alignment) ────────────────────────────────────────
 
-export const videoTracks = sqliteTable(
+export const videoTracks = pgTable(
   "video_tracks",
   {
     video_id: text("video_id").notNull(),
