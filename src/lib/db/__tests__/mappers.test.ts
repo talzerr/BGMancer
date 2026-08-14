@@ -96,6 +96,11 @@ describe("timestamp normalisation", () => {
     expect(toGame({ id: "g", title: "T", created_at: "not-a-date" }).created_at).toBe("not-a-date");
   });
 
+  it("should stringify a value that is neither Date nor string", () => {
+    // Defensive fallback — a timestamptz column yields only Date or string.
+    expect(toGame({ id: "g", title: "T", created_at: 12345 }).created_at).toBe("12345");
+  });
+
   it("should map a null nullable timestamp to null", () => {
     expect(toUser({ id: "u", email: "e", steam_synced_at: null }).steam_synced_at).toBeNull();
   });
