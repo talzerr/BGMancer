@@ -58,6 +58,12 @@ interface Env {
    *  When false, the Sync link is hidden and POST /api/sync returns 503. */
   youtubeSyncEnabled: boolean;
 
+  /** Shared secret the ingress injects on authenticated admin requests. */
+  adminGateSecret: string | undefined;
+  /** Opens /backstage without a gate. LAN-only deployments where the
+   *  network is the security boundary. Fails closed when unset. */
+  backstageOpen: boolean;
+
   /** Current NODE_ENV. */
   nodeEnv: string;
 
@@ -121,6 +127,10 @@ function loadEnv(): Env {
 
     youtubeSyncEnabled:
       process.env.YOUTUBE_SYNC_ENABLED === "1" || process.env.YOUTUBE_SYNC_ENABLED === "true",
+
+    adminGateSecret: process.env.ADMIN_GATE_SECRET || undefined,
+    backstageOpen:
+      process.env.BACKSTAGE_OPEN === "1" || process.env.BACKSTAGE_OPEN === "true",
 
     nodeEnv,
 
