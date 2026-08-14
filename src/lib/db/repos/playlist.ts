@@ -45,7 +45,7 @@ export const Playlist = {
         JOIN games g ON g.id = pt.game_id
         LEFT JOIN playlist_track_decisions d
           ON d.playlist_id = pt.playlist_id AND d.position = pt.position
-        WHERE pt.playlist_id = (SELECT id FROM playlists WHERE user_id = ${userId} AND is_archived = 0 ORDER BY created_at DESC LIMIT 1)
+        WHERE pt.playlist_id = (SELECT id FROM playlists WHERE user_id = ${userId} AND NOT is_archived ORDER BY created_at DESC LIMIT 1)
         ORDER BY pt.position ASC
       `),
     );
@@ -89,7 +89,7 @@ export const Playlist = {
   async clearAll(userId: string): Promise<void> {
     await getDB().execute(sql`
       DELETE FROM playlist_tracks
-      WHERE playlist_id = (SELECT id FROM playlists WHERE user_id = ${userId} AND is_archived = 0 ORDER BY created_at DESC LIMIT 1)
+      WHERE playlist_id = (SELECT id FROM playlists WHERE user_id = ${userId} AND NOT is_archived ORDER BY created_at DESC LIMIT 1)
     `);
   },
 

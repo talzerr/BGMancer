@@ -72,7 +72,7 @@ export const BackstageGames = {
       .update(games)
       .set({
         onboarding_phase: phase,
-        updated_at: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
+        updated_at: sql`to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
       })
       .where(eq(games.id, id));
   },
@@ -82,7 +82,7 @@ export const BackstageGames = {
       .update(games)
       .set({
         published,
-        updated_at: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
+        updated_at: sql`to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
       })
       .where(eq(games.id, id));
   },
@@ -92,14 +92,14 @@ export const BackstageGames = {
     if (search?.trim()) {
       return toGames(
         await db.execute(sql`
-          SELECT * FROM games WHERE published = 1 AND title LIKE ${`%${search.trim()}%`}
+          SELECT * FROM games WHERE published AND title ILIKE ${`%${search.trim()}%`}
           ORDER BY title ASC LIMIT ${limit}
         `),
       );
     }
     return toGames(
       await db.execute(sql`
-        SELECT * FROM games WHERE published = 1 ORDER BY title ASC LIMIT ${limit}
+        SELECT * FROM games WHERE published ORDER BY title ASC LIMIT ${limit}
       `),
     );
   },
@@ -121,7 +121,9 @@ export const BackstageGames = {
       setParts.push(sql`needs_review = ${fields.needs_review ? 1 : 0}`);
 
     if (setParts.length > 0) {
-      setParts.push(sql.raw("updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')"));
+      setParts.push(
+        sql.raw(`updated_at = to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`),
+      );
       const setClause = sql.join(setParts, sql.raw(", "));
       await getDB().execute(sql`UPDATE games SET ${setClause} WHERE id = ${id}`);
     }
@@ -143,10 +145,10 @@ export const BackstageGames = {
     const rows = await getDB().execute(sql`
       SELECT
         g.id, g.title, g.onboarding_phase, g.published, g.tracklist_source, g.needs_review,
-        SUM(CASE WHEN t.name IS NOT NULL AND (t.discovered IS NULL OR t.discovered != 'rejected') THEN 1 ELSE 0 END) AS track_count,
-        COUNT(t.tagged_at) AS tagged_count,
-        SUM(CASE WHEN t.active = 1 THEN 1 ELSE 0 END) AS active_count,
-        (SELECT COUNT(*) FROM game_review_flags f WHERE f.game_id = g.id) AS review_flag_count
+        SUM(CASE WHEN t.name IS NOT NULL AND (t.discovered IS NULL OR t.discovered != 'rejected') THEN 1 ELSE 0 END)::int AS track_count,
+        COUNT(t.tagged_at)::int AS tagged_count,
+        SUM(CASE WHEN t.active THEN 1 ELSE 0 END)::int AS active_count,
+        (SELECT COUNT(*)::int FROM game_review_flags f WHERE f.game_id = g.id) AS review_flag_count
       FROM games g
       LEFT JOIN tracks t ON t.game_id = g.id
       GROUP BY g.id
@@ -163,7 +165,7 @@ export const BackstageGames = {
   }): Promise<BackstageGame[]> {
     const conditions: ReturnType<typeof sql>[] = [];
 
-    if (filters.title) conditions.push(sql`g.title LIKE ${`%${filters.title}%`}`);
+    if (filters.title) conditions.push(sql`g.title ILIKE ${`%${filters.title}%`}`);
     if (filters.phase) conditions.push(sql`g.onboarding_phase = ${filters.phase}`);
     if (filters.needsReview !== undefined)
       conditions.push(sql`g.needs_review = ${filters.needsReview ? 1 : 0}`);
@@ -176,10 +178,10 @@ export const BackstageGames = {
     const rows = await getDB().execute(sql`
       SELECT
         g.id, g.title, g.onboarding_phase, g.published, g.tracklist_source, g.needs_review,
-        SUM(CASE WHEN t.name IS NOT NULL AND (t.discovered IS NULL OR t.discovered != 'rejected') THEN 1 ELSE 0 END) AS track_count,
-        COUNT(t.tagged_at) AS tagged_count,
-        SUM(CASE WHEN t.active = 1 THEN 1 ELSE 0 END) AS active_count,
-        (SELECT COUNT(*) FROM game_review_flags f WHERE f.game_id = g.id) AS review_flag_count
+        SUM(CASE WHEN t.name IS NOT NULL AND (t.discovered IS NULL OR t.discovered != 'rejected') THEN 1 ELSE 0 END)::int AS track_count,
+        COUNT(t.tagged_at)::int AS tagged_count,
+        SUM(CASE WHEN t.active THEN 1 ELSE 0 END)::int AS active_count,
+        (SELECT COUNT(*)::int FROM game_review_flags f WHERE f.game_id = g.id) AS review_flag_count
       FROM games g
       LEFT JOIN tracks t ON t.game_id = g.id
       ${whereClause}
@@ -206,9 +208,9 @@ export const BackstageGames = {
     }>(sql`
       SELECT
         onboarding_phase AS phase,
-        COUNT(*) AS count,
-        SUM(CASE WHEN published = 1 THEN 1 ELSE 0 END) AS publishedCount,
-        SUM(CASE WHEN needs_review = 1 THEN 1 ELSE 0 END) AS needsReviewCount
+        COUNT(*)::int AS count,
+        SUM(CASE WHEN published THEN 1 ELSE 0 END)::int AS publishedCount,
+        SUM(CASE WHEN needs_review THEN 1 ELSE 0 END)::int AS needsReviewCount
       FROM games
       GROUP BY onboarding_phase
     `);

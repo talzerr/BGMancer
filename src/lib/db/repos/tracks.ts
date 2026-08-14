@@ -90,7 +90,7 @@ export const Tracks = {
   async deactivateTracks(gameId: string, names: string[]): Promise<void> {
     if (names.length === 0) return;
     await getDB().execute(
-      sql`UPDATE tracks SET active = 0 WHERE game_id = ${gameId} AND name IN (${sql.join(
+      sql`UPDATE tracks SET active = false WHERE game_id = ${gameId} AND name IN (${sql.join(
         names.map((n) => sql`${n}`),
         sql`, `,
       )})`,
@@ -140,16 +140,17 @@ export const Tracks = {
       SET energy = ${tags.energy}, roles = ${tags.roles}, moods = ${tags.moods},
           instrumentation = ${tags.instrumentation},
           has_vocals = ${tags.hasVocals ? 1 : 0},
-          tagged_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
-          active = CASE WHEN discovered = 'approved' THEN 1 ELSE active END
+          tagged_at = to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+          active = CASE WHEN discovered = 'approved' THEN true ELSE active END
       WHERE game_id = ${gameId} AND name = ${name}
     `);
   },
 
   async insertDiscovered(gameId: string, name: string): Promise<void> {
     await getDB().execute(sql`
-      INSERT OR IGNORE INTO tracks (game_id, name, position, active, discovered)
-      VALUES (${gameId}, ${name}, (SELECT COALESCE(MAX(position), 0) + 1 FROM tracks WHERE game_id = ${gameId}), 0, 'pending')
+      INSERT INTO tracks (game_id, name, position, active, discovered)
+      VALUES (${gameId}, ${name}, (SELECT COALESCE(MAX(position), 0) + 1 FROM tracks WHERE game_id = ${gameId}), false, 'pending')
+      ON CONFLICT DO NOTHING
     `);
   },
 
@@ -248,7 +249,10 @@ export const Tracks = {
       const val = fields.hasVocals === null ? null : fields.hasVocals ? 1 : 0;
       setParts.push(sql`has_vocals = ${val}`);
     }
-    if (isTagChange) setParts.push(sql.raw("tagged_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')"));
+    if (isTagChange)
+      setParts.push(
+        sql.raw(`tagged_at = to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`),
+      );
 
     if (setParts.length === 0) return;
 
@@ -301,8 +305,8 @@ export const Tracks = {
     const conditions: ReturnType<typeof sql>[] = [];
 
     if (filters.gameId) conditions.push(sql`t.game_id = ${filters.gameId}`);
-    if (filters.gameTitle) conditions.push(sql`g.title LIKE ${`%${filters.gameTitle}%`}`);
-    if (filters.name) conditions.push(sql`t.name LIKE ${`%${filters.name}%`}`);
+    if (filters.gameTitle) conditions.push(sql`g.title ILIKE ${`%${filters.gameTitle}%`}`);
+    if (filters.name) conditions.push(sql`t.name ILIKE ${`%${filters.name}%`}`);
     if (filters.energy != null) conditions.push(sql`t.energy = ${filters.energy}`);
     if (filters.active != null) conditions.push(sql`t.active = ${filters.active ? 1 : 0}`);
     if (filters.untaggedOnly) conditions.push(sql.raw("t.tagged_at IS NULL"));

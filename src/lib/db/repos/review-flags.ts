@@ -32,7 +32,7 @@ export const ReviewFlags = {
         .update(games)
         .set({
           needs_review: true,
-          updated_at: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
+          updated_at: sql`to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
         })
         .where(eq(games.id, gameId)),
     ]);
@@ -58,7 +58,7 @@ export const ReviewFlags = {
         .update(games)
         .set({
           needs_review: false,
-          updated_at: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
+          updated_at: sql`to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
         })
         .where(eq(games.id, gameId));
     }
@@ -71,7 +71,7 @@ export const ReviewFlags = {
         .update(games)
         .set({
           needs_review: false,
-          updated_at: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
+          updated_at: sql`to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
         })
         .where(eq(games.id, gameId)),
     ]);

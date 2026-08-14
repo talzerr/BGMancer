@@ -9,7 +9,7 @@ export const UserSteamGames = {
     const rows = await getDB().execute<{ id: string }>(sql`
       SELECT g.id FROM games g
       INNER JOIN user_steam_games usg ON g.steam_appid = usg.steam_app_id
-      WHERE usg.user_id = ${userId} AND g.published = 1
+      WHERE usg.user_id = ${userId} AND g.published
     `);
     return rows.map((r) => r.id);
   },

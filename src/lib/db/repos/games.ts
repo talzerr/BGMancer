@@ -13,7 +13,7 @@ export const Games = {
         SELECT g.*, lg.curation FROM games g
         JOIN library_games lg ON lg.game_id = g.id
         WHERE lg.library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
-          AND g.published = 1
+          AND g.published
         ORDER BY lg.added_at ASC
       `),
     );
@@ -33,7 +33,7 @@ export const Games = {
   async count(userId: string): Promise<number> {
     const row = (await first(
       getDB().execute<{ cnt: number }>(sql`
-      SELECT COUNT(*) AS cnt FROM games g
+      SELECT COUNT(*)::int AS cnt FROM games g
       JOIN library_games lg ON lg.game_id = g.id
       WHERE lg.library_id = (SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1)
     `),
@@ -78,8 +78,9 @@ export const Games = {
       INSERT INTO games (id, title, steam_appid, thumbnail_url) VALUES (${id}, ${title}, ${steamAppid}, ${thumbnail})
     `);
     await db.execute(sql`
-      INSERT OR IGNORE INTO library_games (library_id, game_id, curation)
+      INSERT INTO library_games (library_id, game_id, curation)
       VALUES ((SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1), ${id}, ${curation})
+      ON CONFLICT DO NOTHING
     `);
     const row = await first(
       db.execute(sql`
@@ -98,8 +99,9 @@ export const Games = {
     curation = CurationMode.Include,
   ): Promise<void> {
     await getDB().execute(sql`
-      INSERT OR IGNORE INTO library_games (library_id, game_id, curation)
+      INSERT INTO library_games (library_id, game_id, curation)
       VALUES ((SELECT id FROM libraries WHERE user_id = ${userId} LIMIT 1), ${gameId}, ${curation})
+      ON CONFLICT DO NOTHING
     `);
   },
 
@@ -120,7 +122,7 @@ export const Games = {
     curation = CurationMode.Include,
   ): Promise<boolean> {
     await getDB().execute(sql`
-      INSERT OR IGNORE INTO library_games (library_id, game_id, curation)
+      INSERT INTO library_games (library_id, game_id, curation)
       SELECT lib.id, ${gameId}, ${curation}
       FROM libraries lib
       WHERE lib.user_id = ${userId}
@@ -128,6 +130,7 @@ export const Games = {
           SELECT COUNT(*) FROM library_games lg
           WHERE lg.library_id = lib.id
         ) < ${LIBRARY_MAX_GAMES}
+      ON CONFLICT DO NOTHING
     `);
     const exists = await first(
       getDB().execute(sql`

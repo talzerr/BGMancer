@@ -93,7 +93,7 @@ export const Users = {
       .update(users)
       .set({
         is_generating: false,
-        last_generated_at: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
+        last_generated_at: sql`to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
       })
       .where(eq(users.id, id));
   },
